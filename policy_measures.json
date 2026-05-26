@@ -1,0 +1,850 @@
+{
+  "version": "4.0",
+  "description": "Registre des mesures (filtre measure_id + formules ASTEVAL + métadonnées). Le bloc 'parametres' N'EST PAS le contrat des leviers type:'fonction'.",
+  "_AVERTISSEMENT_CONTRAT": "Ce fichier sert au moteur UNIQUEMENT pour: (1) filtre des measure_id valides, (2) execution des leviers type:'formule' (ASTEVAL), (3) metadonnees. Pour les leviers type:'fonction', le bloc 'parametres' n'est PAS le contrat, n'est PAS lu, et peut etre PERIME (ex. 'sante' declare arrets_reforme/med_prix_baisse/hopital_optim, MORTS; le handler lit effort_hopital/effort_ambu/effort_prev_org). LE VRAI CONTRAT = les appels params.get() des handlers Python (budget_simulator/handlers/). Voir CONTRIBUTING.md section 'Le vrai contrat de parametres'. NE PAS editer 'parametres' en croyant changer un parametre: effet nul en prod.",
+  "mesures": [
+    {
+      "id": "fraude_fiscale",
+      "categorie": "fiscalite",
+      "nom": "Lutte contre la fraude fiscale",
+      "description": "Renforcement des contrôles fiscaux et sociaux",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "effort": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 30,
+          "step": 1,
+          "label": "Effort annuel (Md€)",
+          "type": "number",
+          "tooltip": "ROI 13x avec IA/data mining intégré (DGFiP 2024). Potentiel : 80-100 Md€ (fraude TVA, dissimulation revenus, optimisation agressive). Phasing 5 ans. IA baseline : CFVR, Foncier Innovant, GALAXIE."
+        }
+      }
+    },
+    {
+      "id": "tva_rate",
+      "categorie": "fiscalite",
+      "nom": "Taux de TVA",
+      "description": "Modification du taux normal de TVA",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.2,
+          "min": 0.15,
+          "max": 0.25,
+          "step": 0.005,
+          "label": "Taux de TVA",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "impot_societes",
+      "categorie": "fiscalite",
+      "nom": "Impôt sur les sociétés",
+      "description": "Modification du taux d'IS",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.25,
+          "min": 0.15,
+          "max": 0.35,
+          "step": 0.01,
+          "label": "Taux d'IS",
+          "type": "number"
+        },
+        "niches": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 25,
+          "step": 1,
+          "label": "Niches IS hors CIR (Md€)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "retraites",
+      "categorie": "social",
+      "nom": "Réforme des retraites",
+      "description": "Âge départ et indexation",
+      "type": "fonction",
+      "cible": "mixte",
+      "parametres": {
+        "age_depart": {
+          "valeur_defaut": 62.75,
+          "min": 60.0,
+          "max": 65.0,
+          "step": 0.25,
+          "label": "Âge légal de départ",
+          "type": "number"
+        },
+        "indexation": {
+          "valeur_defaut": 1.0,
+          "min": 0.0,
+          "max": 1.0,
+          "step": 0.1,
+          "label": "Indexation sur inflation",
+          "type": "number"
+        },
+        "duree_cotisation": {
+          "valeur_defaut": 42.5,
+          "min": 42.0,
+          "max": 45.0,
+          "step": 0.25,
+          "label": "Durée cotisation (années)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "sante",
+      "categorie": "social",
+      "nom": "Système de santé",
+      "description": "Franchise médicale, participation forfaitaire et politiques de santé",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "franchise_participation_taux": {
+          "valeur_defaut": 100,
+          "min": 0,
+          "max": 200,
+          "step": 10,
+          "label": "Niveau franchise et forfaits (%)",
+          "type": "number",
+          "tooltip": "0% = suppression totale (-2.52 Md€), 100% = maintien 2025 (neutre), 200% = doublement Bayrou 2026 (+2 Md€ d'économies). Franchise médicale : transports sanitaires (4€), médicaments (1€/boîte), actes paramédicaux (1€/acte). Forfait participation : consultations médecin (2€), examens biologie/radiologie (2€). Plafond annuel actuel : 50€ max/personne. Personnes exemptées : mineurs, femmes enceintes, CMU-C/CSS, ALD à 100%."
+        },
+        "prevention_budget": {
+          "valeur_defaut": 5,
+          "min": 5,
+          "max": 8,
+          "step": 0.5,
+          "label": "Budget prévention (Md€)",
+          "type": "number",
+          "tooltip": "Base France 2025 : 5 Md€ (~2% dépenses santé). Moyenne OCDE : 9.2 Md€ (~2.8% dépenses santé). ROI 25%/an après 2 ans, plafond 200% après 8 ans. Exemples : dépistages cancers, vaccins, éducation santé, contrôles diabète/HTA."
+        }
+      }
+    },
+    {
+      "id": "chomage_alloc",
+      "categorie": "social",
+      "nom": "Assurance chômage",
+      "description": "Allocations et conditions",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 45,
+          "min": 30,
+          "max": 60,
+          "step": 2,
+          "label": "Budget allocations (Md€)",
+          "type": "number"
+        },
+        "duree": {
+          "valeur_defaut": 24,
+          "min": 12,
+          "max": 36,
+          "step": 3,
+          "label": "Durée maximale (mois)",
+          "type": "number"
+        },
+        "degressivite": {
+          "valeur_defaut": false,
+          "type": "boolean",
+          "label": "Dégressivité"
+        }
+      }
+    },
+    {
+      "id": "fonction_publique",
+      "categorie": "depenses",
+      "nom": "Fonction publique",
+      "description": "Effectifs et rémunérations",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "effectifs": {
+          "valeur_defaut": 0,
+          "min": -100000,
+          "max": 50000,
+          "step": 10000,
+          "label": "Variation effectifs",
+          "type": "number"
+        },
+        "point_indice": {
+          "valeur_defaut": 0.0,
+          "min": -2.0,
+          "max": 5.0,
+          "step": 0.5,
+          "label": "Point d'indice (%)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "fonction_publique_reforme",
+      "categorie": "depenses",
+      "nom": "Réforme fonction publique",
+      "description": "Fusion agences et digitalisation",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "fusion_agences": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "label": "Intensité fusion agences (0-10)",
+          "type": "number"
+        },
+        "digitalisation": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "label": "Intensité digitalisation (0-10)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "education",
+      "categorie": "depenses",
+      "nom": "Éducation nationale",
+      "description": "Budget et enseignants",
+      "type": "fonction",
+      "cible": "mixte",
+      "parametres": {
+        "budget": {
+          "valeur_defaut": 65,
+          "min": 60,
+          "max": 90,
+          "step": 2,
+          "label": "Budget total (Md€)",
+          "type": "number"
+        },
+        "enseignants": {
+          "valeur_defaut": 0,
+          "min": -20000,
+          "max": 50000,
+          "step": 5000,
+          "label": "Variation postes",
+          "type": "number"
+        },
+        "salaires": {
+          "valeur_defaut": 0,
+          "min": -5,
+          "max": 15,
+          "step": 1,
+          "label": "Revalorisation (%)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "collectivites",
+      "categorie": "depenses",
+      "nom": "Collectivités locales",
+      "description": "Dotations territoriales",
+      "type": "formule",
+      "formule": "(p.get('dotation', 120) - 120) + p.get('investissement', 0)",
+      "cible": "depenses",
+      "parametres": {
+        "dotation": {
+          "valeur_defaut": 120,
+          "min": 100,
+          "max": 140,
+          "step": 2,
+          "label": "Dotations (Md€)",
+          "type": "number"
+        },
+        "investissement": {
+          "valeur_defaut": 0,
+          "min": -10,
+          "max": 20,
+          "step": 2,
+          "label": "Investissement (Md€)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "defense",
+      "categorie": "depenses",
+      "nom": "Défense nationale",
+      "description": "Budget défense (objectif LPM : 2% PIB soit ~65 Md€ en 2030)",
+      "type": "formule",
+      "formule": "p.get('budget', 50) - 50",
+      "cible": "depenses",
+      "parametres": {
+        "budget": {
+          "valeur_defaut": 50,
+          "min": 40,
+          "max": 70,
+          "step": 2,
+          "label": "Budget défense (Md€)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "transition_ecologique",
+      "categorie": "economie",
+      "nom": "Transition écologique",
+      "description": "Investissements verts",
+      "type": "fonction",
+      "cible": "mixte",
+      "parametres": {
+        "investissement": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 50,
+          "step": 2,
+          "label": "Investissement (Md€)",
+          "type": "number"
+        },
+        "taxe_carbone": {
+          "valeur_defaut": 44.6,
+          "min": 0,
+          "max": 300,
+          "step": 10,
+          "label": "Taxe carbone (€/tCO2)",
+          "type": "number"
+        },
+        "renovation": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 20,
+          "step": 1,
+          "label": "Rénovation (Md€)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "recherche_publique",
+      "categorie": "economie",
+      "nom": "Recherche publique",
+      "description": "Budget recherche fondamentale (CNRS, CEA, universités)",
+      "type": "formule",
+      "formule": "p.get('budget', 0)",
+      "cible": "depenses",
+      "parametres": {
+        "budget": {
+          "valeur_defaut": 10,
+          "min": 0,
+          "max": 20,
+          "step": 1,
+          "label": "Budget recherche (Md€)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "immigration",
+      "categorie": "depenses",
+      "nom": "Politique migratoire",
+      "description": "AME et intégration",
+      "type": "formule",
+      "formule": "(p.get('ame', 1.2) - 1.2) + (p.get('integration', 0.8) - 0.8)",
+      "cible": "depenses",
+      "parametres": {
+        "ame": {
+          "valeur_defaut": 1.2,
+          "min": 0.0,
+          "max": 2.0,
+          "step": 0.1,
+          "label": "Budget AME (Md€)",
+          "type": "number"
+        },
+        "integration": {
+          "valeur_defaut": 0.8,
+          "min": 0.0,
+          "max": 3.0,
+          "step": 0.2,
+          "label": "Budget intégration (Md€)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "impot_revenu",
+      "categorie": "fiscalite",
+      "nom": "Impôt sur le revenu",
+      "description": "Modification du barème IR",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux_superieur": {
+          "valeur_defaut": 0.45,
+          "min": 0.4,
+          "max": 0.6,
+          "step": 0.01,
+          "label": "Taux tranche >160k€ (%)",
+          "type": "number"
+        },
+        "decote": {
+          "valeur_defaut": 1.0,
+          "min": 0.5,
+          "max": 1.5,
+          "step": 0.1,
+          "label": "Décote (1=actuel)",
+          "type": "number"
+        }
+      }
+    },
+    {
+      "id": "fraude_sociale",
+      "bloc": "efficience_depenses",
+      "categorie": "social",
+      "nom": "Lutte contre la fraude sociale",
+      "description": "Contrôles renforcés RSA, APL, arrêts maladie abusifs (13 Md€ potentiel)",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "effort": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 3,
+          "step": 0.5,
+          "label": "Budget contrôles (Md€)",
+          "type": "number",
+          "tooltip": "ROI 8.75x avec IA/datamining intégré (HCFPS 2024). Potentiel : 13 Md€ (RSA, APL, arrêts maladie abusifs). Phasing 4 ans. Neutralité : Gini=0, PA=0, Compétitivité=0."
+        }
+      }
+    },
+    {
+      "id": "optimisation_dette",
+      "bloc": "efficience_depenses",
+      "categorie": "depenses",
+      "nom": "Optimisation dette",
+      "description": "Refinancement stratégique (1-2.5 Md€, temporaire 2026-2030)",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.1,
+          "label": "Intensité refinancement (0-1)",
+          "type": "number",
+          "tooltip": "Sources : Cour des comptes fév. 2025, IGF 2024. Effet temporaire si taux favorables. Neutralité : Gini=0, PA=0, Compétitivité=0."
+        }
+      }
+    },
+    {
+      "id": "abattement_retraites",
+      "bloc": "nouvelles_mesures_2026",
+      "categorie": "fiscalite",
+      "nom": "Réforme abattement fiscal retraités",
+      "description": "Remplacement abattement 10% (plafonné 4399€) par forfait 2000€",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "reforme_active": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 1,
+          "label": "Activation réforme",
+          "type": "toggle",
+          "tooltip": "0 = système actuel 10%, 1 = réforme 2000€ forfait. Sources : PLF 2026, DGFiP."
+        }
+      }
+    },
+    {
+      "id": "prestations_indexation",
+      "bloc": "nouvelles_mesures_2026",
+      "categorie": "social",
+      "nom": "Indexation prestations sociales",
+      "description": "Part inflation compensée pour RSA, APL, allocations familiales",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "taux_indexation": {
+          "valeur_defaut": 1.0,
+          "min": 0.0,
+          "max": 1.2,
+          "step": 0.05,
+          "label": "Taux indexation (%)",
+          "type": "number",
+          "tooltip": "1.0 = 100% inflation, 0.0 = gel total. Sources : PLFSS 2026, OFCE 2024."
+        }
+      }
+    },
+    {
+      "id": "asu",
+      "categorie": "social",
+      "nom": "Allocation Sociale Unique (ASU)",
+      "description": "Fusion des minima sociaux (RSA, Prime activité, APL, Allocations familiales)",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "asu_activation": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 1,
+          "label": "Activer l'ASU",
+          "type": "number",
+          "tooltip": "Fusion RSA (13 Md€) + Prime activité (10 Md€) + APL (15 Md€) + Allocations familiales (52 Md€) = 90 Md€. Économies: simplification 6 Md€ + doublons 1.5 Md€ + fraude structurelle 2 Md€ + plafonnement variable 4-8 Md€. Phasing 4 ans. Sources: IFRAP 2025, HCFPS 2024."
+        },
+        "asu_plafonnement": {
+          "valeur_defaut": 0.65,
+          "min": 0.5,
+          "max": 0.7,
+          "step": 0.05,
+          "label": "Plafonnement ASU (% SMIC)",
+          "type": "number",
+          "tooltip": "Niveau de plafonnement. 50% = strict (max économies 8 Md€), 60% = équilibré (6 Md€), 70% = souple (4 Md€). Bonus emploi jusqu'à 1 Md€ si ≤60%."
+        }
+      }
+    },
+    {
+      "id": "csg",
+      "categorie": "fiscalite",
+      "nom": "CSG/CRDS",
+      "description": "Contribution Sociale Généralisée et CRDS",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.097,
+          "min": 0.08,
+          "max": 0.12,
+          "step": 0.001,
+          "label": "Taux CSG/CRDS total",
+          "type": "number",
+          "tooltip": "Taux actuel 9.7%. Assiette large 550 Md€. Impact: +14 Md€/point, -1% PA/point. Sources: DREES 2024, DGFiP."
+        },
+        "progressive": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 1,
+          "label": "CSG progressive (0/1)",
+          "type": "number",
+          "tooltip": "Rendre la CSG progressive par décile. D1-D3: -3.7pts, D9: +2.8pts, D10: +6.3pts. Impact Gini -0.015. Sources: OFCE 2024."
+        }
+      }
+    },
+    {
+      "id": "cotisations_patronales",
+      "categorie": "competitivite",
+      "nom": "Cotisations patronales",
+      "description": "Taux de cotisations sociales patronales",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.27,
+          "min": 0.15,
+          "max": 0.35,
+          "step": 0.01,
+          "label": "Taux cotisations patronales",
+          "type": "number",
+          "tooltip": "Taux actuel 27% (~324 Md€). Baisse à 15% (-12 pts) = -144 Md€ mais +0.96% emploi (~260k emplois). -1 point = +0.08% emploi. Sources: OCDE Taxing Wages 2025, Bozio-Wasmer 2024."
+        }
+      }
+    },
+    {
+      "id": "cotisations_salariales",
+      "categorie": "fiscalite",
+      "nom": "Cotisations salariales",
+      "description": "Baisse des cotisations salariales",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "baisse_points": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 5,
+          "step": 0.5,
+          "label": "Baisse (points)",
+          "type": "number",
+          "tooltip": "Taux actuel 22%. -1 point = +0.5% PA, coût 6 Md€, -0.05% chômage. Assiette 30M salariés. Sources: DARES 2024, ACOSS."
+        }
+      }
+    },
+    {
+      "id": "elargissement_ir",
+      "categorie": "fiscalite",
+      "nom": "Élargissement de la base IR",
+      "description": "Augmentation du % de foyers payant l'IR",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux_contribuables_cible": {
+          "valeur_defaut": 0.45,
+          "min": 0.45,
+          "max": 0.7,
+          "step": 0.01,
+          "label": "% foyers imposés (cible)",
+          "type": "number",
+          "tooltip": "Actuel 45% (19M/41M foyers), moyenne UE 63%. Nouveaux contributeurs D4-D6 paient ~3% effectif. Potentiel +10 à +15 Md€. Impact Gini +0.005. Sources: DGFiP 2024, OFCE."
+        }
+      }
+    },
+    {
+      "id": "exonerations_salaires",
+      "categorie": "social",
+      "nom": "Exonérations hausses salaires",
+      "description": "Exonération cotisations patronales sur hausses de salaires",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.1,
+          "label": "Intensité (0-100%)",
+          "type": "number",
+          "tooltip": "100% = LFI (exonération 100% des hausses >1%). Coût -12 Md€, +0.5% PA, Gini -0.005, compétitivité +0.003. Sources: L'Avenir en commun 2025, OFCE 2024."
+        }
+      }
+    },
+    {
+      "id": "fiscalite_patrimoine",
+      "categorie": "fiscalite",
+      "nom": "Fiscalité du patrimoine",
+      "description": "Fiscalité globale patrimoine (IFI + Succession + Foncière)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": -0.3,
+          "max": 0.3,
+          "step": 0.05,
+          "label": "Variation (%)",
+          "type": "number",
+          "tooltip": "Base: IFI 2 Md€ + Succession 15 Md€ + Foncière 36 Md€ = 53 Md€. ±30% = ±16 Md€. +30% = alignement UE, Gini -0.016. Sources: DGFiP 2024, IPP."
+        }
+      }
+    },
+    {
+      "id": "impots_production",
+      "categorie": "competitivite",
+      "nom": "Impôts sur la production",
+      "description": "CFE, TFPB, C3S, taxes métiers (hors CVAE abolie)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 97,
+          "min": 37,
+          "max": 125,
+          "step": 5,
+          "label": "Montant total (Md€)",
+          "type": "number",
+          "tooltip": "Actuel 97 Md€ (~3.5% PIB, 1.5x médiane UE). Baisse à 37 Md€ (alignement Allemagne) = -60 Md€ mais +0.9% PIB, +0.45% emploi. Impact compétitivité +0.018 par -10 Md€. Sources: INSEE 2024, CAE 2025."
+        }
+      }
+    },
+    {
+      "id": "is_exceptionnel_tge",
+      "categorie": "competitivite",
+      "nom": "IS exceptionnel TGE",
+      "description": "Surtaxe IS sur grandes entreprises (CA >1 Md€)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 8,
+          "min": 0,
+          "max": 15,
+          "step": 1,
+          "label": "Montant (Md€)",
+          "type": "number",
+          "tooltip": "Actuel 8 Md€ (taux ~5% additionnel au 25% normal). Hausse 15 Md€ = alignement Allemagne (IS effectif ~30%). Impact compétitivité +0.005 si suppression. Sources: FMI Selected Issues 2023."
+        }
+      }
+    },
+    {
+      "id": "isf_climatique",
+      "categorie": "fiscalite",
+      "nom": "ISF Climatique",
+      "description": "Remplacement IFI par ISF climatique élargi",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.01,
+          "label": "Intensité (0-100%)",
+          "type": "number",
+          "tooltip": "0% = IFI maintenu (2 Md€), 100% = ISF LFI maximal (~8 Md€). Ajuste seuil (1.3-1.5M€), taux (0-1%), bonus écologique (0-30%). Sources: OFCE 2024, IPP 2025."
+        }
+      }
+    },
+    {
+      "id": "niches_fiscales_tge",
+      "categorie": "competitivite",
+      "nom": "Niches fiscales grandes entreprises",
+      "description": "~70% des niches fiscales totales bénéficiant aux TGE",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 58,
+          "min": 5,
+          "max": 70,
+          "step": 5,
+          "label": "Montant (Md€)",
+          "type": "number",
+          "tooltip": "Base 58 Md€ (~70% de 83 Md€ total). Min 5 Md€ = recentrage PME (CIR PME 2.6 Md€). Suppression génère +53 Md€. Impact Gini -0.008 si suppression. Sources: Cour des Comptes 2024, Attac."
+        }
+      }
+    },
+    {
+      "id": "niches_sociales_tge",
+      "categorie": "competitivite",
+      "nom": "Niches sociales grandes entreprises",
+      "description": "~70% des niches sociales totales bénéficiant aux TGE",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 70,
+          "min": 10,
+          "max": 80,
+          "step": 5,
+          "label": "Montant (Md€)",
+          "type": "number",
+          "tooltip": "Base 70 Md€ (~70% de 100 Md€ total). Min 10 Md€ = focus PME (exonérations bas salaires 7 Md€ préservées). Suppression génère +60 Md€. Impact Gini -0.006. Sources: Commission des Comptes 2024."
+        }
+      }
+    },
+    {
+      "id": "smic",
+      "categorie": "social",
+      "nom": "SMIC",
+      "description": "Salaire minimum brut mensuel",
+      "type": "fonction",
+      "cible": "mixte",
+      "parametres": {
+        "montant_brut": {
+          "valeur_defaut": 1800,
+          "min": 1400,
+          "max": 2200,
+          "step": 50,
+          "label": "SMIC brut mensuel (€)",
+          "type": "number",
+          "tooltip": "Actuel ~1800€ brut = 1398€ net. Hausse +200€: +0.5% PA, -0.3% compétitivité, Gini -0.02. LFI: 1600€ net = 2050€ brut. Sources: OFCE 2024, DARES 2024."
+        }
+      }
+    },
+    {
+      "id": "subventions_tge",
+      "categorie": "competitivite",
+      "nom": "Subventions grandes entreprises",
+      "description": "~70% des subventions publiques bénéficiant aux TGE",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 35,
+          "min": 5,
+          "max": 50,
+          "step": 5,
+          "label": "Montant (Md€)",
+          "type": "number",
+          "tooltip": "Base 35 Md€ (~70% de 50 Md€ total). Min 5 Md€ = recentrage PME + transition verte. Suppression génère -30 Md€ dépenses. Impact compétitivité +0.015 si redistribué PME. Sources: Cour des Comptes 2023, Attac."
+        }
+      }
+    },
+    {
+      "id": "taxe_superprofits",
+      "categorie": "fiscalite",
+      "nom": "Taxe sur les superprofits",
+      "description": "Taxe temporaire sur profits excédentaires (+20% vs 2018-2021)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "intensite": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 1,
+          "step": 0.1,
+          "label": "Intensité (0-100%)",
+          "type": "number",
+          "tooltip": "100% = LFI (taux 25%, seuil 120%, tous secteurs, +15 Md€). Temporaire 3 ans (2026-2028). Impact Gini -0.01, compétitivité -0.005. Sources: L'Avenir en commun 2025, EU Tax Observatory."
+        }
+      }
+    },
+    {
+      "id": "tva_energie",
+      "categorie": "fiscalite",
+      "nom": "TVA Énergie",
+      "description": "Taux unique TVA gaz et électricité",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0.2,
+          "min": 0.055,
+          "max": 0.2,
+          "step": 0.005,
+          "label": "Taux TVA énergie",
+          "type": "number",
+          "tooltip": "Actuel 20%. Baisse à 5.5% (LFI/RN) = -17 Md€, +1.7% PA, Gini -0.007 (ménages modestes). Consommation totale 120 Md€/an. Sources: L'Avenir en commun 2025, OFCE 2024."
+        }
+      }
+    },
+    {
+      "id": "rabot_uniforme",
+      "bloc": "institut_montaigne",
+      "categorie": "depenses",
+      "nom": "Rabot budgétaire uniforme",
+      "description": "Réduction uniforme sur toutes les catégories de dépenses (Scénario 1 Institut Montaigne)",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "taux_reduction": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 0.15,
+          "step": 0.01,
+          "label": "Taux de réduction (%)",
+          "type": "number",
+          "tooltip": "Réduction uniforme appliquée à toutes les catégories de dépenses. 8% = Scénario Institut Montaigne (-138 Md€). Critique IM: 'Cumule les résistances sans réallocation stratégique'. Impacts: Gini +0.10×taux, PA -0.15×taux, multiplicateur fiscal -0.6. Sources: Institut Montaigne 'Budget Base Zéro' Nov 2025."
+        },
+        "exclure_dette": {
+          "valeur_defaut": 1,
+          "min": 0,
+          "max": 1,
+          "step": 1,
+          "label": "Exclure service dette",
+          "type": "toggle",
+          "tooltip": "1 = Sanctuariser les intérêts de la dette (incompressible). Institut Montaigne considère 107 Md€ de charge dette comme incompressible."
+        },
+        "exclure_defense": {
+          "valeur_defaut": 1,
+          "min": 0,
+          "max": 1,
+          "step": 1,
+          "label": "Exclure défense (OTAN)",
+          "type": "toggle",
+          "tooltip": "1 = Sanctuariser la défense (engagement OTAN 2% PIB = 91 Md€ en 2029). Institut Montaigne considère la défense comme incompressible."
+        },
+        "exclure_ue": {
+          "valeur_defaut": 1,
+          "min": 0,
+          "max": 1,
+          "step": 1,
+          "label": "Exclure contribution UE",
+          "type": "toggle",
+          "tooltip": "1 = Sanctuariser la contribution européenne (~44 Md€). Obligation juridique."
+        }
+      }
+    }
+  ]
+}

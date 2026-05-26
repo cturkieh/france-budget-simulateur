@@ -1,0 +1,101 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+.env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Tooling caches
+.claude/
+
+# Build outputs
+*.log
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Config secrets
+config/.env
+*.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Windows special files (cannot be deleted)
+nul
+docs/nul
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Test coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Backup files (do not commit - use Git instead)
+*_backup*.py
+*_broken*.py
+*_MASTER_*.py
+# Exception : test golden master (Phase 0.6 du plan refactor). Le pattern ci-dessus
+# matche ce fichier sur macOS (filesystem case-insensitive) mais pas sur Linux.
+!tests/test_golden_master_full.py
+temp_*.py
+*.py.backup*

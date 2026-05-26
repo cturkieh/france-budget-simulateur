@@ -1,0 +1,924 @@
+{
+  "_generated": "scripts/generate_measure_registry.py — NE PAS ÉDITER",
+  "mesures": {
+    "abattement_retraites": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Réforme abattement fiscal retraités",
+      "params": {
+        "reforme_active": {
+          "default": 0
+        }
+      },
+      "sliders": [
+        {
+          "id": "abattement_retraites_reforme",
+          "max": 1,
+          "min": 0,
+          "param": "reforme_active",
+          "step": 1
+        }
+      ],
+      "type": "fonction"
+    },
+    "asu": {
+      "categorie": "social",
+      "flags": [
+        "VERIFIED_ALIVE_config_asu_defaults"
+      ],
+      "nom": "Allocation Sociale Unique (ASU)",
+      "params": {
+        "asu_activation": {
+          "default": 0
+        },
+        "asu_plafonnement": {
+          "default": 0.65
+        }
+      },
+      "sliders": [
+        {
+          "id": "asu_activation",
+          "max": 1,
+          "min": 0,
+          "param": "asu_activation",
+          "step": 1
+        },
+        {
+          "id": "asu_plafonnement",
+          "max": 0.7,
+          "min": 0.5,
+          "param": "asu_plafonnement",
+          "step": 0.05
+        }
+      ],
+      "type": "fonction"
+    },
+    "chomage_alloc": {
+      "categorie": "social",
+      "flags": [],
+      "nom": "Assurance chômage",
+      "params": {
+        "degressivite": {
+          "default": false
+        },
+        "duree": {
+          "default": null
+        },
+        "montant": {
+          "default": null
+        },
+        "taux_remplacement": {
+          "default": 0.6,
+          "presence_checked": true
+        }
+      },
+      "sliders": [
+        {
+          "id": "chomage_duree",
+          "max": 36,
+          "min": 12,
+          "param": "duree",
+          "step": 3
+        },
+        {
+          "id": "chomage_taux_remplacement",
+          "max": 0.8,
+          "min": 0.45,
+          "param": "taux_remplacement",
+          "step": 0.05
+        }
+      ],
+      "type": "fonction"
+    },
+    "cotisations_patronales": {
+      "categorie": "competitivite",
+      "flags": [],
+      "nom": "Cotisations patronales",
+      "params": {
+        "taux": {
+          "default": 0.27
+        }
+      },
+      "sliders": [
+        {
+          "id": "cotisations_patronales_taux",
+          "max": 0.35,
+          "min": 0.15,
+          "param": "taux",
+          "step": 0.01
+        }
+      ],
+      "type": "fonction"
+    },
+    "cotisations_salariales": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Cotisations salariales",
+      "params": {
+        "baisse_points": {
+          "default": 0.0
+        }
+      },
+      "sliders": [
+        {
+          "id": "cotisations_salariales_baisse",
+          "max": 5,
+          "min": 0,
+          "param": "baisse_points",
+          "step": 0.5
+        }
+      ],
+      "type": "fonction"
+    },
+    "csg": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "CSG/CRDS",
+      "params": {
+        "progressive": {
+          "default": 0
+        },
+        "taux": {
+          "default": 0.097
+        }
+      },
+      "sliders": [
+        {
+          "id": "csg_progressive",
+          "max": 1,
+          "min": 0,
+          "param": "progressive",
+          "step": 1
+        },
+        {
+          "id": "csg_taux",
+          "max": 0.12,
+          "min": 0.08,
+          "param": "taux",
+          "step": 0.001
+        }
+      ],
+      "type": "fonction"
+    },
+    "education": {
+      "categorie": "depenses",
+      "flags": [],
+      "nom": "Éducation nationale",
+      "params": {
+        "budget": {
+          "default": 65
+        },
+        "enseignants": {
+          "default": 0
+        },
+        "salaires": {
+          "default": 0
+        }
+      },
+      "sliders": [
+        {
+          "id": "education_budget",
+          "max": 90,
+          "min": 60,
+          "param": "budget",
+          "step": 2
+        },
+        {
+          "id": "education_enseignants",
+          "max": 60000,
+          "min": -20000,
+          "param": "enseignants",
+          "step": 5000
+        },
+        {
+          "id": "education_salaires",
+          "max": 15,
+          "min": 0,
+          "param": "salaires",
+          "step": 1
+        }
+      ],
+      "type": "fonction"
+    },
+    "elargissement_ir": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Élargissement de la base IR",
+      "params": {
+        "taux_contribuables_cible": {
+          "default": 0.45
+        }
+      },
+      "sliders": [
+        {
+          "id": "elargissement_ir_cible",
+          "max": 0.7,
+          "min": 0.45,
+          "param": "taux_contribuables_cible",
+          "step": 0.01
+        }
+      ],
+      "type": "fonction"
+    },
+    "exonerations_salaires": {
+      "categorie": "social",
+      "flags": [
+        "INTENSITE_DRIVEN"
+      ],
+      "nom": "Exonérations hausses salaires",
+      "params": {
+        "intensite": {
+          "default": null,
+          "domain": [
+            0.0,
+            1.0
+          ]
+        },
+        "seuil_hausse": {
+          "default": 0.01
+        },
+        "taux_exoneration": {
+          "default": 0.0
+        }
+      },
+      "sliders": [
+        {
+          "id": "exo_salaires_intensite",
+          "max": 1,
+          "min": 0,
+          "param": "intensite",
+          "step": 0.1
+        }
+      ],
+      "type": "fonction"
+    },
+    "fiscalite_patrimoine": {
+      "categorie": "fiscalite",
+      "flags": [
+        "INTENSITE_DRIVEN"
+      ],
+      "nom": "Fiscalité du patrimoine",
+      "params": {
+        "intensite": {
+          "default": null,
+          "domain": [
+            -0.3,
+            0.3
+          ]
+        }
+      },
+      "sliders": [
+        {
+          "id": "fiscalite_patrimoine_intensite",
+          "max": 0.3,
+          "min": -0.3,
+          "param": "intensite",
+          "step": 0.05
+        }
+      ],
+      "type": "fonction"
+    },
+    "fonction_publique": {
+      "categorie": "depenses",
+      "flags": [],
+      "nom": "Fonction publique",
+      "params": {
+        "effectifs": {
+          "default": 0
+        },
+        "point_indice": {
+          "default": 0
+        }
+      },
+      "sliders": [
+        {
+          "id": "fp_effectifs",
+          "max": 50000,
+          "min": -100000,
+          "param": "effectifs",
+          "step": 10000
+        },
+        {
+          "id": "fp_point_indice",
+          "max": 5,
+          "min": -2,
+          "param": "point_indice",
+          "step": 0.5
+        }
+      ],
+      "type": "fonction"
+    },
+    "fonction_publique_reforme": {
+      "categorie": "depenses",
+      "flags": [],
+      "nom": "Réforme fonction publique",
+      "params": {
+        "digitalisation": {
+          "default": 0
+        },
+        "fusion_agences": {
+          "default": 0
+        }
+      },
+      "sliders": [
+        {
+          "id": "fp_digitalisation",
+          "max": 100,
+          "min": 0,
+          "param": "digitalisation",
+          "step": 5
+        },
+        {
+          "id": "fp_fusion_agences",
+          "max": 100,
+          "min": 0,
+          "param": "fusion_agences",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "fraude_fiscale": {
+      "categorie": "fiscalite",
+      "flags": [
+        "KNOWN_SEMANTIC_EFFORT_BIMODAL"
+      ],
+      "nom": "Lutte contre la fraude fiscale",
+      "params": {
+        "effort": {
+          "default": 0
+        }
+      },
+      "sliders": [
+        {
+          "id": "fraude_effort",
+          "max": 1,
+          "min": 0,
+          "param": "effort",
+          "step": 0.1
+        }
+      ],
+      "type": "fonction"
+    },
+    "fraude_sociale": {
+      "categorie": "social",
+      "flags": [
+        "KNOWN_SEMANTIC_EFFORT_BIMODAL"
+      ],
+      "nom": "Lutte contre la fraude sociale",
+      "params": {
+        "effort": {
+          "default": 0
+        }
+      },
+      "sliders": [
+        {
+          "id": "fraude_sociale_effort",
+          "max": 1,
+          "min": 0,
+          "param": "effort",
+          "step": 0.1
+        }
+      ],
+      "type": "fonction"
+    },
+    "impot_revenu": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Impôt sur le revenu",
+      "params": {
+        "decote": {
+          "default": 1.0
+        },
+        "taux_superieur": {
+          "default": 0.45
+        }
+      },
+      "sliders": [
+        {
+          "id": "ir_decote",
+          "max": 1.5,
+          "min": 0.5,
+          "param": "decote",
+          "step": 0.1
+        },
+        {
+          "id": "ir_taux_superieur",
+          "max": 0.6,
+          "min": 0.4,
+          "param": "taux_superieur",
+          "step": 0.01
+        }
+      ],
+      "type": "fonction"
+    },
+    "impot_societes": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Impôt sur les sociétés",
+      "params": {
+        "niches": {
+          "default": 0
+        },
+        "taux": {
+          "default": 0.25
+        }
+      },
+      "sliders": [
+        {
+          "id": "is_taux",
+          "max": 0.35,
+          "min": 0.15,
+          "param": "taux",
+          "step": 0.01
+        }
+      ],
+      "type": "fonction"
+    },
+    "impots_production": {
+      "categorie": "competitivite",
+      "flags": [],
+      "nom": "Impôts sur la production",
+      "params": {
+        "montant": {
+          "default": 97
+        }
+      },
+      "sliders": [
+        {
+          "id": "impots_production",
+          "max": 125,
+          "min": 37,
+          "param": "montant",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "is_exceptionnel_tge": {
+      "categorie": "competitivite",
+      "flags": [],
+      "nom": "IS exceptionnel TGE",
+      "params": {
+        "montant": {
+          "default": 8
+        }
+      },
+      "sliders": [
+        {
+          "id": "is_exceptionnel_tge",
+          "max": 15,
+          "min": 0,
+          "param": "montant",
+          "step": 1
+        }
+      ],
+      "type": "fonction"
+    },
+    "isf_climatique": {
+      "categorie": "fiscalite",
+      "flags": [
+        "INTENSITE_DRIVEN"
+      ],
+      "nom": "ISF Climatique",
+      "params": {
+        "intensite": {
+          "default": null,
+          "domain": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "sliders": [
+        {
+          "id": "isf_intensite",
+          "max": 1,
+          "min": 0,
+          "param": "intensite",
+          "step": 0.01
+        }
+      ],
+      "type": "fonction"
+    },
+    "niches_fiscales_tge": {
+      "categorie": "competitivite",
+      "flags": [],
+      "nom": "Niches fiscales grandes entreprises",
+      "params": {
+        "montant": {
+          "default": 58
+        }
+      },
+      "sliders": [
+        {
+          "id": "niches_fiscales_tge",
+          "max": 70,
+          "min": 5,
+          "param": "montant",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "niches_sociales_tge": {
+      "categorie": "competitivite",
+      "flags": [],
+      "nom": "Niches sociales grandes entreprises",
+      "params": {
+        "montant": {
+          "default": 70
+        }
+      },
+      "sliders": [
+        {
+          "id": "niches_sociales_tge",
+          "max": 80,
+          "min": 10,
+          "param": "montant",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "optimisation_dette": {
+      "categorie": "depenses",
+      "flags": [
+        "INTENSITE_DRIVEN"
+      ],
+      "nom": "Optimisation dette",
+      "params": {
+        "intensite": {
+          "default": null,
+          "domain": [
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "sliders": [
+        {
+          "id": "optimisation_dette",
+          "max": 1,
+          "min": 0,
+          "param": "intensite",
+          "step": 0.1
+        }
+      ],
+      "type": "fonction"
+    },
+    "prestations_indexation": {
+      "categorie": "social",
+      "flags": [],
+      "nom": "Indexation prestations sociales",
+      "params": {
+        "taux_indexation": {
+          "default": 1.0
+        }
+      },
+      "sliders": [
+        {
+          "id": "prestations_indexation",
+          "max": 100,
+          "min": 0,
+          "param": "taux_indexation",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "rabot_uniforme": {
+      "categorie": "depenses",
+      "flags": [],
+      "nom": "Rabot budgétaire uniforme",
+      "params": {
+        "exclure_defense": {
+          "default": 1
+        },
+        "exclure_dette": {
+          "default": 1
+        },
+        "exclure_ue": {
+          "default": 1
+        },
+        "taux_reduction": {
+          "default": 0
+        }
+      },
+      "sliders": [],
+      "type": "fonction"
+    },
+    "recherche_publique": {
+      "categorie": "economie",
+      "flags": [],
+      "nom": "Recherche publique",
+      "params": {
+        "budget": {
+          "default": 10
+        }
+      },
+      "sliders": [
+        {
+          "id": "recherche_budget",
+          "max": 20,
+          "min": 0,
+          "param": "budget",
+          "step": 1
+        }
+      ],
+      "type": "formule"
+    },
+    "retraites": {
+      "categorie": "social",
+      "flags": [],
+      "nom": "Réforme des retraites",
+      "params": {
+        "age_depart": {
+          "default": 62.75
+        },
+        "duree_cotisation": {
+          "default": 42.5
+        },
+        "indexation": {
+          "default": 1.0
+        }
+      },
+      "sliders": [
+        {
+          "id": "retraites_age",
+          "max": 67,
+          "min": 60,
+          "param": "age_depart",
+          "step": 0.5
+        },
+        {
+          "id": "retraites_duree",
+          "max": 45,
+          "min": 40,
+          "param": "duree_cotisation",
+          "step": 0.5
+        },
+        {
+          "id": "retraites_indexation",
+          "max": 1.2,
+          "min": 0.5,
+          "param": "indexation",
+          "step": 0.05
+        }
+      ],
+      "type": "fonction"
+    },
+    "sante": {
+      "categorie": "social",
+      "flags": [],
+      "nom": "Système de santé",
+      "params": {
+        "effort_ambu": {
+          "default": 0
+        },
+        "effort_hopital": {
+          "default": 0
+        },
+        "effort_prev_org": {
+          "default": 0
+        },
+        "franchise_participation_taux": {
+          "default": 100
+        },
+        "prevention_budget": {
+          "default": 5.0
+        }
+      },
+      "sliders": [
+        {
+          "id": "effort_ambu",
+          "max": 100,
+          "min": 0,
+          "param": "effort_ambu",
+          "step": 5
+        },
+        {
+          "id": "effort_hopital",
+          "max": 100,
+          "min": 0,
+          "param": "effort_hopital",
+          "step": 5
+        },
+        {
+          "id": "effort_prev_org",
+          "max": 100,
+          "min": 0,
+          "param": "effort_prev_org",
+          "step": 5
+        },
+        {
+          "id": "franchise_participation_taux",
+          "max": 200,
+          "min": 0,
+          "param": "franchise_participation_taux",
+          "step": 10
+        },
+        {
+          "id": "prevention_budget",
+          "max": 8,
+          "min": 5,
+          "param": "prevention_budget",
+          "step": 0.5
+        }
+      ],
+      "type": "fonction"
+    },
+    "smic": {
+      "categorie": "social",
+      "flags": [],
+      "nom": "SMIC",
+      "params": {
+        "montant_brut": {
+          "default": 1800
+        }
+      },
+      "sliders": [
+        {
+          "id": "smic_montant_brut",
+          "max": 2200,
+          "min": 1400,
+          "param": "montant_brut",
+          "step": 50
+        }
+      ],
+      "type": "fonction"
+    },
+    "subventions_tge": {
+      "categorie": "competitivite",
+      "flags": [],
+      "nom": "Subventions grandes entreprises",
+      "params": {
+        "montant": {
+          "default": 35
+        }
+      },
+      "sliders": [
+        {
+          "id": "subventions_tge",
+          "max": 50,
+          "min": 5,
+          "param": "montant",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "taxe_superprofits": {
+      "categorie": "fiscalite",
+      "flags": [
+        "INTENSITE_DRIVEN"
+      ],
+      "nom": "Taxe sur les superprofits",
+      "params": {
+        "intensite": {
+          "default": null,
+          "domain": [
+            0.0,
+            1.0
+          ]
+        },
+        "seuil_hausse": {
+          "default": 1.2
+        },
+        "taux": {
+          "default": 0.25
+        },
+        "tous_secteurs": {
+          "default": true
+        }
+      },
+      "sliders": [
+        {
+          "id": "superprofits_intensite",
+          "max": 1,
+          "min": 0,
+          "param": "intensite",
+          "step": 0.1
+        }
+      ],
+      "type": "fonction"
+    },
+    "transition_ecologique": {
+      "categorie": "economie",
+      "flags": [],
+      "nom": "Transition écologique",
+      "params": {
+        "investissement": {
+          "default": 0
+        },
+        "renovation": {
+          "default": 0
+        },
+        "taxe_carbone": {
+          "default": 44.6
+        }
+      },
+      "sliders": [
+        {
+          "id": "transition_investissement",
+          "max": 40,
+          "min": 0,
+          "param": "investissement",
+          "step": 2
+        },
+        {
+          "id": "transition_renovation",
+          "max": 40,
+          "min": 0,
+          "param": "renovation",
+          "step": 2
+        },
+        {
+          "id": "transition_taxe_carbone",
+          "max": 200,
+          "min": 0,
+          "param": "taxe_carbone",
+          "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "tva_energie": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "TVA Énergie",
+      "params": {
+        "taux": {
+          "default": 0.2
+        }
+      },
+      "sliders": [
+        {
+          "id": "tva_energie_taux",
+          "max": 0.2,
+          "min": 0.055,
+          "param": "taux",
+          "step": 0.005
+        }
+      ],
+      "type": "fonction"
+    },
+    "tva_rate": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Taux de TVA",
+      "params": {
+        "taux": {
+          "default": 0.2
+        }
+      },
+      "sliders": [
+        {
+          "id": "tva_taux",
+          "max": 0.25,
+          "min": 0.15,
+          "param": "taux",
+          "step": 0.005
+        }
+      ],
+      "type": "fonction"
+    }
+  },
+  "sliders_sans_handler": [
+    {
+      "id": "collectivites_dotation",
+      "kind": "formule",
+      "measure": "collectivites",
+      "param": "dotation",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "collectivites_investissement",
+      "kind": "formule",
+      "measure": "collectivites",
+      "param": "investissement",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "defense_budget",
+      "kind": "formule",
+      "measure": "defense",
+      "param": "budget",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "immigration_ame",
+      "kind": "formule",
+      "measure": "immigration",
+      "param": "ame",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "immigration_integration",
+      "kind": "formule",
+      "measure": "immigration",
+      "param": "integration",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    }
+  ]
+}

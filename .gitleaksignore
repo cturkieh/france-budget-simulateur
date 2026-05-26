@@ -1,0 +1,7 @@
+27dc1ac20e10ca6d2bc837d3f0c492f4c94241e6:frontend-react/public/robots.txt:generic-api-key:15
+# Faux positifs : fixtures du test anti-fuite Sentry (faux secrets sk-…
+# nécessaires pour vérifier que le scrubber les redacte). Source corrigée
+# ensuite (concaténation, cf _FAKE_SECRET) ; ces 2 lignes neutralisent
+# l'occurrence dans le commit historique c77d9bc qui les contenait en clair.
+c77d9bc00a6302a3544beee64b78723a48dfa142:tests/test_sentry_config.py:generic-api-key:99
+c77d9bc00a6302a3544beee64b78723a48dfa142:tests/test_sentry_config.py:generic-api-key:109

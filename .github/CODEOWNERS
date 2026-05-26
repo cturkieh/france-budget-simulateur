@@ -1,0 +1,11 @@
+# CODEOWNERS — France Budget
+#
+# Mainteneur unique pour la stratégie open source 2027 (release sept-oct 2026,
+# niveau A sobre). Cf docs/REFACTOR_SPLIT_PLAN.md § "Phase 3 — Open source split".
+#
+# Quand le projet ouvrira aux contributions externes, dupliquer cette ligne en
+# règles par dossier (ex: budget_simulator/ pour le moteur économique, docs/
+# pour la doc UI, frontend-react/ pour l'UI) — pour l'instant un seul owner
+# qui revue tout : pas de fausse modularité.
+
+* @cturkieh
