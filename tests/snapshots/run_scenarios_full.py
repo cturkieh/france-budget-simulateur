@@ -9,6 +9,7 @@ Toute divergence JSX <-> snapshot est désormais structurellement impossible.
 Usage:
     python3 tests/snapshots/run_scenarios_full.py [--out tests/snapshots/<name>.json]
 """
+import os
 import sys
 import json
 import argparse
@@ -23,7 +24,14 @@ from budget_simulator.simulator import BudgetSimulatorV45
 # on accepte une copie fixture embarquée (`tests/fixtures/scenarios.json`) — sinon
 # `SCENARIOS = {}` et les tests dépendant des scénarios politiques skippent
 # gracieusement (cf `test_political_scenarios_2027.py`, `test_scenario_params_sync.py`).
+#
+# Override via `BUDGETLAB_SCENARIOS_JSON` : utilisé par les consommateurs qui
+# intègrent ce moteur via git submodule (cf budgetlab-france/conftest.py).
+# Le `Path.resolve()` ci-dessous suit les symlinks et casse la détection
+# automatique quand `tests/` est un symlink — l'env var contourne ce cas.
+_ENV_OVERRIDE = os.environ.get("BUDGETLAB_SCENARIOS_JSON")
 _SCENARIOS_CANDIDATES = (
+    *([Path(_ENV_OVERRIDE)] if _ENV_OVERRIDE else []),
     Path(__file__).resolve().parents[2] / "frontend-react" / "src" / "data" / "scenarios.json",
     Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "scenarios.json",
 )
