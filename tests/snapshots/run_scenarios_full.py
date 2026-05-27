@@ -9,6 +9,7 @@ Toute divergence JSX <-> snapshot est désormais structurellement impossible.
 Usage:
     python3 tests/snapshots/run_scenarios_full.py [--out tests/snapshots/<name>.json]
 """
+import os
 import sys
 import json
 import argparse
@@ -23,10 +24,32 @@ from budget_simulator.simulator import BudgetSimulatorV45
 # on accepte une copie fixture embarquée (`tests/fixtures/scenarios.json`) — sinon
 # `SCENARIOS = {}` et les tests dépendant des scénarios politiques skippent
 # gracieusement (cf `test_political_scenarios_2027.py`, `test_scenario_params_sync.py`).
-_SCENARIOS_CANDIDATES = (
-    Path(__file__).resolve().parents[2] / "frontend-react" / "src" / "data" / "scenarios.json",
-    Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "scenarios.json",
-)
+#
+# Override via `BUDGETLAB_SCENARIOS_JSON` : utilisé par les consommateurs qui
+# intègrent ce moteur via git submodule (cf budgetlab-france/conftest.py).
+# Le `Path.resolve()` ci-dessous suit les symlinks et casse la détection
+# automatique quand `tests/` est un symlink — l'env var contourne ce cas.
+#
+# Principe fail-fast : si l'override est défini mais pointe vers un fichier
+# inexistant, on lève immédiatement. Retomber silencieusement sur les
+# candidates par défaut MASQUERAIT exactement le bug que l'override prétend
+# corriger (l'utilisateur croit son override actif, mais c'est le défaut
+# qui est chargé).
+_ENV_OVERRIDE = (os.environ.get("BUDGETLAB_SCENARIOS_JSON") or "").strip() or None
+if _ENV_OVERRIDE is not None:
+    _OVERRIDE_PATH = Path(_ENV_OVERRIDE)
+    if not _OVERRIDE_PATH.exists():
+        raise FileNotFoundError(
+            f"BUDGETLAB_SCENARIOS_JSON={_ENV_OVERRIDE!r} pointe vers un fichier "
+            "inexistant. Corrigez le path ou unset la variable pour revenir à "
+            "la résolution automatique."
+        )
+    _SCENARIOS_CANDIDATES = (_OVERRIDE_PATH,)
+else:
+    _SCENARIOS_CANDIDATES = (
+        Path(__file__).resolve().parents[2] / "frontend-react" / "src" / "data" / "scenarios.json",
+        Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "scenarios.json",
+    )
 
 
 def _locate_scenarios_json() -> Path | None:
