@@ -74,7 +74,7 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | chomage_alloc | taux_remplacement | 0.57 | 0.57 | 0.7 | 0.57 | 0.57 | 0.65 | 0.6 | 0.55 |
 | collectivites | dotation | 120 | 115 | 140 | 122 | 110 | 130 | 110 | 95 |
 | collectivites | investissement | 0 | 0 | 15 | 3 | 0 | 8 | 0 | 0 |
-| cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.25 | 0.27 | 0.28 | 0.27 | 0.26 |
+| cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.25 | 0.25 | 0.28 | 0.27 | 0.26 |
 | cotisations_salariales | baisse_points | 0 | 2 | 0 | 1.5 | 0 | 0 | 0 | 0 |
 | csg | progressive | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
 | csg | taux | 0.097 | 0.097 | 0.105 | 0.097 | 0.097 | 0.1 | 0.097 | 0.097 |
@@ -85,7 +85,7 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | elargissement_ir | taux_contribuables_cible | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 |
 | exonerations_salaires | intensite | 0 | 0 | 1 | 0.5 | 0 | 0.5 | 0 | 0 |
 | fiscalite_patrimoine | intensite | 0 | 0.15 | 0.3 | 0 | 0 | 0.25 | 0 | 0 |
-| fonction_publique | effectifs | -3119 | -50000 | 60000 | -20000 | -100000 | 20000 | 0 | -120000 |
+| fonction_publique | effectifs | -3119 | -50000 | 60000 | -20000 | -60000 | 20000 | 0 | -120000 |
 | fonction_publique | point_indice | 0 | 0 | 10 | 1 | 0 | 3 | 0 | 0 |
 | fonction_publique_reforme | digitalisation | 20 | 30 | 10 | 35 | 50 | 15 | 0 | 50 |
 | fonction_publique_reforme | fusion_agences | 10 | 50 | 0 | 30 | 60 | 10 | 0 | 60 |
@@ -103,7 +103,7 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | niches_fiscales_tge | montant | 56 | 58 | 20 | 30 | 50 | 40 | 58 | 40 |
 | niches_sociales_tge | montant | 68 | 70 | 50 | 65 | 80 | 55 | 70 | 55 |
 | optimisation_dette | intensite | 0.3 | 0.6 | 0 | 0.5 | 0.6 | 0.2 | 0 | 0.5 |
-| prestations_indexation | taux_indexation | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 |
+| prestations_indexation | taux_indexation | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
 | rabot_uniforme | exclure_defense | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | exclure_dette | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | 1 | 1 |
@@ -111,7 +111,7 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | recherche_publique | budget | 8 | 8 | 15 | 5 | 3 | 12 | 0 | 15 |
 | retraites | age_depart | 64 | 61.5 | 60 | 64 | 64 | 62 | 64 | 65 |
 | retraites | duree_cotisation | 43 | 41 | 40 | 43 | 43 | 43 | 43 | 44 |
-| retraites | indexation | 1 | 1 | 1 | 0.8 | 0.5 | 1 | 1 | 0.8 |
+| retraites | indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 0.8 |
 | sante | effort_ambu | 20 | 5 | 0 | 15 | 15 | 0 | 0 | 25 |
 | sante | effort_hopital | 15 | 5 | 0 | 20 | 20 | 0 | 0 | 30 |
 | sante | effort_prev_org | 10 | 5 | 0 | 10 | 10 | 0 | 0 | 15 |
