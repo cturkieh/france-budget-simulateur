@@ -18,43 +18,51 @@ Cet outil est un simulateur citoyen indépendant, sans affiliation gouvernementa
 Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouvernement et principales formations) et **2 scénarios de think tank** produits par l'Institut Montaigne. Chaque scénario fixe l'ensemble des paramètres d'entrée du moteur ; le détail chiffré exact figure dans la section générée « Paramètres injectés ».
 
 ### Loi Finances 2026
+<!-- scenario:plf_2026 -->
 
 - **Source** : LF 2026 (loi 2026-103, JO 19 fév 2026)
 - **Orientation** : consolidation budgétaire modérée, dans la continuité, avec préservation des acquis sociaux après amendements parlementaires. Trajectoire de réduction graduelle du déficit sans rupture fiscale ni sociale ; effort de maîtrise réparti sur les enveloppes ministérielles, hausse marquée de l'effort de défense, et fiscalité des grandes entreprises mobilisée à titre exceptionnel. C'est le scénario de référence « politique votée ».
 
 ### Programme RN Bardella 2027
+<!-- scenario:rn_2027 -->
 
-- **Source** : Programme Bardella 2027 (avril 2026)
+- **Source** : Programme éco RN (Bardella, avril 2026)
 - **Orientation** : priorité au pouvoir d'achat et à la compétitivité par allègement de la fiscalité de production et rapprochement du brut et du net, assouplissement de l'âge de départ pour les carrières longues, et resserrement des dépenses liées à l'immigration. Logique de baisse ciblée de prélèvements financée par des économies de fonctionnement et des contributions exceptionnelles sur certains secteurs.
 
 ### Programme LFI Mélenchon 2027
+<!-- scenario:lfi_2027 -->
 
-- **Source** : L'Avenir en commun 2025 (831 mesures)
+- **Source** : L'Avenir en commun, édition 2025 (831 mesures)
 - **Orientation** : rupture économique et relance massive. Forte hausse des dépenses publiques (éducation, services publics, transition écologique planifiée), retour sur la réforme des retraites, revalorisation du salaire minimum et des rémunérations publiques, financée par une progressivité fiscale fortement accrue et le rétablissement d'une fiscalité du patrimoine. Note technique : la tranche supérieure d'impôt sur le revenu annoncée par le programme dépasse le plafond du curseur du simulateur ; elle est donc simulée à la valeur maximale que l'outil permet (voir le tableau généré).
 
 ### Programme Renaissance
+<!-- scenario:renaissance_2027 -->
 
 - **Source** : Plan budgétaire structurel moyen terme (PSMT) 2025-2029
 - **Orientation** : continuité de la trajectoire gouvernementale, cap sur le plein emploi et le retour du déficit sous le seuil européen. Hypothèse de continuité sur les retraites (la réforme de 2023 est suspendue jusqu'à 2028 ; position de campagne 2027 non arrêtée), modernisation et rationalisation de l'État, allègement ciblé pour les classes moyennes et baisse du coin socio-fiscal, plan d'investissement écologique d'ampleur intermédiaire.
 
 ### Programme LR 2027 (Retailleau)
+<!-- scenario:lr_2027 -->
 
-- **Source** : Programme Retailleau (grandes lignes 07/01/2026) + plan Wauquiez 2024
-- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, articulé autour d'une réforme structurelle de l'État (réduction des effectifs et fusion d'agences), d'une refonte des aides sociales et d'un durcissement des dépenses d'immigration, avec maintien d'un effort de défense élevé. Programme présidentiel porté par le candidat B. Retailleau (grandes lignes publiées début 2026) ; certains chiffrages proviennent du plan budgétaire Wauquiez 2024 (mesures conjoncturelles comme l'« année blanche », à confirmer pour 2027).
+- **Source** : Programme Retailleau (grandes lignes 07/01/2026, Europe 1 / Public Sénat)
+- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, articulé autour d'une réforme structurelle de l'État (réduction des effectifs et fusion d'agences), d'une refonte des aides sociales et d'un durcissement des dépenses d'immigration, avec maintien d'un effort de défense élevé. Programme présidentiel porté par le candidat B. Retailleau (grandes lignes publiées début 2026), non entièrement chiffré à ce stade ; le paramétrage retient l'esprit du programme (économies sans hausse d'impôts), à confirmer à mesure des chiffrages 2027.
 
 ### Programme PS 2027
+<!-- scenario:ps_2027 -->
 
-- **Source** : Projet socialiste 144p (22 avril 2026, dir. Chloé Ridel)
+- **Source** : Projet « Vivre libre » 144p (22 avril 2026, dir. Chloé Ridel)
 - **Orientation** : social-démocratie d'équilibre, en position médiane entre la gauche de rupture et la majorité sortante. Abrogation partielle de la réforme des retraites, revalorisation du salaire minimum, investissement dans l'éducation et la transition, financés par une progressivité fiscale accrue et une fiscalité du patrimoine des plus hauts patrimoines (référence à la taxe Zucman). Recherche d'un équilibre entre justice sociale et soutenabilité budgétaire.
 
 ### Institut Montaigne — Rabot -8%
+<!-- scenario:im_rabot_2029 -->
 
-- **Source** : Institut Montaigne - Budget Base Zéro (Nov 2025)
+- **Source** : Institut Montaigne — Budget Base Zéro (Nov 2025)
 - **Orientation** : scénario illustratif de think tank appliquant une réduction uniforme des dépenses publiques, hors postes sanctuarisés (dette, défense, contribution européenne). Il est présenté par ses auteurs comme cumulant les résistances sans réallocation stratégique : un cas d'école d'austérité non différenciée, à fort impact social attendu.
 
 ### Institut Montaigne — Compétitivité
+<!-- scenario:im_competitivite_2029 -->
 
-- **Source** : Institut Montaigne - Budget Base Zéro (Nov 2025)
+- **Source** : Institut Montaigne — Budget Base Zéro (Nov 2025)
 - **Orientation** : scénario de think tank combinant des économies importantes (retraites, efficience de la santé, fonction publique) à un réinvestissement stratégique vers l'éducation, la recherche et la transition. Logique de réallocation au service de la croissance potentielle, présentée par ses auteurs comme l'option recommandée.
 
 ---
