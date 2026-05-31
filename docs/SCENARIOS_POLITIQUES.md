@@ -1,6 +1,6 @@
 # Scénarios politiques
 
-**Date** : 2026-05-18
+**Date** : 2026-05-31
 **Statut** : document canonique unique (remplace les anciens `PARAMETRES_SCENARIOS_POLITIQUES.md` et `SCENARIOS_POLITIQUES_SYNTHESE.md`)
 
 > **Source unique.** Les paramètres injectés présentés plus bas sont générés automatiquement depuis le moteur (`frontend-react/src/data/scenarios.json`) — ils reflètent exactement ce que simule l'outil. La prose ci-dessous est volontairement **qualitative** : elle décrit l'orientation des scénarios sans réénoncer aucune valeur chiffrée d'un paramètre injecté, afin qu'aucune divergence ne puisse réapparaître entre le texte et le moteur.
@@ -34,13 +34,13 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 
 ### Programme Renaissance
 
-- **Source** : Programme Stabilité 2024-2027
-- **Orientation** : continuité des réformes engagées, cap sur le plein emploi et le retour du déficit sous le seuil européen. Maintien de la réforme des retraites avec indexation partielle, modernisation et rationalisation de l'État, allègement ciblé pour les classes moyennes et baisse du coin socio-fiscal, plan d'investissement écologique d'ampleur intermédiaire.
+- **Source** : Plan budgétaire structurel moyen terme (PSMT) 2025-2029
+- **Orientation** : continuité de la trajectoire gouvernementale, cap sur le plein emploi et le retour du déficit sous le seuil européen. Hypothèse de continuité sur les retraites (la réforme de 2023 est suspendue jusqu'à 2028 ; position de campagne 2027 non arrêtée), modernisation et rationalisation de l'État, allègement ciblé pour les classes moyennes et baisse du coin socio-fiscal, plan d'investissement écologique d'ampleur intermédiaire.
 
-### Programme LR
+### Programme LR 2027 (Retailleau)
 
-- **Source** : Plan Wauquiez 50 Md€ (Les Échos)
-- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, articulé autour d'une « année blanche » sur les prestations, d'une réforme structurelle de l'État (réduction des effectifs et fusion d'agences), d'une refonte des aides sociales et d'un durcissement des dépenses d'immigration, avec maintien d'un effort de défense élevé. Programme officiel 2027 non encore stabilisé — estimation partielle.
+- **Source** : Programme Retailleau (grandes lignes 07/01/2026) + plan Wauquiez 2024
+- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, articulé autour d'une réforme structurelle de l'État (réduction des effectifs et fusion d'agences), d'une refonte des aides sociales et d'un durcissement des dépenses d'immigration, avec maintien d'un effort de défense élevé. Programme présidentiel porté par le candidat B. Retailleau (grandes lignes publiées début 2026) ; certains chiffrages proviennent du plan budgétaire Wauquiez 2024 (mesures conjoncturelles comme l'« année blanche », à confirmer pour 2027).
 
 ### Programme PS 2027
 
