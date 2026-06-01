@@ -440,7 +440,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             'transition_eco': 15,          # MaPrimeRénov
 
             # AUTRES
-            'autres': 77                   # 77 Md€ — ajusté INSEE 27/03/2026 (variable résiduelle: 1698 - 56 intérêts - 1565 catégories identifiées)
+            'autres': 84                   # Résiduelle ré-ancrée INSEE 2025 : primaire 1649,3 (=1714-64,7) − 1565 catégories identifiées ≈ 84
         }
 
         # Facteurs de compounding itératif par catégorie de dépense.
@@ -459,18 +459,18 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # La croissance réelle pondérée cible : +1.0 à +1.3%/an (observé +1.3% en 2025)
         self.spending_growth_rates = {
             'retraites': 0.012,            # COR 2025 : 13.9→14.0% PIB, indexation + vieillissement
-            'sante': 0.018,                # ONDAM tendanciel +2.5-3% nominal, réel ~+1.5-2%
+            'sante': 0.020,                # ONDAM tendanciel haut, réel ~+2% (ex-0.018, re-pente tendanciel)
             'chomage': -0.003,             # Stable, réforme assurance chômage compense
             'dependance': 0.025,           # Baby-boomers 85+ d'ici 2030, plan autonomie
-            'minima_sociaux': 0.005,       # Indexation légale sur inflation, prime activité
-            'masse_salariale': 0.003,      # Revalorisations point d'indice, GVT
-            'education_fonct': 0.003,      # Investissements rénovation, numérique
+            'minima_sociaux': 0.007,       # Indexation inflation pleine + montée prime activité (ex-0.005)
+            'masse_salariale': 0.006,      # GVT + point d'indice (réalisé > +0,3% ; ex-0.003)
+            'education_fonct': 0.005,      # Rénovation, numérique (ex-0.003)
             'defense_equipement': 0.030,   # LPM 2024-2030 moyenne lissée (~+3%/an réel)
-            'collectivites': 0.005,        # Cour comptes : +0.8% volume 2025
+            'collectivites': 0.008,        # Cour des comptes : dépense locale dynamique (ex-0.005)
             'investissements': 0.010,      # France 2030, rythme stabilisé
             'aides_entreprises': 0.000,    # CIR/CICE stables, pas de baisse programmée
             'transition_eco': 0.025,       # MaPrimeRénov, croissance modérée post-montée en charge
-            'autres': 0.002                # Catégorie résiduelle, stable
+            'autres': 0.005                # Résiduelle alignée tendanciel (ex-0.002)
         }
 
         self.public_service = {

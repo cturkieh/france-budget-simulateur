@@ -67,11 +67,13 @@ class ExpendituresMixin:
         base_spending_2025 = sum(self.spending_categories_base.values())
 
         if year == 1:
-            # Ajustement pour éviter la chute brutale du ratio
             # Pattern "bridging year" : Y1 (2025→2026) utilise une formule fermée d'amorçage
             # plutôt que le compounding par catégorie. _spending_factors restent à 1.0 après Y1
             # car ils servent uniquement aux années >=2 ; les initialiser ici créerait un double-comptage Y2.
-            return base_spending_2025 * (1 + self.base_params['amorcage_depenses_y1'] + inflation * 0.5)
+            # DÉGEL (recalibrage 2026-06) : 2026 suit le taux de croisière réel (amorcage_depenses_y1
+            # ≈ tendanciel) + l'inflation PLEINE — ex- inflation*0.5, qui sous-indexait 2026 et fabriquait
+            # une austérité fantôme non votée (plus serrée que le PLF). 2026 = année tendancielle normale.
+            return base_spending_2025 * (1 + self.base_params['amorcage_depenses_y1'] + inflation)
 
         # Debug pour années clés
         debug_this_year = year in [2, 5, 10]

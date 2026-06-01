@@ -8,12 +8,16 @@ from pathlib import Path
 # Chemin absolu vers policy_measures.json (à la racine du projet, parent du package)
 POLICY_MEASURES_PATH = Path(__file__).resolve().parent.parent / 'policy_measures.json'
 
-# === BASELINE ECONOMIC PARAMETERS (INSEE 2025) ===
-PIB_BASE_2025_MD_EUR = 2994  # GDP in billion euros
-DETTE_RATIO_2025 = 1.156  # 115.6% of GDP
-RECETTES_BASE_MD_EUR = 1545  # Government revenue
-DEPENSES_BASE_MD_EUR = 1698  # Government spending
-CHARGES_INTERET_MD_EUR = 56  # Interest payments on debt
+# === BASELINE ECONOMIC PARAMETERS (réalisé INSEE 2025, comptes provisoires) ===
+# Ancrage sur l'atterrissage RÉALISÉ INSEE 2025 (IR n°78 du 27/03/2026, reconfirmé Comptes de
+# la Nation 29/05/2026 ; statut provisoire, révisable 03/2027), et non plus la prévision PLF.
+# Déficit et dette étaient déjà conformes ; on corrige les NIVEAUX (ratios honnêtes 57,2/52,1)
+# et surtout la charge d'intérêts. Identité année 0 (orchestrator.py:348) : dépenses = depenses_base − intérêts.
+PIB_BASE_2025_MD_EUR = 2991  # PIB nominal réalisé 2025 (INSEE)
+DETTE_RATIO_2025 = 1.156  # 115.6% du PIB (dette Maastricht ~3460 Md€, inchangé, conforme au réalisé)
+RECETTES_BASE_MD_EUR = 1562  # Recettes totales APU réalisées 2025 (INSEE) — ex-1545 (prévision PLF)
+DEPENSES_BASE_MD_EUR = 1714  # Dépenses APU réalisées 2025 (INSEE) — ex-1698 (prévision PLF)
+CHARGES_INTERET_MD_EUR = 64.7  # Charge d'intérêts APU réalisée 2025 (INSEE, +11,2%) — ex-56 (sous-évalué)
 
 # === UNEMPLOYMENT (INSEE/DARES 2025) ===
 CHOMAGE_BASE = 0.076  # 7.6% unemployment rate
@@ -47,11 +51,13 @@ CROISSANCE_2025 = 0.009  # 0.9% INSEE définitif 2025
 
 # === FISCAL PARAMETERS ===
 TAUX_INTERET_BASE = 0.019  # 1.9% interest rate (OAT 10 ans 2025)
-# AMORCAGE_DEPENSES_Y1 : facteur d'amorçage Y1 uniquement (~0.03% / Md€). Ce N'EST PAS
-# une vraie inertie AR(1) au sens littérature (Pina-Venes 2018 : ρ ≈ 0.7-0.9). La vraie
-# persistance des dépenses passe par le compounding de _spending_factors par catégorie
-# (santé +1.8%/an, retraites +1.2%/an, etc.) dans calculate_expenditures.
-AMORCAGE_DEPENSES_Y1 = 0.0003
+# AMORCAGE_DEPENSES_Y1 : taux de croissance RÉEL de la 1re année projetée (2026), appliqué par
+# la formule fermée "bridging year" (expenditures.py) avec inflation pleine. Ce N'EST PAS une
+# inertie AR(1) (Pina-Venes 2018 : ρ ≈ 0.7-0.9) ; la persistance passe par le compounding de
+# _spending_factors par catégorie (années ≥2). Dégel : ex-0.0003 (≈ gel réel 2026, austérité
+# fantôme non votée) → 0.009 = taux de croisière tendanciel, pour que 2026 soit une année "à
+# politique inchangée" normale (cf. recalibrage baseline 2026-06, tendanciel officiel +1,0-1,2%).
+AMORCAGE_DEPENSES_Y1 = 0.009
 EROSION_RECETTES = 0.002  # Revenue erosion rate (CPO 2023)
 
 

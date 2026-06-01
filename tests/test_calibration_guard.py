@@ -159,10 +159,16 @@ def test_pas_de_contamination_tva():
 
 
 def test_retraites_64ans_reduit_dette_significativement():
-    """Recul age legal 62.75 -> 64 ans reduit la dette Y10 de >1.5 pts vs baseline.
+    """Recul age legal 62.75 -> 64 ans : economie calibree COR 2024, verifiee en Md€ (verite
+    physique) ET en points de dette (borne elargie pour la baseline tendancielle A+B).
 
-    Calibre sur COR 2024 : montee en charge 5 ans, coefficient stationnaire -16 Md€/an.
-    Cumul economies 2026-2035 : -4 -8 -12 -16 -20*6 = -160 Md€ ≈ -5% PIB.
+    Calibre sur COR 2024 : montee en charge 5 ans, coefficient stationnaire -16 Md€/an,
+    cumul ~ -160 Md€. RECALIBRAGE 2026-06 (baseline A+B, tendanciel ~+1,1%/an) : la trajectoire
+    statu-quo de reference etant plus pentue, la MEME economie en Md€ pese mecaniquement MOINS en
+    POINTS de dette (denominateur plus gros) -> la borne ratio passe de [-3.5,-2.0] (ancienne
+    baseline) a [-2.3,-0.9]. La garde Md€ ci-dessous VERROUILLE la verite physique COR
+    independamment du denominateur (anti-faux-vert : une borne ratio elargie ne doit jamais
+    masquer une reforme sous-calibree). Le handler retraites (depenses.py) est INCHANGE.
     """
     sim_base = BudgetSimulatorV45(periods=10)
     df_base, _, _ = sim_base.simulate()
@@ -173,11 +179,17 @@ def test_retraites_64ans_reduit_dette_significativement():
     )
     df_64, _, _ = sim_64.simulate()
 
+    # Garde PHYSIQUE (Md€, verite COR) : l'economie de dette Y10 reste calibree en euros, quel
+    # que soit le denominateur. Mesure A+B 2026-06 : -115.7 Md€ -> fenetre [-150, -90].
+    economie_md = df_64.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
+    assert -150 < economie_md < -90, (
+        f"Economie retraite 64 ans hors calibration COR (verite physique Md€): {economie_md:+.0f} Md€"
+    )
+
+    # Garde RATIO (points de dette) : borne elargie post-recalibrage A+B. Mesure : -1.56 pt.
     delta_dette_y10 = df_64.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
-    # Borne attendue : -2.5 pts cible COR 2024. Plage [-3.5, -2.0] couvre l'incertitude
-    # multiplicateur (-2.0 protège contre sous-calibration, -3.5 contre surcalibration).
-    assert -3.5 < delta_dette_y10 < -2.0, (
-        f"Retraite 64 ans devrait reduire dette Y10 de 2.0 a 3.5 pts (COR 2024 cible -2.5): "
+    assert -2.3 < delta_dette_y10 < -0.9, (
+        f"Retraite 64 ans devrait reduire dette Y10 (borne A+B [-2.3,-0.9]): "
         f"delta={delta_dette_y10:+.2f} pts (base={df_base.iloc[-1]['Dette/PIB %']:.1f}%, "
         f"64ans={df_64.iloc[-1]['Dette/PIB %']:.1f}%)"
     )

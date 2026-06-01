@@ -150,7 +150,7 @@ Recettes (t) = Recettes (t-1) x (1 + Croissance + Inflation) + dMesures
 - IS : ~60 Md EUR
 - CSG : ~150 Md EUR
 - Cotisations sociales : ~400 Md EUR
-- Total : ~1 545 Md EUR
+- Total : ~1 562 Md EUR (recettes APU realisees 2025, INSEE)
 
 **Influences :**
 - PIB nominal en hausse -> Recettes en hausse
@@ -181,7 +181,7 @@ Depenses_cat(t) = Depenses_cat(t-1) x (1 + taux_croissance_reel_cat) x (1 + Infl
 
 **Correction v3.0** : Defense corrigee de 5,5% a 3,0%/an, transition_eco de 4,0% a 2,5%/an.
 
-**Total depenses base 2025** : ~1 698 Md EUR (dont 56 Md EUR charges d'interet)
+**Total depenses base 2025** : ~1 714 Md EUR (dont 64,7 Md EUR charges d'interet) — realise INSEE 2025
 
 ---
 
@@ -208,7 +208,7 @@ Dette (t) = Dette (t-1) + Deficit (t)
 ```
 
 **Exemple :**
-- Dette 2025 : ~3 460 Md EUR (115,6% du PIB de 2 994 Md EUR)
+- Dette 2025 : ~3 460 Md EUR (115,6% du PIB de 2 991 Md EUR)
 - Deficit 2026 : ~-150 Md EUR
 - **Dette 2026 : ~3 610 Md EUR**
 
@@ -582,7 +582,7 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 ### Scenario 1 : Statut Quo 2025-2035
 
 **Parametres initiaux (2025) :**
-- PIB nominal : 2 994 Md EUR
+- PIB nominal : 2 991 Md EUR
 - Dette : 3 461 Md EUR (115,6% PIB)
 - Deficit : ~-150 Md EUR (-5%)
 - Chomage : 7,6%

@@ -64,7 +64,7 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             name="PIB_BASE_2025 (Md EUR)",
             source="constants.PIB_BASE_2025_MD_EUR",
             raw_value=constants.PIB_BASE_2025_MD_EUR,
-            representations=("2 994", "2994"),
+            representations=("2 991", "2991"),
             must_appear_in=(EXPLICATION, PUBLIC_EXPLICATION),
         ),
         CriticalConstant(

@@ -343,12 +343,12 @@ class OrchestratorMixin:
 
             if year_idx == 0:
                 _log_debug(self.debug_logs, f"AVANT Y2026: recettes_precedentes = {self.recettes_precedentes:.1f}")
-                # Année 2025
-                revenues = self.base_params['recettes_base']  # 1545
-                spending = self.base_params['depenses_base'] - CHARGES_INTERET_MD_EUR  # 1698 - 56 = 1642
+                # Année 2025 (réalisé INSEE provisoire 2025)
+                revenues = self.base_params['recettes_base']  # 1562
+                spending = self.base_params['depenses_base'] - CHARGES_INTERET_MD_EUR  # 1714 - 64,7 = 1649,3
                 interest_rate = self.base_params['taux_interet_base']
                 interests = CHARGES_INTERET_MD_EUR
-                deficit = revenues - (spending + interests)  # 1545 - 1698 = -153
+                deficit = revenues - (spending + interests)  # 1562 - 1714 = -152 (≈ -5,1% PIB)
                 impacts = {}
                 budget_effort = 0
                 multiplier = 1.0
