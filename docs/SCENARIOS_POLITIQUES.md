@@ -17,7 +17,7 @@ Cet outil est un simulateur citoyen indépendant, sans affiliation gouvernementa
 
 Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouvernement et principales formations) et **2 scénarios de think tank** produits par l'Institut Montaigne. Chaque scénario fixe l'ensemble des paramètres d'entrée du moteur ; le détail chiffré exact figure dans la section générée « Paramètres injectés ».
 
-### Loi Finances 2026
+### Budget 2026 (voté)
 <!-- scenario:plf_2026 -->
 
 - **Source** : LF 2026 (loi 2026-103, JO 19 fév 2026)
@@ -72,21 +72,21 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 > Tableau produit automatiquement par `scripts/generate_scenario_params.py` depuis `frontend-react/src/data/scenarios.json`. Toute modification manuelle entre les marqueurs sera écrasée. Ce tableau fait foi : en cas de doute, c'est lui qui décrit ce que simule l'outil.
 
 <!-- SCENARIO_PARAMS:START -->
-| Mesure | Paramètre | Loi Finances 2026 | Programme RN Bardella 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance | Programme LR | Programme PS 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
-|--------|-----------|-------------------|----------------------------|------------------------------|-----------------------|--------------|-------------------|--------------------------------|------------------------------------|
+| Mesure | Paramètre | Budget 2026 (voté) | Programme RN Bardella 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance | Programme LR | Programme PS 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
+|--------|-----------|--------------------|----------------------------|------------------------------|-----------------------|--------------|-------------------|--------------------------------|------------------------------------|
 | abattement_retraites | reforme_active | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | asu | asu_activation | 0 | 0 | 0 | 1 | 1 | 0 | 0 | 1 |
 | asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.65 | 0.7 |
 | chomage_alloc | degressivite | false | false | false | false | false | false | false | false |
-| chomage_alloc | duree | 24 | 24 | 30 | 21 | 18 | 27 | 24 | 18 |
-| chomage_alloc | taux_remplacement | 0.57 | 0.57 | 0.7 | 0.57 | 0.57 | 0.65 | 0.6 | 0.55 |
+| chomage_alloc | duree | 18 | 24 | 30 | 21 | 18 | 27 | 24 | 18 |
+| chomage_alloc | taux_remplacement | 0.6 | 0.57 | 0.7 | 0.57 | 0.57 | 0.65 | 0.6 | 0.55 |
 | collectivites | dotation | 120 | 115 | 140 | 122 | 110 | 130 | 110 | 95 |
 | collectivites | investissement | 0 | 0 | 15 | 3 | 0 | 8 | 0 | 0 |
 | cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.25 | 0.25 | 0.28 | 0.27 | 0.26 |
 | cotisations_salariales | baisse_points | 0 | 2 | 0 | 1.5 | 0 | 0 | 0 | 0 |
 | csg | progressive | 0 | 0 | 1 | 0 | 0 | 1 | 0 | 0 |
 | csg | taux | 0.097 | 0.097 | 0.105 | 0.097 | 0.097 | 0.1 | 0.097 | 0.097 |
-| defense | budget | 52 | 50 | 45 | 55 | 65 | 50 | 50 | 50 |
+| defense | budget | 57 | 50 | 45 | 55 | 65 | 50 | 50 | 50 |
 | education | budget | 65 | 65 | 85 | 72 | 65 | 75 | 65 | 80 |
 | education | enseignants | 0 | 0 | 60000 | -10000 | -20000 | 30000 | 0 | 10000 |
 | education | salaires | 0 | 0 | 15 | 3 | 1.5 | 8 | 0 | 8 |
@@ -105,7 +105,7 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | impot_revenu | taux_superieur | 0.45 | 0.45 | 0.6 | 0.45 | 0.45 | 0.5 | 0.45 | 0.45 |
 | impot_societes | niches | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | impot_societes | taux | 0.25 | 0.25 | 0.3 | 0.25 | 0.25 | 0.27 | 0.25 | 0.25 |
-| impots_production | montant | 92 | 87 | 97 | 100 | 95 | 97 | 97 | 90 |
+| impots_production | montant | 97 | 87 | 97 | 100 | 95 | 97 | 97 | 90 |
 | is_exceptionnel_tge | montant | 7.3 | 0 | 15 | 8 | 8 | 12 | 8 | 8 |
 | isf_climatique | intensite | 0 | 0.3 | 1 | 0 | 0 | 0.6 | 0 | 0 |
 | niches_fiscales_tge | montant | 56 | 58 | 20 | 30 | 50 | 40 | 58 | 40 |
@@ -117,8 +117,8 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | taux_reduction | — | — | — | — | — | — | 0.08 | 0 |
 | recherche_publique | budget | 8 | 8 | 15 | 5 | 3 | 12 | 0 | 15 |
-| retraites | age_depart | 64 | 61.5 | 60 | 64 | 64 | 62 | 64 | 65 |
-| retraites | duree_cotisation | 43 | 41 | 40 | 43 | 43 | 43 | 43 | 44 |
+| retraites | age_depart | 62.75 | 61.5 | 60 | 64 | 64 | 62 | 64 | 65 |
+| retraites | duree_cotisation | 42.5 | 41 | 40 | 43 | 43 | 43 | 43 | 44 |
 | retraites | indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 0.8 |
 | sante | effort_ambu | 20 | 5 | 0 | 15 | 15 | 0 | 0 | 25 |
 | sante | effort_hopital | 15 | 5 | 0 | 20 | 20 | 0 | 0 | 30 |
@@ -128,8 +128,8 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 | smic | montant_brut | 1800 | 1800 | 2050 | 1850 | 1800 | 2150 | 1800 | 1800 |
 | subventions_tge | montant | 33 | 35 | 20 | 30 | 45 | 25 | 32 | 25 |
 | taxe_superprofits | intensite | 0 | 0.5 | 1 | 0 | 0 | 0.5 | 0 | 0 |
-| transition_ecologique | investissement | 8 | 5 | 50 | 20 | 8 | 25 | 0 | 20 |
-| transition_ecologique | renovation | 8 | 3 | 30 | 15 | 8 | 20 | 0 | 15 |
+| transition_ecologique | investissement | 0 | 5 | 50 | 20 | 8 | 25 | 0 | 20 |
+| transition_ecologique | renovation | 0 | 3 | 30 | 15 | 8 | 20 | 0 | 15 |
 | transition_ecologique | taxe_carbone | 44.6 | 44.6 | 120 | 110 | 100 | 100 | 100 | 110 |
 | tva_energie | taux | 0.2 | 0.055 | 0.055 | 0.2 | 0.2 | 0.1 | 0.2 | 0.2 |
 | tva_rate | taux | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 |

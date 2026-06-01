@@ -140,8 +140,15 @@ def test_aucune_collision_id_lfi_2026():
 # Valeurs ci-dessous = nouvelles valeurs figées par revue, cohérentes avec le
 # golden master régénéré. Les gates one-time PA restent inchangés (seul
 # l'intercept Phillips a bougé, aucune logique de gating touchée).
+# Recalibrage 2026-06-02 (décision PO) : ré-encodage fidèle du scénario plf_2026
+# sur la LOI DE FINANCES 2026 VOTÉE (loi 2026-103, 19/02/2026) au lieu d'un PLF mal
+# encodé. 5 leviers corrigés (chômage durée 24→18 = réforme avril 2025 tient ;
+# retraites 64→suspendue ; transition verte +16→0 ; CVAE gel ; défense +6,7 Md€).
+# Effet AUDITÉ : PA 2029 plf_2026 103,4 → 100,9 (Δ -2,5, hors tolérance ±1,5).
+# Source : OFCE pbrief n°154 « Budget 2026 : un déficit de compromis ». Golden
+# master régénéré dans le même commit. Aucune logique moteur modifiée.
 EXPECTED_PA_2029_FULL = {
-    "plf_2026": 103.4,
+    "plf_2026": 100.9,
     "rn_2027": 105.8,
     "lfi_2027": 111.0,
     "renaissance_2027": 104.1,
