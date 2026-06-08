@@ -20,7 +20,7 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 ### Budget 2026 (voté)
 <!-- scenario:plf_2026 -->
 
-- **Source** : LF 2026 (loi 2026-103, JO 19 fév 2026)
+- **Source** : LF 2026 (loi 2026-103 du 19 fév 2026)
 - **Orientation** : consolidation budgétaire modérée, dans la continuité, avec préservation des acquis sociaux après amendements parlementaires. Trajectoire de réduction graduelle du déficit sans rupture fiscale ni sociale ; effort de maîtrise réparti sur les enveloppes ministérielles, hausse marquée de l'effort de défense, et fiscalité des grandes entreprises mobilisée à titre exceptionnel. C'est le scénario de référence « politique votée ».
 
 ### Programme RN Bardella 2027
@@ -44,13 +44,13 @@ Le simulateur propose **8 scénarios** : **6 programmes politiques** (gouverneme
 ### Programme LR 2027 (Retailleau)
 <!-- scenario:lr_2027 -->
 
-- **Source** : Programme Retailleau (grandes lignes 07/01/2026, Europe 1 / Public Sénat)
+- **Source** : Programme Retailleau (présentation 07/01/2026, Public Sénat)
 - **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, articulé autour d'une réforme structurelle de l'État (réduction des effectifs et fusion d'agences), d'une refonte des aides sociales et d'un durcissement des dépenses d'immigration, avec maintien d'un effort de défense élevé. Programme présidentiel porté par le candidat B. Retailleau (grandes lignes publiées début 2026), non entièrement chiffré à ce stade ; le paramétrage retient l'esprit du programme (économies sans hausse d'impôts), à confirmer à mesure des chiffrages 2027.
 
 ### Programme PS 2027
 <!-- scenario:ps_2027 -->
 
-- **Source** : Projet « Vivre libre » 144p (22 avril 2026, dir. Chloé Ridel)
+- **Source** : Projet « Vivre libres » (PS, 144 p., 22 avril 2026)
 - **Orientation** : social-démocratie d'équilibre, en position médiane entre la gauche de rupture et la majorité sortante. Abrogation partielle de la réforme des retraites, revalorisation du salaire minimum, investissement dans l'éducation et la transition, financés par une progressivité fiscale accrue et une fiscalité du patrimoine des plus hauts patrimoines (référence à la taxe Zucman). Recherche d'un équilibre entre justice sociale et soutenabilité budgétaire.
 
 ### Institut Montaigne — Rabot -8%
