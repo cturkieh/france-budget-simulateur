@@ -80,8 +80,12 @@ SCENARIOS = _load_scenarios()
 
 YEAR_IDX_2029 = 4
 PA_KEY = "Pouvoir d'Achat"
+# 'Gini' = nom RÉEL de la colonne d'inégalités émise par le moteur (orchestrator.py). L'ancien
+# 'Inegalites' ne correspondait à AUCUNE colonne du DataFrame → silencieusement filtré (cf. l.~117),
+# d'où l'absence d'inégalités dans les snapshots. Gini placé EN DERNIER → ajout pur : l'ordre des
+# colonnes existantes (Dette…Competitivite) est préservé, les snapshots restent additifs (0 drift).
 TRACKED_COLUMNS = ['Dette/PIB %', 'Déficit/PIB %', 'Chômage %', 'Croissance %', 'Inflation %',
-                   PA_KEY, 'Inegalites', 'Competitivite']
+                   PA_KEY, 'Competitivite', 'Gini']
 
 
 def _fmt_metric(data: dict, key: str, idx: int, w: int = 8) -> str:
@@ -127,7 +131,7 @@ def main():
               f"{_fmt_metric(d, 'Croissance %', YEAR_IDX_2029, 9)} "
               f"{_fmt_metric(d, PA_KEY, YEAR_IDX_2029)} "
               f"{_fmt_metric(d, 'Competitivite', YEAR_IDX_2029)} "
-              f"{_fmt_metric(d, 'Inegalites', YEAR_IDX_2029)}")
+              f"{_fmt_metric(d, 'Gini', YEAR_IDX_2029)}")
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

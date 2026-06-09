@@ -7,7 +7,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -113,6 +114,19 @@
         99.9,
         99.89,
         99.89
+      ],
+      "Gini": [
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.29
       ]
     }
   },
@@ -124,7 +138,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -230,6 +245,19 @@
         100.24,
         100.24,
         100.25
+      ],
+      "Gini": [
+        0.29,
+        0.262,
+        0.262,
+        0.262,
+        0.262,
+        0.262,
+        0.262,
+        0.261,
+        0.261,
+        0.261,
+        0.261
       ]
     }
   },
@@ -241,7 +269,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -347,6 +376,19 @@
         98.45,
         98.57,
         98.69
+      ],
+      "Gini": [
+        0.29,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25
       ]
     }
   },
@@ -358,7 +400,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -464,6 +507,19 @@
         100.09,
         100.12,
         100.14
+      ],
+      "Gini": [
+        0.29,
+        0.29,
+        0.29,
+        0.29,
+        0.289,
+        0.289,
+        0.289,
+        0.288,
+        0.288,
+        0.288,
+        0.287
       ]
     }
   },
@@ -475,7 +531,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -581,6 +638,19 @@
         100.76,
         100.75,
         100.75
+      ],
+      "Gini": [
+        0.29,
+        0.293,
+        0.293,
+        0.293,
+        0.292,
+        0.291,
+        0.29,
+        0.29,
+        0.289,
+        0.288,
+        0.288
       ]
     }
   },
@@ -592,7 +662,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -698,6 +769,19 @@
         99.3,
         99.36,
         99.42
+      ],
+      "Gini": [
+        0.29,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25
       ]
     }
   },
@@ -709,7 +793,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -815,6 +900,19 @@
         99.88,
         99.87,
         99.85
+      ],
+      "Gini": [
+        0.29,
+        0.282,
+        0.286,
+        0.29,
+        0.294,
+        0.298,
+        0.302,
+        0.306,
+        0.31,
+        0.314,
+        0.318
       ]
     }
   },
@@ -826,7 +924,8 @@
       "Croissance %",
       "Inflation %",
       "Pouvoir d'Achat",
-      "Competitivite"
+      "Competitivite",
+      "Gini"
     ],
     "years": [
       0,
@@ -932,6 +1031,19 @@
         100.09,
         100.15,
         100.21
+      ],
+      "Gini": [
+        0.29,
+        0.294,
+        0.294,
+        0.294,
+        0.293,
+        0.292,
+        0.291,
+        0.291,
+        0.29,
+        0.289,
+        0.288
       ]
     }
   }
