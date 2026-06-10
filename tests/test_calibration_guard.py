@@ -11,12 +11,22 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pytest
+
 from budget_simulator.simulator import BudgetSimulatorV45
+
+
+@pytest.fixture(scope='module')
+def baseline_df():
+    """Statu quo 10 ans simulé UNE fois pour tout le module (dédup : 10 tests
+    relançaient chacun la même baseline — passe efficacité revue 2026-06-10)."""
+    df, _, _ = BudgetSimulatorV45().simulate()
+    return df
 
 
 # === BASELINE (aucune réforme) ===
 
-def test_baseline_dette_range():
+def test_baseline_dette_range(baseline_df):
     """La dette baseline doit rester dans 140-160% en 2035 (statu quo honnête post-refonte).
 
     RECALIBRAGE refonte « assemblage temporel » 2026-06-10 (mesuré 150,4 %) :
@@ -28,42 +38,37 @@ def test_baseline_dette_range():
     Point d'ancrage externe : Y5 (2030) = 129,5 %, cohérent HCFP (« >125 % en
     2030 sans ajustement ») ; 2035 est au-delà des horizons publiés, la
     fourchette verrouille la mécanique, pas un consensus inexistant."""
-    sim = BudgetSimulatorV45()
-    df, _, _ = sim.simulate()
+    df = baseline_df
     dette = df.iloc[-1]['Dette/PIB %']
     assert 140 < dette < 160, f"Baseline dette {dette:.1f}% hors fourchette 140-160%"
 
 
-def test_baseline_deficit_range():
+def test_baseline_deficit_range(baseline_df):
     """Le déficit baseline doit être entre -4% et -8% en 2035"""
-    sim = BudgetSimulatorV45()
-    df, _, _ = sim.simulate()
+    df = baseline_df
     deficit = df.iloc[-1]['Déficit/PIB %']
     assert -8.0 < deficit < -4.0, f"Baseline déficit {deficit:.1f}% hors fourchette -8/-4%"
 
 
-def test_baseline_croissance_range():
+def test_baseline_croissance_range(baseline_df):
     """La croissance moyenne doit être entre 0.5% et 1.5% (potentiel France)"""
-    sim = BudgetSimulatorV45()
-    df, _, _ = sim.simulate()
+    df = baseline_df
     croissance = df['Croissance %'].mean()
     assert 0.5 < croissance < 1.5, f"Baseline croissance {croissance:.2f}% hors fourchette 0.5-1.5%"
 
 
-def test_baseline_chomage_range():
+def test_baseline_chomage_range(baseline_df):
     """Le chômage doit rester entre 6% et 10%"""
-    sim = BudgetSimulatorV45()
-    df, _, _ = sim.simulate()
+    df = baseline_df
     chomage_final = df.iloc[-1]['Chômage %']
     assert 6.0 < chomage_final < 10.0, f"Chômage {chomage_final:.1f}% hors fourchette 6-10%"
 
 
 # === COMPORTEMENTS DIRECTIONNELS ===
 
-def test_tva_hausse_ameliore_deficit():
+def test_tva_hausse_ameliore_deficit(baseline_df):
     """Augmenter la TVA doit améliorer le déficit"""
-    sim_base = BudgetSimulatorV45()
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     sim_tva = BudgetSimulatorV45(mesures={'tva_rate': {'taux': 0.21}})
     df_tva, _, _ = sim_tva.simulate()
@@ -75,10 +80,9 @@ def test_tva_hausse_ameliore_deficit():
     )
 
 
-def test_smic_hausse_augmente_dette():
+def test_smic_hausse_augmente_dette(baseline_df):
     """Augmenter le SMIC doit augmenter la dette (coût net > retour croissance)"""
-    sim_base = BudgetSimulatorV45()
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     sim_smic = BudgetSimulatorV45(mesures={'smic': {'montant_brut': 2200}})
     df_smic, _, _ = sim_smic.simulate()
@@ -90,10 +94,9 @@ def test_smic_hausse_augmente_dette():
     )
 
 
-def test_defense_augmente_dette():
+def test_defense_augmente_dette(baseline_df):
     """Augmenter les dépenses de défense doit augmenter la dette"""
-    sim_base = BudgetSimulatorV45()
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     sim_def = BudgetSimulatorV45(mesures={'defense': {'budget': 65}})
     df_def, _, _ = sim_def.simulate()
@@ -105,10 +108,9 @@ def test_defense_augmente_dette():
     )
 
 
-def test_investissement_massif_augmente_dette():
+def test_investissement_massif_augmente_dette(baseline_df):
     """150 Md€ d'investissement doit augmenter la dette (pas d'autofinancement magique)"""
-    sim_base = BudgetSimulatorV45()
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     mesures = {
         'education': {'budget': 80, 'enseignants': 0, 'salaires': 0},
@@ -131,10 +133,9 @@ def test_investissement_massif_augmente_dette():
     )
 
 
-def test_austerite_reduit_croissance():
+def test_austerite_reduit_croissance(baseline_df):
     """L'austérité massive doit réduire la croissance moyenne sous le baseline"""
-    sim_base = BudgetSimulatorV45()
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     mesures = {
         'rabot_uniforme': {'taux_reduction': 0.08},
@@ -153,7 +154,7 @@ def test_austerite_reduit_croissance():
 
 # === ANTI-RÉGRESSIONS SPÉCIFIQUES ===
 
-def test_pas_de_contamination_tva():
+def test_pas_de_contamination_tva(baseline_df):
     """Ajouter TVA à un paquet de réformes ne doit pas augmenter la dette de >3 pts"""
     mesures_base = {
         'retraites': {'age_depart': 64, 'duree_cotisation': 43, 'indexation': 0.8},
@@ -173,7 +174,7 @@ def test_pas_de_contamination_tva():
     )
 
 
-def test_retraites_64ans_reduit_dette_significativement():
+def test_retraites_64ans_reduit_dette_significativement(baseline_df):
     """Recul age legal 62.75 -> 64 ans : economie calibree COR 2024, verifiee en Md€ (verite
     physique) ET en points de dette (borne elargie pour la baseline tendancielle A+B).
 
@@ -185,8 +186,7 @@ def test_retraites_64ans_reduit_dette_significativement():
     independamment du denominateur (anti-faux-vert : une borne ratio elargie ne doit jamais
     masquer une reforme sous-calibree). Le handler retraites (depenses.py) est INCHANGE.
     """
-    sim_base = BudgetSimulatorV45(periods=10)
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     sim_64 = BudgetSimulatorV45(
         periods=10,
@@ -257,10 +257,9 @@ def test_niches_sociales_tge_suppression_60mds_destroys_jobs():
     )
 
 
-def test_investissement_booste_croissance():
+def test_investissement_booste_croissance(baseline_df):
     """L'investissement productif doit booster la croissance vs baseline"""
-    sim_base = BudgetSimulatorV45()
-    df_base, _, _ = sim_base.simulate()
+    df_base = baseline_df
 
     mesures = {
         'education': {'budget': 80, 'enseignants': 0, 'salaires': 0},

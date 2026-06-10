@@ -30,13 +30,21 @@ pour éviter la dérive documentaire.
 
 Le SEUL invariant que ce mixin porte en propre (non documentable côté
 producteur, car imposé par ``simulate`` seul) est le CONTRAT D'ORDRE
-des appels dans la boucle annuelle :
-``calculate_revenues`` / ``calculate_expenditures`` (base organique)
-→ ``apply_measures`` (deltas mesures ; ``budget_effort`` en dérive)
-→ ``calculate_growth`` / ``calculate_inflation`` (consomment
-``budget_effort``) → ``update_potential_growth`` (clôt l'année).
-Réordonner ces appels casse les contrats producteur/consommateur même
-si chaque méthode reste byte-identique.
+des appels dans la boucle annuelle (refonte « assemblage temporel »
+2026-06) :
+``calculate_growth`` / ``calculate_inflation`` (macro de l'année,
+consomment l'impulsion budgétaire de t−1 : ``_budget_effort_prev`` /
+``_parts_prev`` / ``_last_impacts``) → mise à jour PIB (déflateur
+contemporain) → ``calculate_unemployment`` (Okun sur la croissance de
+l'année) → ``calculate_revenues`` / ``calculate_expenditures`` (flux
+organiques AUX PRIX DE L'ANNÉE) → ``apply_measures`` (deltas mesures ;
+``budget_effort`` de l'année stocké pour t+1) →
+``update_potential_growth`` (clôt l'année). Réordonner ces appels casse
+les contrats producteur/consommateur même si chaque méthode reste
+byte-identique — l'enforcement observable est porté par
+``tests/test_baseline_properties.py`` (l'élasticité 1,00 ± 0,02 et le
+déflatage contemporain dévient immédiatement si les flux repassent sur
+la macro de t−1).
 
 Note historique (Phase 2, 2026-05-16) : un ajustement d'élasticité
 recettes post-``calculate_inflation`` a été supprimé — voir le
@@ -355,7 +363,6 @@ class OrchestratorMixin:
                 growth = self.base_params['croissance_2025']  # INSEE: 0.9%
                 inflation = self.base_params['inflation_base']  # source unique : INFLATION_BASE (seed inertie)
                 self.recettes_precedentes = revenues  # 1545 Md€
-                self.croissance_precedente = growth      # 0.9%
                 self.inflation_precedente = inflation    # 1.0%
 
                 # NOUVEAU: Stocker impacts vides pour 2025
@@ -410,9 +417,9 @@ class OrchestratorMixin:
                     'unemployment_gap': unemployment_gap,
                     'effort_budgetaire': self._budget_effort_prev,
                     # Impacts de t−1 (_last_impacts) : les mesures de t ne sont
-                    # pas encore calculées. Pass-through TVA gaté year == 2
-                    # dans calculate_inflation (transmission l'année suivante).
-                    'tva_impact': self._last_impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal if year_idx == 2 else 0
+                    # pas encore calculées. Le gate temporel (one-shot à
+                    # year == 2) vit dans calculate_inflation — source unique.
+                    'tva_impact': self._last_impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal
                 }
                 inflation = self.calculate_inflation(year_idx, economic_state_inflation)
                 _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")
@@ -567,7 +574,6 @@ class OrchestratorMixin:
                     multiplier = 1.0
 
                 # Stockage pour année suivante
-                self.croissance_precedente = growth
                 self.inflation_precedente = inflation
                 self.dette_courante = debt
                 self.pib_nominal = gdp_nominal
@@ -640,7 +646,10 @@ class OrchestratorMixin:
             # Validation
             year_data = {
                 'Recettes/PIB %': revenues / gdp_nominal * 100,
-                'Dépenses/PIB %': spending / gdp_nominal * 100,
+                # Aligné sur la métrique AFFICHÉE (avec intérêts) — revue
+                # 2026-06-10 : le validateur bornait un ratio primaire que
+                # personne ne voit (écart 2-3 pts vs colonne publiée).
+                'Dépenses/PIB %': (spending + interests) / gdp_nominal * 100,
                 'Dette/PIB %': debt / gdp_nominal * 100,
                 'Gini': self.gini_courant,
                 'Inflation %': inflation * 100,

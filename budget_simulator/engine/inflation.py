@@ -37,7 +37,7 @@ from typing import Dict
 import numpy as np
 
 from .._logging import _log_debug
-from ..constants import INFLATION_STRUCTURELLE
+from ..constants import BCE_CIBLE_INFLATION, INFLATION_STRUCTURELLE
 
 
 class InflationMixin:
@@ -90,11 +90,13 @@ class InflationMixin:
             inflation = min(inflation * 1.08, 0.030)
             _log_debug(self.debug_logs, f"Y{year}: Tensions inflationnistes")
 
-        # Pass-through TVA : l'année qui SUIT l'entrée en vigueur (year == 2),
-        # car depuis la refonte 2026-06 l'inflation de t est calculée AVANT les
-        # mesures de t — le tva_impact transmis vient des impacts de t−1
-        # (transmission progressive aux prix, cohérente avec l'impulsion
-        # budgétaire laguée d'un an dans calculate_growth).
+        # Pass-through TVA — gate temporel UNIQUE (l'orchestrateur transmet la
+        # valeur sans condition d'année). Depuis la refonte 2026-06, l'inflation
+        # de t est calculée AVANT les mesures de t : le tva_impact vient des
+        # impacts de t−1, donc le pass-through frappe à year == 2 (l'année qui
+        # suit l'entrée en vigueur des mesures, toutes actives dès Y1 dans ce
+        # moteur — POLICY_START_YEAR). One-shot délibéré : pas de re-pass-through
+        # les années suivantes (la persistance passe par l'inertie ρ = 0,5).
         if year == 2 and tva_impact > 0.003:
             tva_pass_through = min(tva_impact * 0.3, 0.002)
             inflation += tva_pass_through
@@ -105,8 +107,8 @@ class InflationMixin:
         # de la cible au lieu de servir de thermostat permanent (l'ancien couple
         # attracteur 3 % / seuil 2,3 % stabilisait à 2,33 % à perpétuité).
         # En statu quo (point fixe 1,5 %), il ne se déclenche plus.
-        if inflation > 0.020:
-            inflation = 0.50 * inflation + 0.50 * 0.02
+        if inflation > BCE_CIBLE_INFLATION:
+            inflation = 0.50 * inflation + 0.50 * BCE_CIBLE_INFLATION
             _log_debug(self.debug_logs, f"Y{year}: Politique monétaire restrictive")
         elif inflation < 0.008:
             # Plancher accommodant : tiré vers la TENDANCIELLE (et non plus 2 %,

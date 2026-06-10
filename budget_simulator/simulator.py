@@ -550,7 +550,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.recettes_precedentes = self.base_params['recettes_base']
         self.gini_courant = self.base_params['gini_base']
         self.inflation_precedente = self.base_params['inflation_base']
-        self.croissance_precedente = self.base_params['croissance_potentielle']
+        # croissance_precedente : RETIRÉ (refonte 2026-06) — état devenu write-only
+        # (les flux consomment désormais la croissance contemporaine, la macro
+        # l'impulsion t−1 via _budget_effort_prev/_parts_prev).
 
         self.pib_reel_base2025 = self.base_params['pib_base']
         self.pib_nominal = self.base_params['pib_base']
@@ -603,7 +605,6 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.deflateur_cumule = 1.000
 
         # --- Mémoire inter-années ---
-        self.croissance_precedente = self.base_params['croissance_potentielle']
         self.inflation_precedente = self.base_params['inflation_base']
         self.recettes_precedentes = self.base_params['recettes_base']
         self.gini_courant = self.base_params['gini_base']

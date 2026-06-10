@@ -69,6 +69,13 @@ TAUX_INTERET_BASE = 0.019  # 1.9% interest rate (OAT 10 ans 2025)
 #   ELASTICITE_PO_PIB = 1.0 ci-dessous ; une érosion réelle se modélise PAR
 #   TAXE (mesure explicite), jamais en taux global.
 
+# === CIBLE D'INFLATION BCE ===
+# Seuil ET point d'ancrage du rappel monétaire restrictif (engine/inflation.py) :
+# au-dessus de la cible, la BCE freine (blend 50/50 vers la cible). Source :
+# cible symétrique 2 % BCE (revue stratégique 2021). Refonte 2026-06 : sert de
+# GARDE-FOU de surchauffe (l'ancien seuil 2,3 % en faisait un thermostat).
+BCE_CIBLE_INFLATION = 0.020
+
 # === ÉLASTICITÉ DES PRÉLÈVEMENTS OBLIGATOIRES AU PIB NOMINAL ===
 # HCFP note 2023-01 (séries 2002-2022) : élasticité observée 1,01-1,07, non
 # significativement différente de 1 ; convention CBO/OBR/DG Trésor = 1,0 à
@@ -154,3 +161,15 @@ PHASING_NICHES_FISCALES_TGE = (0.40, 0.70, 1.00, 1.00, 1.00, 1.00)
 #    + Point FP 100×30% + Salaires privés 665×25%) / 1380 = 54.22%
 # Cohérent avec OFCE Plane & Sampognaro 2024 (indexation effective ~50-55%).
 INDEXATION_BASELINE_RATIO = 0.54
+
+# === PART DES DÉPENSES PUBLIQUES INDEXÉES SUR L'INFLATION PASSÉE ===
+# Contrat DISTINCT de INDEXATION_BASELINE_RATIO (qui chiffre la protection des
+# REVENUS DES MÉNAGES pour le pouvoir d'achat, assiette 1 380 Md€ de revenus) :
+# celui-ci chiffre la part de la DÉPENSE PUBLIQUE (assiette 1 649 Md€ de
+# primaire) revalorisée sur l'inflation de l'année PRÉCÉDENTE — pensions
+# (révalo légale sur l'IPC passé), prestations, bases forfaitaires (FIPECO :
+# ~500 Md€ indexés de droit + indexation de fait). Même valeur 0,54 par
+# coïncidence de calibration 2026-06 : un recalibrage de l'un NE DOIT PAS
+# entraîner l'autre silencieusement (revue type-design 2026-06-10).
+# Consommée par engine/expenditures.py (π_idx, refonte assemblage temporel).
+INDEXATION_DEPENSES_INFLATION_PASSEE = 0.54

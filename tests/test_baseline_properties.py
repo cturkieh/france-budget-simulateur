@@ -105,10 +105,13 @@ def test_b_aucune_marche_ratio_primaire(statu_quo):
         for i in range(1, 11)
     ]
     steps = [ratios[i] - ratios[i - 1] for i in range(1, 11)]
+    # Fenêtre tardive SIGNÉE [−0,30 ; +0,60] : les marches voulues y sont
+    # POSITIVES (vieillissement) — une marche négative tardive > 0,3 pt serait
+    # un artefact d'assemblage, pas de la démographie (revue 2026-06-10).
     violations = [
-        f"Y{i - 1}→Y{i} : {step:+.2f} pt (tol ±{0.30 if i <= 7 else 0.60})"
+        f"Y{i - 1}→Y{i} : {step:+.2f} pt (tol [{-0.30};{0.30 if i <= 7 else 0.60}])"
         for i, step in enumerate(steps, start=1)
-        if abs(step) > (0.30 if i <= 7 else 0.60)
+        if not (-0.30 <= step <= (0.30 if i <= 7 else 0.60))
     ]
     assert not violations, (
         "Marche(s) du ratio dépenses primaires/PIB hors tolérance en statu quo : "
@@ -164,10 +167,11 @@ def test_d_jump_off_niveaux_insee():
 def test_e_non_regression_deltas_scenarios():
     """Les deltas mesure-vs-baseline restent dans une tolérance explicite du snapshot.
 
-    Tolérances LARGES à dessein (phase de refonte : le timing du multiplicateur
-    bouge légitimement) : déficit max(1,0 pt ; 25 %), dette max(2,5 pt ; 25 %),
-    chômage max(0,5 pt ; 25 %). Elles attrapent une explosion ou un
-    double-comptage (deltas ×2), pas un recalibrage. À resserrer post-refonte.
+    Tolérances (resserrées post-refonte, réf capturée sur le moteur refondu) :
+    déficit max(0,5 pt ; 15 %), dette max(1,5 pt ; 15 %), chômage
+    max(0,3 pt ; 15 %) — cf. le commentaire au-dessus du dict `tolerances`
+    (source unique des valeurs). Elles attrapent une explosion ou un
+    double-comptage (deltas ×2), pas un recalibrage intentionnel.
     Régénération (changement intentionnel) : voir REGEN_DELTAS_CMD.
     """
     if not DELTAS_BASELINE_PATH.exists():
@@ -201,3 +205,37 @@ def test_e_non_regression_deltas_scenarios():
         "Deltas mesure-vs-baseline hors tolérance (explosion/double-comptage ?) : "
         + " ; ".join(violations)
     )
+
+def test_f_etat_chaine_organique_avant_mesures():
+    """Verrou direct de l'invariant : depenses_primaires_precedentes = niveau
+    ORGANIQUE (le retour de calculate_expenditures de l'année N, AVANT
+    apply_measures), jamais le niveau post-mesures.
+
+    Espionne la récurrence sous une mesure de dépenses active : l'entrée de
+    l'appel N+1 doit être EXACTEMENT le retour de l'appel N. Toute réinjection
+    des deltas mesures dans l'état chaîné (le double-comptage par compounding
+    que les notes « DÉSACTIVÉ » de simulate() interdisent) casse ce test
+    immédiatement — y compris une variante subtile `+= delta`. Indépendant de
+    scenarios.json (tourne aussi dans la CI du repo public standalone).
+    """
+    spy_log = []
+
+    class Spy(BudgetSimulatorV45):
+        def calculate_expenditures(self, *args, **kwargs):
+            entry_state = self.depenses_primaires_precedentes
+            out = super().calculate_expenditures(*args, **kwargs)
+            spy_log.append((entry_state, out))
+            return out
+
+    sim = Spy(periods=5, mesures={'defense': {'budget': 65}})
+    sim.simulate()
+
+    assert len(spy_log) >= 5
+    for n in range(1, len(spy_log)):
+        entry_n1, _ = spy_log[n]
+        _, return_n = spy_log[n - 1]
+        assert entry_n1 == return_n, (
+            f"État chaîné contaminé entre Y{n} et Y{n + 1} : entrée "
+            f"{entry_n1:.3f} ≠ retour organique précédent {return_n:.3f} "
+            f"(réinjection des deltas mesures ? cf. invariant expenditures.py)"
+        )
