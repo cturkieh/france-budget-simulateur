@@ -1,7 +1,7 @@
 # MODELE ECONOMIQUE DU SIMULATEUR
 
-**Version** : 3.1
-**Date** : Mars 2026
+**Version** : 4.0
+**Date** : Juin 2026
 **Auteur** : Budget Lab France
 
 ---
@@ -37,6 +37,19 @@ Ces blocs sont interconnectes par des boucles de retroaction qui capturent les e
 
 **Nouveaute v3.1** : Le DECAY_PROFILE est desormais **differencie** en 3 profils (TAXES, TRANSFERS, INVEST) melanges selon la composition des mesures. La croissance potentielle beneficie d'un nouveau mecanisme **supply-side** dynamique par canal (recherche, transition ecologique, education) avec delais, depreciation et rendements decroissants.
 
+**Nouveaute v4.0 (refonte « assemblage temporel », juin 2026)** : les flux budgetaires sont calcules par des recurrences chainees uniques appliquees des l'annee 1 (plus de regime special 2026), les recettes suivent le PIB nominal contemporain avec une elasticite unitaire, la courbe de Phillips converge reellement vers 1,5%, et la boucle annuelle est reordonnee.
+
+**Sequence annuelle de calcul (v4.0) :**
+```
+1. Macro de l'annee (croissance, inflation) — avec l'impulsion budgetaire de l'annee PRECEDENTE (lag standard)
+2. PIB nominal de l'annee (deflateur contemporain)
+3. Chomage (loi d'Okun sur la croissance de l'annee)
+4. Flux budgetaires organiques AUX PRIX DE L'ANNEE (recettes, depenses)
+5. Mesures de l'annee (impulsion budgetaire stockee pour l'annee suivante)
+```
+
+L'ancien ordre calculait les flux avec la croissance et l'inflation de l'annee precedente pendant que le PIB portait celles de l'annee courante : le numerateur des ratios budgetaires vivait un an derriere le denominateur (bug d'assemblage, corrige v4.0). Le lag de l'impulsion budgetaire (etape 1) casse la circularite mesures -> macro -> flux -> mesures sans recherche de point fixe.
+
 ---
 
 ## Variables Macroeconomiques
@@ -71,32 +84,34 @@ Growth = Potentiel + Debt Drag + Multiplicateur fiscal + Effets second ordre
 
 ### 2. Inflation
 
-**Formule generale :**
+**Formule generale (v4.0) :**
 ```
-Inflation = Base + Inertie + Output Gap + Ajustements
+Inflation = (1 - Inertie) x Tendancielle + Inertie x Inflation precedente + Output Gap + Ajustements
 ```
 
 **Decomposition :**
-- **Base** : 1,5% (inflation tendancielle France moyen terme : mediane entre la sous-jacente INSEE 2025 a 1,2% et le coeur Banque de France projete / cible BCE 1,6-2,0%)
-<!-- Terme intercept de la courbe de Phillips (constante nommee INFLATION_STRUCTURELLE = 0.015, budget_simulator/constants.py). La constante constants.py INFLATION_BASE = 0.010 (1,0%) est distincte : c'est la graine d'inertie inflation_precedente en annee 0, PAS l'intercept Phillips. Note METHODOLOGIE.md, section « Calibration Baseline Validee (v3.0) » (« Inflation cible ~2,0% BCE ») = point de CONVERGENCE forcee (rappel BCE), pas le terme de base — coherent avec inflation.py:87,90 (0.02). -->
-<!-- Decision PO 2026-05-18 (sourcee) : 1,2% -> 1,5%. Option C, recoupement INSEE / Banque de France / BCE. -->
+- **Tendancielle (point fixe)** : 1,5% (inflation tendancielle France moyen terme : mediane entre la sous-jacente INSEE 2025 a 1,2% et le coeur Banque de France projete / cible BCE 1,6-2,0%). Depuis la v4.0, la forme `(1-rho) x pi* + rho x pi(t-1)` fait de cette valeur le point de convergence REEL du regime (dans un AR(1), le point fixe est `c/(1-rho)`, pas l'intercept `c` : l'ancienne forme creait un attracteur cache a 3,0%, bride par le rappel BCE en equilibre permanent a 2,33%)
+<!-- Point FIXE de la courbe de Phillips (constante nommee INFLATION_STRUCTURELLE = 0.015, budget_simulator/constants.py ; formule v4.0 dans engine/inflation.py). La constante constants.py INFLATION_BASE = 0.010 (1,0%) est distincte : c'est la graine d'inertie inflation_precedente en annee 0, PAS le point fixe Phillips. BCE_CIBLE_INFLATION = 0.020 : seuil du garde-fou de surchauffe (engine/inflation.py), PAS un point de convergence forcee depuis la v4.0. -->
+<!-- Decision PO 2026-05-18 (sourcee) : 1,2% -> 1,5%. Option C, recoupement INSEE / Banque de France / BCE. Intention confirmee 2026-06-10 : BCE = garde-fou de surchauffe >2%, pas thermostat de convergence. -->
 
 
 - **Inertie** : 50% de l'inflation precedente (anticipations, indexation)
 - **Output gap** : 0,35 x (Production - Potentiel)
   - Output gap > 0 (surchauffe) -> Inflation en hausse
   - Output gap < 0 (sous-utilisation) -> Inflation en baisse
-- **Rappel BCE** : Si inflation > 2,3%, convergence forcee vers 2,0% (blend 50/50)
+- **Garde-fou BCE haut** : Si inflation > 2,0% (cible BCE), freinage monetaire (blend 50/50 vers la cible) — garde-fou de SURCHAUFFE, inactif en statu quo
+- **Garde-fou BCE bas** : Si inflation < 0,8%, politique accommodante tiree vers la TENDANCIELLE 1,5% (blend 70/30)
 
 **Point de convergence :**
 ```
-Inflation long terme ~ 2,0% (cible BCE)
+Inflation long terme ~ 1,5% (point fixe Phillips)
+Inflation statu quo effective ~ 1,1-1,4% (output gap legerement negatif)
 ```
 
 **Influences SUR l'inflation :**
 - Output gap en hausse -> Inflation en hausse
 - Chomage en baisse -> Inflation en hausse
-- TVA en hausse -> Inflation en hausse (effet one-shot)
+- TVA en hausse -> Inflation en hausse (effet one-shot, l'annee qui SUIT l'entree en vigueur : la macro de l'annee est calculee avant les mesures de l'annee)
 - Effort budgetaire en hausse -> Inflation en baisse
 
 **Influences DE l'inflation :**
@@ -136,13 +151,18 @@ dChomage = -0,35 x (Croissance - Croissance potentielle)
 
 ### 1. Recettes Fiscales
 
-**Formule generale :**
+**Formule generale (v4.0) :**
 ```
-Recettes (t) = Recettes (t-1) x (1 + Croissance + Inflation) + dMesures
+n(t) = (1 + Croissance) x (1 + Inflation) - 1        [croissance nominale CONTEMPORAINE, composee]
+Recettes (t) = Recettes (t-1) x (1 + n(t) x 1,0) + dMesures
 ```
 
-**Elasticite des recettes au PIB** : ~1,0
+**Elasticite des recettes au PIB** : exactement 1,0 (`ELASTICITE_PO_PIB`)
 - PIB nominal +1% -> Recettes +1%
+- Source : HCFP note 2023-01 (series 2002-2022) — elasticite observee 1,01-1,07, non significativement differente de 1 ; convention CBO/OBR/DG Tresor a politique inchangee
+- Consequence : en statu quo, le ratio recettes/PIB est STABLE par construction (~52,2%) — c'est la definition d'un scenario a politique inchangee
+
+**Supprimes par la v4.0** : elasticite differenciee par regime de croissance (1,00/1,06/1,08/1,12), erosion fiscale forfaitaire (0,2%/an, qui rendait l'elasticite de facto ~0,93), rustines de transition 2026 (plancher 1,06, erosion nulle). Une erosion reelle se modelise PAR TAXE, en mesure explicite.
 
 **Composantes principales (2025) :**
 - TVA : ~140 Md EUR (20% de 700 Md EUR consommation)
@@ -161,12 +181,17 @@ Recettes (t) = Recettes (t-1) x (1 + Croissance + Inflation) + dMesures
 
 ### 2. Depenses Publiques
 
-**Formule generale :**
+**Formule generale (v4.0 — recurrence unique chainee) :**
 ```
-Depenses_cat(t) = Depenses_cat(t-1) x (1 + taux_croissance_reel_cat) x (1 + Inflation)
+Depenses(t) = Depenses(t-1) x (1 + g_vol) x (1 + pi_idx)
 ```
 
-**Taux de croissance reels par categorie :**
+- `g_vol` : croissance en VOLUME — moyenne des taux reels par categorie (tableau ci-dessous), ponderee par les parts courantes. Les facteurs par categorie servent de CLE DE REPARTITION ; ils ne portent plus le niveau (porte par le chainage)
+- `pi_idx` : indexation mixte des prix — 54% de la depense suit l'inflation PASSEE (pensions et prestations revalorisees sur l'inflation N-1 ; constante `INDEXATION_DEPENSES_INFLATION_PASSEE`), 46% le deflateur contemporain
+
+La recurrence s'applique des l'annee 1 : plus de regime special 2026 (« bridging year ») ni de taux d'amorcage exogene (pratique CBO/OBR/DG Tresor : l'annee 1 se distingue par ses donnees, jamais par sa mecanique).
+
+**Taux de croissance reels par categorie (cle de repartition) :**
 
 | Categorie | Croissance reelle | Source |
 |-----------|-------------------|--------|
@@ -192,9 +217,11 @@ Depenses_cat(t) = Depenses_cat(t-1) x (1 + taux_croissance_reel_cat) x (1 + Infl
 Deficit = Depenses - Recettes
 ```
 
-**Calibration baseline 2035 (sans reformes) :**
-- Deficit : ~-6,0% du PIB
-- Dette : ~132% du PIB
+**Calibration baseline (sans reformes, v4.0) :**
+- Deficit 2026 : -5,05% du PIB (loi votee : -5,0%)
+- Dette 2030 : ~129,5% du PIB (HCFP : >125% sans ajustement)
+- Deficit 2035 : ~-7,5% du PIB
+- Dette 2035 : ~150% du PIB
 
 ---
 
@@ -225,12 +252,12 @@ d(Dette/PIB) = Deficit/PIB - (Croissance + Inflation) x Dette/PIB
 - **Numerateur** : Deficit augmente la dette
 - **Denominateur** : Croissance + Inflation erodent le ratio
 
-**Exemple chiffre :**
+**Exemple chiffre (regime statu quo du moteur) :**
 - Deficit/PIB : 5%
-- Croissance + Inflation : 3%
+- Croissance + Inflation : 2,1% (~1% reel + ~1,1% inflation effective)
 - Dette/PIB initial : 115%
-- **d(Dette/PIB) = 5% - 3% x 1,15 = 5% - 3,45% = +1,55%**
-- Ratio monte a **116,55%**
+- **d(Dette/PIB) = 5% - 2,1% x 1,15 = 5% - 2,42% = +2,6%**
+- Ratio monte a **117,6%**
 
 ---
 
@@ -242,12 +269,12 @@ Deficit/PIB < (Croissance + Inflation) x Dette/PIB
 ```
 
 **Application numerique :**
-Avec dette 115%, croissance 1%, inflation 2% :
+Avec dette 115%, croissance 1%, inflation 1,5% (tendancielle du moteur) :
 ```
-Deficit max = 3,0% x 115% = 3,45% du PIB
+Deficit max = 2,5% x 115% = 2,9% du PIB
 ```
 
-**Conclusion** : A 115% de dette, il faut un deficit inferieur a 3,5% du PIB pour stabiliser le ratio.
+**Conclusion** : A 115% de dette, il faut un deficit inferieur a ~3% du PIB pour stabiliser le ratio (et moins encore avec l'inflation statu quo effective ~1,1-1,4%).
 
 ---
 
@@ -265,10 +292,10 @@ PA macro = Croissance - Inflation
 - Inflation : Prix en hausse
 - Gap = Pouvoir d'achat reel
 
-**Exemple :**
+**Exemple (regime statu quo du moteur) :**
 - Croissance : 1,0%
-- Inflation : 2,0%
-- **PA macro = -1,0%/an**
+- Inflation : 1,2% (effective statu quo)
+- **PA macro = -0,2%/an** (avant protection d'indexation des revenus, cf `INDEXATION_BASELINE_RATIO` = 54%)
 
 ---
 
@@ -548,10 +575,10 @@ Si r > g : Dette insoutenable a long terme
 Si r < g : Dette stabilisable meme avec deficit primaire
 ```
 
-**Hypotheses modele :**
+**Hypotheses modele (v4.0) :**
 - Taux implicite dette : ~1,9% (taux moyen pondere du stock)
-- Croissance nominale : ~3,0% (1% reel + 2,0% inflation)
-- **r - g ~ -1,1%** -> Favorable mais fragile
+- Croissance nominale : ~2,0-2,1% (~1% reel + ~1,1% inflation statu quo effective)
+- **r - g ~ -0,2%** en debut de periode -> marge tres faible ; devient POSITIF en fin d'horizon quand la croissance s'erode (debt drag) : dynamique boule de neige
 
 ---
 
@@ -588,20 +615,22 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 - Chomage : 7,6%
 - Pouvoir d'achat : 100
 
-**Trajectoire baseline calibree (sans reformes) :**
+**Trajectoire baseline calibree (sans reformes, v4.0) :**
 
 | Variable | 2025 | 2030 | 2035 |
 |----------|------|------|------|
-| Croissance | 0,9% | ~0,9% | ~0,8% |
-| Inflation | ~1,0% | ~2,0% | ~2,0% |
-| Chomage | 7,6% | ~7,5% | ~7,5% |
-| Dette/PIB | 115,6% | ~124% | ~132% |
-| Deficit/PIB | -5,0% | ~-5,5% | ~-6,0% |
+| Croissance | 0,9% | ~0,8% | ~0,5% |
+| Inflation | ~1,0% | ~1,1% | ~1,1% |
+| Chomage | 7,6% | ~7,5% | ~8,0% |
+| Dette/PIB | 115,6% | ~129,5% | ~150% |
+| Deficit/PIB | -5,1% | ~-5,4% | ~-7,5% |
 
 **Analyse :**
-- La dette monte a ~132% d'ici 2035 sans reformes
-- Le deficit se creuse sous l'effet des depenses (vieillissement, defense, sante)
+- La dette monte a ~150% d'ici 2035 sans reformes (~129,5% des 2030 — HCFP : >125% sans ajustement)
+- Le deficit se creuse sous l'effet des depenses (vieillissement, defense, sante) et de la boule de neige des interets
 - La croissance s'erode lentement via le debt drag
+- L'inflation effective reste sous le point fixe 1,5% (output gap negatif)
+- Avant la v4.0, la meme baseline affichait ~132% de dette en 2035 : l'ecart venait d'un « assainissement implicite gratuit » (~24 Md EUR/an) cree par l'ancienne mecanique d'assemblage, pas d'hypotheses economiques
 
 ---
 
@@ -618,9 +647,9 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 - Deficit/PIB passe de 5% a ~3,5%
 
 **Impact sur trajectoire :**
-- Debt drag reduit (dette stabilisee)
+- Debt drag reduit (trajectoire de dette tres en-dessous du statu quo ~150% en 2035)
 - Croissance maintenue a ~1,0%
-- **PA 2035 : ~92** (vs ~88 sans reforme)
+- PA legerement inferieur au statu quo a court terme (effort budgetaire), ecart resorbe ensuite
 
 ---
 
@@ -668,15 +697,15 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 
 1. **Maintenir le pouvoir d'achat** (croissance > inflation)
-2. **Stabiliser la dette** (deficit < 3,5% PIB)
+2. **Stabiliser la dette** (deficit < ~3% PIB au regime nominal v4.0)
 3. **Eviter les reformes structurelles**
 
 **IL FAUT CHOISIR :**
-- Accepter un PA qui baisse (-8 a -12 pts sur 10 ans)
+- Accepter un PA qui stagne (~+0,3 pt/an en statu quo : croissance faible, gains quasi nuls en fin d'horizon)
 - OU reformer (fiscal, structurel)
-- OU laisser filer la dette (insoutenable a ~132% en 2035)
+- OU laisser filer la dette (insoutenable : ~129,5% des 2030, ~150% en 2035)
 
-### Points Cles du Modele v3.1
+### Points Cles du Modele v4.0
 
 1. **Debt drag** : -0,005 pt par % au-dessus de 90% (compromis Reinhart-Rogoff / Herndon)
 2. **Multiplicateurs per-measure** : Weighted blend par mesure, pas de multiplicateur global
@@ -686,15 +715,21 @@ Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (recherche +0,0025pt/Md EUR, transition +0,002pt, renovation +0,001pt, education +0,001pt), delais et depreciation differencies, rendements decroissants ln(1+x), cap +0,20pt
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
+9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe 1,5% avec garde-fou BCE a 2,0%
 
 ### Validation
 
 Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les trajectoires baseline sont coherentes :
-- Dette 2035 baseline : ~132% PIB
-- Deficit 2035 baseline : ~-6,0% PIB
+- Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
+- Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
+- Deficit 2026 : -5,05% PIB (loi votee : -5,0%)
+- Dette 2030 : ~129,5% PIB (HCFP : >125% sans ajustement)
+- Dette 2035 baseline : ~150% PIB ; deficit 2035 : ~-7,5% PIB
 - Croissance potentielle : 1,0% (extensible a 1,2% avec investissement soutenu)
 - Chomage NAIRU : ~7,5%
-- Inflation cible : ~2,0% (BCE)
+- Inflation : point fixe 1,5% (`INFLATION_STRUCTURELLE`), effective statu quo ~1,1-1,4% ; cible BCE 2,0% = garde-fou de surchauffe
+
+Ces proprietes du statu quo sont verifiees en continu par `tests/test_baseline_properties.py` (croissance reelle des depenses chaque annee, absence de marche du ratio primaire, elasticite apparente 1,00 +/- 0,02, jump-off INSEE, non-regression des deltas mesure-vs-baseline).
 
 ---
 

@@ -1,7 +1,7 @@
 # METHODOLOGIE - Simulateur Budget France 2025-2035
 
-**Version** : 3.2
-**Date** : Mai 2026
+**Version** : 4.0
+**Date** : Juin 2026
 **Auteur** : Budget Lab France
 
 ---
@@ -48,6 +48,13 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 - **Bug fix abs()** : Les coupes budgetaires etaient incorrectement traitees comme des investissements (signe non pris en compte)
 - **Bug fix decay loop** : La boucle de decroissance etait piegeee a l'interieur du gate d'effort — les impulsions passees disparaissaient quand l'effort courant etait nul
 
+**Changements majeurs v4.0 (refonte « assemblage temporel ») :**
+- **Depenses** : recurrence unique chainee des l'annee 1 — `Dep(t) = Dep(t-1) x (1 + g_vol) x (1 + pi_idx)`. Plus de regime special 2026 (« bridging year ») ni de taux d'amorcage exogene. Indexation mixte : 54% de la depense suit l'inflation PASSEE (pensions, prestations), 46% le deflateur contemporain
+- **Recettes** : elasticite unitaire au PIB nominal contemporain (`ELASTICITE_PO_PIB = 1,0`, HCFP note 2023-01). Supprimes : elasticite differenciee par regime de croissance (1,00/1,06/1,08/1,12), erosion forfaitaire 0,2%/an, rustines de transition 2026
+- **Boucle annuelle reordonnee** : macro de l'annee (avec impulsion budgetaire de t-1) -> PIB (deflateur contemporain) -> chomage -> flux aux prix de l'annee -> mesures (impulsion stockee pour t+1)
+- **Phillips en point fixe** : formule `(1-rho) x pi* + rho x pi(t-1) + 0,35 x gap` — `INFLATION_STRUCTURELLE` (1,5%) devient le point de convergence REEL ; rappel BCE abaisse a 2,0% en garde-fou de surchauffe (l'ancien couple intercept/seuil 2,3% stabilisait a 2,33% a perpetuite)
+- **Baseline honnete** : deficit 2026 -5,05% (loi votee : -5,0%), dette 2030 ~129,5%, dette 2035 ~150% — l'« assainissement implicite gratuit » (~24 Md EUR/an) de l'ancien assemblage a disparu
+
 ---
 
 ## Hypotheses Demographiques
@@ -90,6 +97,19 @@ Le simulateur distingue trois logiques d'evolution :
 **Important v3.0** : Defense est a +3,0%/an reel (pas 5,5%), transition_eco a +2,5%/an (pas 4,0%). Ces corrections evitent une surestimation des depenses baseline.
 
 **Rabot uniforme (v3.0)** : Utilise desormais la base de depenses dynamique de l'annee en cours, et non plus la base figee 2025. Cela evite la sous-estimation de l'impact des coupes dans le temps.
+
+### Assemblage des Depenses (v4.0 — recurrence unique chainee)
+
+Depuis la refonte « assemblage temporel » (juin 2026), les taux par categorie ci-dessus ne portent plus le NIVEAU des depenses : ils servent de **cle de repartition** dans la croissance en volume agregee. La recurrence appliquee des l'annee 1 est :
+
+```
+Depenses(t) = Depenses(t-1) x (1 + g_vol) x (1 + pi_idx)
+```
+
+- `g_vol` : croissance en VOLUME — moyenne des taux reels par categorie (+ ajustements demographiques, sectoriels et cycliques), ponderee par les parts courantes de chaque categorie
+- `pi_idx` : indexation mixte des prix — **54%** de la depense suit l'inflation **PASSEE** (pensions et prestations revalorisees sur l'inflation N-1, realite institutionnelle francaise, FIPECO ; constante `INDEXATION_DEPENSES_INFLATION_PASSEE`), **46%** suit le deflateur **contemporain**
+
+Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'ancien regime special 2026 (« bridging year » a formule fermee + taux d'amorcage exogene, dont le niveau etait jete au passage a l'annee 2). C'est la pratique institutionnelle standard (CBO/OBR/DG Tresor) : l'annee 1 se distingue par ses donnees, jamais par sa mecanique. Resultat statu quo : croissance reelle des depenses primaires entre **+0,8% et +1,4% CHAQUE annee** (tendanciel officiel +1,0-1,2%/an), verifie par `tests/test_baseline_properties.py`.
 
 ---
 
@@ -679,26 +699,28 @@ Cap par mesure : 2% PIB (contraintes d'offre).
 
 Le moteur modelise l'inflation par une **courbe de Phillips augmentee**, forme `output_gap` uniquement (evite le double-comptage avec la loi d'Okun qui correle deja chomage et croissance).
 
-**Decomposition annuelle :**
+**Decomposition annuelle (v4.0) :**
 ```
-Inflation = Terme structurel + Inertie + 0,35 × Output gap + Ajustements (effort budgetaire, TVA) + Rappel BCE
+Inflation = (1 - 0,5) × 1,5% + 0,5 × Inflation precedente + 0,35 × Output gap + Ajustements (effort budgetaire, TVA) + Garde-fous BCE
 ```
 
 | Composante | Valeur | Source |
 |-----------|--------|--------|
-| **Terme structurel** | 1,5% | Inflation tendancielle France moyen terme. Mediane sourcee entre la sous-jacente INSEE 2025 (1,2%) et le coeur Banque de France projete / cible BCE (1,6 - 2,0%). Decision PO 2026-05-18, Option C (recoupement INSEE / Banque de France / BCE). Constante nommee `INFLATION_STRUCTURELLE` dans `budget_simulator/constants.py`. |
-| **Inertie** | 50% × inflation precedente | Terme AR(1) — anticipations + indexation. Seed annee 0 = `INFLATION_BASE = 1,0%` (distinct du terme structurel, c'est juste l'initialisation de la chaine recursive). |
+| **Point fixe (terme tendanciel)** | (1 - inertie) × 1,5% | Inflation tendancielle France moyen terme. Mediane sourcee entre la sous-jacente INSEE 2025 (1,2%) et le coeur Banque de France projete / cible BCE (1,6 - 2,0%). Decision PO 2026-05-18, Option C ; constante `INFLATION_STRUCTURELLE` dans `budget_simulator/constants.py`. **Correction v4.0** : dans un AR(1) `i(t) = c + rho × i(t-1)`, le point fixe est `c/(1-rho)`, pas `c`. L'ancienne forme posait c = 1,5% avec rho = 0,5, soit un attracteur cache a 3,0% que le rappel BCE bridait en equilibre permanent a 2,33%. La forme `(1-rho) × pi* + rho × i(t-1)` fait de 1,5% le point de convergence REEL. |
+| **Inertie** | 50% × inflation precedente | Terme AR(1) — anticipations + indexation. Seed annee 0 = `INFLATION_BASE = 1,0%` (distinct du point fixe, c'est juste l'initialisation de la chaine recursive). |
 | **Output gap** | 0,35 × ecart au potentiel | Phillips augmentee, coefficient unique. Recalibrage v3.0 evitant le double-comptage avec Okun. |
 | **Ajustement effort budgetaire** | Consolidation -0,12 × effort / Expansion +0,08 × \|effort\| | Effet desinflationniste d'une consolidation, inflationniste d'une expansion. Seuil de declenchement \|effort\| > 0,1% PIB. |
-| **Rappel BCE haut** | Si inflation > 2,3 % → blend 50/50 vers 2,0% (50 % ancien, 50 % cible) | Politique monetaire restrictive |
-| **Rappel BCE bas** | Si inflation < 0,8 % → blend 70/30 vers 2,0% (70 % ancien, 30 % cible — convergence plus lente) | Politique monetaire accommodante |
+| **Garde-fou BCE haut** | Si inflation > 2,0% (cible BCE, `BCE_CIBLE_INFLATION`) → blend 50/50 vers la cible | Garde-fou de SURCHAUFFE (v4.0) : contient l'inflation au-dessus de la cible. Ne se declenche plus en statu quo (point fixe 1,5%). |
+| **Garde-fou BCE bas** | Si inflation < 0,8 % → blend 70/30 vers la TENDANCIELLE 1,5% (70 % ancien, 30 % point fixe) | Politique monetaire accommodante, tiree vers le point fixe du regime (et non plus vers 2,0%, qui contredisait le point fixe). |
+
+**Pass-through TVA (v4.0)** : one-shot, applique l'annee qui SUIT l'entree en vigueur de la mesure — la macro de l'annee t est calculee AVANT les mesures de t, l'impact TVA transmis vient donc de t-1. Pas de re-pass-through les annees suivantes : la persistance passe par l'inertie (rho = 0,5).
 
 **Distinction importante — ne pas confondre** :
-- Le **terme structurel** (1,5%) est l'**intercept** de la courbe de Phillips : vers quoi pousse l'inflation quand output gap = 0 et hors rappel BCE.
-- La **cible BCE** (2,0%) est le **point de convergence forcee** atteint via le rappel monetaire au-dela des seuils 2,3% / 0,8%.
-- Les deux apparaissent dans le moteur — ce ne sont pas la meme valeur ni le meme mecanisme.
+- Le **point fixe** (1,5%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
+- La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
+- En statu quo, l'output gap legerement negatif tire l'inflation effective vers **~1,1-1,4%**, sous le point fixe.
 
-**Sources** : Blanchard & Leigh 2013 (sensibilites Phillips post-2008), INSEE Note de conjoncture juin 2025 (sous-jacente), Banque de France projections macroeconomiques 2025-2027, BCE Strategy Review 2021 (cible 2%).
+**Sources** : Blanchard & Leigh 2013 (sensibilites Phillips post-2008), INSEE Note de conjoncture juin 2025 (sous-jacente), Banque de France projections macroeconomiques 2025-2027, BCE Strategy Review 2021 (cible symetrique 2%).
 
 ### Mecanismes de Second Ordre
 
@@ -833,16 +855,22 @@ Le modele applique des plafonds pour eviter resultats irrealistes :
 - Positif = Amelioration competitivite entreprises
 - Negatif = Degradation competitivite
 
-### Calibration Baseline Validee (v3.0)
+### Calibration Baseline Validee (v4.0)
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
-| Dette | ~132% PIB | 2035 (sans reformes) |
-| Deficit | ~-6,0% PIB | 2035 (sans reformes) |
+| Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel +1,0-1,2%/an (LPFP/Commission) |
+| Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
+| Deficit | -5,05% PIB | 2026 (loi votee : -5,0%) |
+| Dette | ~129,5% PIB | 2030 (HCFP : >125% sans ajustement) |
+| Dette | ~150% PIB | 2035 (sans reformes) |
+| Deficit | ~-7,5% PIB | 2035 (sans reformes) |
 | Croissance potentielle | 1,0% | Baseline (extensible a 1,2%) |
 | Chomage NAIRU | ~7,5% | Structurel |
-| Inflation tendancielle | voir section « Inflation et Courbe de Phillips » | Terme structurel Phillips (`INFLATION_STRUCTURELLE`) |
-| Inflation cible BCE | ~2,0% | Point de convergence forcee (rappel monetaire) |
+| Inflation tendancielle | 1,5% = point fixe Phillips (`INFLATION_STRUCTURELLE`) | Effective statu quo ~1,1-1,4% (output gap negatif) |
+| Cible BCE | 2,0% (`BCE_CIBLE_INFLATION`) | Garde-fou de surchauffe, inactif en statu quo |
+
+**Note v4.0** : l'ancien assemblage affichait dette 2035 ~132% et deficit 2035 ~-6,0%. L'ecart ne venait pas d'hypotheses economiques differentes mais d'un « assainissement implicite gratuit » (~24 Md EUR/an) cree par la mecanique d'assemblage elle-meme (lag du deflateur sur les flux, couture de la « bridging year », erosion et elasticite differenciee des recettes). La baseline v4.0 est la trajectoire honnete « a politique inchangee » ; ces proprietes sont verifiees en continu par `tests/test_baseline_properties.py`.
 
 ---
 
@@ -935,9 +963,9 @@ Le profil temporel des multiplicateurs d'investissement public est `(0.45, 0.65,
 
 Le coefficient d'Okun France est fixe a -0.35. **Justification** : la fourchette OFCE/INSEE est large [-0.30, -0.55] selon la periode et la specification. Choisir le median -0.35 evite (a) le pessimisme de -0.55 (qui ferait exploser le chomage en recession), (b) l'optimisme de -0.30 (qui sous-estimerait la sensibilite emploi). Choix de prudence pedagogique.
 
-### L4. Elasticite fiscale en recession a 1.12 (asymetrique post-2008)
+### L4. Elasticite fiscale unitaire uniforme (pas de regime conjoncturel)
 
-L'elasticite des recettes fiscales au PIB est `1.12` en recession (`growth < -1%`), au-dessus du consensus OCDE Wolswijk 2008 (0.95-1.05). **Justification** : Belinga-Benedek-Mooij-Norregaard (FMI 2014) et Cotis-Eyssartier 2010 montrent une asymetrie post-2008 : l'IS et les plus-values mobilieres s'effondrent plus que proportionnellement en recession (-30 a -50% en 2008-2009 pour la France). Le 1.12 est donc empiriquement justifie pour la France post-crise, meme s'il sort de la moyenne OCDE pre-crise.
+L'elasticite des prelevements obligatoires au PIB nominal est `ELASTICITE_PO_PIB = 1.0`, uniforme sur tout le cycle (refonte v4.0). **Justification** : HCFP note 2023-01 (series 2002-2022) — elasticite observee 1,01-1,07, non significativement differente de 1 ; convention CBO/OBR/DG Tresor a politique inchangee. L'ancienne elasticite differenciee par regime de croissance (1,00/1,06/1,08/1,12) et l'erosion fiscale forfaitaire (0,2%/an, qui rendait l'elasticite de facto ~0,93) ont ete supprimees : l'asymetrie conjoncturelle joue taxe par taxe (IS, plus-values), pas en global, et aucune institution ne modelise une erosion globale des recettes. Une erosion reelle se modelise PAR TAXE, comme mesure explicite. Consequence : en statu quo, le ratio recettes/PIB est stable par construction (~52,2%) — c'est la definition d'un scenario a politique inchangee.
 
 ### L5. Plafond effort 2% PIB par mesure
 
@@ -968,6 +996,7 @@ Pour les mesures qui modifient les recettes fiscales (suppression de niches, hau
 - **Version 3.0** (27/03/2026) : Recalibrage complet multiplicateurs (weighted blend per-measure, DECAY_PROFILE), correction debt_drag (-0,005), correction chomage_gap_weight (0,0), ajout cicatrice austerite/crowding-out/boost potentiel/retour fiscal transition, suppression bonus sans base empirique, correction taux croissance depenses, validation baseline par agent economiste
 - **Version 3.1** (29/03/2026) : DECAY_PROFILE differencie (3 profils TAXES/TRANSFERS/INVEST), croissance potentielle supply-side dynamique par canal (recherche, transition eco, education) avec delais et depreciation, correction bug abs() (coupes traitees comme investissements), correction bug decay loop (impulsions passees disparaissaient si effort courant nul)
 - **Version 3.2** (18/05/2026) : Terme structurel de la courbe de Phillips releve de 1,2 % a 1,5 % (Option C, mediane sourcee INSEE sous-jacente 2025 / coeur Banque de France projete / cible BCE). Constante nommee `INFLATION_STRUCTURELLE` introduite dans `constants.py` (source unique, remplace le litteral magique `0.012`). Ajout d'une section dediee « Inflation et Courbe de Phillips » documentant l'ensemble des composantes du moteur d'inflation (terme structurel, inertie, output gap, ajustements, rappel BCE). Aucune autre modification de calibration. Golden master regenere et audite : delta cible coherent (effet denominateur PIB nominal favorable, aucun scenario ne diverge).
+- **Version 4.0** (10/06/2026) : Refonte « assemblage temporel ». Depenses : recurrence unique chainee des l'annee 1 (suppression du regime special 2026 et du taux d'amorcage exogene), indexation mixte 54% inflation passee / 46% contemporaine (`INDEXATION_DEPENSES_INFLATION_PASSEE`) ; les facteurs par categorie deviennent une cle de repartition. Recettes : elasticite unitaire au PIB nominal contemporain (`ELASTICITE_PO_PIB = 1,0`, HCFP note 2023-01) ; suppression de l'elasticite differenciee par regime (1,00/1,06/1,08/1,12), de l'erosion forfaitaire 0,2%/an et des rustines de transition 2026 (plancher 1,06, erosion nulle). Boucle annuelle reordonnee : macro de l'annee (impulsion budgetaire de t-1) -> PIB au deflateur contemporain -> chomage -> flux aux prix de l'annee -> mesures (impulsion stockee pour t+1) ; pass-through TVA one-shot l'annee qui suit l'entree en vigueur. Phillips corrigee en point fixe ((1-rho) x pi* + rho x pi(t-1)) : `INFLATION_STRUCTURELLE` (1,5%) devient le point de convergence reel, rappel BCE abaisse a 2,0% (`BCE_CIBLE_INFLATION`) en garde-fou de surchauffe, plancher accommodant tire vers la tendancielle. Baseline statu quo resultante (honnete) : croissance reelle des depenses +0,8/1,4%/an chaque annee, elasticite recettes 1,00, deficit 2026 -5,05%, dette 2030 ~129,5%, dette 2035 ~150%. Tests-proprietes du statu quo ajoutes (`tests/test_baseline_properties.py`).
 
 ---
 
