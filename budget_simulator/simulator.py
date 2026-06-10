@@ -13,8 +13,7 @@ from .constants import (
     PIB_BASE_2025_MD_EUR, DETTE_RATIO_2025, RECETTES_BASE_MD_EUR,
     DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_NAIRU, GINI_BASE,
     INFLATION_BASE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
-    TAUX_INTERET_BASE, AMORCAGE_DEPENSES_Y1,
-    EROSION_RECETTES,
+    TAUX_INTERET_BASE,
 )
 from .handlers.additionnels import AdditionnelsMixin
 from .handlers.competitivite import CompetitiviteMixin
@@ -392,8 +391,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             'croissance_potentielle': CROISSANCE_POTENTIELLE,
             'croissance_2025': CROISSANCE_2025,
             'taux_interet_base': TAUX_INTERET_BASE,
-            'amorcage_depenses_y1': AMORCAGE_DEPENSES_Y1,
-            'erosion_recettes': EROSION_RECETTES,
+            # amorcage_depenses_y1 / erosion_recettes : RETIRÉS (refonte 2026-06).
+            # L'amorçage Y1 disparaît avec la bridging year (récurrence unique
+            # dès Y1) ; l'érosion forfaitaire disparaît avec l'élasticité
+            # unitaire (cf. tombstones dans constants.py).
         }
 
         self.economic_coeffs = {
@@ -440,14 +441,26 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             'transition_eco': 15,          # MaPrimeRénov
 
             # AUTRES
-            'autres': 84                   # Résiduelle ré-ancrée INSEE 2025 : primaire 1649,3 (=1714-64,7) − 1565 catégories identifiées ≈ 84
+            'autres': 84.3                 # Résiduelle ré-ancrée INSEE 2025 : primaire 1649,3 (=1714−64,7) − 1565 catégories identifiées = 84,3 EXACT (refonte 2026-06 : Σ catégories == primaire officiel, testé par test_baseline_properties::test_d)
         }
 
-        # Facteurs de compounding itératif par catégorie de dépense.
-        # Chaque année, le facteur est multiplié par (1 + real_growth) de cette année-là,
-        # ce qui évite le biais rétroactif de (1 + g)^N qui applique le taux modifié
-        # de l'année courante sur toutes les années passées.
+        # Facteurs de croissance réelle cumulés par catégorie. Depuis la refonte
+        # « assemblage temporel » (2026-06), ils ne portent PLUS le niveau des
+        # dépenses (porté par le chaînage depenses_primaires_precedentes) : ils
+        # servent de clé de répartition (poids dans g_vol) et de base dynamique
+        # pour le rabot Montaigne (consommateur cross-mixin).
         self._spending_factors = {cat: 1.0 for cat in self.spending_categories_base}
+
+        # Niveau nominal ORGANIQUE (avant mesures, hors intérêts) de l'année
+        # précédente — état chaîné de la récurrence unique des dépenses
+        # (engine/expenditures.py). Init = Σ catégories = primaire INSEE 1649,3.
+        self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
+
+        # Impulsion budgétaire de l'année précédente, consommée par la macro de
+        # l'année courante (lag standard d'un an — refonte 2026-06, étape 1 du
+        # bloc REFONTE de simulate()).
+        self._budget_effort_prev = 0.0
+        self._parts_prev = {'depenses': 0.0, 'investissement': 0.0}
 
         # Sauvegarde de la baseline initiale pour reset entre simulations.
         # Les réformes structurelles ajustent spending_categories_base pour que
@@ -613,6 +626,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # --- Spending baseline et compound itératif ---
         self.spending_categories_base = dict(self._spending_categories_base_initial)
         self._spending_factors = {cat: 1.0 for cat in self.spending_categories_base}
+        self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
+        self._budget_effort_prev = 0.0
+        self._parts_prev = {'depenses': 0.0, 'investissement': 0.0}
 
         # --- Attributs créés dynamiquement pendant la simulation ---
         if hasattr(self, '_chomage_params_prev'):

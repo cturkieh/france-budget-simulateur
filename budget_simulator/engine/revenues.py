@@ -1,79 +1,58 @@
-"""Bloc moteur — Recettes publiques (élasticité + plafond de Laffer).
+"""Bloc moteur — Recettes publiques (élasticité unitaire + plafond de Laffer).
 
-Méthode couverte :
-- ``calculate_revenues`` : recettes organiques de l'année à partir de
-  la base de l'année précédente, de la croissance nominale et d'une
-  élasticité fiscale dépendant du régime de croissance, avec érosion
-  fiscale et plafond de Laffer (zones 55 / 60 / 65 % du PIB).
+Refonte « assemblage temporel » (2026-06) — remplace l'ancienne élasticité
+différenciée par régime de croissance (1,00/1,06/1,08/1,12), l'érosion
+fiscale forfaitaire (EROSION_RECETTES = 0,2 %/an, qui rendait l'élasticité
+de facto ~0,93) et les deux rustines de transition 2026 (plancher 1,06 +
+érosion nulle, « dynamisme post-COVID » jamais ré-examiné depuis oct. 2025)
+par la convention institutionnelle :
+
+    Recettes_t = Recettes_{t-1} × (1 + n_t × ELASTICITE_PO_PIB)
+
+avec ``n_t`` = croissance NOMINALE CONTEMPORAINE du PIB ((1+g)(1+π)−1,
+exactement la croissance du dénominateur) et ``ELASTICITE_PO_PIB`` = 1,0
+(HCFP note 2023-01 : élasticité observée 1,01-1,07, non significativement
+différente de 1 ; CBO/OBR/Trésor ne modélisent JAMAIS une érosion globale —
+les érosions réelles sont par taxe, à porter en mesures si souhaité).
+
+En statu quo, le ratio recettes/PIB est ainsi STABLE par construction
+(c'est la définition d'un scénario à politique inchangée) ; il ne bouge
+que sous les zones de Laffer (garde-fous hors statu quo) et les mesures.
 
 État partagé ``self.recettes_precedentes`` — invariant non évident à
 NE PAS « corriger » sans relire ``simulate()`` :
 - Lu en entrée (base de croissance organique) puis réécrit en fin de
-  méthode avec les recettes calculées. ``calculate_revenues`` est le
-  SEUL producteur de cet état dans la boucle en régime établi :
-  l'écriture finale porte réellement la persistance N→N+1 (contrairement
-  à ``InflationMixin``, où c'est l'orchestrateur qui re-persiste).
-- ``recettes_precedentes`` reste **volontairement la base ORGANIQUE,
-  AVANT mesures**. ``simulate()`` n'y réinjecte délibérément PAS le
-  delta des mesures : le faire recréerait un double-comptage par
-  compounding (une mesure TVA à +7 Md€ dériverait à ~+77 Md€ sur 10 ans
-  au lieu de rester ~+8 Md€). Cf la NOTE « Revenue compounding
-  DÉSACTIVÉ » dans ``simulate()``. Un futur mainteneur qui « rebranche »
-  le delta sur cet état réintroduit ce bug — d'où la nature load-bearing
-  de l'invariant.
-- Init / reset relèvent de l'hôte ``BudgetSimulatorV45``
-  (``__init__`` / ``_reset_state`` / bloc bootstrap ``year_idx == 0``
-  de ``simulate()`` = année 2025, amorçage ``recettes_base`` HORS de
-  cette méthode), hors périmètre du split (non touché). Année 2026
-  (``year_idx == 1``) passe en revanche bien par cette méthode, mais
-  y suit une branche de TRANSITION dédiée (``if year == 1`` :
-  élasticité plancher 1.06, érosion nulle) — ce n'est pas le chemin
-  nominal.
+  méthode. SEUL producteur de cet état dans la boucle en régime établi.
+- Reste **volontairement la base ORGANIQUE, AVANT mesures**. ``simulate()``
+  n'y réinjecte délibérément PAS le delta des mesures : le faire
+  recréerait un double-comptage par compounding (une mesure TVA à +7 Md€
+  dériverait à ~+77 Md€ sur 10 ans au lieu de rester ~+8 Md€). Cf la NOTE
+  « Revenue compounding DÉSACTIVÉ » dans ``simulate()``.
+- Init / reset relèvent de l'hôte (année 0 = ``recettes_base`` INSEE).
 
-Lecture seule : ``self.base_params['erosion_recettes']``.
 Sink de logs : ``self.debug_logs`` via ``_log_debug``.
 Tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 from .._logging import _log_debug
+from ..constants import ELASTICITE_PO_PIB
 
 
 class RevenuesMixin:
-    """Bloc moteur — Recettes publiques (élasticité + plafond de Laffer)."""
+    """Bloc moteur — Recettes publiques (élasticité unitaire + plafond de Laffer)."""
 
     def calculate_revenues(self, gdp: float, growth: float, inflation: float, year: int) -> float:
-        """Calcul des recettes avec élasticité CORRIGÉE"""
+        """Recettes organiques de l'année (croissance nominale contemporaine, élasticité 1).
 
-        # Croissance nominale
-        nominal_growth = growth + inflation
+        ``growth`` / ``inflation`` = valeurs CONTEMPORAINES de l'année simulée
+        (l'orchestrateur les calcule désormais AVANT les flux).
+        """
+        # Croissance nominale exacte du PIB (composée, pas additive : cohérente
+        # avec gdp_nominal = gdp_real × deflateur du dénominateur)
+        nominal_growth = (1 + growth) * (1 + inflation) - 1
 
-        # Élasticité de base selon croissance
-        if growth > 0.02:
-            elasticity_base = 1.08
-        elif growth < -0.01:
-            elasticity_base = 1.12
-        elif growth < 0:
-            elasticity_base = 1.06
-        else:
-            elasticity_base = 1.00
+        revenues = self.recettes_precedentes * (1 + nominal_growth * ELASTICITE_PO_PIB)
 
-        # Ajustement transition 2026 - Élasticité renforcée
-        if year == 1:
-            # 2026: Élasticité minimale pour lisser la transition (dynamisme fiscal post-COVID)
-            elasticity = max(elasticity_base, 1.06)
-        else:
-            elasticity = elasticity_base
-
-        revenues = self.recettes_precedentes * (1 + nominal_growth * elasticity)
-
-        # Érosion fiscale (niches, optimisation)
-        # Transition 2026: Pas d'érosion (rattrapage fiscal post-COVID)
-        if year == 1:
-            erosion = 0.0
-        else:
-            erosion = self.base_params['erosion_recettes']
-        revenues *= (1 - erosion)
-
-        # Plafond de Laffer
+        # Plafond de Laffer (garde-fous, inchangés — inertes en statu quo ~52 %)
         revenue_ratio = revenues / gdp
 
         if revenue_ratio > 0.65:

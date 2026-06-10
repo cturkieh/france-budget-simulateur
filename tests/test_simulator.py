@@ -61,9 +61,10 @@ def test_calculate_revenues(simulator):
     gdp = 2994
     year = 1
     revenues = simulator.calculate_revenues(gdp, growth, inflation, year)
-    # Year 1: elasticity = max(1.00, 1.06) = 1.06, erosion = 0 (transition 2026)
-    # revenues = 1545 * (1 + 0.02 * 1.06) = 1545 * 1.0212 = 1577.754
-    expected = 1545 * (1 + 0.02 * 1.06)
+    # Refonte 2026-06 : élasticité unitaire (ELASTICITE_PO_PIB=1.0, HCFP) sur la
+    # croissance nominale COMPOSÉE contemporaine ; plus de plancher Y1 ni d'érosion.
+    # revenues = 1545 * (1 + ((1.01*1.01)-1) * 1.0) = 1545 * 1.0201 = 1576.05
+    expected = 1545 * (1 + ((1 + growth) * (1 + inflation) - 1) * 1.0)
     assert abs(revenues - expected) < 0.1
 
 def test_validate_year():
@@ -109,14 +110,14 @@ def test_calculate_inflation(simulator):
     }
     simulator.inflation_precedente = 0.01  # Inflation précédente 1.0%
     with patch('numpy.random.normal', return_value=0):
-        inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
-    # Calcul exact (engine/inflation.py, INFLATION_STRUCTURELLE=0.015, inertia=0.50,
-    # random patché à 0) :
-    #   base       = 0.015 + 0.50*0.01 + 0.35*(-0.015)        = 0.01475
-    #   + effort   = 0.08*abs(-0.007)               (+0.00056) = 0.01531
-    #   + TVA (y1) = min(0.0071*0.3, 0.002)         (+0.002)   = 0.01731
-    #   pas de seuil défla/infla, pas de rappel BCE (0.008 ≤ 0.01731 ≤ 0.023)
-    expected = 0.01731
+        inflation = simulator.calculate_inflation(year=2, economic_state=economic_state)
+    # Calcul exact (engine/inflation.py, refonte 2026-06 : intercept ×(1−ρ),
+    # pass-through TVA gaté year==2 — impacts t−1 —, random patché à 0) :
+    #   base       = (1-0.50)*0.015 + 0.50*0.01 + 0.35*(-0.015) = 0.00725
+    #   + effort   = 0.08*abs(-0.007)                (+0.00056) = 0.00781
+    #   + TVA (y2) = min(0.0071*0.3, 0.002)          (+0.002)   = 0.00981
+    #   pas de seuil défla/infla, pas de rappel BCE (0.008 ≤ 0.00981 ≤ 0.020)
+    expected = 0.00981
     assert abs(inflation - expected) < 0.001, f"Expected {expected}, got {inflation:.5f}"
 
 # Test pour validate_trajectory (basé sur Status Quo : croissance moyenne 0.8%, dette 161%, Okun 10/10)
@@ -223,10 +224,11 @@ def test_simulate_full_run(default_simulator):
 def test_calculate_expenditures(simulator):
     gdp = 3966  # PIB Y10 Status Quo
     inflation = 0.022
+    inflation_prev = 0.020  # part indexée sur l'inflation passée (refonte 2026-06)
     unemployment = 0.0806
     year = 10
     output_gap = -0.004
-    spending = simulator.calculate_expenditures(gdp, inflation, unemployment, year, output_gap)
+    spending = simulator.calculate_expenditures(gdp, inflation, inflation_prev, unemployment, year, output_gap)
     # Expenditures should be reasonable for Y10
     # Ratio dépenses/PIB calculé sur PIB courant (Fix 6), valeurs plus basses qu'avec PIB fixe
     assert 1500 < spending < 2200, f"Expected spending in 1500-2200 range, got {spending:.0f}"

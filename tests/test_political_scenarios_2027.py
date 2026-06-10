@@ -147,15 +147,22 @@ def test_aucune_collision_id_lfi_2026():
 # Effet AUDITÉ : PA 2029 plf_2026 103,4 → 100,9 (Δ -2,5, hors tolérance ±1,5).
 # Source : OFCE pbrief n°154 « Budget 2026 : un déficit de compromis ». Golden
 # master régénéré dans le même commit. Aucune logique moteur modifiée.
+# RECALIBRAGE refonte « assemblage temporel » 2026-06-10 : le PA statu quo 2029
+# passe de ~100,3 à ~102,9 (+2,6) — l'inflation effective corrigée (~1,2 % vs
+# 2,33 % artificiel) libère du PA réel (+0,37 %/an, fourchette historique INSEE
+# du RDB réel/tête). Les ÉCARTS entre scénarios sont préservés à ±0,9 pt
+# (gating one-time intact : plf +0,1, lr +1,2, renaissance +3,0, rn +4,8,
+# ps +6,8, lfi +9,9 vs statu quo) ; le léger resserrement vient de l'impulsion
+# macro laguée d'un an (effets PA des mesures décalés, pleine ampleur à 2030).
 EXPECTED_PA_2029_FULL = {
-    "plf_2026": 100.9,
-    "rn_2027": 105.8,
-    "lfi_2027": 111.0,
-    "renaissance_2027": 104.1,
-    "lr_2027": 100.9,
-    "ps_2027": 107.9,
-    "im_rabot_2029": 99.4,
-    "im_competitivite_2029": 103.4,
+    "plf_2026": 103.0,
+    "rn_2027": 107.7,
+    "lfi_2027": 112.8,
+    "renaissance_2027": 105.9,
+    "lr_2027": 104.1,
+    "ps_2027": 109.7,
+    "im_rabot_2029": 100.3,
+    "im_competitivite_2029": 104.8,
 }
 
 

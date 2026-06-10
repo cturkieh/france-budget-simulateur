@@ -21,8 +21,14 @@ def test_statut_quo_pa_stable(statu_quo):
     print(f"\nPA 2025: {pa_2025:.1f} / PA 2035: {pa_2035:.1f} "
           f"(variation {pa_2035 - pa_2025:+.1f} pts)")
 
-    # Tolérance ±2 points (oscillations normales)
-    assert abs(pa_2035 - 100.0) < 2.0, f"PA 2035 ({pa_2035:.1f}) trop éloigné de 100"
+    # RECALIBRAGE refonte 2026-06-10 : le statu quo dégage désormais +0,37 %/an
+    # de PA réel (mesuré 103,8 en 2035) — l'ancien « plat à 100 » était un
+    # artefact de l'inflation forcée à 2,33 % (g − 0,46·π ≈ 0). Avec π ~1,2 %,
+    # pa_macro_net ≈ +0,35 %/an, dans la fourchette historique INSEE du RDB
+    # réel par tête (+0,3-0,8 %/an hors crises). Fenêtre [100 ; 107] : borne
+    # basse = pas de retour de l'austérité fantôme (PA écrasé), haute = pas
+    # d'emballement (>0,7 %/an non justifiable en statu quo mou).
+    assert 100.0 < pa_2035 < 107.0, f"PA 2035 ({pa_2035:.1f}) hors fenêtre statu quo [100;107]"
 
 
 def test_autres_indicateurs_inchanges(statu_quo):
@@ -36,7 +42,11 @@ def test_autres_indicateurs_inchanges(statu_quo):
           f"Dette/PIB {dette_2035:.1f}% / Déficit/PIB {deficit_2035:.1f}%")
 
     # Vérifications de cohérence (plages élargies pour robustesse)
-    assert 1.5 <= inflation_2035 <= 3.0, f"Inflation hors plage : {inflation_2035:.2f}%"
+    # Inflation : plage recalée [0,8 ; 2,2] (refonte 2026-06-10) — point fixe
+    # Phillips = 1,5 % (intercept ×(1−ρ) corrigé) et output gap négatif
+    # persistant en statu quo → effective ~1,1-1,4 %. L'ancien plancher 1,5 %
+    # encodait l'attracteur artificiel 2,33 %.
+    assert 0.8 <= inflation_2035 <= 2.2, f"Inflation hors plage : {inflation_2035:.2f}%"
     assert 0.3 <= croissance_2035 <= 1.5, f"Croissance hors plage : {croissance_2035:.2f}%"
     # Dette plus basse avec Fix 6 (ratio dépenses/PIB sur PIB courant, pas fixe)
     # Dépenses maîtrisées → possible excédent budgétaire

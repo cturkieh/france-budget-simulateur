@@ -369,29 +369,94 @@ class OrchestratorMixin:
 
                 _log_debug(self.debug_logs, f"Y{year_idx}: Output gap = {output_gap:.3f}")
 
-                # Calcul recettes/dépenses base
-                revenues_base = self.calculate_revenues(
-                    gdp_nominal,
-                    self.croissance_precedente,
-                    self.inflation_precedente,
-                    year_idx
-                )
+                # ============================================================
+                # REFONTE « assemblage temporel » (2026-06) — ordre de calcul :
+                #   1. macro de l'année (growth, inflation) avec l'IMPULSION
+                #      BUDGÉTAIRE DE t−1 (lag standard : casse la circularité
+                #      mesures→macro→flux→mesures sans recherche de point fixe) ;
+                #   2. PIB nominal de l'année (déflateur contemporain) ;
+                #   3. chômage contemporain (Okun sur la croissance de l'année) ;
+                #   4. flux budgétaires AUX PRIX DE L'ANNÉE ;
+                #   5. mesures de l'année, impulsion stockée pour t+1.
+                # L'ancien ordre calculait les flux avec growth/inflation de
+                # t−1 pendant que le PIB portait celles de t : le numérateur
+                # des ratios vivait un an derrière le dénominateur (bug
+                # d'assemblage, cf. docs/plans/refonte-annee1-assemblage.md
+                # du repo parent, diagnostic 2026-06-10).
+                # ============================================================
 
-                # IMPORTANT: Passer output_gap pour cyclicité
+                # π_{t−1} sauvegardée AVANT calculate_inflation (qui réécrit
+                # self.inflation_precedente en interne) : alimente la part
+                # indexée sur l'inflation passée dans calculate_expenditures.
+                inflation_prev_year = self.inflation_precedente
+
+                # --- 1. Macro de l'année, impulsion budgétaire de t−1 ---
+                economic_state_growth = {
+                    'output_gap': output_gap,
+                    'unemployment_gap': unemployment_gap,
+                    'effort_budgetaire': self._budget_effort_prev,
+                    'part_depenses': self._parts_prev['depenses'],
+                    'part_investissement': self._parts_prev['investissement'],
+                    'debt_ratio': debt_ratio,
+                    'interest_rate': self.base_params['taux_interet_base'],
+                    'unemployment': unemployment,
+                    'deficit_ratio': deficit / gdp_nominal  # déficit t−1 / PIB fin t−1
+                }
+                growth = self.calculate_growth(year_idx, economic_state_growth)
+                _log_debug(self.debug_logs, f"Y{year_idx}: Croissance = {growth:.3f}")
+
+                economic_state_inflation = {
+                    'output_gap': output_gap,
+                    'unemployment_gap': unemployment_gap,
+                    'effort_budgetaire': self._budget_effort_prev,
+                    # Impacts de t−1 (_last_impacts) : les mesures de t ne sont
+                    # pas encore calculées. Pass-through TVA gaté year == 2
+                    # dans calculate_inflation (transmission l'année suivante).
+                    'tva_impact': self._last_impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal if year_idx == 2 else 0
+                }
+                inflation = self.calculate_inflation(year_idx, economic_state_inflation)
+                _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")
+
+                # [SUPPRIMÉ Phase 2 — 2026-05-16, option B] Un ajustement
+                # d'élasticité recettes sur la VARIATION d'inflation se
+                # trouvait après le calcul d'inflation (`revenues_after *= 1 +
+                # (inflation - inflation_precedente) * 0.5`). NE PAS
+                # réactiver : (1) mort par construction — calculate_inflation
+                # réécrit self.inflation_precedente avant ce point (0/10 ans) ;
+                # (2) double-comptage — calculate_revenues (engine/revenues.py)
+                # modélise déjà inflation→recettes via l'élasticité au PIB
+                # nominal. Réactivation = biais optimiste systématique de la
+                # dette. Chiffrage + décision : docs/REFACTOR_SPLIT_PLAN.md
+                # (item Phase 2 résolu).
+
+                # --- 2. PIB de l'année (déflateur contemporain) ---
+                gdp_real *= (1 + growth)
+                self.deflateur_cumule *= (1 + inflation)
+                gdp_nominal = gdp_real * self.deflateur_cumule
+                _log_debug(self.debug_logs, f"Y{year_idx}: PIB nominal = {gdp_nominal:.1f}")
+
+                # --- 3. Chômage contemporain (impacts directs des mesures :
+                #        t−1 via _last_impacts, cohérent avec l'impulsion macro
+                #        laguée d'un an) ---
+                unemployment = self.calculate_unemployment(growth, unemployment, year_idx, self._last_impacts)
+
+                # --- 4. Flux budgétaires aux prix de l'année ---
+                revenues_base = self.calculate_revenues(gdp_nominal, growth, inflation, year_idx)
                 spending_base = self.calculate_expenditures(
                     gdp_nominal,
-                    self.inflation_precedente,
+                    inflation,            # déflateur contemporain (part non indexée)
+                    inflation_prev_year,  # part indexée sur l'inflation passée
                     unemployment,
                     year_idx,
-                    output_gap  # AJOUT pour cyclicité
+                    output_gap
                 )
 
                 _log_debug(self.debug_logs, f"Y{year_idx}: Base: rec={revenues_base:.1f}, dep={spending_base:.1f}")
 
-                # Application des mesures
+                # --- 5. Mesures de l'année (handlers à l'inflation contemporaine) ---
                 spending_after, revenues_after, impacts = self.apply_measures(
                     year, spending_base, revenues_base, gdp_nominal,
-                    self.inflation_precedente, unemployment
+                    inflation, unemployment
                 )
 
                 self._last_impacts = impacts
@@ -437,51 +502,11 @@ class OrchestratorMixin:
                 _log_debug(self.debug_logs, f"Y{year_idx}: Effort budgétaire = {budget_effort:.3f}")
                 _log_debug(self.debug_logs, f"Composition: rec={part_revenue:.2f}, dep={part_spending:.2f}, inv={part_investment:.2f}")
 
-                # Calcul croissance
-                economic_state_growth = {
-                    'output_gap': output_gap,
-                    'unemployment_gap': unemployment_gap,
-                    'effort_budgetaire': budget_effort,
-                    'part_depenses': part_spending,
-                    'part_investissement': part_investment,
-                    'debt_ratio': debt_ratio,
-                    'interest_rate': self.base_params['taux_interet_base'],
-                    'unemployment': unemployment,
-                    'deficit_ratio': deficit / gdp_nominal if year_idx > 0 else -0.054
-                }
-
-                growth = self.calculate_growth(year_idx, economic_state_growth)
-                _log_debug(self.debug_logs, f"Y{year_idx}: Croissance = {growth:.3f}")
-
-                # Calcul inflation
-                economic_state_inflation = {
-                    'output_gap': output_gap,
-                    'unemployment_gap': unemployment_gap,
-                    'effort_budgetaire': budget_effort,
-                    'tva_impact': impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal if year_idx == 1 else 0
-                }
-
-                inflation = self.calculate_inflation(year_idx, economic_state_inflation)
-                _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")
-
-                # [SUPPRIMÉ Phase 2 — 2026-05-16, option B] Un ajustement
-                # d'élasticité recettes sur la VARIATION d'inflation se
-                # trouvait ici (`revenues_after *= 1 + (inflation -
-                # inflation_precedente) * 0.5`). NE PAS réactiver : (1) mort
-                # par construction — calculate_inflation réécrit
-                # self.inflation_precedente avant ce point (0/10 ans) ;
-                # (2) double-comptage — calculate_revenues (engine/revenues.py)
-                # modélise déjà inflation→recettes via l'élasticité au PIB
-                # nominal. Réactivation = biais optimiste systématique de la
-                # dette. Chiffrage + décision : docs/REFACTOR_SPLIT_PLAN.md
-                # (item Phase 2 résolu).
-
-                # Mise à jour PIB
-                gdp_real *= (1 + growth)
-                self.deflateur_cumule *= (1 + inflation)
-                gdp_nominal = gdp_real * self.deflateur_cumule
-
-                _log_debug(self.debug_logs, f"Y{year_idx}: PIB nominal = {gdp_nominal:.1f}")
+                # Impulsion budgétaire de l'année stockée pour la macro de t+1
+                # (lag standard d'un an, cf. en-tête du bloc REFONTE ci-dessus :
+                # growth/inflation de t+1 consommeront cet effort et ces parts).
+                self._budget_effort_prev = budget_effort
+                self._parts_prev = {'depenses': part_spending, 'investissement': part_investment}
 
                 revenues = revenues_after
                 spending = spending_after
@@ -491,8 +516,9 @@ class OrchestratorMixin:
                 interests, interest_rate = self.calculate_interest_payment(debt, marginal_rate)
                 deficit = revenues - spending - interests
 
-                # Chômage (avec impacts directs mesures)
-                unemployment = self.calculate_unemployment(growth, unemployment, year_idx, impacts)
+                # (Chômage : calculé plus haut, étape 3 du bloc REFONTE — avant
+                # les flux, pour que la dépense chômage de l'année suive le taux
+                # contemporain.)
 
                 # Dette
                 nominal_growth = growth + inflation

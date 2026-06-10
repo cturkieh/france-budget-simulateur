@@ -67,11 +67,16 @@ def test_simulation_complete():
     dette_2035 = row_2035['Dette/PIB %']
     deficit_2035 = row_2035['Déficit/PIB %']
 
-    assert abs(dette_2035 - 132.0) <= 3.0, (
-        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~132% (post triple-audit DG Trésor)"
+    # RECALIBRAGE refonte « assemblage temporel » 2026-06-10 (mesuré sans bruit :
+    # 151,4 % / -7,26 %) : baseline honnête — déficit ~5-5,5 % jamais consolidé
+    # (l'assainissement fantôme de ~24 Md€/an a disparu avec le lag) + inflation
+    # effective ~1,1-1,4 % (PIB nominal moins gonflé). Ancrage : 2030 = 129,5 %,
+    # cohérent HCFP « >125 % sans ajustement ».
+    assert abs(dette_2035 - 151.4) <= 3.0, (
+        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~151.4% (baseline honnête post-refonte)"
     )
-    assert abs(deficit_2035 - (-6.0)) <= 1.5, (
-        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-6.0% (post triple-audit DG Trésor)"
+    assert abs(deficit_2035 - (-7.26)) <= 1.5, (
+        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-7.26% (baseline honnête post-refonte)"
     )
 
 

@@ -53,9 +53,21 @@ class InflationMixin:
         # Phillips augmentée (forme output_gap uniquement, évite le double-comptage
         # output_gap/unemployment_gap corrélés via Okun)
         # Coefficient 0.35 recalibré : ancienne sensibilité totale ≈ 0.08 + 0.10/0.35 ≈ 0.37
+        #
+        # Intercept × (1 − inertie) — refonte 2026-06 : dans un AR(1)
+        # i_t = c + ρ·i_{t-1}, le point fixe est c/(1−ρ), PAS c. L'ancien code
+        # posait c = INFLATION_STRUCTURELLE (1,5 %) avec ρ = 0,5, soit un
+        # attracteur caché à 3,0 % que le rappel BCE bridait en équilibre
+        # permanent à 2,33 % (« politique restrictive » chaque année du statu
+        # quo). La forme correcte (1−ρ)·π* + ρ·i_{t-1} fait de
+        # INFLATION_STRUCTURELLE le point fixe RÉEL (1,5 %) : l'inflation
+        # converge vers la tendancielle et la BCE redevient un garde-fou de
+        # surchauffe, conformément à l'intention de calibration (décision PO
+        # 2026-05-18 Option C, jamais traduite correctement en formule).
+        inertia = self.economic_coeffs['inflation_inertia']
         inflation = (
-            INFLATION_STRUCTURELLE +
-            self.economic_coeffs['inflation_inertia'] * self.inflation_precedente +
+            (1 - inertia) * INFLATION_STRUCTURELLE +
+            inertia * self.inflation_precedente +
             0.35 * output_gap
         )
 
@@ -78,17 +90,28 @@ class InflationMixin:
             inflation = min(inflation * 1.08, 0.030)
             _log_debug(self.debug_logs, f"Y{year}: Tensions inflationnistes")
 
-        if year == 1 and tva_impact > 0.003:
+        # Pass-through TVA : l'année qui SUIT l'entrée en vigueur (year == 2),
+        # car depuis la refonte 2026-06 l'inflation de t est calculée AVANT les
+        # mesures de t — le tva_impact transmis vient des impacts de t−1
+        # (transmission progressive aux prix, cohérente avec l'impulsion
+        # budgétaire laguée d'un an dans calculate_growth).
+        if year == 2 and tva_impact > 0.003:
             tva_pass_through = min(tva_impact * 0.3, 0.002)
             inflation += tva_pass_through
             _log_debug(self.debug_logs, f"Y{year}: Impact TVA +{tva_pass_through*100:.2f}%")
 
-        # Rappel BCE renforcé
-        if inflation > 0.023:
+        # Rappel BCE — garde-fou de SURCHAUFFE (refonte 2026-06) : seuil abaissé
+        # de 2,3 % à 2,0 % (cible BCE) pour qu'il CONTIENNE l'inflation au-dessus
+        # de la cible au lieu de servir de thermostat permanent (l'ancien couple
+        # attracteur 3 % / seuil 2,3 % stabilisait à 2,33 % à perpétuité).
+        # En statu quo (point fixe 1,5 %), il ne se déclenche plus.
+        if inflation > 0.020:
             inflation = 0.50 * inflation + 0.50 * 0.02
             _log_debug(self.debug_logs, f"Y{year}: Politique monétaire restrictive")
         elif inflation < 0.008:
-            inflation = 0.70 * inflation + 0.30 * 0.02
+            # Plancher accommodant : tiré vers la TENDANCIELLE (et non plus 2 %,
+            # qui contredisait le point fixe du régime).
+            inflation = 0.70 * inflation + 0.30 * INFLATION_STRUCTURELLE
             _log_debug(self.debug_logs, f"Y{year}: Politique monétaire accommodante")
 
         inflation += np.random.normal(0, 0.0005)

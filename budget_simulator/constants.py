@@ -37,28 +37,43 @@ GINI_BASE = 0.29  # Gini coefficient France
 # Ce N'EST PAS l'intercept de Phillips (cf. INFLATION_STRUCTURELLE ci-dessous)
 # ni la cible BCE (ancrage de convergence ~2,0 %, dans le rappel BCE inflation.py).
 INFLATION_BASE = 0.010  # graine inertie inflation année 0 (init inflation_precedente)
-# INFLATION_STRUCTURELLE : terme intercept (constante additive) de la courbe de
-# Phillips augmentée — engine/inflation.py. C'est l'inflation tendancielle de
-# moyen terme France vers laquelle pousse le régime quand l'output gap est
-# nul/négatif, avant écrêtage par le rappel BCE. Source unique nommée
-# (remplace l'ancien littéral magique 0.012).
+# INFLATION_STRUCTURELLE : inflation TENDANCIELLE de moyen terme France =
+# POINT FIXE de la courbe de Phillips augmentée (engine/inflation.py).
+# Refonte 2026-06 : la formule applique désormais (1−ρ)·π* + ρ·π_{t-1}, donc
+# cette constante EST le point de convergence du régime (1,5 %). L'ancienne
+# forme (π* + ρ·π_{t-1}) en faisait un intercept brut → attracteur caché
+# c/(1−ρ) = 3,0 %, bridé par le rappel BCE en équilibre permanent à 2,33 % :
+# la doc promettait 1,5 % mais l'arithmétique livrait 2,33 (piège intercept
+# AR(1) ≠ point fixe, diagnostic 2026-06-10).
 # Calibration : 1,5 % = médian sourcé entre la sous-jacente INSEE 2025 (+1,2 %)
 # et le cœur Banque de France projeté / cible BCE (1,6-2,0 %). Décision PO
-# 2026-05-18, Option C (recoupement INSEE / Banque de France / BCE).
-INFLATION_STRUCTURELLE = 0.015  # 1,5 % — intercept Phillips, inflation tendancielle moyen terme FR
+# 2026-05-18, Option C ; intention confirmée par décision PO 2026-06-10
+# (BCE = garde-fou de surchauffe >2 %, pas thermostat de convergence).
+INFLATION_STRUCTURELLE = 0.015  # 1,5 % — point fixe Phillips, inflation tendancielle moyen terme FR
 CROISSANCE_POTENTIELLE = 0.010  # 1.0% potential growth
 CROISSANCE_2025 = 0.009  # 0.9% INSEE définitif 2025
 
 # === FISCAL PARAMETERS ===
 TAUX_INTERET_BASE = 0.019  # 1.9% interest rate (OAT 10 ans 2025)
-# AMORCAGE_DEPENSES_Y1 : taux de croissance RÉEL de la 1re année projetée (2026), appliqué par
-# la formule fermée "bridging year" (expenditures.py) avec inflation pleine. Ce N'EST PAS une
-# inertie AR(1) (Pina-Venes 2018 : ρ ≈ 0.7-0.9) ; la persistance passe par le compounding de
-# _spending_factors par catégorie (années ≥2). Dégel : ex-0.0003 (≈ gel réel 2026, austérité
-# fantôme non votée) → 0.009 = taux de croisière tendanciel, pour que 2026 soit une année "à
-# politique inchangée" normale (cf. recalibrage baseline 2026-06, tendanciel officiel +1,0-1,2%).
-AMORCAGE_DEPENSES_Y1 = 0.009
-EROSION_RECETTES = 0.002  # Revenue erosion rate (CPO 2023)
+
+# Constantes RETIRÉES par la refonte « assemblage temporel » (2026-06,
+# cf. docs/plans/refonte-annee1-assemblage.md du repo parent) :
+# - AMORCAGE_DEPENSES_Y1 (ex-0.009) : taux exogène de la « bridging year » 2026.
+#   Supprimée AVEC le régime spécial année 1 : la récurrence unique chaînée
+#   (engine/expenditures.py) applique le tendanciel par catégorie dès Y1 —
+#   aucune institution (CBO/OBR/DG Trésor) n'a d'année 1 à mécanique spéciale.
+#   NE PAS réintroduire : tout taux Y1 exogène posé sur une formule non chaînée
+#   est jeté au passage à Y2 (cause racine n°2 du diagnostic 2026-06-10).
+# - EROSION_RECETTES (ex-0.002, « CPO 2023 ») : érosion forfaitaire globale qui
+#   rendait l'élasticité PO/PIB de facto 0,933. Remplacée par
+#   ELASTICITE_PO_PIB = 1.0 ci-dessous ; une érosion réelle se modélise PAR
+#   TAXE (mesure explicite), jamais en taux global.
+
+# === ÉLASTICITÉ DES PRÉLÈVEMENTS OBLIGATOIRES AU PIB NOMINAL ===
+# HCFP note 2023-01 (séries 2002-2022) : élasticité observée 1,01-1,07, non
+# significativement différente de 1 ; convention CBO/OBR/DG Trésor = 1,0 à
+# politique inchangée. Consommée par engine/revenues.py (refonte 2026-06).
+ELASTICITE_PO_PIB = 1.0
 
 
 # Constantes retirées 2026-05-17 (audit pré-open-source) : RETIREMENT,

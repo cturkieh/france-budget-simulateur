@@ -119,10 +119,11 @@ def test_apply_collectivites(simulator):
 def test_calculate_expenditures_vieillissement(simulator):
     gdp = 3200  # PIB Y6 approx
     inflation = 0.015
+    inflation_prev = 0.013  # part indexée sur l'inflation passée (refonte 2026-06)
     unemployment = 0.08
     year = 6
     output_gap = -0.01
-    spending = simulator.calculate_expenditures(gdp, inflation, unemployment, year, output_gap)
+    spending = simulator.calculate_expenditures(gdp, inflation, inflation_prev, unemployment, year, output_gap)
     # Spending should be reasonable for year 6
     # Ratio dépenses/PIB calculé sur PIB courant (Fix 6), valeurs plus basses qu'avec PIB fixe
     assert 1400 < spending < 1900, f"Expected spending in 1400-1900 range, got {spending:.0f}"
@@ -208,11 +209,12 @@ def test_calculate_inflation_deflation(simulator):
     simulator.inflation_precedente = 0.01
     with patch('numpy.random.normal', return_value=-0.002):
         inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
-    # 0.008 depuis 2026-05-18 : intercept Phillips 0.012 -> 0.015
-    # (INFLATION_STRUCTURELLE, décision PO sourcée). +0,003 d'intercept,
-    # atténué par la borne déflationniste (×0,80) puis le rappel BCE
-    # accommodant (blend 70/30 vers 0,02) : ancien attendu 0.006 -> 0.008.
-    expected = 0.008  # Après clip et ajustement
+    # Refonte 2026-06 (intercept ×(1−ρ), accommodant vers la tendancielle) :
+    #   base = 0.0075 + 0.5*0.01 + 0.35*(-0.03) = 0.0020 ; effort consolidation
+    #   -0.12*0.02 = -0.0024 → -0.0004 ; pressions déflationnistes ×0.80
+    #   → -0.00032 ; accommodant (<0.008) 0.70*(-0.00032)+0.30*0.015 = 0.00428 ;
+    #   bruit patché -0.002 → 0.00228.
+    expected = 0.0023  # Après clip et ajustement
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Pressions déflationnistes" in s for s in simulator.debug_logs), "Log déflation attendu manquant"
 

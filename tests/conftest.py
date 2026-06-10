@@ -29,9 +29,9 @@ def simulator():
         'croissance_potentielle': 0.01,
         'croissance_2025': 0.009,
         'taux_interet_base': 0.019,
-        'erosion_recettes': 0.002,
         'inflation_base': 0.01,
-        'amorcage_depenses_y1': 0.0003,
+        # erosion_recettes / amorcage_depenses_y1 : retirés (refonte 2026-06,
+        # cf. tombstones constants.py)
     }
     sim.pib_nominal = 2994
     sim.recettes_precedentes = 1545
