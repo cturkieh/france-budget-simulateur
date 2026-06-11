@@ -12,6 +12,7 @@ from ._logging import _log_debug
 from .constants import (
     PIB_BASE_2025_MD_EUR, DETTE_RATIO_2025, RECETTES_BASE_MD_EUR,
     DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_NAIRU, GINI_BASE,
+    GINI_HARD_CEILING, GINI_SOFT_FLOOR,
     INFLATION_BASE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
     TAUX_INTERET_BASE,
 )
@@ -54,8 +55,10 @@ class EconomicConstraints:
     deficit_pib_max: float = 0.10
     chomage_min: float = 0.04
     chomage_max: float = 0.12
-    gini_min: float = 0.25
-    gini_max: float = 0.40
+    # Source unique constants.py : mêmes bornes que le clip de l'orchestrator —
+    # une dérive entre les deux ré-ouvrirait la saturation (cf v0.4.0).
+    gini_min: float = GINI_SOFT_FLOOR
+    gini_max: float = GINI_HARD_CEILING
     inflation_min: float = -0.005
     inflation_max: float = 0.042
     output_gap_max: float = 0.03
@@ -549,6 +552,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.dette_courante = self.base_params['pib_base'] * self.base_params['dette_ratio']
         self.recettes_precedentes = self.base_params['recettes_base']
         self.gini_courant = self.base_params['gini_base']
+        self.gini_cible_cumul = 0.0  # Décalage cumulé de la cible vs gini_base, en points DÉJÀ rescalés (× GINI_IMPACT_SCALE) ; cible = gini_base + ce décalage (cf orchestrator)
         self.inflation_precedente = self.base_params['inflation_base']
         # croissance_precedente : RETIRÉ (refonte 2026-06) — état devenu write-only
         # (les flux consomment désormais la croissance contemporaine, la macro
@@ -608,6 +612,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.inflation_precedente = self.base_params['inflation_base']
         self.recettes_precedentes = self.base_params['recettes_base']
         self.gini_courant = self.base_params['gini_base']
+        self.gini_cible_cumul = 0.0  # Décalage cumulé de la cible vs gini_base, en points DÉJÀ rescalés (× GINI_IMPACT_SCALE) ; cible = gini_base + ce décalage (cf orchestrator)
 
         # --- Structure de dette ---
         self.debt_structure['taux_moyen'] = self.base_params['taux_interet_base']

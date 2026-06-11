@@ -845,6 +845,33 @@ Le modele applique des plafonds pour eviter resultats irrealistes :
 - Negatif = Mesure progressive (reduit inegalites)
 - Positif = Mesure regressive (augmente inegalites)
 
+**Assemblage Gini (v0.4.0 — realisme empirique).** Les sensibilites par mesure
+(sections par levier ci-dessus) ne sont plus sommees telles quelles : leur somme
+brute sur-reagissait d'un facteur ~4 par rapport aux microsimulations de
+reference (IPP/OFCE 2022 : un programme redistributif de 5-10 % du PIB deplace
+le Gini de −0,02 a −0,03 sur un quinquennat) et arrivait en quasi-totalite des
+la premiere annee, jusqu'a saturer le plancher 0,25. Trois etages, appliques au
+point unique d'agregation (`engine/orchestrator.py`, constantes `constants.py`) :
+
+1. **Rescale** (`GINI_IMPACT_SCALE = 0,22`) : la somme des impacts alimente une
+   *cible* cumulee — un seul facteur global, les ecarts relatifs entre
+   programmes sont preserves.
+2. **Inertie** (`GINI_CONVERGENCE_RATE = 0,35`) : le Gini courant converge vers
+   la cible a ~35 %/an (lag du 1er ordre). Justification : la serie INSEE
+   sur 25 ans ne montre jamais |ΔGini| > ~0,01/an, meme lors des reformes
+   fiscales majeures (ISF→PFU 2018 : ~±0,005).
+3. **Plancher asymptotique** (`GINI_SOFT_FLOOR = 0,25`) : les pas a la baisse
+   sont amortis proportionnellement a la distance au plancher (rendements
+   decroissants de la redistribution a l'approche des niveaux les plus
+   egalitaires de l'UE — seuls la Slovaquie, la Tchequie, la Slovenie et la
+   Belgique sont sous 25, Eurostat 2024). Le clip dur [0,25 ; 0,40] subsiste
+   en filet anti-flottant mais ne peut plus etre atteint.
+
+Resultat sur les programmes 2027 : LFI 2030 ≈ 0,269, PS ≈ 0,276, RN ≈ 0,285
+(au lieu d'une co-saturation LFI/PS a 0,250) — ordres de grandeur coherents
+avec les evaluations IPP/OFCE, vitesse compatible avec l'historique INSEE,
+classement inchange. Proprietes verrouillees par tests dedies.
+
 **Pouvoir d'Achat :**
 - Baseline 2025 : 100 (indice)
 - Positif = Hausse pouvoir achat

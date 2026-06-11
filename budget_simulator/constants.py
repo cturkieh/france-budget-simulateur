@@ -26,6 +26,26 @@ CHOMAGE_NAIRU = 0.075  # Natural rate of unemployment
 # === INEQUALITY (INSEE 2024) ===
 GINI_BASE = 0.29  # Gini coefficient France
 
+# --- Assemblage Gini (v0.4.0 — réalisme empirique) ---
+# Les handlers émettent des sensibilités Gini par mesure (METHODOLOGIE.md, § par
+# levier). Leur somme brute appliquée en one-time sur-réagit d'un facteur ~4 vs
+# les microsimulations (IPP/OFCE 2022 : un programme redistributif de 5-10 % du
+# PIB ≈ −0,02 à −0,03 de Gini sur un quinquennat) et produit des niveaux
+# impossibles (somme brute LFI 2030 = 0,166 < record mondial, Slovaquie ~0,209,
+# Eurostat 2024). Trois étages d'assemblage, appliqués au POINT UNIQUE
+# d'agrégation (engine/orchestrator.py, « Calcul Gini centralisé ») :
+GINI_IMPACT_SCALE = 0.22  # Rescale de l'agrégat → cible cumulée (calé : LFI 2030 ≈ 0,267, ordres de grandeur IPP/OFCE)
+GINI_CONVERGENCE_RATE = 0.35  # Inertie sociale : ~35 %/an vers la cible (série INSEE 25 ans : |ΔGini| ≤ ~0,01/an)
+GINI_SOFT_FLOOR = 0.25  # Plancher asymptotique = borne basse du clip (source unique) : l'amortissement tend vers 0 à l'approche → le clip ne mord jamais (filet anti-flottant). <0,25 = Slovaquie/Tchéquie/Slovénie/Belgique seulement (Eurostat 2024)
+GINI_HARD_CEILING = 0.40  # Borne haute du clip (source unique, partagée orchestrator + EconomicConstraints)
+# Garde de domaine : l'amortissement divise par (GINI_BASE − GINI_SOFT_FLOOR) —
+# un recalibrage qui inverse ces bornes casserait la simulation. `raise` et non
+# `assert` : python -O strip les asserts, la garde doit survivre en prod.
+if not GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING:
+    raise ValueError("GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING requis (dénominateur de l'amortissement)")
+if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
+    raise ValueError("Constantes d'assemblage Gini hors domaine (SCALE ∈ ]0;1], RATE ∈ ]0;1[)")
+
 # === INFLATION & GROWTH ===
 # INFLATION_BASE : graine d'inertie. Valeur initiale de `inflation_precedente`
 # (terme AR(1) `inflation_inertia * inflation_precedente` de la courbe de

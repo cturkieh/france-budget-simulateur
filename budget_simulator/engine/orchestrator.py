@@ -86,7 +86,15 @@ import numpy as np
 import pandas as pd
 
 from .._logging import _log_debug
-from ..constants import CHARGES_INTERET_MD_EUR, HANDLER_FAILED_KEY, INDEXATION_BASELINE_RATIO
+from ..constants import (
+    CHARGES_INTERET_MD_EUR,
+    GINI_CONVERGENCE_RATE,
+    GINI_HARD_CEILING,
+    GINI_IMPACT_SCALE,
+    GINI_SOFT_FLOOR,
+    HANDLER_FAILED_KEY,
+    INDEXATION_BASELINE_RATIO,
+)
 from ._param_domain import validate_intensite_domain
 
 logger = logging.getLogger(__name__)
@@ -583,13 +591,52 @@ class OrchestratorMixin:
             # Calcul Gini centralisé
             # CORRECTION V4.6 : Application CHAQUE année pour capturer phasing/temporalité
             # Évite double-comptage car impacts sont calculés en DELTA, pas en cumulatif
-            gini_impact = 0
+            # v0.4.0 RÉALISME : la somme brute des sensibilités par mesure sur-réagissait
+            # (~×4 vs microsimulations IPP/OFCE) et arrivait quasi en one-time Y1 →
+            # LFI/PS saturaient le clip dur 0,25 dès 2027 (même valeur affichée, écart
+            # entre programmes écrasé). Trois étages (constantes sourcées, constants.py) :
+            # 1) la somme rescalée alimente une CIBLE cumulée (les ratios entre partis
+            #    sont préservés — un seul facteur global, pas de re-calage par handler) ;
+            # 2) le Gini courant CONVERGE vers la cible (lag du 1er ordre : une réforme
+            #    fiscale met des années à se diffuser dans la distribution des revenus) ;
+            # 3) les pas NÉGATIFS sont amortis proportionnellement à la distance au
+            #    plancher souple (rendements décroissants de la redistribution près des
+            #    niveaux Slovaquie/Belgique). Asymétrie voulue : le plafond 0,40 est
+            #    loin et non saturé en pratique. Le clip dur reste en filet ultime ;
+            #    qu'il ne morde plus jamais est verrouillé par test de propriété.
             if year_idx > 0:  # Pas d'impact pour année base (2025)
                 gini_impact = self.calculate_gini_impact(impacts, gdp_nominal)
+                # Garde de finitude : un NaN/inf émis par un handler (division
+                # numpy par 0.0 → pas d'exception, juste un RuntimeWarning)
+                # empoisonnerait gini_cible_cumul pour TOUTES les années
+                # restantes puis ressortirait du clip comme une valeur
+                # plausible (np.clip(inf)=0.40) — 200 OK, zéro trace.
+                if not np.isfinite(gini_impact):
+                    raise RuntimeError(
+                        f"Y{year_idx}: impact Gini agrégé non fini ({gini_impact!r}) — "
+                        f"un handler émet NaN/inf (mesures actives : {sorted(self.mesures)})"
+                    )
                 if gini_impact != 0:
-                    _log_debug(self.debug_logs, f"Y{year_idx}: Impact Gini annuel = {gini_impact:.6f}")
-                self.gini_courant += gini_impact
-                self.gini_courant = np.clip(self.gini_courant, 0.25, 0.40)
+                    _log_debug(self.debug_logs, f"Y{year_idx}: Impact Gini brut annuel = {gini_impact:.6f}")
+                self.gini_cible_cumul += GINI_IMPACT_SCALE * gini_impact
+                gini_cible = self.base_params['gini_base'] + self.gini_cible_cumul
+                step = GINI_CONVERGENCE_RATE * (gini_cible - self.gini_courant)
+                if step < 0:
+                    amortissement = (self.gini_courant - GINI_SOFT_FLOOR) / (
+                        self.base_params['gini_base'] - GINI_SOFT_FLOOR
+                    )
+                    step *= float(np.clip(amortissement, 0.0, 1.0))
+                    if amortissement < 1.0:
+                        # Sans cette ligne, un pas écrasé par le plancher serait
+                        # indistinguable d'une convergence achevée dans les logs.
+                        _log_debug(self.debug_logs, f"Y{year_idx}: amortissement plancher = {amortissement:.3f}")
+                if step != 0:
+                    _log_debug(
+                        self.debug_logs,
+                        f"Y{year_idx}: Gini cible={gini_cible:.4f} pas={step:+.5f}",
+                    )
+                self.gini_courant += step
+                self.gini_courant = np.clip(self.gini_courant, GINI_SOFT_FLOOR, GINI_HARD_CEILING)
 
             # Pouvoir d'achat (macro + micro) - Mise à jour INCRÉMENTALE
             # Sources : INSEE, OFCE 2024 - PA = f(Croissance, Inflation, Mesures fiscales/sociales)

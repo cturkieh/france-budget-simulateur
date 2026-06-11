@@ -5,8 +5,18 @@ Test des nouvelles fonctions de reforme fiscale 2025.2
 
 import sys
 from budget_simulator.simulator import BudgetSimulatorV45
+from budget_simulator.constants import GINI_CONVERGENCE_RATE, GINI_IMPACT_SCALE
 
 PA_COL = "Pouvoir d'Achat"
+
+# Assemblage Gini v0.4.0 : la sortie année 1 vaut « impact brut handler × SCALE
+# × RATE » (amortissement = 1 au départ de la base) ; à l'horizon (impact en Y1,
+# mesure en Y10 = 9 pas de convergence, 1 − 0,65^9 ≈ 0,98) → « brut × SCALE ».
+# Les fourchettes ci-dessous restent exprimées en BRUT (la calibration
+# d'origine, cf METHODOLOGIE.md par levier) et sont converties en sortie via
+# ces facteurs — elles survivent ainsi à un re-réglage des constantes.
+ATTENUATION_Y1 = GINI_IMPACT_SCALE * GINI_CONVERGENCE_RATE
+ATTENUATION_HORIZON = GINI_IMPACT_SCALE
 
 def test_csg_progressive():
     """Test CSG progressive : neutralite recettes + redistribution"""
@@ -34,12 +44,13 @@ def test_csg_progressive():
     delta_pa = y0_prog[PA_COL] - y0_flat[PA_COL]
 
     print(f"\n  Delta Deficit : {delta_recettes:.2f} Md (attendu: ~0)")
-    print(f"  Delta Gini : {delta_gini:.3f} (attendu: -0.015)")
+    print(f"  Delta Gini : {delta_gini:.4f} (attendu: -0.015 brut x {ATTENUATION_Y1:.3f} en sortie Y1)")
     print(f"  Delta PA : {delta_pa:.2f}% (attendu: +0.4%)")
 
     # Validation souple
     assert abs(delta_recettes) < 2.0, f"[X] Neutralite recettes echouee : {delta_recettes:.2f} Md"
-    assert -0.022 < delta_gini < -0.008, f"[X] Impact Gini hors cible : {delta_gini:.3f}"
+    assert -0.022 * ATTENUATION_Y1 < delta_gini < -0.008 * ATTENUATION_Y1, \
+        f"[X] Impact Gini hors cible : {delta_gini:.4f}"
     assert 0.2 < delta_pa < 0.6, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
 
     print("\n[OK] TEST CSG PROGRESSIVE REUSSI")
@@ -93,13 +104,19 @@ def test_elargissement_ir():
     y0_elargis = df_elargis.iloc[1]
 
     delta_recettes = y0_elargis['Déficit'] - y0_sq['Déficit']
-    delta_gini = y0_elargis['Gini'] - y0_sq['Gini']
+    # Gini mesuré à l'HORIZON (Y10) : l'effet année 1 (+0.005 brut x SCALE x RATE
+    # ~ +0.0004) est sous la résolution de sortie (3 decimales) ; a convergence
+    # quasi complete il vaut ~+0.0011 et devient observable. NB : la sortie étant
+    # arrondie a 3 decimales, la fourchette ci-dessous équivaut de fait a
+    # « delta affiché == 0.001 » — toute retouche de calibration bascule en binaire.
+    delta_gini = df_elargis.iloc[10]['Gini'] - df_sq.iloc[10]['Gini']
 
     print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +8 a +12 Md)")
-    print(f"  Delta Gini : {delta_gini:.3f} (attendu: +0.005)")
+    print(f"  Delta Gini Y10 : {delta_gini:.4f} (attendu: +0.005 brut x {ATTENUATION_HORIZON:.2f} a convergence)")
 
     assert 3 < delta_recettes < 14, f"[X] Recettes hors cible : {delta_recettes:.2f} Md"
-    assert 0.002 < delta_gini < 0.008, f"[X] Impact Gini hors cible : {delta_gini:.3f}"
+    assert 0.002 * ATTENUATION_HORIZON <= delta_gini <= 0.008 * ATTENUATION_HORIZON, \
+        f"[X] Impact Gini hors cible : {delta_gini:.4f}"
 
     print("\n[OK] TEST ELARGISSEMENT IR REUSSI")
 
@@ -123,7 +140,7 @@ def test_fiscalite_patrimoine():
     delta_gini = y0_hausse['Gini'] - y0_sq['Gini']
 
     print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +16 Md)")
-    print(f"  Delta Gini : {delta_gini:.3f} (attendu: -0.016)")
+    print(f"  Delta Gini : {delta_gini:.4f} (attendu: -0.016 brut x {ATTENUATION_Y1:.3f} en sortie Y1)")
 
     print("\n[4c] Baisse fiscalite patrimoine -30%")
     sim_baisse = BudgetSimulatorV45(mesures={'fiscalite_patrimoine': {'intensite': -0.30}})
@@ -135,7 +152,8 @@ def test_fiscalite_patrimoine():
     print(f"  Cout : {delta_recettes_baisse:.2f} Md (attendu: -16 Md)")
 
     assert 13 < delta_recettes < 19, f"[X] Recettes +30% hors cible : {delta_recettes:.2f} Md"
-    assert -0.022 < delta_gini < -0.010, f"[X] Impact Gini hors cible : {delta_gini:.3f}"
+    assert -0.022 * ATTENUATION_Y1 < delta_gini < -0.010 * ATTENUATION_Y1, \
+        f"[X] Impact Gini hors cible : {delta_gini:.4f}"
     assert -19 < delta_recettes_baisse < -13, f"[X] Cout -30% hors cible : {delta_recettes_baisse:.2f} Md"
 
     print("\n[OK] TEST FISCALITE PATRIMOINE REUSSI")
