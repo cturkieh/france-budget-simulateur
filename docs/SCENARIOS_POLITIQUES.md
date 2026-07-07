@@ -42,7 +42,7 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 - **Orientation** : redressement des comptes par la dépense plutôt que par l'impôt : objectif affiché de retour à l'équilibre en une décennie, effort porté d'abord sur le modèle social (gel temporaire des prestations, reprise de la réforme de l'assurance chômage) et sur la réduction des effectifs publics, sans hausse d'impôt et avec poursuite de la baisse de la fiscalité de production. Éducation, défense et transition écologique affichées comme priorités préservées. Le paramétrage encode les mesures chiffrables du programme de campagne — non la cible d'équilibre, qui est un résultat calculé par le moteur.
 
 ### Programme Horizons Philippe 2027
-<!-- scenario:philippe_2027 -->
+<!-- scenario:horizons_2027 -->
 
 - **Source** : Deal fiscal Horizons (E. Philippe, 6 nov 2025) + meeting de lancement (5 juil. 2026)
 - **Orientation** : compétitivité à solde neutre : « deal fiscal » avec les entreprises (forte baisse de la fiscalité de production intégralement compensée par la réduction des aides et niches aux entreprises, présentée comme à somme nulle pour l'État), prolongement de la réforme des retraites par un allongement de l'activité et une contribution accrue des retraités. Programme en cours de dévoilement (campagne lancée le 5 juillet 2026) : seules les mesures publiquement chiffrées sont paramétrées, le reste restant au statu quo budgétaire voté.

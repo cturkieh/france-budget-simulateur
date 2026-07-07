@@ -7,7 +7,7 @@ du scénario PS 2027 (mai 2026). Deux niveaux de couverture :
 - FULL_SCENARIOS (lu depuis scenarios.json via run_scenarios_full) = la couverture
   COMPLÈTE et à jour de tous les scénarios (garde-fou PA 2029 paramétré + golden
   master bit-exact pour la sanité des trajectoires).
-Un scénario récent (ex. philippe_2027, 07/2026) peut donc être absent du dict
+Un scénario récent (ex. horizons_2027, 07/2026) peut donc être absent du dict
 legacy tout en étant intégralement couvert par FULL_SCENARIOS + golden master.
 
 Ne valide PAS la calibration économique des scénarios — seulement leur exécutabilité.
@@ -160,7 +160,7 @@ def test_aucune_collision_id_lfi_2026():
 # resserrement venait de l'impulsion macro laguée d'un an (pleine ampleur à 2030).
 # RE-ENCODAGE PROGRAMMES 2026-07-07 : renaissance_2027 recadré sur le programme
 # chiffré Attal (2/07/2026, ex-proxy PSMT), lr_2027 sur le triptyque Retailleau
-# (65 ans, −200k postes, choc fiscal 40 Md€), ajout philippe_2027 (deal fiscal
+# (65 ans, −200k postes, choc fiscal 40 Md€), ajout horizons_2027 (deal fiscal
 # Horizons à somme nulle). Valeurs attendues recalées sur ces encodages
 # intentionnels — golden master régénéré dans le même commit, les 6 autres
 # scénarios sont bit-identiques. Aucune logique moteur modifiée.
@@ -169,7 +169,7 @@ EXPECTED_PA_2029_FULL = {
     "rn_2027": 107.7,
     "lfi_2027": 112.8,
     "renaissance_2027": 104.9,
-    "philippe_2027": 107.7,
+    "horizons_2027": 107.7,
     "lr_2027": 105.3,
     "ps_2027": 109.7,
     "im_rabot_2029": 100.3,
