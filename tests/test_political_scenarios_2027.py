@@ -1,10 +1,14 @@
-"""Smoke test : les 8 scénarios politiques 2027 simulent sans erreur ASTEVAL.
+"""Smoke test : les scénarios politiques 2027 simulent sans erreur ASTEVAL.
 
 Garde-fou anti-régression après le renommage nfp_2027 → lfi_2027 et l'activation
-du scénario PS 2027 (mai 2026). Vérifie que les apiMeasures de chaque scénario,
-tels qu'ils sont déclarés dans frontend-react/src/pages/ScenariosPage.jsx, sont
-mappés sur des handlers Python existants (ou des formules ASTEVAL valides) et
-produisent une trajectoire 10 ans cohérente.
+du scénario PS 2027 (mai 2026). Deux niveaux de couverture :
+- le dict SCENARIOS ci-dessous = sous-ensemble LEGACY figé à la main (assertions
+  de forme détaillées : longueur 11 ans, NaN, bornes d'aberration) ;
+- FULL_SCENARIOS (lu depuis scenarios.json via run_scenarios_full) = la couverture
+  COMPLÈTE et à jour de tous les scénarios (garde-fou PA 2029 paramétré + golden
+  master bit-exact pour la sanité des trajectoires).
+Un scénario récent (ex. philippe_2027, 07/2026) peut donc être absent du dict
+legacy tout en étant intégralement couvert par FULL_SCENARIOS + golden master.
 
 Ne valide PAS la calibration économique des scénarios — seulement leur exécutabilité.
 """
@@ -117,7 +121,7 @@ def test_aucune_collision_id_lfi_2026():
     assert "nfp_2027: {" not in content, "Le scénario nfp_2027 a été renommé en lfi_2027 — pas de définition résiduelle"
 
 
-# Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes (8 scénarios × 35 leviers).
+# Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes (9 scénarios × 35 leviers).
 # Tolérance ±1.5 pt = absorbe les recalibrages mineurs tout en détectant la perte d'un gate
 # one-time PA (tva_rate, impot_revenu, impots_production, elargissement_ir, fiscalite_patrimoine,
 # transition_ecologique taxe_carbone) ou de l'asymétrie fonction_publique.
@@ -150,20 +154,41 @@ def test_aucune_collision_id_lfi_2026():
 # RECALIBRAGE refonte « assemblage temporel » 2026-06-10 : le PA statu quo 2029
 # passe de ~100,3 à ~102,9 (+2,6) — l'inflation effective corrigée (~1,2 % vs
 # 2,33 % artificiel) libère du PA réel (+0,37 %/an, fourchette historique INSEE
-# du RDB réel/tête). Les ÉCARTS entre scénarios sont préservés à ±0,9 pt
-# (gating one-time intact : plf +0,1, lr +1,2, renaissance +3,0, rn +4,8,
-# ps +6,8, lfi +9,9 vs statu quo) ; le léger resserrement vient de l'impulsion
-# macro laguée d'un an (effets PA des mesures décalés, pleine ampleur à 2030).
+# du RDB réel/tête). Les ÉCARTS entre scénarios avaient été préservés à ±0,9 pt
+# (gating one-time intact ; les écarts vs statu quo ~102,9 mesurés alors ont été
+# recalés depuis pour lr/renaissance — cf. note RE-ENCODAGE ci-dessous) ; le léger
+# resserrement venait de l'impulsion macro laguée d'un an (pleine ampleur à 2030).
+# RE-ENCODAGE PROGRAMMES 2026-07-07 : renaissance_2027 recadré sur le programme
+# chiffré Attal (2/07/2026, ex-proxy PSMT), lr_2027 sur le triptyque Retailleau
+# (65 ans, −200k postes, choc fiscal 40 Md€), ajout philippe_2027 (deal fiscal
+# Horizons à somme nulle). Valeurs attendues recalées sur ces encodages
+# intentionnels — golden master régénéré dans le même commit, les 6 autres
+# scénarios sont bit-identiques. Aucune logique moteur modifiée.
 EXPECTED_PA_2029_FULL = {
     "plf_2026": 103.0,
     "rn_2027": 107.7,
     "lfi_2027": 112.8,
-    "renaissance_2027": 105.9,
-    "lr_2027": 104.1,
+    "renaissance_2027": 104.9,
+    "philippe_2027": 107.7,
+    "lr_2027": 105.3,
     "ps_2027": 109.7,
     "im_rabot_2029": 100.3,
     "im_competitivite_2029": 104.8,
 }
+
+
+@_FULL_SCENARIOS_AVAILABLE
+def test_expected_pa_keyset_couvre_tous_les_scenarios():
+    """Anti-dérive BIDIRECTIONNELLE des jeux de clés : un scénario ajouté sans
+    valeur attendue échoue déjà (KeyError dans le test paramétré), mais un
+    scénario RETIRÉ de scenarios.json ferait silencieusement disparaître son cas
+    paramétré (l'entrée EXPECTED périmée ne serait plus jamais lue). On verrouille
+    l'égalité exacte des deux ensembles."""
+    assert set(EXPECTED_PA_2029_FULL) == set(FULL_SCENARIOS), (
+        f"dérive EXPECTED_PA_2029_FULL ↔ scenarios.json : "
+        f"manquants={set(FULL_SCENARIOS) - set(EXPECTED_PA_2029_FULL)} ; "
+        f"périmés={set(EXPECTED_PA_2029_FULL) - set(FULL_SCENARIOS)}"
+    )
 
 
 @_FULL_SCENARIOS_AVAILABLE
