@@ -187,8 +187,14 @@ class OrchestratorMixin:
                 # Même porte pour les paramètres NOMMÉS des handlers
                 # symétrisés (PARAM_DOMAINS, revue 2026-08-04) : ferme la
                 # propagation silencieuse de NaN et la bande hors-UI.
+                # `warned` : dédup du WARNING sur la durée d'une simulation
+                # (reset dans _reset_state) — le clamp reste appliqué chaque
+                # année, seule la journalisation est dédupliquée.
+                if not hasattr(self, '_domain_clamp_warned'):
+                    self._domain_clamp_warned = set()
                 parameters = validate_param_domains(
-                    measure_id, parameters, strict=strict_mode
+                    measure_id, parameters, strict=strict_mode,
+                    warned=self._domain_clamp_warned
                 )
                 if measure_id in self.measure_handlers:
                     # Python handler takes precedence over ASTEVAL formula

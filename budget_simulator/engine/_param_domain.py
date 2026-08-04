@@ -39,7 +39,8 @@ from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 logger = logging.getLogger(__name__)
 
 
-def validate_param_domains(measure_id: str, params: Dict, *, strict: bool) -> Dict:
+def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
+                           warned: set | None = None) -> Dict:
     """Valide/borne les paramètres NOMMÉS de ``measure_id`` selon
     ``PARAM_DOMAINS`` (revue 2026-08-04) — même contrat dual que
     ``validate_intensite_domain`` : no-op (objet identique) pour toute
@@ -47,14 +48,23 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool) -> Di
     ``logger.warning`` + copie clampée en tolérant. Une ``str`` lève
     TypeError au comparateur (contrat MIXIN_BAD_PARAMS, pas de garde).
 
+    ``warned`` (optionnel) : set détenu par l'appelant, portée = une
+    simulation. La fonction est appelée chaque année simulée pour la même
+    entrée ; sans dédup, une seule erreur produit ~10 lignes WARNING
+    identiques (bruit pur pour Sentry Logs). Le CLAMP lui-même reste
+    appliqué chaque année — seule la journalisation est dédupliquée.
+
     Raison d'être : les handlers symétrisés (retraites, prestations)
     font désormais de l'arithmétique inconditionnelle — un NaN n'y est
     plus neutralisé par accident et empoisonnerait toute la trajectoire
     sans signal (cf tests/test_param_domains_guard.py).
     """
+    domains = PARAM_DOMAINS.get(measure_id)
+    if not domains:
+        return params
     out = params
-    for (mid, key), (low, high) in PARAM_DOMAINS.items():
-        if mid != measure_id or out.get(key) is None:
+    for key, (low, high) in domains.items():
+        if out.get(key) is None:
             continue
         value = out[key]
         # `value != value` n'est vrai que pour NaN — même piège que pour
@@ -66,12 +76,15 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool) -> Di
                     f"[{low}, {high}] (mode BUDGETLAB_STRICT)"
                 )
             clamped = high if value > high else low  # NaN / < low → borne basse
-            logger.warning(
-                "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "
-                "→ clampé à %s (mode tolérant : service préservé, "
-                "calibration à vérifier)",
-                measure_id, key, value, low, high, clamped,
-            )
+            if warned is None or (measure_id, key) not in warned:
+                logger.warning(
+                    "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "
+                    "→ clampé à %s (mode tolérant : service préservé, "
+                    "calibration à vérifier)",
+                    measure_id, key, value, low, high, clamped,
+                )
+                if warned is not None:
+                    warned.add((measure_id, key))
             out = {**out, key: clamped}
     return out
 

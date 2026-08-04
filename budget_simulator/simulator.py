@@ -623,6 +623,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # --- Historique et trackers ---
         self._last_impacts = {}
         self._measure_params_tracker = {}
+        # Dédup des WARNING PARAM_DOMAIN_CLAMP : portée = une simulation
+        # (ré-armé ici pour qu'un second simulate() ré-alerte).
+        self._domain_clamp_warned = set()
         self._last_measures_hash = None
         self._fiscal_impulses = {}  # Reset profils temporels multiplicateurs
         self._potential_growth_bonus = 0.0

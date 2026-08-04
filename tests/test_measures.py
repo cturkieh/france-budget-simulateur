@@ -264,8 +264,7 @@ def test_apply_measures_plafond_10pct(simulator, monkeypatch):
     # 2026-08-04) — sans ce bypass, la porte rejette (strict) ou clampe
     # (tolérant) les valeurs avant que le plafond ne soit exercé.
     from budget_simulator.constants import PARAM_DOMAINS
-    for key in [k for k in PARAM_DOMAINS if k[0] == 'retraites']:
-        monkeypatch.delitem(PARAM_DOMAINS, key)
+    monkeypatch.delitem(PARAM_DOMAINS, 'retraites')
     simulator.mesures = {
         'tva_rate': {'taux': 0.35},
         'retraites': {'age_depart': 70.0, 'indexation': 0.0, 'duree_cotisation': 50.0},
@@ -305,8 +304,7 @@ def test_simulate_domar_crisis(default_simulator, monkeypatch):
     # Même bypass que test_apply_measures_plafond_10pct : le scénario de
     # crise Domar a besoin d'entrées hors domaine pour rendre r-g explosif.
     from budget_simulator.constants import PARAM_DOMAINS
-    for key in [k for k in PARAM_DOMAINS if k[0] == 'retraites']:
-        monkeypatch.delitem(PARAM_DOMAINS, key)
+    monkeypatch.delitem(PARAM_DOMAINS, 'retraites')
     default_simulator.periods = 10
     default_simulator.base_params['taux_interet_base'] = 0.04
     default_simulator.base_params['croissance_potentielle'] = 0.005

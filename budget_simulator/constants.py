@@ -177,10 +177,14 @@ INTENSITE_DOMAINS = {
 # des bornes UI (leverMeta.js) et des scénarios publiés. Extension complète
 # aux autres params nommés = chantier « contrat de params » (Item 2), différé.
 PARAM_DOMAINS = {
-    ('retraites', 'age_depart'): (60.0, 67.0),
-    ('retraites', 'indexation'): (0.0, 1.2),
-    ('retraites', 'duree_cotisation'): (40.0, 45.0),
-    ('prestations_indexation', 'taux_indexation'): (0.0, 1.2),
+    'retraites': {
+        'age_depart': (60.0, 67.0),
+        'indexation': (0.0, 1.2),
+        'duree_cotisation': (40.0, 45.0),
+    },
+    'prestations_indexation': {
+        'taux_indexation': (0.0, 1.2),
+    },
 }
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
