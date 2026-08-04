@@ -119,21 +119,31 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 
 | Parametre | Valeur Reference 2025 | Impact |
 |-----------|----------------------|--------|
-| Age legal | 62,75 ans (62 ans 9 mois) | +/-8 Md EUR par annee |
-| Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre |
-| Indexation | 100% inflation | +/-1,5 Md EUR par 10% de variation |
+| Age legal | 62,75 ans (62 ans 9 mois) | +/-16 Md EUR par annee (plein regime, phasing cohortes 5 ans) |
+| Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre (+/-4 Md EUR par annee, phasing 5 ans) |
+| Indexation | 100% inflation | +/-1,5 Md EUR par annee ecoulee pour un ecart de 100%, proportionnel et SYMETRIQUE, plateau 7 ans |
 
 ### Hypotheses Economiques
 
 **Age de depart :**
-- Economies/Surcouts = (Ecart age) x 8 Md EUR/an
+- Economies/Surcouts = (Ecart age) x 16 Md EUR/an a plein regime (COR Rapport annuel 2024,
+  cible ~17,7 Md EUR en 2030 et 23 Md EUR stationnaire pour 62,75 -> 64 ans ; montee en
+  charge cohortes 5 ans)
 - Effet sur emploi seniors : elasticite +0,3 par annee supplementaire
-- Trajectoire progressive sur 10-15 ans
 
 **Indexation des pensions :**
 - Base : 17 millions de retraites x pension moyenne
-- Indexation 100% = maintien pouvoir d'achat
-- Gel partiel (80%) = economies ~3 Md EUR/an
+- Indexation 100% = maintien pouvoir d'achat (statu quo legal, impact budgetaire nul)
+- Erosion CUMULATIVE : impact annuel = 1,5 Md EUR x (part d'inflation non compensee)
+  x annees ecoulees, plafonne a 7 ans — le stock de pensions erode se renouvelle
+  (nouvelles pensions liquidees sur les salaires, extinction des cohortes anciennes)
+- Exemples : gel partiel 80% = ~2,1 Md EUR/an au plateau ; gel total = 7,5 Md EUR/an
+  en 2030 et 10,5 Md EUR/an au plateau (2032+)
+- SYMETRIQUE : la sur-indexation (>100%) est un surcout miroir (ex. 120% =
+  +2,1 Md EUR/an au plateau) — verrouille par tests/test_retraites_indexation_symetrie.py
+- Caveat : le plateau 7 ans s'applique au canal BUDGETAIRE ; l'effet pouvoir
+  d'achat de la desindexation reste recurrent (applique chaque annee, sans
+  plafond de duree — cf § Effets FLUX)
 
 **Duree de cotisation :**
 - Trimestres requis = duree x 4
@@ -789,7 +799,8 @@ Liste exhaustive PA one-time :
 
 **Effets FLUX (RECURRENT)** — Appliques CHAQUE ANNEE legitimement :
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
-  taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires)
+  taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires) ;
+  SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir
 - ASU : Allocataires plafonnes (50-70% SMIC) perdent une fraction d'allocation chaque annee tant que le plafonnement est actif (phasing pluriannuel)
 - Transition ecologique COMPOSANTE renovation : Primes versees chaque annee a de nouveaux beneficiaires
 - Retraites (indexation) : Erosion annuelle similaire prestations

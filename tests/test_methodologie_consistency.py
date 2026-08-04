@@ -47,12 +47,25 @@ _PUBLIC_ONLY_DOCS = (METHODO, EXPLICATION)
 
 @dataclass(frozen=True)
 class CriticalConstant:
-    """Constante économique citée dans les docs UI à verrouiller."""
+    """Constante économique citée dans les docs UI à verrouiller.
+
+    `representations` = formes NUMÉRIQUES parsables (verrou valeur↔code).
+    `doc_patterns` = motifs de RECHERCHE dans la doc, avec unité/contexte
+    (« 16 Md EUR », « plateau 7 ans ») quand le nombre nu serait un
+    faux-vert par sur-matching (un « 16 » nu matche n'importe quel 16 de
+    la doc — prouvé en revue 2026-08-04 contre la doc pré-fix). Défaut
+    vide = les representations servent aussi de motifs (cas des valeurs
+    avec % ou format discriminant)."""
     name: str
     source: str
     raw_value: float
     representations: tuple[str, ...]
     must_appear_in: tuple[Path, ...]
+    doc_patterns: tuple[str, ...] = ()
+
+    @property
+    def search_patterns(self) -> tuple[str, ...]:
+        return self.doc_patterns or self.representations
 
 
 def _critical_constants() -> tuple[CriticalConstant, ...]:
@@ -123,6 +136,56 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             raw_value=coeffs["debt_drag"],
             representations=("-0,005", "-0.005"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
+        ),
+        # Coefficients retraites nommés le 2026-08-04 après dérive ×2 constatée
+        # (code 16/4 vs doc et tooltips 8/2 pendant ~10 semaines, repo public).
+        CriticalConstant(
+            name="retraites âge (Md EUR/an par année)",
+            source="constants.RETRAITES_COEFF_AGE_MD_EUR",
+            raw_value=constants.RETRAITES_COEFF_AGE_MD_EUR,
+            representations=("16",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("16 Md EUR",),
+        ),
+        CriticalConstant(
+            name="retraites durée (Md EUR/an par année)",
+            source="constants.RETRAITES_COEFF_DUREE_MD_EUR",
+            raw_value=constants.RETRAITES_COEFF_DUREE_MD_EUR,
+            representations=("4",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("4 Md EUR par annee",),
+        ),
+        CriticalConstant(
+            name="retraites érosion indexation (Md EUR/an, gel total)",
+            source="constants.RETRAITES_EROSION_INDEXATION_MD_EUR",
+            raw_value=constants.RETRAITES_EROSION_INDEXATION_MD_EUR,
+            representations=("1,5", "1.5"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("1,5 Md EUR par annee",),
+        ),
+        CriticalConstant(
+            name="retraites plateau érosion (années)",
+            source="constants.RETRAITES_EROSION_PLATEAU_ANS",
+            raw_value=constants.RETRAITES_EROSION_PLATEAU_ANS,
+            representations=("7",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("plateau 7 ans",),
+        ),
+        CriticalConstant(
+            name="retraites référence âge 2025 (ans)",
+            source="constants.RETRAITES_REF_AGE_ANS",
+            raw_value=constants.RETRAITES_REF_AGE_ANS,
+            representations=("62,75", "62.75"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("62,75 ans",),
+        ),
+        CriticalConstant(
+            name="retraites référence durée 2025 (ans)",
+            source="constants.RETRAITES_REF_DUREE_ANS",
+            raw_value=constants.RETRAITES_REF_DUREE_ANS,
+            representations=("42,5", "42.5"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("42,5 ans",),
         ),
     )
 
@@ -213,10 +276,10 @@ def test_critical_constants_appear_in_docs_ui():
             if doc_path not in docs_cache:
                 continue  # doc absente (fork) → skip ce check spécifique
             text = docs_cache[doc_path]
-            if not any(_matches_with_boundary(rep, text) for rep in c.representations):
+            if not any(_matches_with_boundary(rep, text) for rep in c.search_patterns):
                 failures.append(
                     f"  - {c.name} ({c.source}) = {c.raw_value!r}\n"
-                    f"    aucune des représentations {c.representations} "
+                    f"    aucun des motifs {c.search_patterns} "
                     f"n'apparaît dans {doc_path.name} avec frontière numérique."
                 )
     if failures:
@@ -245,6 +308,29 @@ def test_drift_detected_when_constant_changes(monkeypatch):
     monkeypatch.setattr(constants, "INFLATION_STRUCTURELLE", 0.018)
 
     with pytest.raises(AssertionError, match="INFLATION_STRUCTURELLE"):
+        test_critical_constants_representations_match_code()
+
+
+def test_doc_patterns_derivent_des_representations():
+    """Anti-découplage : un motif figé indépendamment de la valeur laisse
+    passer un recalibrage (prouvé en revue finale : 16→8 avec representations
+    mises à jour et doc_patterns figé = tout vert, doc restée à 16). Chaque
+    doc_pattern doit CONTENIR une representation pour suivre la valeur."""
+    for c in _critical_constants():
+        for pat in c.doc_patterns:
+            assert any(rep in pat for rep in c.representations), (
+                f"{c.source} : motif {pat!r} ne contient aucune de "
+                f"{c.representations} — il ne suivra pas un recalibrage")
+
+
+def test_drift_detected_when_md_eur_constant_changes(monkeypatch):
+    """Même rouge automatisé pour la famille Md€ (sans %) : la revue
+    2026-08-04 a montré que la faiblesse des motifs nus est invisible sur
+    les constantes en %, il faut donc un cas de mutation dans CETTE famille
+    (recalibrage plausible 16 → 8, la dérive historique inversée)."""
+    monkeypatch.setattr(constants, "RETRAITES_COEFF_AGE_MD_EUR", 8.0)
+
+    with pytest.raises(AssertionError, match="RETRAITES_COEFF_AGE_MD_EUR"):
         test_critical_constants_representations_match_code()
 
 

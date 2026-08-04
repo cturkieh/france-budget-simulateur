@@ -34,9 +34,46 @@ strictement identique au contrat pré-Item 1. Le test
 import logging
 from typing import Dict
 
-from ..constants import INTENSITE_DOMAINS
+from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 
 logger = logging.getLogger(__name__)
+
+
+def validate_param_domains(measure_id: str, params: Dict, *, strict: bool) -> Dict:
+    """Valide/borne les paramètres NOMMÉS de ``measure_id`` selon
+    ``PARAM_DOMAINS`` (revue 2026-08-04) — même contrat dual que
+    ``validate_intensite_domain`` : no-op (objet identique) pour toute
+    entrée légitime ou clé absente/None, ``ValueError`` en strict sinon,
+    ``logger.warning`` + copie clampée en tolérant. Une ``str`` lève
+    TypeError au comparateur (contrat MIXIN_BAD_PARAMS, pas de garde).
+
+    Raison d'être : les handlers symétrisés (retraites, prestations)
+    font désormais de l'arithmétique inconditionnelle — un NaN n'y est
+    plus neutralisé par accident et empoisonnerait toute la trajectoire
+    sans signal (cf tests/test_param_domains_guard.py).
+    """
+    out = params
+    for (mid, key), (low, high) in PARAM_DOMAINS.items():
+        if mid != measure_id or out.get(key) is None:
+            continue
+        value = out[key]
+        # `value != value` n'est vrai que pour NaN — même piège que pour
+        # intensite : NaN passe `< low` ET `> high` (les deux False).
+        if value != value or value < low or value > high:
+            if strict:
+                raise ValueError(
+                    f"{measure_id}.{key}={value!r} hors domaine "
+                    f"[{low}, {high}] (mode BUDGETLAB_STRICT)"
+                )
+            clamped = high if value > high else low  # NaN / < low → borne basse
+            logger.warning(
+                "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "
+                "→ clampé à %s (mode tolérant : service préservé, "
+                "calibration à vérifier)",
+                measure_id, key, value, low, high, clamped,
+            )
+            out = {**out, key: clamped}
+    return out
 
 
 def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool) -> Dict:

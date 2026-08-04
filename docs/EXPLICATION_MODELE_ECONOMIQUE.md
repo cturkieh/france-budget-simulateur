@@ -660,7 +660,7 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 - Taxe superprofits : +15 Md EUR
 - SMIC +14% : effets via multiplicateur quasi-nul (0,15)
 - TVA energie 5,5% : -17 Md EUR
-- Retraite 60 ans : -15 Md EUR
+- Retraite 60 ans : -44 Md EUR/an a plein regime (16 Md EUR x 2,75 annees, montee en charge 5 ans)
 
 **Impacts macro :**
 - Pouvoir d'achat : +3-4% (SMIC, TVA energie)

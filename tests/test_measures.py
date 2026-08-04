@@ -258,7 +258,14 @@ def test_apply_subventions_entreprises(simulator):
     # Reducing subventions → negative spending delta
     assert impacts['subventions_tge'].get('depenses', 0) < 0, "Expected spending reduction"
 
-def test_apply_measures_plafond_10pct(simulator):
+def test_apply_measures_plafond_10pct(simulator, monkeypatch):
+    # Stress-test du filet AVAL (plafond CLIP 5%/10% PIB) : les entrées
+    # extrêmes contournent volontairement la porte PARAM_DOMAINS (revue
+    # 2026-08-04) — sans ce bypass, la porte rejette (strict) ou clampe
+    # (tolérant) les valeurs avant que le plafond ne soit exercé.
+    from budget_simulator.constants import PARAM_DOMAINS
+    for key in [k for k in PARAM_DOMAINS if k[0] == 'retraites']:
+        monkeypatch.delitem(PARAM_DOMAINS, key)
     simulator.mesures = {
         'tva_rate': {'taux': 0.35},
         'retraites': {'age_depart': 70.0, 'indexation': 0.0, 'duree_cotisation': 50.0},
@@ -293,8 +300,13 @@ def test_calculate_inflation_deflation_forte(simulator):
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Impact déflationniste" in s for s in simulator.debug_logs), "Log déflation forte manquant"
 
-def test_simulate_domar_crisis(default_simulator):
+def test_simulate_domar_crisis(default_simulator, monkeypatch):
     """Uses default_simulator fixture which has all base_params."""
+    # Même bypass que test_apply_measures_plafond_10pct : le scénario de
+    # crise Domar a besoin d'entrées hors domaine pour rendre r-g explosif.
+    from budget_simulator.constants import PARAM_DOMAINS
+    for key in [k for k in PARAM_DOMAINS if k[0] == 'retraites']:
+        monkeypatch.delitem(PARAM_DOMAINS, key)
     default_simulator.periods = 10
     default_simulator.base_params['taux_interet_base'] = 0.04
     default_simulator.base_params['croissance_potentielle'] = 0.005

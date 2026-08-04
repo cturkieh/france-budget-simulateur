@@ -5,6 +5,9 @@
 
 Le moteur macro lit principalement les clés agrégées : ``depenses``,
 ``recettes``, ``pouvoir_achat``, ``gini``, ``competitivite``, ``chomage``.
+Convention de signe budgétaire : ``depenses`` négatif = économie (le solde
+s'améliore), ``recettes`` positif = gain fiscal — l'impact net sur le solde
+d'une mesure vaut ``recettes − depenses``.
 Les handlers peuvent ajouter des clés additionnelles à des fins de
 traçabilité (ex: ``fp``, ``aides_sociales``, ``cotisations`` dans
 ``_apply_smic``) — elles sont conservées dans le retour mais ignorées

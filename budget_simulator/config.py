@@ -1,7 +1,11 @@
 import json
 import logging
 
-from .constants import POLICY_MEASURES_PATH
+from .constants import (
+    POLICY_MEASURES_PATH,
+    RETRAITES_REF_AGE_ANS,
+    RETRAITES_REF_DUREE_ANS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +20,8 @@ def load_default_values():
     """
     return {
         'tva_rate': {'taux': 0.20},
-        'retraites': {'age_depart': 62.75, 'indexation': 1.0, 'duree_cotisation': 42.5},
+        'retraites': {'age_depart': RETRAITES_REF_AGE_ANS, 'indexation': 1.0,
+                      'duree_cotisation': RETRAITES_REF_DUREE_ANS},
         'fonction_publique': {'effectifs': 0, 'point_indice': 0},
         'fonction_publique_reforme': {'fusion_agences': 0, 'digitalisation': 0},
         'impot_societes': {'taux': 0.25, 'niches': 0},

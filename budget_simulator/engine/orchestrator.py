@@ -95,7 +95,7 @@ from ..constants import (
     HANDLER_FAILED_KEY,
     INDEXATION_BASELINE_RATIO,
 )
-from ._param_domain import validate_intensite_domain
+from ._param_domain import validate_intensite_domain, validate_param_domains
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +182,12 @@ class OrchestratorMixin:
                 # (synergie Item 3). No-op (objet identique) hors registre
                 # ou intensite valide → golden master byte-identique.
                 parameters = validate_intensite_domain(
+                    measure_id, parameters, strict=strict_mode
+                )
+                # Même porte pour les paramètres NOMMÉS des handlers
+                # symétrisés (PARAM_DOMAINS, revue 2026-08-04) : ferme la
+                # propagation silencieuse de NaN et la bande hors-UI.
+                parameters = validate_param_domains(
                     measure_id, parameters, strict=strict_mode
                 )
                 if measure_id in self.measure_handlers:

@@ -167,6 +167,34 @@ INTENSITE_DOMAINS = {
     'fiscalite_patrimoine': (-0.3, 0.3),
 }
 
+# === DOMAINES LÉGITIMES DES PARAMÈTRES NOMMÉS (revue 2026-08-04) ===
+# Même philosophie qu'INTENSITE_DOMAINS, clé (measure_id, param) : couvre les
+# handlers SYMÉTRISÉS (retraites, prestations), où l'arithmétique uniforme a
+# remplacé les if/elif directionnels qui neutralisaient un NaN par accident
+# (comparaisons False → terme sauté). Sans ce registre, un NaN hors-UI
+# empoisonne toute la trajectoire sans un signal, et une valeur aberrante
+# (indexation=-10) déplace la dette de 21 pts en silence. Domaines = union
+# des bornes UI (leverMeta.js) et des scénarios publiés. Extension complète
+# aux autres params nommés = chantier « contrat de params » (Item 2), différé.
+PARAM_DOMAINS = {
+    ('retraites', 'age_depart'): (60.0, 67.0),
+    ('retraites', 'indexation'): (0.0, 1.2),
+    ('retraites', 'duree_cotisation'): (40.0, 45.0),
+    ('prestations_indexation', 'taux_indexation'): (0.0, 1.2),
+}
+
+# === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
+# Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés
+# pour la garde CODE→DOC de tests/test_methodologie_consistency.py — la dérive
+# ×2 constatée le 2026-08-04 (code 16/4 vs doc et tooltips 8/2) est le mode de
+# défaillance que ce verrou bloque désormais.
+RETRAITES_REF_AGE_ANS = 62.75            # référence 2025 : 62 ans 9 mois (réforme 2023 en montée en charge)
+RETRAITES_REF_DUREE_ANS = 42.5           # référence 2025 : 170 trimestres
+RETRAITES_COEFF_AGE_MD_EUR = 16.0        # Md€/an par année d'âge (plein régime, cible COR ~17,7 Md€ 2030 pour 62,75→64)
+RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
+RETRAITES_EROSION_INDEXATION_MD_EUR = 1.5  # Md€/an par année écoulée pour un gel total (proportionnel à l'écart)
+RETRAITES_EROSION_PLATEAU_ANS = 7        # renouvellement des cohortes : l'écart au statu quo cesse de croître
+
 # === PROFILS DE PHASING (montée en charge progressive) ===
 # Format : tableau indexé par year_idx (0=Y1=2026, 1=Y2=2027, ...), borné à la dernière valeur.
 # Retraites — COR 2024 : montée en charge cohortes 5 ans (linéaire 0.2 → 1.0).

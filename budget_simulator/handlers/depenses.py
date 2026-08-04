@@ -79,7 +79,16 @@ reproduire le pattern.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import PHASING_RETRAITES_5ANS, POLICY_START_YEAR
+from ..constants import (
+    PHASING_RETRAITES_5ANS,
+    POLICY_START_YEAR,
+    RETRAITES_COEFF_AGE_MD_EUR,
+    RETRAITES_COEFF_DUREE_MD_EUR,
+    RETRAITES_EROSION_INDEXATION_MD_EUR,
+    RETRAITES_EROSION_PLATEAU_ANS,
+    RETRAITES_REF_AGE_ANS,
+    RETRAITES_REF_DUREE_ANS,
+)
 from .._logging import _log_debug
 from ._phasing import _year_phasing, asu_is_active, asu_phasing
 from ._types import ImpactsDict
@@ -101,41 +110,33 @@ class DepensesMixin(_MixinBase):
     def _apply_retraites(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         # Convention : les handlers ne sont jamais appeles en annee baseline (year=2025).
         # Garde defensive : si appel direct hors boucle simulate(), retourne neutre.
-        if year < 2026:
+        if year < POLICY_START_YEAR:
             return 0, 0, {}
-        age = params.get('age_depart', 62.75)
+        age = params.get('age_depart', RETRAITES_REF_AGE_ANS)
         indexation = params.get('indexation', 1.0)
-        duration = params.get('duree_cotisation', 42.5)
-        delta_spending = 0
-        # Reference 2025: 62.75 ans (62 ans et 9 mois)
-        # COR 2024: recul/avance suit montee en charge cohortes (5 ans pour plein effet).
-        # Coefficient stationnaire recalibre : -16 Md€/an pour passage 62.75 → 64 ans
-        # (cible COR Rapport annuel 2024 "Effets financiers de la reforme 2023" tableau 1.7,
-        # ~17.7 Md€ en 2030 et 23 Md€ stationnaire).
+        duration = params.get('duree_cotisation', RETRAITES_REF_DUREE_ANS)
+        # Coefficients COR 2024 (cible ~17,7 Md€ en 2030 et 23 Md€ stationnaire
+        # pour 62,75 → 64 ans), montee en charge cohortes 5 ans. Formules
+        # SYMETRIQUES autour des references RETRAITES_REF_* : hausse =
+        # economie, baisse = surcout miroir (cf METHODOLOGIE.md § Retraites).
         year_idx = max(0, year - POLICY_START_YEAR)
-        phasing_age = _year_phasing(year_idx, PHASING_RETRAITES_5ANS)
-        if age > 62.75:
-            delta_spending = -16.0 * (age - 62.75) * phasing_age
-        elif age < 62.75:
-            delta_spending = 16.0 * (62.75 - age) * phasing_age
-        # Reference 2025: 42.5 ans (170 trimestres)
-        # Phasing identique 5 ans, coefficient recalibre ×2 pour coherence.
-        phasing_duree = phasing_age
-        if duration > 42.5:
-            delta_spending -= 4.0 * (duration - 42.5) * phasing_duree
-        elif duration < 42.5:
-            delta_spending += 4.0 * (42.5 - duration) * phasing_duree
-        # Indexation : phasing existant 7 ans (deja phase, calibration inchangee)
-        if indexation < 1.0:
-            years_effect = min(year_idx + 1, 7)
-            delta_spending -= 1.5 * (1 - indexation) * years_effect
+        phasing = _year_phasing(year_idx, PHASING_RETRAITES_5ANS)
+        delta_spending = 0.0
+        delta_spending -= RETRAITES_COEFF_AGE_MD_EUR * (age - RETRAITES_REF_AGE_ANS) * phasing
+        delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
+        # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
+        # par annee ecoulee et par point d'ecart a la pleine indexation,
+        # plateau RETRAITES_EROSION_PLATEAU_ANS (renouvellement des cohortes).
+        delta_spending -= RETRAITES_EROSION_INDEXATION_MD_EUR * (1 - indexation) * min(
+            year_idx + 1, RETRAITES_EROSION_PLATEAU_ANS
+        )
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
         # Recul âge pénalise davantage classes populaires (mortalité différentielle)
         # Ouvriers : espérance vie -6 ans vs cadres, taux emploi 55-64 ans 52% vs 71%
         # Règle : 62.75→64 ans = +0.001 Gini (COR 2024 "effet hétérogène espérance vie")
-        gini_age = 0.001 * (age - 62.75) / 1.25
+        gini_age = 0.001 * (age - RETRAITES_REF_AGE_ANS) / 1.25
 
         # Gini : Indexation ↓ = paupérisation retraités (régressif)
         # Règle : Indexation 100%→90% = +0.005 Gini (OFCE Brief 124, 15/02/2024)
@@ -834,18 +835,16 @@ class DepensesMixin(_MixinBase):
         else:
             years_effect = min(year_idx, 10)
 
-        # Calcul économies (si sous-indexation)
-        # Érosion composée : chaque année, la base de prestations s'érode de
+        # Érosion composée : chaque année, la base de prestations s'écarte de
         # (1 - delta_indexation * inflation) par rapport à l'indexation complète.
-        # L'ancienne formule (moyenne lissée du cumul) sous-estimait en début
-        # de période et surestimait en fin de période.
-        if years_effect > 0:
+        # SYMETRIQUE (aligné sur les retraites, revue 2026-08-04) : sous-
+        # indexation = économie, sur-indexation = surcoût miroir — le gate de
+        # signe historique (`delta_indexation > 0`) rendait la sur-indexation
+        # budgétairement gratuite alors que Gini et PA y répondaient déjà.
+        if years_effect > 0 and inflation > 0:
             delta_indexation = indexation_ref - indexation
-            if delta_indexation > 0 and inflation > 0:
-                eroded_base = total_prestations * (1 - delta_indexation * inflation) ** max(years_effect - 1, 0)
-                delta_spending = -(total_prestations - eroded_base)  # Négatif = économie
-            else:
-                delta_spending = 0
+            adjusted_base = total_prestations * (1 - delta_indexation * inflation) ** max(years_effect - 1, 0)
+            delta_spending = -(total_prestations - adjusted_base)  # <0 économie, >0 surcoût
         else:
             delta_spending = 0
 
