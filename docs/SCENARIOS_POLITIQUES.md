@@ -23,10 +23,10 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 - **Source** : LF 2026 (loi 2026-103 du 19 fév 2026)
 - **Orientation** : consolidation budgétaire modérée, dans la continuité, avec préservation des acquis sociaux après amendements parlementaires. Trajectoire de réduction graduelle du déficit sans rupture fiscale ni sociale ; effort de maîtrise réparti sur les enveloppes ministérielles, hausse marquée de l'effort de défense, et fiscalité des grandes entreprises mobilisée à titre exceptionnel. C'est le scénario de référence « politique votée ».
 
-### Programme RN Bardella 2027
+### Programme RN Le Pen 2027
 <!-- scenario:rn_2027 -->
 
-- **Source** : Programme éco RN (Bardella, avril 2026)
+- **Source** : Programme éco RN (détaillé par J. Bardella, avril 2026 — candidate : M. Le Pen)
 - **Orientation** : priorité au pouvoir d'achat et à la compétitivité par allègement de la fiscalité de production et rapprochement du brut et du net, assouplissement de l'âge de départ pour les carrières longues, et resserrement des dépenses liées à l'immigration. Logique de baisse ciblée de prélèvements financée par des économies de fonctionnement et des contributions exceptionnelles sur certains secteurs.
 
 ### Programme LFI Mélenchon 2027
@@ -78,8 +78,8 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 > Tableau produit automatiquement par `scripts/generate_scenario_params.py` depuis `frontend-react/src/data/scenarios.json`. Toute modification manuelle entre les marqueurs sera écrasée. Ce tableau fait foi : en cas de doute, c'est lui qui décrit ce que simule l'outil.
 
 <!-- SCENARIO_PARAMS:START -->
-| Mesure | Paramètre | Budget 2026 (voté) | Programme RN Bardella 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance Attal 2027 | Programme Horizons Philippe 2027 | Programme LR Retailleau 2027 | Programme PS 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
-|--------|-----------|--------------------|----------------------------|------------------------------|----------------------------------|----------------------------------|------------------------------|-------------------|--------------------------------|------------------------------------|
+| Mesure | Paramètre | Budget 2026 (voté) | Programme RN Le Pen 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance Attal 2027 | Programme Horizons Philippe 2027 | Programme LR Retailleau 2027 | Programme PS 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
+|--------|-----------|--------------------|--------------------------|------------------------------|----------------------------------|----------------------------------|------------------------------|-------------------|--------------------------------|------------------------------------|
 | abattement_retraites | reforme_active | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
 | asu | asu_activation | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 1 |
 | asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.65 | 0.7 |
