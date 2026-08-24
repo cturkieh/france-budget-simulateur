@@ -89,7 +89,10 @@ def test_b_aucune_marche_ratio_primaire(statu_quo):
     peut dépasser 0,3 pt/an en fin d'horizon sur le ratio total.
 
     Deux fenêtres de tolérance (décomposition exécutée 2026-06-10, post-refonte) :
-    - transitions jusqu'à Y6→Y7 : ≤ 0,30 pt — zone où la démographie du moteur
+    - transitions jusqu'à Y6→Y7 : ≤ 0,35 pt (v0.6.0 : la dérive retraites
+      recalée sur la mission IGF — 0,016 réel/an + marche vieillissement Y5 —
+      porte la marche Y5→Y6 à +0,30 pt mesuré, marge 0,05) — zone où la
+      démographie du moteur
       est quasi linéaire ; tout dépassement = artefact d'ASSEMBLAGE (l'objet du
       test : l'ancien moteur faisait −0,39 puis −1,31 pt aux raccords) ;
     - transitions Y7→Y8 et suivantes : ≤ 0,60 pt — le vieillissement programmé
@@ -109,9 +112,9 @@ def test_b_aucune_marche_ratio_primaire(statu_quo):
     # POSITIVES (vieillissement) — une marche négative tardive > 0,3 pt serait
     # un artefact d'assemblage, pas de la démographie (revue 2026-06-10).
     violations = [
-        f"Y{i - 1}→Y{i} : {step:+.2f} pt (tol [{-0.30};{0.30 if i <= 7 else 0.60}])"
+        f"Y{i - 1}→Y{i} : {step:+.2f} pt (tol [{-0.30};{0.35 if i <= 7 else 0.60}])"
         for i, step in enumerate(steps, start=1)
-        if not (-0.30 <= step <= (0.30 if i <= 7 else 0.60))
+        if not (-0.30 <= step <= (0.35 if i <= 7 else 0.60))
     ]
     assert not violations, (
         "Marche(s) du ratio dépenses primaires/PIB hors tolérance en statu quo : "

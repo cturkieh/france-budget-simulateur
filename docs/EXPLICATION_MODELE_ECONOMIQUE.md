@@ -576,7 +576,7 @@ Si r < g : Dette stabilisable meme avec deficit primaire
 ```
 
 **Hypotheses modele (v4.0) :**
-- Taux implicite dette : ~1,9% (taux moyen pondere du stock)
+- Taux implicite dette : ~2,0 % a l'amorce 2026 (taux moyen pondere du stock, recale v0.6.0 sur le taux apparent 2,2 % toutes APU de la mission IGF 07/2026), remontant vers ~3,1 % en 2030 au fil du refinancement au taux marginal de marche (~3,47 %, AFT)
 - Croissance nominale : ~2,0-2,1% (~1% reel + ~1,1% inflation statu quo effective)
 - **r - g ~ -0,2%** en debut de periode -> marge tres faible ; devient POSITIF en fin d'horizon quand la croissance s'erode (debt drag) : dynamique boule de neige
 

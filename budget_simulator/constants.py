@@ -70,11 +70,94 @@ INFLATION_BASE = 0.010  # graine inertie inflation année 0 (init inflation_prec
 # 2026-05-18, Option C ; intention confirmée par décision PO 2026-06-10
 # (BCE = garde-fou de surchauffe >2 %, pas thermostat de convergence).
 INFLATION_STRUCTURELLE = 0.015  # 1,5 % — point fixe Phillips, inflation tendancielle moyen terme FR
-CROISSANCE_POTENTIELLE = 0.010  # 1.0% potential growth
+CROISSANCE_POTENTIELLE = 0.011  # 1,1 % — moyenne du sentier de la mission
+                                # Jaravel/Ragot/Tavernier/Valla (07/2026) :
+                                # 1,2 / 1,2 / 1,0 / 1,0 % (2027-2030). v0.5.1 : 1,0.
 CROISSANCE_2025 = 0.009  # 0.9% INSEE définitif 2025
 
 # === FISCAL PARAMETERS ===
-TAUX_INTERET_BASE = 0.019  # 1.9% interest rate (OAT 10 ans 2025)
+# v0.6.0 (audit externe 08/2026, constat 1) : TAUX_INTERET_BASE ne sert PLUS de
+# taux marginal — il n'amorce que le taux moyen du STOCK hérité (~1,9 %, charge
+# 2025 ≈ 64,7 Md€ / 3 457 Md€). Le taux marginal des émissions nouvelles est
+# reconstruit ci-dessous : ancre zone euro + spread France piloté par la
+# simulation (dette, effort). Recalé en calibration sur le corridor de la
+# mission Jaravel/Ragot/Tavernier/Valla (IGF, 07/2026) : taux apparent
+# 2,2 % → 3,1 % (2026-2030), charge 78 → 124 Md€.
+TAUX_INTERET_BASE = 0.0200  # amorce 2026 du taux moyen du stock hérité, périmètre
+                            # TOUTES APU — recalée v0.6.0 sur le taux apparent 2026
+                            # de la mission Jaravel/Ragot/Tavernier/Valla (2,2 %,
+                            # Tableau 6) : blend 84,1 % × 2,00 + 15,9 % × 3,47 %
+                            # (repricing linéaire demi-vie 4 ans, cf. engine/debt.py)
+                            # ≈ 2,23 %. Distinct du taux moyen 2025 périmètre ÉTAT
+                            # (~1,87 % = 64,7 Md€ / 3 457 Md€, Cour des comptes) :
+                            # le périmètre APU intègre des dettes plus chères
+                            # (Cades, hôpitaux, locales).
+
+# --- Taux marginal v0.6.0 : ancre + spread -------------------------------
+# Architecture : toute la littérature estime l'effet de la dette sur le SPREAD,
+# jamais sur le taux total. Le moteur ne prévoit pas la politique monétaire :
+# l'ancre zone euro est une constante exogène datée (choix de design assumé).
+ANCRE_TAUX_ZONE_EURO = 0.0265  # Bund 10 ans 3,24 % − 59 pb de coin de maturité (calage 08/2026)
+# Point d'ancrage OBSERVÉ : taux moyen pondéré des émissions MLT France 3,47 %
+# au ratio de dette 117,6 % (AFT, août 2026) → spread 82 pb sur l'ancre.
+SPREAD_ANCRAGE_DETTE = 1.176
+SPREAD_ANCRAGE = 0.0082
+# Pentes du spread, en fraction de taux par point de dette/PIB (1 pt = 0.01) :
+# 2 pb/pt < 90 % · 3 pb/pt 90-120 % (solide : Laubach 2009, Pamies et al. 2021,
+# Baldacci-Kumar 2010, Gruber-Kamin 2010) · 5,5 pb/pt 120-150 % (forme
+# non linéaire sourcée, point interpolé) · 8 pb/pt > 150 % (EXTRAPOLATION hors
+# échantillon, calée sur épisodes — Portugal 2011 spread 459 pb — jamais une
+# estimation ; cf. METHODOLOGIE § design).
+SPREAD_PENTE_SOUS_90 = 0.0002
+SPREAD_PENTE_90_120 = 0.0003
+SPREAD_PENTE_120_150 = 0.00055
+SPREAD_PENTE_SUP_150 = 0.0008
+# Plafond absolu de stress (borne, pas une prévision) : l'ancien 5 % serait
+# franchi dès ~147 % de dette avec ces pentes et écraserait la branche de
+# stress. Ancrage épisode : Portugal 2011.
+TAUX_PLAFOND_ABSOLU = 0.080
+
+# --- Prime de taux sur l'effort budgétaire ------------------------------
+# NB sémantique (revue adverse 24/08) : `effort_budgetaire` est un NIVEAU
+# d'effort vs baseline, pas un flux annuel — le cumul partiel avec le
+# déplacement le long de la courbe de dette est BORNÉ par les caps ci-dessous
+# (choix assumé, documenté METHODOLOGIE § Taux).
+# 20 pb par point de PIB d'effort — FMI WEO oct. 2010 ch. 3 ; Furceri,
+# Goncalves & Li 2025 (20-30 pb) ; Laubach 2009 (25 pb) ; vécu France
+# 2024-2026 : 15-21 pb/pt (OMFIF). Symétrique JUSQU'AUX PLAFONDS (caps
+# asymétriques sourcés : bonus −45 pb mission, malus +60 pb), amplifiée par
+# la dette au-delà de 90 % (ACL,
+# BCE WP 411 : non-linéarité de la dette, la forme est sourcée, la
+# paramétrisation est un choix). Falaise +100 pb v0.5.1 SUPPRIMÉE (toute la
+# crise politique française 2024-2026 = +21 pb de spread).
+PRIME_TAUX_PAR_PT_EFFORT = 0.0020
+PRIME_TAUX_SEUIL_DETTE = 0.90
+PRIME_TAUX_PENTE_DETTE = 1.00
+PRIME_TAUX_CAP_MALUS = 0.0060   # ~2× le pic France 2024-2026 (32 pb, OMFIF)
+PRIME_TAUX_CAP_BONUS = 0.0045   # mission 07/2026, encadré 4 : −0,4 pt max,
+                                # sans repasser sous le point bas 2021 (~30-35 pb)
+
+# Semi-élasticité du solde public au PIB — constante de CONTRÔLE, pas de calcul.
+# Le moteur la produit par CONSTRUCTION (ELASTICITE_PO_PIB = 1,0 + dépenses
+# chômage indexées sur le taux de chômage) ; le test-propriété
+# tests/test_asymetries_v060.py vérifie qu'elle ressort dans [0,50 ; 0,60].
+# Sources : FIPECO/Ecalle (0,55) ; OCDE ECO/WKP(2020)44 (0,5 moyenne, 0,66 max) ;
+# CE Mourre, Poissonnier & Lausegger DP 098 (2019). Les « stabilisateurs » en
+# escalier ajoutés au TAUX DE CROISSANCE (v0.5.1) étaient une erreur de nature
+# et un triple comptage — supprimés en v0.6.0 (audit 08/2026, constat 3).
+SEMI_ELASTICITE_SOLDE_PIB_FRANCE = 0.55
+
+# Coût complet chargé d'un agent public (masse salariale FP 330 Md€ / 5,5 M
+# d'agents — DGAFP 2024, INSEE 2024). SOURCE UNIQUE v0.6.0 : les deux handlers
+# fonction publique (réforme ET effectifs) valorisent un poste au même coût ;
+# v0.5.1 utilisait 40 k€ dans l'un et 60 k€ dans l'autre sans périmètre
+# documenté (audit 08/2026, constat 4).
+COUT_MOYEN_AGENT_FP_EUR = 60000
+# Départs naturels annuels dans la fonction publique (retraites) — le vivier
+# UNIQUE dans lequel puisent le non-remplacement de la réforme de l'État et le
+# curseur effectifs (anti-double-comptage v0.6.0 : l'objectif d'effectifs est
+# servi d'abord par les non-remplacements que la réforme réalise déjà).
+DEPARTS_ANNUELS_FP = 157000
 
 # Constantes RETIRÉES par la refonte « assemblage temporel » (2026-06,
 # cf. docs/plans/refonte-annee1-assemblage.md du repo parent) :
@@ -194,7 +277,27 @@ PARAM_DOMAINS = {
 # défaillance que ce verrou bloque désormais.
 RETRAITES_REF_AGE_ANS = 62.75            # référence 2025 : 62 ans 9 mois (réforme 2023 en montée en charge)
 RETRAITES_REF_DUREE_ANS = 42.5           # référence 2025 : 170 trimestres
-RETRAITES_COEFF_AGE_MD_EUR = 16.0        # Md€/an par année d'âge (plein régime, cible COR ~17,7 Md€ 2030 pour 62,75→64)
+# --- Barème d'âge v0.6.0 : rendement DÉCROISSANT (sourcing 24/08/2026) ---
+# v0.5.1 : coefficient linéaire 16,0 Md€/an sur tout le domaine — +13 % au-dessus
+# de sa propre cible (16,0 × 1,25 = 20 vs 17,7 Md€) et surestimation forte des
+# scénarios au-delà de 64 ans (le pic des liquidations à 62 ans n'existe plus).
+# Barème continu à 2 segments, chacun ancré sur une source officielle :
+RETRAITES_COEFF_AGE_SEUIL_ANS = 64.0
+RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR = 14.2  # Sénat l23-498 : 17,7 Md€ (2030) / 1,25 an (62,75→64) ;
+                                               # appliqué aussi sous 62,75 (pas de source < 62 dans
+                                               # cette passe — choix documenté § design)
+RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR = 6.0   # COR 19/03/2026, Doc n°3, tableau 4 : palier 64→65
+                                               # = 0,2 pt de PIB (≈ 6,0 Md€, PIB 2025 2 991 Md€)
+
+# --- Lot « fuite sociale + volet emploi » : RETIRÉ avant livraison v0.6.0 ---
+# (revue adverse 24/08/2026). La fuite (20 %, Cour des comptes 02/2025 p. 67)
+# et le volet emploi (COR 19/03/2026, +0,7-0,9 pt PIB/année d'AOD) forment un
+# lot indissociable ; l'implémentation sur-calibrait le levier d'âge de ~+49 %
+# vs la contre-épreuve Cour T5 (double comptage partiel des cotisations via
+# ELASTICITE_PO_PIB=1,0), créait un écho Okun divergent sur le chômage, et les
+# sources brutes se contredisent (Sénat l23-498 : 17,7 Md€ vs Cour/DG Trésor
+# T5 : 9,7 Md€ pour le seul système). À réintroduire en v0.6.1 après
+# réconciliation, avec le canal emploi routé en choc d'OFFRE.
 RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
 RETRAITES_EROSION_INDEXATION_MD_EUR = 1.5  # Md€/an par année écoulée pour un gel total (proportionnel à l'écart)
 RETRAITES_EROSION_PLATEAU_ANS = 7        # renouvellement des cohortes : l'écart au statu quo cesse de croître

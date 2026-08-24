@@ -55,73 +55,75 @@ class DebtMixin:
     """Bloc moteur — Charge de la dette (taux d'intérêt + intérêts payés)."""
 
     def calculate_interest_rate(self, debt_ratio: float, year: int, effort_budgetaire: float = 0) -> float:
-        """Taux d'intérêt avec progression CONTINUE - Calibré sur expérience zone euro 2010-2025"""
-        base_rate = self.base_params['taux_interet_base']  # 0.019
+        """Taux marginal des émissions nouvelles = ancre zone euro + spread France.
 
-        # Progression MONOTONE STRICTE
-        if debt_ratio < 0.6:
-            # Sous Maastricht : prime de confiance
-            rate = 0.015
-        elif debt_ratio < 0.9:
-            # 60-90% : montée progressive
-            rate = 0.015 + 0.004 * (debt_ratio - 0.6) / 0.3
-            # À 90% : rate = 0.019
-        elif debt_ratio < 1.0:
-            # 90-100% : stabilisation autour du taux de base
-            rate = base_rate
+        v0.6.0 (audit externe 08/2026) : ré-ancrage sur le marché observé —
+        3,47 % à 117,6 % de dette (AFT 08/2026) contre 1,99 % pour l'ancienne
+        courbe, pentes de spread sourcées (Laubach, Pamies, ACL — cf.
+        constants.py), prime d'effort continue et symétrique. Supprimés, avec
+        source : remise BCE inconditionnelle (le TPI exige de ne PAS être en
+        procédure de déficit excessif — la France y est, BCE 21/07/2022),
+        terme calendaire ``year > 5`` (aucune source), falaise +100 pb (vécu
+        France 2024-2026 : +21 pb). Monotone STRICT en dette jusqu'au plafond
+        de stress (8 %), vérifié par test-propriété.
+        Le paramètre ``year`` n'entre plus dans le calcul (signature conservée
+        pour les appels existants).
+        """
+        from ..constants import (
+            ANCRE_TAUX_ZONE_EURO, SPREAD_ANCRAGE, SPREAD_ANCRAGE_DETTE,
+            SPREAD_PENTE_SOUS_90, SPREAD_PENTE_90_120, SPREAD_PENTE_120_150,
+            SPREAD_PENTE_SUP_150, TAUX_PLAFOND_ABSOLU,
+            PRIME_TAUX_PAR_PT_EFFORT, PRIME_TAUX_SEUIL_DETTE,
+            PRIME_TAUX_PENTE_DETTE, PRIME_TAUX_CAP_MALUS, PRIME_TAUX_CAP_BONUS,
+        )
+
+        def _pts(x: float) -> float:
+            """Ratio de dette → points de PIB (1 pt = 0.01 de ratio)."""
+            return x * 100.0
+
+        # --- Spread France : segments intégrés depuis le point d'ancrage AFT ---
+        # spread(90 %) dérivé de l'ancre : 82 pb − 3 pb × (117,6 − 90) ≈ −0,8 pb
+        spread_90 = SPREAD_ANCRAGE - SPREAD_PENTE_90_120 * (_pts(SPREAD_ANCRAGE_DETTE) - 90.0)
+        spread_120 = spread_90 + SPREAD_PENTE_90_120 * 30.0
+        spread_150 = spread_120 + SPREAD_PENTE_120_150 * 30.0
+
+        if debt_ratio < 0.90:
+            spread = spread_90 - SPREAD_PENTE_SOUS_90 * (90.0 - _pts(debt_ratio))
         elif debt_ratio < 1.20:
-            # 100-120% : zone stable avec légère hausse
-            rate = base_rate + 0.005 * (debt_ratio - 1.0)
-            # À 120% : rate = 0.020
-        elif debt_ratio < 1.50:  # ← ABAISSÉ de 1.65
-            # 120-150% : tension croissante
-            rate = base_rate + 0.001 + 0.010 * (debt_ratio - 1.20)
-            # À 150% : rate = 0.023
+            spread = spread_90 + SPREAD_PENTE_90_120 * (_pts(debt_ratio) - 90.0)
+        elif debt_ratio < 1.50:
+            spread = spread_120 + SPREAD_PENTE_120_150 * (_pts(debt_ratio) - 120.0)
         else:
-            # >150% : SPIRALE PROGRESSIVE
-            # Phase 1 (150-170%) : pression modérée
-            rate = base_rate + 0.0041 + 0.007 * (debt_ratio - 1.50)
+            spread = spread_150 + SPREAD_PENTE_SUP_150 * (_pts(debt_ratio) - 150.0)
+            _log_debug(self.debug_logs, f"Y{year}: ⚠️ SPIRALE DETTE (spread {spread*100:.2f} pt, extrapolation >150%)")
 
-            if debt_ratio > 1.70:  # Phase 2 : spirale sévère
-                rate += 0.015 * (debt_ratio - 1.70)
-                if year > 5:
-                    rate += 0.003 * (year - 5)
-                _log_debug(self.debug_logs, f"Y{year}: 🚨 CRISE DE CONFIANCE")
-            else:
-                _log_debug(self.debug_logs, f"Y{year}: ⚠️ SPIRALE DETTE")
+        rate = ANCRE_TAUX_ZONE_EURO + spread
 
-        # Intervention BCE si dette > 150% (au lieu de 165%)
-        if debt_ratio > 1.50:
-            rate -= 0.005
-            _log_debug(self.debug_logs, f"Y{year}: Intervention BCE (-0.5%)")
+        # --- Prime d'effort : 20 pb/pt de PIB, amplifiée par la dette > 90 % ---
+        # effort_budgetaire est une fraction du PIB (+0.01 = consolidation 1 pt).
+        if effort_budgetaire != 0:
+            facteur_dette = 1.0 + PRIME_TAUX_PENTE_DETTE * max(0.0, debt_ratio - PRIME_TAUX_SEUIL_DETTE)
+            prime = -PRIME_TAUX_PAR_PT_EFFORT * (effort_budgetaire * 100.0) * facteur_dette
+            prime = max(-PRIME_TAUX_CAP_BONUS, min(PRIME_TAUX_CAP_MALUS, prime))
+            rate += prime
+            _log_debug(self.debug_logs, f"Y{year}: Prime d'effort {prime*100:+.2f} pt (effort {effort_budgetaire*100:+.2f} pt PIB)")
 
-        # Prime de risque selon politique budgétaire
-        if debt_ratio > 1.0:
-            if effort_budgetaire < -0.01:  # Expansion avec dette élevée
-                prime_politique = abs(effort_budgetaire) * 0.15
-                rate += prime_politique
-                _log_debug(self.debug_logs, f"Y{year}: Prime risque +{prime_politique*100:.2f}%")
-
-                if debt_ratio > 1.2 and effort_budgetaire < -0.015:
-                    rate += 0.01
-                    _log_debug(self.debug_logs, f"Y{year}: 🚨 ALERTE SOUTENABILITÉ CRITIQUE")
-
-            elif effort_budgetaire > 0.01:  # Consolidation
-                prime_credibilite = -min(0.005, effort_budgetaire * 0.10)
-                rate += prime_credibilite
-                _log_debug(self.debug_logs, f"Y{year}: Bonus crédibilité {prime_credibilite*100:.2f}%")
-
-        # Plafond taux d'intérêt : 5% cohérent avec mécanisme BCE TPI
-        # (ancien plafond 3.5% empêchait tout scénario de stress dette,
-        #  et le bloc non-linéaire >5% était du dead code car plafonné à 3.5%)
-        return min(rate, 0.050)
+        return min(rate, TAUX_PLAFOND_ABSOLU)
 
     def calculate_interest_payment(self, debt_total: float, marginal_rate: float) -> Tuple[float, float]:
         """
         Calcule charge d'intérêts avec renouvellement progressif.
-        Maturité moyenne dette française : 8 ans (source: AFT 2024)
+        Maturité moyenne dette française : 8 ans (source: AFT 2024).
+
+        v0.6.0 — repricing LINÉAIRE approximé (revue adverse 24/08) : le taux
+        géométrique 1/maturité donnait une demi-vie de repricing ~7 ans, alors
+        qu'un portefeuille amorti linéairement de maturité moyenne 8 ans
+        reprice la moitié de son stock en maturité/2 = 4 ans. Taux équivalent :
+        k = 1 − 0,5^(2/maturité) ≈ 0,159. C'est ce profil qu'utilise la
+        mission IGF 07/2026 (taux apparent 2,2 → 3,1 % en 5 ans, Tableau 6) —
+        vérifié par le corridor tests/test_calibration_mission_v060.py.
         """
-        renewal_rate = 1 / self.debt_structure['maturite_moyenne']
+        renewal_rate = 1 - 0.5 ** (2 / self.debt_structure['maturite_moyenne'])
 
         debt_renewed = debt_total * renewal_rate
         debt_old = debt_total * (1 - renewal_rate)

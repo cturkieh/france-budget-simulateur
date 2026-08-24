@@ -71,7 +71,9 @@ class CriticalConstant:
 def _critical_constants() -> tuple[CriticalConstant, ...]:
     # `economic_coeffs` est hardcodé dans `simulator.py` (section
     # « economic coefficients ») — on lit la source via une instance.
-    coeffs = BudgetSimulatorV45().economic_coeffs
+    _sim = BudgetSimulatorV45()
+    coeffs = _sim.economic_coeffs
+    mults = _sim.multipliers.base_multipliers
     return (
         CriticalConstant(
             name="PIB_BASE_2025 (Md EUR)",
@@ -112,14 +114,14 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             name="CROISSANCE_POTENTIELLE",
             source="constants.CROISSANCE_POTENTIELLE",
             raw_value=constants.CROISSANCE_POTENTIELLE,
-            representations=("1,0%", "1,0 %"),
+            representations=("1,1%", "1,1 %"),
             must_appear_in=_ALL_DOCS,
         ),
         CriticalConstant(
             name="TAUX_INTERET_BASE",
             source="constants.TAUX_INTERET_BASE",
             raw_value=constants.TAUX_INTERET_BASE,
-            representations=("1,9%", "1,9 %"),
+            representations=("2,0%", "2,0 %"),
             must_appear_in=(EXPLICATION, PUBLIC_EXPLICATION),
         ),
         CriticalConstant(
@@ -128,6 +130,22 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             raw_value=coeffs["okun"],
             # METHODO utilise notation anglo-saxonne `-0.35` sur ce point
             representations=("-0.35", "-0,35"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+        ),
+        # v0.6.0 : les deux coefficients de consolidation corrigés par l'audit
+        # (générique relevé, canal investissement créé) entrent dans le verrou.
+        CriticalConstant(
+            name="multiplicateur consolidation dépenses générique",
+            source="base_multipliers['consolidation']['spending_based']",
+            raw_value=mults['consolidation']['spending_based'],
+            representations=("-0,60", "-0.60"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+        ),
+        CriticalConstant(
+            name="multiplicateur coupe d'investissement public",
+            source="base_multipliers['consolidation']['investissement']",
+            raw_value=mults['consolidation']['investissement'],
+            representations=("-1,20", "-1.20", "-1,2", "-1.2"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
         ),
         CriticalConstant(
@@ -139,13 +157,23 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
         ),
         # Coefficients retraites nommés le 2026-08-04 après dérive ×2 constatée
         # (code 16/4 vs doc et tooltips 8/2 pendant ~10 semaines, repo public).
+        # v0.6.0 : barème d'âge à rendement décroissant (2 segments) + fuite
+        # sociale — chaque segment verrouillé séparément (audit 08/2026).
         CriticalConstant(
-            name="retraites âge (Md EUR/an par année)",
-            source="constants.RETRAITES_COEFF_AGE_MD_EUR",
-            raw_value=constants.RETRAITES_COEFF_AGE_MD_EUR,
-            representations=("16",),
+            name="retraites âge avant 64 ans (Md EUR/an par année)",
+            source="constants.RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR",
+            raw_value=constants.RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR,
+            representations=("14,2", "14.2"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
-            doc_patterns=("16 Md EUR",),
+            doc_patterns=("14,2 Md EUR",),
+        ),
+        CriticalConstant(
+            name="retraites âge au-delà de 64 ans (Md EUR/an par année)",
+            source="constants.RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR",
+            raw_value=constants.RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR,
+            representations=("6",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("6 Md EUR par annee au-dela de 64 ans",),
         ),
         CriticalConstant(
             name="retraites durée (Md EUR/an par année)",
@@ -328,9 +356,9 @@ def test_drift_detected_when_md_eur_constant_changes(monkeypatch):
     2026-08-04 a montré que la faiblesse des motifs nus est invisible sur
     les constantes en %, il faut donc un cas de mutation dans CETTE famille
     (recalibrage plausible 16 → 8, la dérive historique inversée)."""
-    monkeypatch.setattr(constants, "RETRAITES_COEFF_AGE_MD_EUR", 8.0)
+    monkeypatch.setattr(constants, "RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR", 8.0)
 
-    with pytest.raises(AssertionError, match="RETRAITES_COEFF_AGE_MD_EUR"):
+    with pytest.raises(AssertionError, match="RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR"):
         test_critical_constants_representations_match_code()
 
 

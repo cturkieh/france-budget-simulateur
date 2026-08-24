@@ -14,7 +14,7 @@ from .constants import (
     DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_NAIRU, GINI_BASE,
     GINI_HARD_CEILING, GINI_SOFT_FLOOR,
     INFLATION_BASE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
-    TAUX_INTERET_BASE,
+    TAUX_INTERET_BASE, TAUX_PLAFOND_ABSOLU,
 )
 from .handlers.additionnels import AdditionnelsMixin
 from .handlers.competitivite import CompetitiviteMixin
@@ -62,7 +62,9 @@ class EconomicConstraints:
     inflation_min: float = -0.005
     inflation_max: float = 0.042
     output_gap_max: float = 0.03
-    taux_interet_max: float = 0.050  # Cohérent avec plafond BCE TPI
+    taux_interet_max: float = TAUX_PLAFOND_ABSOLU  # source unique constants.py
+    # (v0.6.0 : l'ancien littéral 5 % « cohérent BCE TPI » était doublement faux —
+    #  le TPI exige de ne pas être en PDE, et le plafond moteur est passé à 8 %.)
 
 class EconomicValidator:
     """Validateur de cohérence économique avec tests améliorés"""
@@ -100,7 +102,7 @@ class EconomicValidator:
         # NOUVEAU : Test taux intérêt
         taux = year_data.get('Taux_Intérêt %', 0) / 100
         if taux > self.constraints.taux_interet_max:
-            violations.append(f"CRITIQUE: Taux {taux:.1%} > plafond BCE {self.constraints.taux_interet_max:.1%}")
+            violations.append(f"CRITIQUE: Taux {taux:.1%} > plafond de stress {self.constraints.taux_interet_max:.1%}")
 
         gini = year_data.get('Gini', 0)
         if not self.constraints.gini_min <= gini <= self.constraints.gini_max:
@@ -193,8 +195,14 @@ class FiscalMultipliers:
         # - Romer & Romer 2010 : tax multiplier 0.5-1.0 (milieu de fourchette)
         self.base_multipliers = {
             'consolidation': {
-                'tax_based': -0.50,     # Hausse impôts anticipée (Blanchard & Leigh 2013: 0.3-0.5)
-                'spending_based': -0.40, # Coupes dépenses anticipées (Alesina: 0.3-0.5 pour graduel)
+                'tax_based': -0.50,      # Hausse impôts anticipée (Blanchard & Leigh 2013: 0.3-0.5 ; OCDE France IR 0.6)
+                'spending_based': -0.60, # Coupes dépenses hors investissement — bas de fourchette
+                                         # (Ramey 2019 JEP « 0.6 to 1 » ; Gechert & Rannenberg 0.4-0.7 ;
+                                         #  OFCE PB146 1.0). v0.5.1 : -0.40, sous le consensus.
+                'investissement': -1.2,  # Coupe d'investissement public, SYMÉTRIQUE de la hausse
+                                         # (Gechert 2015 et Mésange : linéarité en signe ; FMI WEO
+                                         #  oct.2010 ch.3 : coupes d'investissement au haut de
+                                         #  l'échelle de coût). v0.5.1 : canal ABSENT (audit 08/2026).
             },
             'expansion': {
                 'tax_cuts': 0.35,        # Baisses impôts (IMF: 0.1-0.5)
@@ -272,13 +280,25 @@ class FiscalMultipliers:
         # à son poids dans la mesure. Évite les seuils binaires qui traitent le SMIC
         # (transfert, mult 0.5) comme de l'investissement (mult 1.0).
         if effort_type == 'consolidation':
+            part_inv = composition.get('investissement', 0)
             part_rev = composition.get('recettes', 0)
             part_dep = composition.get('depenses', 0)
-            total = part_rev + part_dep
+            part_gen = max(0, part_dep - part_inv)
+            total = part_inv + part_gen + part_rev
             if total > 0:
+                m_gen = self.base_multipliers['consolidation']['spending_based']
+                # Effet confiance (AFG 2019, « mild recessionary » pour les plans
+                # dépense) : atténue la coupe GÉNÉRIQUE, jamais le canal
+                # investissement — leur échantillon n'en contient quasiment pas
+                # (« almost no austerity plans where the main component is a cut
+                # in public investment ») et le FMI (WEO oct. 2010 ch. 3) place
+                # ces coupes au HAUT de l'échelle de coût.
+                if part_dep > 0.5 and year > 1:
+                    m_gen /= self.adjustments['confidence']
                 mult_base = (
-                    (part_rev / total) * self.base_multipliers['consolidation']['tax_based'] +
-                    (part_dep / total) * self.base_multipliers['consolidation']['spending_based']
+                    (part_inv / total) * self.base_multipliers['consolidation']['investissement'] +
+                    (part_gen / total) * m_gen +
+                    (part_rev / total) * self.base_multipliers['consolidation']['tax_based']
                 )
             else:
                 mult_base = self.base_multipliers['consolidation']['spending_based']
@@ -309,10 +329,8 @@ class FiscalMultipliers:
         if economic_state.get('debt_ratio', 0) > 1.10:
             multiplier *= self.adjustments['high_debt']
 
-        # Effet confiance
-        if effort_type == 'consolidation' and composition.get('depenses', 0) > 0.5 and year > 1:
-            if multiplier < 0:
-                multiplier /= self.adjustments['confidence']
+        # Effet confiance : appliqué en amont, sur la seule part générique de la
+        # branche consolidation (v0.6.0) — plus jamais sur le blend entier.
 
         # Effet ZLB
         if economic_state.get('interest_rate', 0.023) < 0.02 and economic_state.get('output_gap', 0) < -0.02:
@@ -361,6 +379,17 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     INVESTMENT_FLOW_MEASURES = frozenset([
         'education', 'transition_ecologique', 'recherche_publique',
         'sante', 'fonction_publique_reforme',
+    ])
+
+    # v0.6.0 (revue adverse 24/08) : le canal INVESTISSEMENT du multiplicateur
+    # (±1,2, FMI/OFCE) ne couvre que l'investissement public PRODUCTIF au sens
+    # de la littérature (éducation, R&D, transition). La santé courante et la
+    # réforme de l'État sont de la consommation/optimisation publique : elles
+    # restent sur les canaux transferts/générique. INVESTMENT_FLOW_MEASURES
+    # (ci-dessus) ne sert plus qu'au profil de DECAY des impulsions
+    # (persistance), périmètre distinct et pré-existant.
+    INVESTMENT_CORE_MEASURES = frozenset([
+        'education', 'transition_ecologique', 'recherche_publique',
     ])
 
     # Mesures de transfert direct (decay rapide)
@@ -474,7 +503,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # Cour des comptes (fév 2026), COR (juin 2025), OFCE, LPM 2024-2030, ONDAM
         # La croissance réelle pondérée cible : +1.0 à +1.3%/an (observé +1.3% en 2025)
         self.spending_growth_rates = {
-            'retraites': 0.012,            # COR 2025 : 13.9→14.0% PIB, indexation + vieillissement
+            'retraites': 0.016,            # v0.6.0 : mission IGF 07/2026, Tableau — dépenses retraites
+                                           # 354→401 Md€ 2026-2030 (+13 % nominal ≈ +1,6 %/an réel,
+                                           # hyp. COR : retraités +0,5 %/an, pension moyenne +0,5 %/an réel)
             'sante': 0.020,                # ONDAM tendanciel haut, réel ~+2% (ex-0.018, re-pente tendanciel)
             'chomage': -0.003,             # Stable, réforme assurance chômage compense
             'dependance': 0.025,           # Baby-boomers 85+ d'ici 2030, plan autonomie

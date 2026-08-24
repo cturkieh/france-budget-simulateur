@@ -27,7 +27,13 @@ def baseline_df():
 # === BASELINE (aucune réforme) ===
 
 def test_baseline_dette_range(baseline_df):
-    """La dette baseline doit rester dans 140-160% en 2035 (statu quo honnête post-refonte).
+    """La dette baseline doit rester dans 162-178 % en 2035 (v0.6.0, taux honnêtes).
+
+    RECALIBRAGE v0.6.0 (audit externe 08/2026, mesuré 169,6 %) : taux marginal
+    ré-ancré sur le marché (3,47 % @ 117,6 % AFT, courbe monotone) → charge
+    124 Md€ en 2030 (corridor mission IGF 07/2026) et effet boule de neige
+    réel (r > g dès 2029). L'ancien 150,4 % reposait sur un taux marginal 1,9 %
+    (ancre ZIRP morte, écart 148 pb au marché).
 
     RECALIBRAGE refonte « assemblage temporel » 2026-06-10 (mesuré 150,4 %) :
     la baseline honnête garde un déficit ~5-5,5 % SANS consolidation (l'ancien
@@ -40,14 +46,17 @@ def test_baseline_dette_range(baseline_df):
     fourchette verrouille la mécanique, pas un consensus inexistant."""
     df = baseline_df
     dette = df.iloc[-1]['Dette/PIB %']
-    assert 140 < dette < 160, f"Baseline dette {dette:.1f}% hors fourchette 140-160%"
+    assert 162 < dette < 178, f"Baseline dette {dette:.1f}% hors fourchette 162-178%"
 
 
 def test_baseline_deficit_range(baseline_df):
-    """Le déficit baseline doit être entre -4% et -8% en 2035"""
+    """Le déficit baseline 2035 doit rester dans -13,5/-9 % (v0.6.0, boule de neige réelle)"""
     df = baseline_df
     deficit = df.iloc[-1]['Déficit/PIB %']
-    assert -8.0 < deficit < -4.0, f"Baseline déficit {deficit:.1f}% hors fourchette -8/-4%"
+    # v0.6.0 : à taux honnêtes, la boule de neige porte le déficit statu quo
+    # 2035 vers ~-11,7 % (charge ~7 % du PIB à 170 % de dette) — le message
+    # « politique inchangée insoutenable » de la mission IGF, prolongé à 2035.
+    assert -13.5 < deficit < -9.0, f"Baseline déficit {deficit:.1f}% hors fourchette -13,5/-9%"
 
 
 def test_baseline_croissance_range(baseline_df):
@@ -108,8 +117,16 @@ def test_defense_augmente_dette(baseline_df):
     )
 
 
-def test_investissement_massif_augmente_dette(baseline_df):
-    """150 Md€ d'investissement doit augmenter la dette (pas d'autofinancement magique)"""
+def test_investissement_massif_pas_dautofinancement_magique(baseline_df):
+    """v0.6.0 — la garde « pas d'autofinancement magique » se teste en EUROS.
+
+    Avec les multiplicateurs symétrisés (audit 08/2026), un paquet
+    d'investissement massif AUGMENTE la dette en niveau (€) — pas de repas
+    gratuit — mais peut RÉDUIRE le ratio dette/PIB (dénominateur : FMI WEO
+    oct. 2014 ch. 3 — l'investissement public en creux conjoncturel financé
+    par dette peut améliorer le ratio ; effet borné). La dépense NON
+    productive (défense +70 Md€, multiplicateur transfert), elle, dégrade
+    AUSSI le ratio."""
     df_base = baseline_df
 
     mesures = {
@@ -118,19 +135,21 @@ def test_investissement_massif_augmente_dette(baseline_df):
         'defense': {'budget': 70},
         'recherche_publique': {'budget': 15}
     }
-    sim_inv = BudgetSimulatorV45(mesures=mesures)
-    df_inv, _, _ = sim_inv.simulate()
+    df_inv, _, _ = BudgetSimulatorV45(mesures=mesures).simulate()
 
-    dette_base = df_base.iloc[-1]['Dette/PIB %']
-    dette_inv = df_inv.iloc[-1]['Dette/PIB %']
-    # Seuil recalé >5 → >2,5 pt (refonte 2026-06-10, mesuré +3,4) : même delta
-    # en Md€, mais ratio dilué par la baseline honnête plus haute (150 vs 122 %)
-    # et impulsion macro laguée d'un an (effets retours décalés). Le sens du
-    # test (pas d'autofinancement magique) est inchangé : delta strictement > 0
-    # et substantiel.
-    assert dette_inv > dette_base + 2.5, (
-        f"Invest massif devrait augmenter la dette de >2,5 pts: base={dette_base:.1f}%, inv={dette_inv:.1f}%"
-    )
+    # (a) En euros : la dette augmente substantiellement (mesuré ~+380 Md€ hors
+    # taxe carbone du paquet, ~+150 Md€ net ici avec les 44,6 Md€ de recettes).
+    delta_eur = df_inv.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
+    assert delta_eur > 50, f"Invest massif : dette € devrait monter nettement, mesuré {delta_eur:+.0f} Md€"
+    # (b) En ratio : l'amélioration éventuelle reste bornée (mesuré −1,2 pt
+    # post-fixes v0.6.0 ; le paquet invest pur max mesuré −9,5 pt).
+    delta_ratio = df_inv.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
+    assert delta_ratio > -12, f"Amélioration de ratio invraisemblable : {delta_ratio:+.1f} pt"
+
+    # (c) Dépense non productive seule : ratio ET euros se dégradent.
+    df_def, _, _ = BudgetSimulatorV45(mesures={'defense': {'budget': 70}}).simulate()
+    assert df_def.iloc[-1]['Dette/PIB %'] > df_base.iloc[-1]['Dette/PIB %'] + 1.5
+    assert df_def.iloc[-1]['Dette'] > df_base.iloc[-1]['Dette'] + 100
 
 
 def test_austerite_reduit_croissance(baseline_df):
@@ -206,15 +225,23 @@ def test_retraites_64ans_reduit_dette_significativement(baseline_df):
     # retarde) — la refonte rend les reformes structurelles a leur vrai
     # rendement physique. Anti-faux-vert bilateral : retomber vers -115 =
     # retour du lag ; depasser -185 = double-comptage.
+    # RECALIBRAGE v0.6.0 final (mesure -202 Md€, bareme decroissant SEUL — le
+    # lot fuite sociale + volet emploi a ete retire par la revue adverse du
+    # 24/08, cf. tests/test_retraites_v060.py) : economies directes brutes
+    # ~124 Md€ cumules (14,2 Md€/an a plein regime, phasing 5 ans) + interets
+    # evites aux taux v0.6.0 (marginal ~4-5 % en fin d'horizon, bien superieur
+    # a v0.5.1) + retours macro. Anti-faux-vert bilateral : sous -260 =
+    # double-comptage ou canal emploi reintroduit sans calibration ; au-dessus
+    # de -150 = perte de la verite physique (bareme sous-calibre).
     economie_md = df_64.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
-    assert -185 < economie_md < -135, (
-        f"Economie retraite 64 ans hors calibration COR (verite physique Md€): {economie_md:+.0f} Md€"
+    assert -260 < economie_md < -150, (
+        f"Economie retraite 64 ans hors fenetre v0.6.0 (bareme Senat/COR): {economie_md:+.0f} Md€"
     )
 
     # Garde RATIO (points de dette) : recalee avec la garde Md€ (mesure -3,84 pt :
     # -163 Md€ sur un PIB 2035 plus bas — inflation 1,1-1,4 % vs 2,33 % artificiel).
     delta_dette_y10 = df_64.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
-    assert -5.0 < delta_dette_y10 < -2.5, (
+    assert -7.5 < delta_dette_y10 < -3.0, (
         f"Retraite 64 ans devrait reduire dette Y10 (borne refonte [-5.0,-2.5]): "
         f"delta={delta_dette_y10:+.2f} pts (base={df_base.iloc[-1]['Dette/PIB %']:.1f}%, "
         f"64ans={df_64.iloc[-1]['Dette/PIB %']:.1f}%)"

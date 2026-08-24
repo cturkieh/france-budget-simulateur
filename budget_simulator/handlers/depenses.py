@@ -82,7 +82,9 @@ from typing import TYPE_CHECKING, Dict, Tuple
 from ..constants import (
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
-    RETRAITES_COEFF_AGE_MD_EUR,
+    RETRAITES_COEFF_AGE_SEUIL_ANS,
+    RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR,
+    RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
@@ -122,7 +124,24 @@ class DepensesMixin(_MixinBase):
         year_idx = max(0, year - POLICY_START_YEAR)
         phasing = _year_phasing(year_idx, PHASING_RETRAITES_5ANS)
         delta_spending = 0.0
-        delta_spending -= RETRAITES_COEFF_AGE_MD_EUR * (age - RETRAITES_REF_AGE_ANS) * phasing
+        # v0.6.0 — barème d'âge à rendement DÉCROISSANT : 2 segments continus,
+        # 14,2 Md€/an jusqu'à 64 ans (Sénat l23-498 : 17,7 Md€ / 1,25 an) puis
+        # 6 Md€/an au-delà (COR 19/03/2026, Doc n°3, T4 : palier 64→65 =
+        # 0,2 pt de PIB). Le 16,0 linéaire v0.5.1 surestimait les scénarios à
+        # 65 ans. NB v0.6.1 (revue adverse 24/08) : le lot « fuite sociale
+        # 20 % + volet emploi COR » a été implémenté PUIS RETIRÉ — sur-calibrage
+        # ~+49 % vs la contre-épreuve Cour 02/2025 T5, écho Okun divergent, et
+        # conflit de sources (Sénat 17,7 vs Cour 9,7) à réconcilier avant
+        # livraison. Sous 62,75 ans : 14,2 prolongé par défaut — la Cour 2021
+        # (14 Md€ bruts pour 60→62, soit ~7/an) suggère MOINS : surcoût des
+        # abaissements possiblement surestimé, à trancher en v0.6.1.
+        ecart_avant_seuil = min(age, RETRAITES_COEFF_AGE_SEUIL_ANS) - RETRAITES_REF_AGE_ANS
+        ecart_apres_seuil = max(0.0, age - RETRAITES_COEFF_AGE_SEUIL_ANS)
+        economie_brute_age = (
+            RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR * ecart_avant_seuil
+            + RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR * ecart_apres_seuil
+        )
+        delta_spending -= economie_brute_age * phasing
         delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
         # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
         # par annee ecoulee et par point d'ecart a la pleine indexation,
@@ -311,34 +330,28 @@ class DepensesMixin(_MixinBase):
             'franchise': taux_franchise,
             'prevention': prevention_budget_montant
         }
+        # v0.6.0 (audit 08/2026, constats 5-6) : les mesures d'EFFICIENCE sont
+        # réellement neutres — Gini 0, PA 0, compétitivité 0 — conformément à
+        # METHODOLOGIE.md (« NEUTRALITE TOTALE »). Le triple bonus v0.5.1
+        # (gini −0,002 / PA +0,003 / compétitivité +0,001 par effort) n'avait
+        # AUCUNE source : couper 30 Md€ ne coûtait rien dans aucune dimension
+        # (repas gratuit). Règle du chantier : contrepartie SOURCÉE ou
+        # neutralité réelle. Seules les FRANCHISES gardent leurs impacts,
+        # eux sourcés (OFCE 2024, INSEE 2024).
         if self._is_first_year_change('sante', params_sante):
-            # Gini: Réforme progressive = impact neutre à légèrement positif
-            # Améliore accès soins primaires, réduit reste à charge hospitalier (effet redistributif)
-            # ATTENTION : "effort" signifie PRODUCTIVITÉ (faire mieux avec moins), pas austérité qualité
-            gini_reforme = -0.002 * (effort_hopital + effort_ambu + effort_prev_org) / 3
-
             # Gini: Franchises ↑ = impact RÉGRESSIF (touche + les pauvres)
             # Règle : Franchises 100%→200% (Bayrou) = +0.003 Gini (OFCE 2024)
-            gini_franchise = 0.003 * (taux_franchise - 100) / 100
-
-            gini = gini_reforme + gini_franchise
+            gini = 0.003 * (taux_franchise - 100) / 100
         else:
             # Années suivantes : impact déjà intégré
             gini = 0.0
 
-        # Pouvoir d'achat: Amélioration via réduction reste à charge
-        # Gains PRODUCTIVITÉ santé → moins de coûts pour usagers → PA augmente
-        pouvoir_achat_reforme = 0.003 * (effort_hopital + effort_ambu + effort_prev_org) / 3
-
         # Pouvoir d'achat: Impact franchises sur reste à charge
         # Règle : Franchises 100%→200% = -0.001 PA (INSEE 2024)
-        pouvoir_achat_franchise = -0.001 * (taux_franchise - 100) / 100
+        pouvoir_achat = -0.001 * (taux_franchise - 100) / 100
 
-        pouvoir_achat = pouvoir_achat_reforme + pouvoir_achat_franchise
-
-        # Compétitivité: Réduction charges via efficience système
-        # PRODUCTIVITÉ santé → coûts sécu maîtrisés → moins de prélèvements → compétitivité
-        competitivite = 0.001 * (effort_hopital + effort_ambu + effort_prev_org) / 3
+        # Compétitivité : neutre (optimisation interne, cf. doc)
+        competitivite = 0.0
 
         impacts = {
             'depenses': delta_spending,

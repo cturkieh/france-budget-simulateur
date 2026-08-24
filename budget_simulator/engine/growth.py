@@ -138,7 +138,7 @@ class GrowthMixin:
                         continue
 
                     m_total = m_dep + m_rev
-                    m_is_inv = m_id in self.INVESTMENT_FLOW_MEASURES
+                    m_is_inv = m_id in self.INVESTMENT_CORE_MEASURES
                     composition_m = {
                         'depenses': m_dep / m_total if m_total > 0 else 0,
                         'recettes': m_rev / m_total if m_total > 0 else 0,
@@ -225,22 +225,15 @@ class GrowthMixin:
             _log_debug(self.debug_logs,
                 f"Y{year}: Aucun effort budgétaire → pas de nouvelle impulsion")
 
-        # EFFET CONFIANCE DÉGRESSIF (Alesina & Ardagna 2010)
-        # Caps réduits : l'évidence empirique d'Alesina est contestée (IMF 2012, Guajardo et al. 2014)
-        # et ne justifie pas un boost >0.2% même dans les conditions les plus favorables.
-        if effort_budgetaire > 0.015 and part_depenses > 0.5 and debt_ratio > 1.1:
-            if year <= 2:
-                multiplier, cap = 0.10, 0.002
-            elif year <= 4:
-                multiplier, cap = 0.08, 0.0015
-            else:
-                multiplier, cap = 0.02, 0.0004
-            effet_confiance = min(cap, multiplier * effort_budgetaire)
-            croissance += effet_confiance
-            _log_debug(self.debug_logs,
-                f"Y{year}: Effet confiance +{effet_confiance*100:.2f}% "
-                f"(dégressif, année {year})"
-            )
+        # EFFET CONFIANCE « Alesina » : SUPPRIMÉ en v0.6.0 (audit 08/2026).
+        # L'austérité expansionniste est réfutée sur échantillon corrigé (FMI
+        # WEO oct. 2010 ch. 3 : « the opposite is true » ; Guajardo, Leigh &
+        # Pescatori 2014 ; Jordà & Taylor 2016) ; la position finale de l'école
+        # Alesina (AFG 2019) ne défend que la composition — captée par
+        # adjustments['confidence'] = 1,10 (simulator.py, conservé). Le canal
+        # confiance mesurable vit sur la prime de taux (engine/debt.py) :
+        # consolidation → prime plus basse → charge d'intérêts plus faible.
+        # Ne PAS réintroduire de bonus sur le taux de croissance, même réduit.
 
         # CICATRICE AUSTÉRITÉ (DeLong & Summers 2012, Fatas & Summers 2018)
         # Seule l'austérité TRÈS sévère (>3% PIB) cause des dommages structurels.
@@ -258,14 +251,15 @@ class GrowthMixin:
                 f"(sévérité {severity*100:.1f}%)"
             )
 
-        # Stabilisateurs automatiques
-        if unemployment > 0.09:
-            croissance += 0.005
-            _log_debug(self.debug_logs, f"Y{year}: Stabilisateur chômage")
-
-        if deficit_ratio < -0.04:
-            croissance += 0.001
-            _log_debug(self.debug_logs, f"Y{year}: Stabilisateur déficit")
+        # Stabilisateurs automatiques : les escaliers v0.5.1 (+0,5 pt si
+        # chômage > 9 %, +0,1 pt si déficit < −4 %) sont SUPPRIMÉS en v0.6.0.
+        # Erreur de nature : un stabilisateur joue sur le SOLDE, pas sur le
+        # taux de croissance (FIPECO/Ecalle ; OCDE ECO/WKP(2020)44 ; CE Mourre
+        # et al. 2019) — et le second était vrai chaque année en baseline
+        # (+0,10 pt/an permanent disparaissant pour qui assainit). Le moteur
+        # produit la stabilisation par CONSTRUCTION (élasticité PO 1,0 +
+        # dépenses chômage indexées) ; contrat vérifié en CI :
+        # SEMI_ELASTICITE_SOLDE_PIB_FRANCE (constants.py) ∈ [0,50 ; 0,60].
 
         if effort_budgetaire < 0 and debt_ratio > 1.0:
             # Crowding-out renforcé pour dépenses non-productives :
@@ -280,6 +274,15 @@ class GrowthMixin:
             _log_debug(self.debug_logs,
                 f"Y{year}: Crowding-out {crowding_effect*100:.3f}% "
                 f"(intensité {crowding_intensity:.3f}, inv={part_inv:.0%})")
+
+        # NB v0.6.1 (revue adverse 24/08) : le « volet emploi seniors » (COR
+        # 19/03/2026, +0,7-0,9 pt de PIB par année d'AOD) a été implémenté ici
+        # PUIS RETIRÉ avec la fuite sociale jumelle : routé par Okun-demande il
+        # créait un écho de chômage divergent, sur-calibrait le levier d'âge de
+        # ~+49 % vs la contre-épreuve Cour 02/2025 T5, et double-comptait les
+        # cotisations retraites (élasticité PO 1,0 vs « PO HORS cotisations »
+        # chez la Cour). À réintroduire comme choc d'OFFRE correctement routé
+        # (potentielle + neutralisation Okun) avec réconciliation des sources.
 
         croissance += np.random.normal(0, 0.003)
         croissance = np.clip(croissance, -0.035, 0.025)
@@ -327,17 +330,28 @@ class GrowthMixin:
 
                 delta = current_val - default_val
 
-                if delta > 0.1:  # > 100 M€ au-dessus du défaut
+                # v0.6.0 (audit 08/2026) : effet SYMÉTRIQUE. Une coupe sous le
+                # défaut érode la croissance potentielle comme une hausse
+                # l'augmente — même délai, même forme log2, même dépréciation.
+                # L'élasticité d'output au capital public porte sur le STOCK,
+                # donc joue dans les deux sens par construction (Bom & Ligthart
+                # 2014, méta-analyse 578 estimations, élasticité moyenne 0,106 ;
+                # FMI WEO oct. 2010 ch. 3 ; Fieldhouse & Mertens 2025 pour la
+                # R&D). v0.5.1 ne testait que `delta > 0.1` : les coupes
+                # étaient structurellement gratuites côté offre.
+                if abs(delta) > 0.1:  # > 100 M€ d'écart au défaut
                     years_active = self._supply_years.get(key, 0) + 1
                     self._supply_years[key] = years_active
 
                     if years_active >= cfg['delay']:
-                        effective_delta = np.log2(1 + delta)  # rendements décroissants
-                        self._supply_bonus_by_key[key] = cfg['coeff'] * effective_delta
+                        signe = 1.0 if delta > 0 else -1.0
+                        effective_delta = np.log2(1 + abs(delta))  # rendements décroissants
+                        self._supply_bonus_by_key[key] = signe * cfg['coeff'] * effective_delta
                 else:
                     # Dépréciation progressive avec coefficient différencié
+                    # (symétrique : l'amplitude décroît quel que soit le signe)
                     prev_bonus = self._supply_bonus_by_key.get(key, 0)
-                    if prev_bonus > 0.00001:
+                    if abs(prev_bonus) > 0.00001:
                         self._supply_bonus_by_key[key] = prev_bonus * (1 - cfg['deprec'])
                     else:
                         self._supply_bonus_by_key[key] = 0
@@ -346,13 +360,15 @@ class GrowthMixin:
                     if prev_years > 0:
                         self._supply_years[key] = max(0, prev_years - 1)
 
-            # Cap total à +0.20pt
-            self._potential_growth_bonus = min(sum(self._supply_bonus_by_key.values()), 0.002)
+            # Cap +0.20pt et plancher symétrique −0.20pt (bornes conventionnelles
+            # assumées, METHODOLOGIE § design)
+            self._potential_growth_bonus = float(np.clip(
+                sum(self._supply_bonus_by_key.values()), -0.002, 0.002))
 
-            if self._potential_growth_bonus > 0.0001:
+            if abs(self._potential_growth_bonus) > 0.0001:
                 _log_debug(self.debug_logs,
-                    f"Y{year}: Bonus potentiel = +{self._potential_growth_bonus*100:.3f}% "
-                    f"(actifs: {', '.join(k for k, v in self._supply_bonus_by_key.items() if v > 0.00001)})")
+                    f"Y{year}: Effet d'offre potentiel = {self._potential_growth_bonus*100:+.3f}% "
+                    f"(actifs: {', '.join(k for k, v in self._supply_bonus_by_key.items() if abs(v) > 0.00001)})")
 
         except Exception as e:
             # Garde défensif : inatteignable en run normal (la re-analyse

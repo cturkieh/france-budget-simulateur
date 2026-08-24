@@ -73,7 +73,7 @@ puis ``fonction_publique_reforme`` / ``fonction_publique`` /
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import POLICY_START_YEAR
+from ..constants import COUT_MOYEN_AGENT_FP_EUR, DEPARTS_ANNUELS_FP, POLICY_START_YEAR
 from .._logging import _log_debug
 from ._phasing import _year_phasing, asu_phasing
 from ._types import ImpactsDict
@@ -251,6 +251,51 @@ class EfficienceMixin(_MixinBase):
     # -----------------------------------------------------------------------
 
 
+    def _reforme_fp_reduction_cumulee(self, year: int) -> float:
+        """Réduction d'effectifs (stock, nombre d'agents) déjà réalisée par la
+        réforme de l'État à l'année donnée — fonction déterministe des
+        paramètres actifs, SOURCE UNIQUE du vivier de départs partagé entre le
+        handler réforme et le curseur effectifs (anti-double-comptage v0.6.0,
+        audit 08/2026 constat 4). Formule héritée v0.5.1 inchangée : taux de
+        non-remplacement selon l'intensité (0-50 % jusqu'à 10, 50-67 %
+        au-delà), montée en charge 2027-2030, cumul de cohortes plafonné à 8."""
+        params = self.mesures.get('fonction_publique_reforme', {})
+        if not isinstance(params, dict):
+            return 0.0
+
+        # Sanitisation locale (revue adverse 24/08) : ce helper lit
+        # self.mesures BRUT (pas la porte validate_param_domains des handlers) —
+        # un paramètre invalide dans la réforme ne doit ni crasher ni
+        # contaminer le handler effectifs qui l'appelle. bool exclu (bool ⊂ int),
+        # NaN exclu (NaN != NaN).
+        def _num(x):
+            if isinstance(x, bool) or not isinstance(x, (int, float)) or x != x:
+                return 0.0
+            return float(x)
+
+        fusion = _num(params.get('fusion_agences', 0)) / 10
+        digitalisation = _num(params.get('digitalisation', 0)) / 10
+        intensite_totale = fusion + digitalisation
+        year_idx = year - 2025
+        if intensite_totale == 0 or year_idx < 2:
+            return 0.0
+        if intensite_totale <= 10:
+            taux_non_remplacement = intensite_totale * 0.05  # 0-50%
+        else:
+            taux_non_remplacement = 0.50 + (intensite_totale - 10) * 0.017  # 50-67%
+        # Montée en puissance progressive
+        if year_idx == 2:  # 2027
+            efficacite = 0.3
+        elif year_idx == 3:  # 2028
+            efficacite = 0.6
+        elif year_idx == 4:  # 2029
+            efficacite = 0.85
+        else:  # 2030+
+            efficacite = 1.0
+        postes_annuels = DEPARTS_ANNUELS_FP * taux_non_remplacement * efficacite
+        annees_ecoulees = min(year_idx - 1, 8)
+        return postes_annuels * min(annees_ecoulees + 1, 8)
+
     def _apply_fonction_publique_reforme(self, measure: Dict, params: Dict, year: int,
                                          gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """Réforme structurelle FP (fusion agences, digitalisation). Phasing 2026-2030. Base 157k départs/an × 40k€.
@@ -274,48 +319,18 @@ class EfficienceMixin(_MixinBase):
             _log_debug(self.debug_logs, f"Y{year}: Réforme FP - Coûts investissement: +{cout_annuel:.1f} Md€")
 
         # PHASE 2: GAINS VIA NON-REMPLACEMENTS (2027+)
+        # v0.6.0 : formule extraite dans _reforme_fp_reduction_cumulee (vivier
+        # partagé avec le curseur effectifs, anti-double-comptage) et poste
+        # valorisé au coût complet chargé COUT_MOYEN_AGENT_FP_EUR (source
+        # unique constants.py — le 40 k€ v0.5.1 était sans périmètre).
         if year_idx >= 2:
-            # Départs naturels annuels
-            departs_annuels = 157000
-            salaire_moyen = 40000
-
-            # Taux de non-remplacement selon intensité
-            # 0 = 100% remplacement (0% économie)
-            # 10 = 50% remplacement (50% économie)
-            # 20 = 33% remplacement (67% économie)
-            if intensite_totale == 0:
-                taux_non_remplacement = 0
-            elif intensite_totale <= 10:
-                taux_non_remplacement = intensite_totale * 0.05  # 0-50%
-            else:
-                taux_non_remplacement = 0.50 + (intensite_totale - 10) * 0.017  # 50-67%
-
-            # Montée en puissance progressive
-            if year_idx == 2:  # 2027
-                efficacite = 0.3  # Démarrage lent
-            elif year_idx == 3:  # 2028
-                efficacite = 0.6
-            elif year_idx == 4:  # 2029
-                efficacite = 0.85
-            else:  # 2030+
-                efficacite = 1.0  # Plein effet
-
-            # Calcul économies annuelles
-            postes_non_remplaces = departs_annuels * taux_non_remplacement * efficacite
-            economie_annuelle = postes_non_remplaces * salaire_moyen / 1e9
-
-            # Cumul des économies sur les années
-            annees_ecoulees = min(year_idx - 1, 8)  # Cap à 8 ans d'effet cumulé
-            # Chaque cohorte annuelle de non-remplacement s'accumule linéairement
-            # En année N : N cohortes actives, chacune générant economie_annuelle
-            # Plafonné à 8 ans (turnover stabilisé)
-            economie_cumulee = economie_annuelle * min(annees_ecoulees + 1, 8)
-
+            postes_cumules = self._reforme_fp_reduction_cumulee(year)
+            economie_cumulee = postes_cumules * COUT_MOYEN_AGENT_FP_EUR / 1e9
             delta_spending -= economie_cumulee
 
             _log_debug(self.debug_logs,
-                f"Y{year}: Réforme FP - Non-remplacement {taux_non_remplacement*100:.0f}% "
-                f"(efficacité {efficacite*100:.0f}%), économies: -{economie_cumulee:.1f} Md€"
+                f"Y{year}: Réforme FP - {postes_cumules:,.0f} postes non remplacés "
+                f"(cumul), économies: -{economie_cumulee:.1f} Md€"
             )
 
         # Impact qualité service si intensité excessive sans digitalisation
@@ -347,14 +362,38 @@ class EfficienceMixin(_MixinBase):
 
         # Constantes FP
         masse_salariale_base = 330  # Md€
-        cout_moyen_agent = 60000  # €/an (salaire + charges)
+        cout_moyen_agent = COUT_MOYEN_AGENT_FP_EUR  # source unique v0.6.0
 
         delta_spending = 0
 
         # 1. VARIATION EFFECTIFS
-        # Coût/économie = variation × coût moyen agent
+        # Coût/économie = variation × coût moyen agent.
+        # v0.6.0 anti-double-comptage « plafond de vivier » (audit 08/2026
+        # constat 4, redesign revue adverse 24/08) : une RÉDUCTION d'effectifs
+        # opère par non-remplacement des départs (pas de licenciement dans la
+        # FP) — le MÊME vivier que la réforme de l'État. Le curseur reste une
+        # réduction ADDITIONNELLE et cumulable avec la réforme (design produit
+        # validé) ; le garde-fou plafonne le TOTAL des non-remplacements
+        # (réforme + curseur) aux départs CUMULÉS depuis 2026 : on ne peut pas
+        # supprimer plus de postes qu'il n'en part. Conséquence réaliste : un
+        # objectif massif (−200 k) monte en charge au rythme des départs
+        # (~157 k/an) au lieu d'être instantané. Une CRÉATION de postes ne
+        # puise pas dans le vivier : coût plein.
         if variation_effectifs != 0:
-            impact_effectifs = variation_effectifs * cout_moyen_agent / 1e9  # en Md€
+            if variation_effectifs < 0:
+                annees_departs = max(0, year - 2025)
+                vivier_cumule = DEPARTS_ANNUELS_FP * annees_departs
+                deja_reforme = self._reforme_fp_reduction_cumulee(year)
+                capacite = max(0.0, vivier_cumule - deja_reforme)
+                variation_residuelle = -min(abs(variation_effectifs), capacite)
+                if variation_residuelle != variation_effectifs:
+                    _log_debug(self.debug_logs,
+                        f"Y{year}: FP Effectifs - objectif {int(variation_effectifs):+d} "
+                        f"plafonné par le vivier (départs cumulés {vivier_cumule:,.0f}, "
+                        f"réforme {deja_reforme:,.0f}) → réalisé {variation_residuelle:,.0f}")
+            else:
+                variation_residuelle = variation_effectifs
+            impact_effectifs = variation_residuelle * cout_moyen_agent / 1e9  # en Md€
             delta_spending += impact_effectifs
             # Cast int explicite : JSON frontend peut envoyer 25000.0 (float), `{:+d}` exige int.
             _log_debug(self.debug_logs,

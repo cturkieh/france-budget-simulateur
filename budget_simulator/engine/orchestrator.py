@@ -523,7 +523,7 @@ class OrchestratorMixin:
                 # Utilise le frozenset de classe INVESTMENT_FLOW_MEASURES (centralisé)
                 part_investment = sum(
                     abs(impacts.get(m, {}).get('depenses', 0))
-                    for m in self.INVESTMENT_FLOW_MEASURES
+                    for m in self.INVESTMENT_CORE_MEASURES
                 ) / total_measures if total_measures > 0 else 0
 
                 _log_debug(self.debug_logs, f"Y{year_idx}: Effort budgétaire = {budget_effort:.3f}")

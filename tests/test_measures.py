@@ -27,14 +27,16 @@ def test_apply_retraites(simulator):
     year = 2026  # year_idx = 0, phasing = 0.2
     delta_spending, delta_revenue, impacts = simulator._apply_retraites(measure, params, year, 2994, 0.01, 0.076)
     # Reference age is 62.75 (COR 2024), reference duration 42.5.
-    # COR 2024 calibration : coefficient stationnaire -16 Md€/an, phasing 5 ans (lineaire).
+    # v0.6.0 : barème d'âge décroissant (14,2 Md€/an < 64 ans, Sénat l23-498).
     # year_idx=0 (2026) → phasing = (0+1)/5 = 0.2
-    # age: -16 * (63 - 62.75) * 0.2 = -0.8
+    # age: -14.2 * (63 - 62.75) * 0.2 = -0.71 (barème décroissant, segment < 64)
     # duration: -4 * (43.5 - 42.5) * 0.2 = -0.8
-    # indexation: -1.5 * (1 - 0.7) * 1 = -0.45 (years_effect = min(year_idx+1, 7) = 1)
-    # Total = -2.05
+    # indexation: -1.5 * (1 - 0.7) * 1 = -0.45
+    # (fuite sociale + volet emploi : lot RETIRÉ, cf. test_retraites_v060.py)
     phasing = 0.2
-    expected_spending = -16.0 * (63 - 62.75) * phasing - 4.0 * (43.5 - 42.5) * phasing - 1.5 * (1 - 0.7) * 1
+    expected_spending = (-14.2 * (63 - 62.75) * phasing
+                         - 4.0 * (43.5 - 42.5) * phasing
+                         - 1.5 * (1 - 0.7) * 1)
     assert abs(delta_spending - expected_spending) < 0.1, f"Expected {expected_spending:.2f}, got {delta_spending:.2f}"
     assert delta_revenue == 0
     assert 'depenses' in impacts
@@ -161,11 +163,11 @@ def test_calculate_interest_payment(simulator):
         'maturite_moyenne': 8.0
     }
     interest, new_avg_rate = simulator.calculate_interest_payment(debt_total, marginal_rate)
-    # Renouvellement: 1/8 = 0.125
-    # Dette renouvelée: 3461 * 0.125 = 432.625
-    # Dette ancienne: 3461 * 0.875 = 3028.375
-    # Intérêts: 432.625 * 0.036 + 3028.375 * 0.019 ≈ 15.57 + 57.54 ≈ 73.11 Md€
-    expected_interest = 3461 * 0.125 * 0.036 + 3461 * 0.875 * 0.019  # = 73.113625
+    # v0.6.0 — repricing LINÉAIRE approximé : k = 1 − 0,5^(2/8) ≈ 0,1591
+    # (demi-vie de repricing = maturité/2 = 4 ans ; le géométrique 1/8 donnait
+    # ~7 ans, incompatible avec le sentier de taux apparent de la mission IGF).
+    k = 1 - 0.5 ** (2 / 8)
+    expected_interest = 3461 * k * 0.036 + 3461 * (1 - k) * 0.019
     expected_avg_rate = expected_interest / debt_total
     assert abs(interest - expected_interest) < 0.1, f"Expected ~{expected_interest:.1f} Md€, got {interest:.1f}"
     assert abs(new_avg_rate - expected_avg_rate) < 0.001, f"Expected avg rate ~{expected_avg_rate:.4f}, got {new_avg_rate:.4f}"

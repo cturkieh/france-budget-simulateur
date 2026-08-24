@@ -13,10 +13,12 @@ def test_get_multiplier_consolidation(multipliers):
     }
     composition = {'recettes': 0.7, 'depenses': 0.3}
     multiplier = multipliers.get_multiplier('consolidation', composition, economic_state, year=1)
-    # Weighted blend: (0.7/1.0)*(-0.50) + (0.3/1.0)*(-0.40) = -0.47
+    # v0.6.0 : générique consolidation relevé à -0.60 (Ramey 2019, bas de fourchette).
+    # Weighted blend: (0.7/1.0)*(-0.50) + (0.3/1.0)*(-0.60) = -0.53
+    # part_dep 0.3 ≤ 0.5 → pas d'atténuation confiance
     # output_gap=-0.02 is NOT < -0.02, ug=0.02 NOT > 0.02 → no recession adj
-    # high_debt (1.2 > 1.10): *0.95 → -0.47 * 0.95 = -0.4465
-    expected = -0.4465
+    # high_debt (1.2 > 1.10): *0.95 → -0.53 * 0.95 = -0.5035
+    expected = -0.5035
     assert abs(multiplier - expected) < 0.01, f"Expected ~{expected:.3f}, got {multiplier:.2f}"
 
 def test_get_multiplier_expansion(multipliers):
@@ -159,8 +161,9 @@ def test_calculate_interest_rate(simulator):
     year = 1
     effort_budgetaire = 0  # Status Quo
     rate = simulator.calculate_interest_rate(debt_ratio, year, effort_budgetaire)
-    # Calcul attendu : base=0.019 + progression 100-120% : base_rate + 0.005 * (1.156 - 1.0) ≈ 0.0198
-    expected = 0.0191
+    # v0.6.0 : ancre zone euro 2,65 % + spread France (ancrage AFT 82 pb @ 117,6 %,
+    # pente 3 pb/pt sur 90-120 %) : spread(115,6) = 82 - 3*(117,6-115,6) = 76 pb
+    expected = 0.0265 + 0.0076
     assert abs(rate - expected) < 0.001, f"Expected ~0.0191, got {rate:.4f}"
 
 # Test pour calculate_growth en consolidation sévère (debt drag + cicatrice austérité activés)
@@ -195,7 +198,7 @@ def test_calculate_growth_significant_recession(simulator):
     assert any("Cicatrice austérité" in s for s in simulator.debug_logs), \
         "Cicatrice austérité activée (effort_budgetaire 0.08 > 0.03)"
 
-# Test pour validate_year avec taux intérêt élevé (branche >5.0% plafond BCE TPI)
+# Test pour validate_year avec taux au-delà du plafond de stress (source unique TAUX_PLAFOND_ABSOLU = 8 %)
 def test_validate_year_high_interest():
     validator = EconomicValidator()
     year_data = {
@@ -205,10 +208,10 @@ def test_validate_year_high_interest():
         'Gini': 0.41,
         'Inflation %': 5,
         'Output_Gap %': 4,
-        'Taux_Intérêt %': 5.5  # >5.0% plafond BCE TPI
+        'Taux_Intérêt %': 8.5  # >5.0% plafond BCE TPI
     }
     violations = validator.validate_year(year_data)
-    assert "CRITIQUE: Taux 5.5% > plafond BCE 5.0%" in violations
+    assert "CRITIQUE: Taux 8.5% > plafond de stress 8.0%" in violations
 
 # Test pour simulate boucle complète (couverture de la boucle principale)
 def test_simulate_full_run(default_simulator):
@@ -290,7 +293,7 @@ def test_update_potential_growth_supply_bonus(simulator):
         f"Bonus offre activé à T+delay, got {simulator._potential_growth_bonus}"
     assert simulator._potential_growth_bonus <= 0.002, \
         f"Cap +0.20pt respecté, got {simulator._potential_growth_bonus}"
-    assert any("Bonus potentiel" in s for s in simulator.debug_logs), \
+    assert any("Effet d'offre potentiel" in s for s in simulator.debug_logs), \
         "Log bonus offre présent"
 
 
@@ -384,14 +387,13 @@ def test_calculate_growth_zlb(simulator):
     #   base = (0.4/1.1)*1.0 + (0.7/1.1)*0.35 = 0.5864
     #   recession (*1.15) = 0.6744, ZLB (*1.3) = 0.8767
     #   effect = 0.8767 * 0.01 * 0.9 = 0.00789
-    # Stabilisateur chômage (unemployment > 0.09): +0.005
-    # deficit_ratio = -0.04, NOT < -0.04 → pas de stabilisateur déficit
+    # v0.6.0 : stabilisateurs en escalier SUPPRIMÉS (jouaient sur la croissance,
+    # erreur de nature — cf. tests/test_asymetries_v060.py).
     # Crowding-out (effort < 0, debt_ratio >= 1.0):
     #   intensity = 0.002 + (1-0.4)*0.006 = 0.0056, effect = 0.0056*(-0.01) = -0.000056
-    # Total ≈ 0.01 + 0.008 - 0.0008 + 0.00789 + 0.005 - 0.000056 ≈ 0.0300 → clip 0.025
-    expected = 0.025  # Clipped
+    # Total ≈ 0.01 + 0.008 - 0.0008 + 0.00789 - 0.000056 ≈ 0.0250 (≈ clip 0.025)
+    expected = 0.025
     assert abs(growth - expected) < 0.01, f"Expected ~{expected:.3f}, got {growth:.3f}"
-    assert any("Y1: Stabilisateur chômage" in s for s in simulator.debug_logs), "Log stabilisateur manquant"
 
 def test_apply_measures_invalid_input(simulator):
     simulator.mesures = {'invalid_measure': {'param': 'invalid'}}  # Mesure inconnue
@@ -417,13 +419,12 @@ def test_calculate_interest_rate_explosive(simulator):
     year = 6  # > 5 pour effet année
     effort_budgetaire = -0.02  # Expansion risquée
     rate = simulator.calculate_interest_rate(debt_ratio, year, effort_budgetaire)
-    # Base: 0.019 + 0.0041 + 0.007 * (1.80 - 1.50) + 0.015 * (1.80 - 1.70) + 0.003 * (6 - 5)
-    # BCE intervention: -0.005
-    # Prime risque: 0.15 * 0.02 + 0.01 = 0.013
-    expected = 0.019 + 0.0041 + 0.007 * 0.3 + 0.015 * 0.1 + 0.003 * 1 - 0.005 + 0.013
-    expected = min(expected, 0.050)  # Plafond BCE TPI (relevé de 3.5% à 5.0%)
+    # v0.6.0 : spread(180) = 254,2 + 8*30 = 494,2 pb → 2,65 + 4,94 = 7,59 %
+    # + prime malus cap +60 pb → 8,19 % → plafond absolu 8,0 % (Portugal 2011).
+    # Plus de remise BCE (critère TPI), plus de terme calendaire year>5.
+    expected = 0.080
     assert abs(rate - expected) < 0.001, f"Expected ~{expected:.4f}, got {rate:.4f}"
-    assert any("Y6: 🚨 CRISE DE CONFIANCE" in s for s in simulator.debug_logs), "Log crise manquant"
+    assert any("SPIRALE DETTE" in s for s in simulator.debug_logs), "Log spirale manquant"
 
 def test_calculate_revenues_laffer_critique(simulator):
     gdp = 2994

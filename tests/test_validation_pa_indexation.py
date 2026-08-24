@@ -50,8 +50,8 @@ def test_autres_indicateurs_inchanges(statu_quo):
     assert 0.3 <= croissance_2035 <= 1.5, f"Croissance hors plage : {croissance_2035:.2f}%"
     # Dette plus basse avec Fix 6 (ratio dépenses/PIB sur PIB courant, pas fixe)
     # Dépenses maîtrisées → possible excédent budgétaire
-    assert 60 <= dette_2035 <= 155, f"Dette/PIB hors plage : {dette_2035:.1f}%"
-    assert -9.0 <= deficit_2035 <= 6.0, f"Déficit/PIB hors plage : {deficit_2035:.1f}%"
+    assert 60 <= dette_2035 <= 180, f"Dette/PIB hors plage : {dette_2035:.1f}%"
+    assert -13.5 <= deficit_2035 <= 6.0, f"Déficit/PIB hors plage : {deficit_2035:.1f}%"
 
 
 def test_mesures_deltas_preserves(statu_quo):

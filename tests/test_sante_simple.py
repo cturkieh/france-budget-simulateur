@@ -72,11 +72,15 @@ def test_simulation_complete():
     # (l'assainissement fantôme de ~24 Md€/an a disparu avec le lag) + inflation
     # effective ~1,1-1,4 % (PIB nominal moins gonflé). Ancrage : 2030 = 129,5 %,
     # cohérent HCFP « >125 % sans ajustement ».
-    assert abs(dette_2035 - 151.4) <= 3.0, (
-        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~151.4% (baseline honnête post-refonte)"
+    # RECALIBRAGE v0.6.0 (audit externe 08/2026, mesuré sans bruit ~170,9 % /
+    # ~-11,8 %) : taux marginal ré-ancré sur le marché (courbe AFT monotone,
+    # charge 124 Md€ en 2030, corridor mission IGF 07/2026) → boule de neige
+    # réelle en fin d'horizon. Cf. tests/test_calibration_mission_v060.py.
+    assert abs(dette_2035 - 170.9) <= 4.0, (
+        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~170,9% (v0.6.0, taux honnêtes)"
     )
-    assert abs(deficit_2035 - (-7.26)) <= 1.5, (
-        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-7.26% (baseline honnête post-refonte)"
+    assert abs(deficit_2035 - (-11.8)) <= 2.0, (
+        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-11,8% (v0.6.0, boule de neige)"
     )
 
 

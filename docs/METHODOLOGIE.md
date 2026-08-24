@@ -119,17 +119,29 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 
 | Parametre | Valeur Reference 2025 | Impact |
 |-----------|----------------------|--------|
-| Age legal | 62,75 ans (62 ans 9 mois) | +/-16 Md EUR par annee (plein regime, phasing cohortes 5 ans) |
+| Age legal | 62,75 ans (62 ans 9 mois) | rendement DECROISSANT : +/-14,2 Md EUR par annee jusqu'a 64 ans, +/-6 Md EUR par annee au-dela de 64 ans ; phasing cohortes 5 ans |
 | Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre (+/-4 Md EUR par annee, phasing 5 ans) |
 | Indexation | 100% inflation | +/-1,5 Md EUR par annee ecoulee pour un ecart de 100%, proportionnel et SYMETRIQUE, plateau 7 ans |
 
 ### Hypotheses Economiques
 
-**Age de depart :**
-- Economies/Surcouts = (Ecart age) x 16 Md EUR/an a plein regime (COR Rapport annuel 2024,
-  cible ~17,7 Md EUR en 2030 et 23 Md EUR stationnaire pour 62,75 -> 64 ans ; montee en
-  charge cohortes 5 ans)
-- Effet sur emploi seniors : elasticite +0,3 par annee supplementaire
+**Age de depart (refonte v0.6.0, rendement decroissant + fuite + emploi) :**
+- Bareme BRUT a 2 segments continus : 14,2 Md EUR/an par annee d'age jusqu'a
+  64 ans (Senat, rapport l23-498 : 17,7 Md EUR en 2030 pour 62,75 -> 64, soit
+  17,7/1,25) puis 6 Md EUR par annee au-dela de 64 ans (COR, seance du
+  19/03/2026, Doc n 3, tableau 4 : palier 64 -> 65 = 0,2 pt de PIB) — le pic
+  des liquidations a 62 ans n'existe plus au-dela de 64. Montee en charge
+  cohortes 5 ans. Le segment < 62,75 reprend 14,2 (pas de source dediee sous
+  62 ans dans cette passe — choix documente).
+- Limite documentee (v0.6.1) : ni la fuite sociale vers les autres prestations
+  (~20 % des economies brutes, Cour des comptes 02/2025) ni le volet emploi
+  des seniors (+0,7-0,9 pt de PIB par annee d'age, consensus COR 19/03/2026)
+  ne sont modelises — un lot indissociable, retire par la revue adverse du
+  24/08/2026 (sur-calibrage vs Cour T5, echo Okun, sources Senat/Cour a
+  reconcilier). Les deux effets jouent en sens OPPOSES sur le solde public.
+- Sous 62,75 ans : le segment 14,2 Md EUR/an est prolonge par defaut (la Cour
+  2021 suggere ~7 Md EUR/an pour 60->62 : le surcout d'un abaissement est
+  possiblement surestime — a trancher en v0.6.1).
 
 **Indexation des pensions :**
 - Base : 17 millions de retraites x pension moyenne
@@ -152,7 +164,7 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 
 ### Impacts Macroeconomiques
 
-- **Inegalites** : Hausse age 62,75->64 ans = -0,002 Gini (legerement progressif)
+- **Inegalites** : Hausse age 62,75->64 ans = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6).
 - **Pouvoir d'achat** : Gel total indexation retraites = -0,007 PA agrégé/an récurrent (OFCE Brief 124, 15/02/2024)
 - **Competitivite** : Impact neutre (pas de lien direct entreprises)
 
@@ -515,12 +527,16 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
 - Outils : CFVR, Foncier Innovant, GALAXIE
 - Plan Pilat 2024 : unification chaine controle
 
-**Montee en puissance** (intensite 100%) :
-- 2026 : 20% -> 14 Md EUR esperes -> 9,5 Md EUR nets
-- 2027 : 35% -> 24,5 Md EUR -> 16,7 Md EUR nets
-- 2028 : 50% -> 35 Md EUR -> 23,8 Md EUR nets
-- 2029 : 70% -> 49 Md EUR -> 33,3 Md EUR nets
-- 2030+ : 100% -> 70 Md EUR -> 47,6 Md EUR nets
+**Montee en puissance** (intensite 100 %, cible maximale 30 Md EUR esperes —
+Cour des comptes : la DGFiP recupere ~15 Md EUR/an, maximum realiste ~30 ;
+recouvrement effectif 68 % — DGFiP 2024 : 11,4/16,7 — et couts de controle
+15 % des recettes esperees). Correction v0.6.0 : l'ancienne echelle 70 Md EUR
+esperes / 47,6 nets etait a un facteur ~3 du code (audit 08/2026, constat 6) :
+- 2026 : 20% -> 6 Md EUR esperes -> 4,1 recouvres -> ~3,2 nets
+- 2027 : 35% -> 10,5 Md EUR -> 7,1 recouvres -> ~5,6 nets
+- 2028 : 50% -> 15 Md EUR -> 10,2 recouvres -> ~8,0 nets
+- 2029 : 70% -> 21 Md EUR -> 14,3 recouvres -> ~11,1 nets
+- 2030+ : 100% -> 30 Md EUR -> 20,4 recouvres -> ~15,9 nets (puis -5 %/an, plancher 70 %)
 
 **Impacts macro** : Gini=0, PA=0, Competitivite=0 (recuperation argent du)
 
@@ -667,15 +683,33 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
 
 ### Table des Multiplicateurs de Base
 
-| Type | Valeur | Source | Ancien (v2.0) |
-|------|--------|--------|---------------|
-| Consolidation fiscale (anticipee) | **-0,50** | Blanchard & Leigh 2013 | -0,92 |
-| Consolidation depenses (anticipee) | **-0,40** | Alesina 2010 (graduel) | -0,60 |
-| Expansion investissement | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 |
-| Expansion transferts | **0,50** | IMF 0,3-0,6 | 0,80 |
-| Expansion baisses impots | **0,35** | IMF 0,1-0,5 | 0,40 |
+| Type | Valeur | Source | Ancien |
+|------|--------|--------|--------|
+| Consolidation fiscale (anticipee) | **-0,50** | Blanchard & Leigh 2013 | -0,92 (v2.0) |
+| Consolidation depenses generique | **-0,60** | Ramey 2019 (« 0,6 to 1 », bas de fourchette) ; Gechert & Rannenberg 0,4-0,7 | -0,40 (v3.0-v5.1, sous le consensus) |
+| Coupe d'investissement public | **-1,20** | SYMETRIQUE de la hausse (Gechert 2015 et Mesange : linearite en signe ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) |
+| Expansion investissement | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) |
+| Expansion transferts | **0,50** | IMF 0,3-0,6 | 0,80 (v2.0) |
+| Expansion baisses impots | **0,35** | IMF 0,1-0,5 | 0,40 (v2.0) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
+
+**Perimetre du canal investissement (v0.6.0)** : education, recherche publique,
+transition ecologique UNIQUEMENT (`INVESTMENT_CORE_MEASURES`). La sante courante
+et la reforme de l'Etat sont de la consommation/optimisation publique : canaux
+transferts/generique (la revue adverse du 24/08 a montre que le perimetre large
+donnait un multiplicateur d'investissement aux coupes... de sante).
+L'attenuation « confiance » (division par 1,10, Alesina-Favero-Giavazzi 2019 :
+plans depense « mild recessionary ») ne s'applique qu'a la part NON-investissement
+d'une consolidation — l'echantillon AFG ne contient quasiment aucun plan a
+dominante investissement.
+
+**Limite documentee (residu de « pompe a PIB »)** : dans un moteur dynamique a
+etats (taux, chomage, dette), une sequence hausse-puis-coupe de meme montant ne
+laisse pas un PIB strictement identique — residu mesure +0,2 a +0,6 % du PIB
+2035 selon le curseur (v5.1 : jusqu'a +2 %). Le residu est borne par
+test-propriete en CI ; le reduire encore releve d'un chantier de linearisation
+dedie, pas d'un coefficient.
 
 ### DECAY_PROFILE (Profil Temporel Differencie v3.1)
 
@@ -704,6 +738,55 @@ Pic decale a l'annee 2 (au lieu de l'annee 1), refletant les delais de mise en o
 Cap par mesure : 2% PIB (contraintes d'offre).
 
 > **Note — ce qui N'EST PAS en production.** Un mecanisme de *re-impulsion annuelle* (dit « Type B » : chaque tranche annuelle d'investissement aurait genere une nouvelle impulsion de demande, en plus de l'impulsion declenchee au changement de curseur) a ete prototype puis **reverte (commit `11d979e` — « revert annual re-impulse, keep differentiated decay profiles only »)**. Il n'est **pas actif** dans le moteur courant. Seuls les 3 profils de decroissance differencies ci-dessus sont en production ; l'impulsion fiscale reste declenchee une fois par changement de mesure (`_fiscal_impulses`, selection du profil via `_get_decay_profile(measure_id)` dans `budget_simulator/simulator.py`).
+
+### Taux d'Interet (v0.6.0 : ancre + spread, audit externe 08/2026)
+
+**Architecture** : `taux_marginal(dette, effort) = ancre_zone_euro + spread_France`.
+Toute la litterature estime l'effet de la dette sur le SPREAD, jamais sur le
+taux total ; l'ancre zone euro (2,65 % = Bund 10 ans 3,24 % - 59 pb de coin de
+maturite, calage 08/2026) est une constante exogene datee — le moteur ne
+prevoit pas la politique monetaire (choix de design assume).
+
+**Table d'ancrage du taux marginal** (point observe : 3,47 % au ratio de dette
+117,6 % — taux moyen pondere des emissions MLT, AFT aout 2026) :
+
+| Dette/PIB | Taux marginal | Statut |
+|-----------|---------------|--------|
+| 100 % | 2,94 % | interpole, source |
+| 115 % | 3,39 % | interpole, source |
+| **117,6 %** | **3,47 %** | **ancre observee (AFT)** |
+| 130 % | 4,09 % | interpole, source |
+| 150 % | 5,19 % | borne haute du domaine estime |
+| 170 % | 6,79 % | EXTRAPOLATION assumee (aucune estimation > ~180 %) |
+
+Pentes du spread : 2 pb/pt (< 90 %), 3 pb/pt (90-120 % — solide : Laubach 2009,
+Pamies et al. 2021, Baldacci-Kumar 2010), 5,5 pb/pt (120-150 %), 8 pb/pt
+(> 150 %, extrapolation calee sur episodes — Portugal 2011, spread 459 pb).
+Plafond absolu de stress : 8 % (borne, pas une prevision). Supprimes v0.6.0,
+avec source : remise BCE inconditionnelle a > 150 % de dette (le TPI exige de
+ne PAS etre en procedure de deficit excessif — la France y est, BCE
+21/07/2022 ; la courbe v5.1 etait de fait NON monotone : franchir 150 %
+BAISSAIT le taux), terme calendaire, falaise +100 pb (vecu 2024-2026 : +21 pb).
+
+**Prime d'effort budgetaire** : 20 pb par point de PIB d'effort (FMI WEO
+oct. 2010 ch. 3 ; Furceri et al. 2025 ; Laubach 2009 ; vecu France 2024-2026 :
+15-21 pb), amplifiee par la dette au-dela de 90 % (ACL), continue, symetrique
+jusqu'aux plafonds — plafond de bonus -45 pb (mission IGF 07/2026, encadre 4),
+cap de malus +60 pb (~2x le pic France 2024-2026). Limitation assumee :
+`effort_budgetaire` est un NIVEAU d'effort vs baseline, pas un flux annuel —
+le cumul partiel avec le deplacement le long de la courbe de dette est borne
+par ces plafonds (cf. choix de design).
+
+**Charge d'interets** : le stock herite (amorce 2,0 % en 2026, perimetre toutes
+APU — coherent avec le taux apparent 2,2 % de la mission IGF) se reprice au
+taux marginal selon un profil LINEAIRE approxime : demi-vie de repricing =
+maturite/2 = 4 ans (maturite moyenne 8 ans, AFT). Le taux apparent remonte
+ainsi de 2,2 % vers ~3,1 % en 2030, comme dans le tendanciel officiel.
+
+**Fait non reproduit (documente)** : la Grece (dette ~143 %) emprunte en 2026
+MOINS cher que la France — les marches pricent la trajectoire ANTICIPEE, pas
+le ratio courant. Une courbe assise sur le ratio courant ne peut pas
+reproduire ce fait ; le plafond de bonus -45 pb (source mission) prime.
 
 ### Inflation et Courbe de Phillips
 
@@ -755,7 +838,7 @@ Inflation = (1 - 0,5) × 1,5% + 0,5 × Inflation precedente + 0,35 × Output gap
 
 **Rendements decroissants** : Le bonus est calcule via `ln(1 + depense_au_dessus_du_defaut)`, ce qui attenue les gains marginaux a mesure que l'investissement augmente.
 
-**Cap total** : +0,20 pt maximum. La croissance potentielle peut passer de 1,0% a 1,2% maximum.
+**Cap total** : +0,20 pt maximum (et plancher symetrique -0,20 pt, v0.6.0). La croissance potentielle peut passer de 1,1% a 1,3% maximum.
 
 **Depreciation progressive** : Si les depenses sont reduites, le bonus acquis se deprecie graduellement (il ne disparait pas instantanement). Chaque canal a son propre taux de depreciation.
 
@@ -844,7 +927,7 @@ le comportement integre (8 scenarios, tolerance ±1.5 pt sur PA 2029).
 ### Plafonds Realistes
 
 Le modele applique des plafonds pour eviter resultats irrealistes :
-- Fraude fiscale : Max 70 Md EUR
+- Fraude fiscale : Max 30 Md EUR esperes (~20,4 recouvres, ~15,9 nets)
 - Fraude sociale : Max 13 Md EUR
 - ISF climatique : Max 18 Md EUR
 - Taxe superprofits : Max 20 Md EUR
@@ -893,20 +976,33 @@ classement inchange. Proprietes verrouillees par tests dedies.
 - Positif = Amelioration competitivite entreprises
 - Negatif = Degradation competitivite
 
-### Calibration Baseline Validee (v4.0)
+### Calibration Baseline Validee (v0.6.0)
+
+Reference de calibration : mission Jaravel/Ragot/Tavernier/Valla (IGF, juillet
+2026, commandee par les ministres Lescure et Amiel) — tendanciel a politique
+inchangee, Tableaux 3/4/5/6. Corridor verrouille en CI
+(`tests/test_calibration_mission_v060.py`) sur le scenario « Budget 2026
+vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
+78 -> 124 Md EUR, taux apparent 2,2 -> 3,1 % (2026-2030).
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
-| Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel +1,0-1,2%/an (LPFP/Commission) |
+| Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | -5,05% PIB | 2026 (loi votee : -5,0%) |
-| Dette | ~129,5% PIB | 2030 (HCFP : >125% sans ajustement) |
-| Dette | ~150% PIB | 2035 (sans reformes) |
-| Deficit | ~-7,5% PIB | 2035 (sans reformes) |
-| Croissance potentielle | 1,0% | Baseline (extensible a 1,2%) |
+| Deficit | ~-5,2% PIB | 2026 (statu quo simule ; mission : -5,00 par hypothese) |
+| Dette | ~132,5% PIB | 2030 statu quo (mission : 130,5 ; ecart documente, deflateur realise ~1,0 % vs ~1,5 % implicite mission — recalage Phillips = passe dediee) |
+| Dette | ~168% PIB | 2035 statu quo (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029) |
+| Deficit | ~-11,3% PIB | 2035 statu quo (charge d'interets ~7 % du PIB a ~170 % de dette) |
+| Croissance potentielle | 1,1% | Sentier mission IGF 07/2026 (1,2/1,2/1,0/1,0), extensible a 1,3% |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,5% = point fixe Phillips (`INFLATION_STRUCTURELLE`) | Effective statu quo ~1,1-1,4% (output gap negatif) |
 | Cible BCE | 2,0% (`BCE_CIBLE_INFLATION`) | Garde-fou de surchauffe, inactif en statu quo |
+
+**Note v0.6.0** : les niveaux 2035 ont fortement monte vs v0.5.1 (dette ~150 ->
+~168 %) : l'audit externe d'aout 2026 a montre que le taux marginal 1,9 %
+(ancre ZIRP morte, ecart 148 pb au marche) etouffait l'effet boule de neige —
+cf. § Taux d'Interet. Le message est celui de la mission IGF : « a politique
+inchangee », la trajectoire est insoutenable.
 
 **Note v4.0** : l'ancien assemblage affichait dette 2035 ~132% et deficit 2035 ~-6,0%. L'ecart ne venait pas d'hypotheses economiques differentes mais d'un « assainissement implicite gratuit » (~24 Md EUR/an) cree par la mecanique d'assemblage elle-meme (lag du deflateur sur les flux, couture de la « bridging year », erosion et elasticite differenciee des recettes). La baseline v4.0 est la trajectoire honnete « a politique inchangee » ; ces proprietes sont verifiees en continu par `tests/test_baseline_properties.py`.
 
