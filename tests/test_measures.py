@@ -309,6 +309,9 @@ def test_apply_measures_plafond_10pct(simulator, monkeypatch):
     # (tolérant) les valeurs avant que le plafond ne soit exercé.
     from budget_simulator.constants import PARAM_DOMAINS
     monkeypatch.delitem(PARAM_DOMAINS, 'retraites')
+    # `csg` est entré au registre le 2026-08-26 (le lot 9 en a fait un
+    # paramètre porteur du scénario de référence) : même bypass, même motif.
+    monkeypatch.delitem(PARAM_DOMAINS, 'csg')
     simulator.mesures = {
         'tva_rate': {'taux': 0.35},
         'retraites': {'age_depart': 70.0, 'indexation': 0.0, 'duree_cotisation': 50.0},

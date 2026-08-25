@@ -16,11 +16,18 @@ un bloc par constat.
     résorption — et le niveau de PIB apparaissait presque formé.
 
 (d) SANITISATION vs CLAMP. Le canal budgétaire reçoit un paramètre qui a
-    traversé ``validate_param_domains`` (mode tolérant : NaN et booléens sont
-    clampés à la borne BASSE du domaine, 60 ans). Les canaux macro, eux,
-    dégradaient ces mêmes valeurs à un écart NUL. Le moteur chiffrait donc une
-    réforme de −2,75 à −4 ans côté dépenses pendant que l'offre de travail et
-    le chômage restaient neutres.
+    traversé ``validate_param_domains``. Les canaux macro, eux, dégradaient
+    certaines valeurs à un écart NUL alors que la porte les clampait. Le
+    moteur chiffrait donc une réforme de −2,75 à −4 ans côté dépenses pendant
+    que l'offre de travail et le chômage restaient neutres. La règle est donc
+    « le canal macro fait ce que fait la porte », quelle que soit la règle de
+    la porte — et elle a changé le 2026-08-26 pour les valeurs NON FINIES :
+    la porte RETIRE désormais la clé (repli = défaut du handler = calendrier
+    légal) au lieu de clamper à la borne basse. Motif : clamper un NaN à 60
+    ans faisait chiffrer en silence, par le moteur, le programme
+    d'abaissement le plus lourd de tout le domaine — une valeur manquante ne
+    dit pas « trop bas ». Le clamp reste la règle pour les valeurs FINIES
+    hors domaine, qui, elles, portent une direction.
 
 (e) PAYLOAD NON-DICT. ``mesures['retraites']`` non-dict levait une
     ``AttributeError`` en tête de boucle d'année, hors du ``try`` per-mesure
@@ -216,19 +223,41 @@ def test_canaux_macro_et_canal_budgetaire_voient_le_meme_ecart(valeur, annee):
         f"canal budgetaire {attendu:+.3f} an vs canaux macro {obtenu:+.3f} an")
 
 
-def test_nan_produit_la_meme_trajectoire_qu_un_age_pose_a_la_borne_basse():
-    """Bout-en-bout : le clamp tolérant amène l'âge à la borne basse du
-    domaine. Toute la simulation — dette ET chômage — doit alors décrire
-    exactement ce programme-là, pas un programme hybride."""
-    borne_basse = PARAM_DOMAINS['retraites']['age_depart'][0]
+def test_nan_produit_la_meme_trajectoire_qu_un_age_non_pose():
+    """Bout-en-bout : une valeur non finie ne pose AUCUN programme d'âge.
+
+    Recalé le 2026-08-26 avec la règle de la porte (cf. (d) en tête de
+    fichier). Attendu précédent : « la même trajectoire qu'un âge posé à la
+    borne basse » — c'est-à-dire la retraite à 60 ans, +17,0 pt de dette 2035
+    (179,1 contre 162,1), imputés par le moteur à un utilisateur qui n'avait
+    posé aucun âge. Attendu désormais : la trajectoire du calendrier légal.
+
+    Ce que le test continue de garder est inchangé et c'est le point : les
+    quatre canaux décrivent LE MÊME programme. Un programme hybride se
+    verrait ici, que la porte clampe ou qu'elle retire."""
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}):
         nan_df, _, _ = BudgetSimulatorV45(
             periods=10, mesures=_mesures(float('nan'))).simulate()
-        ref_df, _, _ = BudgetSimulatorV45(
-            periods=10, mesures=_mesures(borne_basse)).simulate()
+        ref_df, _, _ = BudgetSimulatorV45(periods=10).simulate()
     assert nan_df['Dette/PIB %'].iloc[10] == pytest.approx(ref_df['Dette/PIB %'].iloc[10])
     assert nan_df['Chômage %'].iloc[10] == pytest.approx(ref_df['Chômage %'].iloc[10])
     assert nan_df['PIB'].iloc[10] == pytest.approx(ref_df['PIB'].iloc[10])
+
+
+def test_une_valeur_finie_hors_domaine_reste_clampee_sur_les_quatre_canaux():
+    """Le pendant du test précédent : la règle du CLAMP, elle, n'a pas bougé.
+
+    Sans ce test, retirer la clé sur NaN pourrait dériver un jour vers « on
+    retire aussi les valeurs aberrantes », ce qui rendrait le moteur muet sur
+    une entrée qui, elle, exprime bien une direction."""
+    borne_basse = PARAM_DOMAINS['retraites']['age_depart'][0]
+    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}):
+        hors_df, _, _ = BudgetSimulatorV45(
+            periods=10, mesures=_mesures(borne_basse - 10)).simulate()
+        ref_df, _, _ = BudgetSimulatorV45(
+            periods=10, mesures=_mesures(borne_basse)).simulate()
+    assert hors_df['Dette/PIB %'].iloc[10] == pytest.approx(ref_df['Dette/PIB %'].iloc[10])
+    assert hors_df['Chômage %'].iloc[10] == pytest.approx(ref_df['Chômage %'].iloc[10])
 
 
 def test_une_valeur_non_numerique_reste_neutre_cote_moteur():

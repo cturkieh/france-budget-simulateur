@@ -32,11 +32,71 @@ strictement identique au contrat pré-Item 1. Le test
 ``test_str_intensite_*`` est load-bearing.
 """
 import logging
+import math
 from typing import Dict
 
 from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 
 logger = logging.getLogger(__name__)
+
+
+def _refuser_non_finis(measure_id: str, params: Dict, *,
+                       strict: bool, warned: set | None) -> Dict:
+    """Porte de FINITUDE — universelle, indépendante de tout domaine déclaré.
+
+    Pourquoi elle est séparée de la boucle de domaines (clôture de la revue
+    adverse, 2026-08-26) : ``PARAM_DOMAINS`` ne couvre que deux leviers, et
+    ``validate_param_domains`` rendait donc ``params`` tel quel — sans même
+    regarder les valeurs — pour tous les autres. Un NaN traversait ``csg.taux``
+    ou ``collectivites.dotation``, rendait déficit ET dette ``nan`` sur tout
+    l'horizon publié, et ne levait rien MÊME sous ``BUDGETLAB_STRICT=1``. Or
+    ce sont exactement les deux paramètres que le lot 9 venait de rendre
+    porteurs : durcir levier par levier (comme au lot 7 pour
+    ``asu.asu_plafonnement``) laisse toujours le prochain levier ouvert. La
+    finitude est une propriété de TOUT paramètre numérique, pas d'une liste.
+
+    Contrat dual, aligné sur le reste du moteur :
+    - ``strict`` → ``ValueError`` (captée par l'``except`` d'``apply_measures``
+      → ``ExceptionGroup`` de fin de boucle) ;
+    - tolérant → la clé est RETIRÉE et le retrait tracé. Retirer, et non
+      clamper : aucune borne n'étant déclarée pour ce paramètre, toute valeur
+      de repli serait inventée, alors que l'absence de clé a une sémantique
+      déjà définie et NEUTRE (le handler applique son défaut).
+
+    Elle s'applique AUSSI aux paramètres qui ont un domaine, et c'est
+    délibéré : jusqu'ici la boucle de domaines clampait un NaN à la BORNE
+    BASSE, ce qui n'est pas un repli neutre mais une POSITION — sur
+    ``retraites.indexation`` la borne basse, c'est le gel total des pensions.
+    Or un NaN ne dit pas « trop bas », il dit « pas de valeur » : le seul
+    repli qui n'invente rien est le défaut du handler. Une seule règle pour
+    une seule condition, sinon deux lectures du même objet coexistent.
+
+    Une valeur non numérique est ignorée ici : le contrat MIXIN_BAD_PARAMS
+    veut qu'une ``str`` lève ``TypeError`` au comparateur de domaine, jamais
+    qu'elle soit avalée par une garde de finitude.
+    """
+    out = params
+    for key, value in params.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        if math.isfinite(value):
+            continue
+        if strict:
+            raise ValueError(
+                f"{measure_id}.{key}={value!r} non fini (NaN/inf) — "
+                f"empoisonnerait toute la trajectoire (mode BUDGETLAB_STRICT)"
+            )
+        if warned is None or (measure_id, key) not in warned:
+            logger.warning(
+                "PARAM_NON_FINI %s.%s=%r — clé retirée, le handler retombe "
+                "sur son défaut (mode tolérant : service préservé, entrée "
+                "appelante à corriger)",
+                measure_id, key, value,
+            )
+            if warned is not None:
+                warned.add((measure_id, key))
+        out = {k: v for k, v in out.items() if k != key}
+    return out
 
 
 def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
@@ -58,24 +118,36 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
     font désormais de l'arithmétique inconditionnelle — un NaN n'y est
     plus neutralisé par accident et empoisonnerait toute la trajectoire
     sans signal (cf tests/test_param_domains_guard.py).
+
+    Deux étages depuis la clôture de la revue adverse (2026-08-26) :
+    (1) la FINITUDE, universelle — tout paramètre numérique de toute
+    mesure, domaine déclaré ou non (``_refuser_non_finis``) ; (2) les
+    BORNES, pour les paramètres du registre. L'étage (1) manquait, et
+    l'``if not domains: return params`` ci-dessous en était la cause
+    exacte : il rendait la fonction aveugle aux valeurs dès que la mesure
+    n'était pas au registre.
     """
+    out = _refuser_non_finis(measure_id, params, strict=strict, warned=warned)
     domains = PARAM_DOMAINS.get(measure_id)
     if not domains:
-        return params
-    out = params
+        return out
     for key, (low, high) in domains.items():
         if out.get(key) is None:
             continue
         value = out[key]
         # `value != value` n'est vrai que pour NaN — même piège que pour
-        # intensite : NaN passe `< low` ET `> high` (les deux False).
+        # intensite : NaN passe `< low` ET `> high` (les deux False). Ce
+        # filet est désormais un SECOND filet : l'étage de finitude a déjà
+        # retiré la clé. Il reste, non pour tourner, mais pour qu'une
+        # réorganisation qui déplacerait l'étage 1 ne rouvre pas le trou en
+        # silence — la seule forme de code mort qui se justifie ici.
         if value != value or value < low or value > high:
             if strict:
                 raise ValueError(
                     f"{measure_id}.{key}={value!r} hors domaine "
                     f"[{low}, {high}] (mode BUDGETLAB_STRICT)"
                 )
-            clamped = high if value > high else low  # NaN / < low → borne basse
+            clamped = high if value > high else low  # < low → borne basse
             if warned is None or (measure_id, key) not in warned:
                 logger.warning(
                     "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "

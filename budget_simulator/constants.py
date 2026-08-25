@@ -362,6 +362,23 @@ INTENSITE_DOMAINS = {
 # (indexation=-10) déplace la dette de 21 pts en silence. Domaines = union
 # des bornes UI (leverMeta.js) et des scénarios publiés. Extension complète
 # aux autres params nommés = chantier « contrat de params » (Item 2), différé.
+#
+# ÉTAGE 1 / ÉTAGE 2 (clôture revue adverse, 2026-08-26). Ce registre est
+# l'étage 2 — les BORNES. L'étage 1, la FINITUDE, ne dépend PLUS de lui :
+# `engine/_param_domain.py::_refuser_non_finis` refuse NaN/±inf sur tout
+# paramètre numérique de toute mesure, au registre ou non. Il le fallait :
+# tant que la porte ne regardait les valeurs que pour les leviers listés ici,
+# un NaN sur `csg.taux` ou `collectivites.dotation` rendait déficit et dette
+# `nan` sur tout l'horizon publié SANS exception, même sous BUDGETLAB_STRICT.
+#
+# Les deux paramètres que le lot 9 a rendus PORTEURS (le scénario de référence
+# les pose désormais hors défaut) entrent donc ici, avec les bornes que
+# `policy_measures.json` publie déjà pour eux — source unique, vérifiée par
+# `test_les_bornes_declarees_sont_celles_du_registre_public`.
+# `fraude_fiscale` / `fraude_sociale` restent HORS registre pour la même raison
+# qu'INTENSITE_DOMAINS les exclut (`effort` bimodal : ∈[0,1] = intensité, >1 =
+# montant Md€ legacy) ; leur finitude est couverte par l'étage 1 et leur
+# rendement par la garde en Md€/an de tests/test_scenario_plf2026_v061.py.
 PARAM_DOMAINS = {
     'retraites': {
         'age_depart': (60.0, 67.0),
@@ -370,6 +387,24 @@ PARAM_DOMAINS = {
     },
     'prestations_indexation': {
         'taux_indexation': (0.0, 1.2),
+    },
+    'csg': {
+        'taux': (0.08, 0.12),
+    },
+    'collectivites': {
+        # 95 et non 100 : `im_competitivite_2029` pose 95, SOUS le min publié
+        # par le registre (100). Divergence PRÉ-EXISTANTE entre un scénario
+        # publié et la borne d'UI, découverte en posant ce domaine. Elle est
+        # accueillie, pas tranchée ici : borner à 100 clamperait un scénario
+        # servi en production (−4,0 Md€ de dotation effacés en silence), et
+        # « corriger » le scénario serait changer un chiffrage à l'occasion
+        # d'une garde. La règle du registre — union des bornes d'UI et des
+        # scénarios publiés — est appliquée telle quelle, et l'écart est
+        # verrouillé par test_les_bornes_contiennent_ui_et_scenarios_publies.
+        'dotation': (95.0, 140.0),
+    },
+    'recherche_publique': {
+        'budget': (0.0, 20.0),
     },
 }
 

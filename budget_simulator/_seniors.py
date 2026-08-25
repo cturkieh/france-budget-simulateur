@@ -137,14 +137,16 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     entre « dégrader à neutre » et « refléter la valeur » n'est pas le type
     lu ici, c'est le COMPORTEMENT DE LA PORTE UNIQUE.
 
-    - Ce que ``validate_param_domains`` traite sans lever — un NaN, un
-      booléen, une valeur hors domaine — est CLAMPÉ à une borne du domaine
-      en mode tolérant, et le handler chiffre alors ce clamp. Le canal macro
-      doit refléter le même clamp. La v0.6.1 initiale dégradait NaN et
-      booléens à un écart nul : le canal dépense pricait un abaissement de
-      2,75 à 4 ans (clamp à la borne basse, 60 ans) pendant que l'offre de
-      travail et le chômage restaient neutres — un programme hybride que
-      personne n'a demandé.
+    - Ce que ``validate_param_domains`` traite sans lever — un booléen, une
+      valeur FINIE hors domaine — est CLAMPÉ à une borne du domaine en mode
+      tolérant, et le handler chiffre alors ce clamp. Le canal macro doit
+      refléter le même clamp. La v0.6.1 initiale dégradait ces cas à un écart
+      nul : le canal dépense pricait un abaissement de 2,75 à 4 ans pendant
+      que l'offre de travail et le chômage restaient neutres — un programme
+      hybride que personne n'a demandé.
+    - Ce que la porte RETIRE — NaN et ±inf, depuis le 2026-08-26 — rend le
+      handler à son défaut, c'est-à-dire au calendrier légal : écart nul,
+      des deux côtés.
     - Ce qui fait LEVER la porte (``str``) ou le handler (``None``, qui
       traverse la porte intact puis échoue à la soustraction) reste dégradé
       à neutre : y lever ici court-circuiterait le seul chemin tracé.
@@ -164,6 +166,14 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     # Python) — c'est voulu : la porte les clampe, donc nous aussi.
     if age is None or not isinstance(age, (int, float)):
         return 0.0
+    # NaN/±inf : depuis la clôture de la revue adverse (2026-08-26) la porte
+    # unique ne les clampe plus à la borne basse — elle RETIRE la clé, donc le
+    # handler retombe sur le calendrier légal. Le canal macro suit, c'est tout
+    # l'objet de cette fonction. Le motif du changement vaut ici mot pour mot :
+    # clamper un NaN à 60 ans, c'était faire chiffrer par le moteur, en
+    # silence, le programme d'abaissement le plus lourd de tout le domaine.
+    if age != age or age in (float('inf'), float('-inf')):
+        return 0.0
     # `.get` et non indexation : quand le levier n'est pas au registre, la
     # porte unique ne borne rien non plus (`validate_param_domains` no-ope).
     # Les deux canaux restent alignés, y compris registre vidé — c'est ce que
@@ -173,12 +183,12 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
         # Registre vidé : plus rien ne borne, ni ici ni à la porte. Un NaN
         # empoisonnerait alors la trajectoire macro SANS qu'aucun garde ne
         # l'ait vu passer — on reste neutre plutôt que de propager.
-        return 0.0 if age != age else age - retraites_ref_age_ans(year)
+        return age - retraites_ref_age_ans(year)
     borne_basse, borne_haute = domaine
-    # Même arbre de décision que la porte, NaN compris : `age != age` n'est
-    # vrai que pour NaN, et `NaN < borne_basse` est faux — d'où le test en
-    # tête, qui reproduit le `clamped = high if value > high else low`.
-    if age != age or age < borne_basse:
+    # Même arbre de décision que la porte pour les valeurs FINIES : elle
+    # applique `clamped = high if value > high else low`. Les non-finies sont
+    # déjà sorties plus haut, comme à la porte.
+    if age < borne_basse:
         age = borne_basse
     elif age > borne_haute:
         age = borne_haute

@@ -855,15 +855,21 @@ def test_lecture_defensive_du_parametre_age():
     ne serait pas rendue plus visible.
 
     RECALIBRAGE (clôture de la revue du lot 3) : ce test listait aussi
-    ``float('nan')`` et ``True`` parmi les valeurs dégradées à neutre. C'était
+    ``True`` et ``False`` parmi les valeurs dégradées à neutre. C'était
     précisément le défaut. Ces deux-là ne font PAS lever la porte unique : en
     mode tolérant elle les CLAMPE à la borne basse du domaine (60 ans), et le
     handler chiffre alors un abaissement de 2,75 à 4 ans. Les neutraliser ici
     faisait chiffrer un programme hybride — dépenses d'un abaissement, offre
     de travail et chômage d'un statu quo. La frontière n'est pas le type lu,
     c'est le comportement de la porte ; la contre-épreuve comportementale vit
-    dans ``tests/test_cloture_revue_lot3.py``."""
-    for valeur in ('pas-un-nombre', None):
+    dans ``tests/test_cloture_revue_lot3.py``.
+
+    2e RECALIBRAGE (clôture de la revue adverse, 2026-08-26) : ``nan`` quitte
+    la liste des valeurs clampées et rejoint les neutres, parce que la PORTE
+    a changé pour lui — elle retire la clé au lieu de la clamper à 60 ans.
+    La frontière n'a pas bougé d'un pouce ; c'est le comportement de la porte
+    qui a bougé, et le canal macro le suit, comme il est écrit ci-dessus."""
+    for valeur in ('pas-un-nombre', None, float('nan'), float('inf')):
         mesures = {'retraites': {'age_depart': valeur}}
         assert _seniors.retraites_ecart_age_ans_moteur(mesures, 2030) == 0.0
 
@@ -871,7 +877,7 @@ def test_lecture_defensive_du_parametre_age():
 
     borne_basse = constants.PARAM_DOMAINS['retraites']['age_depart'][0]
     attendu = borne_basse - retraites_ref_age_ans(2030)
-    for valeur in (float('nan'), True, False):
+    for valeur in (True, False):
         mesures = {'retraites': {'age_depart': valeur}}
         assert _seniors.retraites_ecart_age_ans_moteur(mesures, 2030) == pytest.approx(attendu)
 
