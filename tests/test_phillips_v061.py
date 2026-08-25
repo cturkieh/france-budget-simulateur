@@ -64,6 +64,9 @@ structure (source unique, pas de littéral dupliqué) et le résultat mesuré.
   anti-régression correspondante.
 """
 import inspect
+import json
+import os
+import pathlib
 import re
 from unittest.mock import patch
 
@@ -175,6 +178,106 @@ def test_l_inertie_est_une_vitesse_pas_un_niveau():
         f"le résidu ne s'éteint pas : transitoire {transitoire:.3f} pt → "
         f"établi {etabli:.3f} pt. Sous la forme NON ancrée il croissait "
         f"(0,116 → 0,152 pt mesurés)")
+
+
+# --- I12, test-propriété 5 : la fenêtre 2026-2030 ------------------------
+# TROISIÈME ÉCART AU BRIEF, ajouté à la clôture de la revue adverse
+# (2026-08-26). Le lot 8 en déclarait deux ; celui-ci manquait, et il est le
+# plus lourd des trois parce qu'il porte sur une propriété que le brief
+# DEMANDAIT et que le moteur livré FAIT ÉCHOUER.
+#
+# Brief I12, propriété 5 : « la moyenne 2026-2030 varie de moins de 0,05 pt
+# quand ρ passe de 0,25 à 0,50 ». Mesuré sur le moteur livré : 0,0620 pt
+# (1,5040 → 1,4420 en statu quo). Le test livré au lot 8, lui, déplaçait la
+# fenêtre sur 2031-2035 (0,010 pt) : la fenêtre du brief — qui est AUSSI celle
+# du corridor de déflateur — n'était bornée par rien.
+#
+# POURQUOI LE BRIEF SE TROMPE DE 3,4× (0,02 pt annoncé, 0,062 mesuré), et
+# pourquoi ce n'est pas un défaut de la forme ancrée : la fenêtre 2026-2030
+# EST le transitoire. Le moteur part de la graine d'inertie INFLATION_BASE
+# (1,0 %) et converge vers son ancrage, π* + κ_LR·gap ≈ 1,46 % — 0,46 pt plus
+# haut. ρ ne décide de rien d'autre que de la VITESSE de cette montée ; sur
+# cinq ans de montée, une vitesse déplace évidemment la moyenne. La propriété
+# « ρ est une vitesse et non un niveau » est donc vraie (elle se vérifie une
+# fois le transitoire éteint : 0,010 pt sur 2031-2035, 0,000 pt en 2035) et
+# la propriété 5, telle qu'elle est écrite, ne la teste pas.
+#
+# CE QUI DOIT ÊTRE BORNÉ SUR CETTE FENÊTRE, ET NE L'ÉTAIT PAS : la
+# CONCLUSION que le brief tire de sa propriété 5 — « ρ = 0,50 est acceptable
+# et de second ordre, ne pas dépenser de crédibilité sur ce paramètre ». Elle
+# est vérifiable directement, et c'est ce que fait le test ci-dessous : la
+# conformité de la calibration au corridor du dossier ne doit dépendre
+# d'AUCUNE valeur plausible de ρ. C'est une garde plus forte que la
+# propriété 5, pas plus faible — la propriété 5 borne un écart entre deux
+# variantes, celle-ci borne la variante la PIRE.
+
+_FOURCHETTE_DEFLATEUR = (1.40, 1.60)  # I16, test-propriété 3 (dossier v0.6.1)
+
+
+def _mesures_publiees():
+    """Scénario de référence, LU SANS AMÉNAGEMENT (même résolution robuste que
+    les deux autres fichiers qui en dépendent : piège resolve()/symlink)."""
+    env = (os.environ.get('BUDGETLAB_SCENARIOS_JSON') or '').strip()
+    racine = pathlib.Path(__file__).resolve().parent.parent
+    for chemin in ([pathlib.Path(env)] if env else []) + [
+            racine / '..' / '..' / 'frontend-react' / 'src' / 'data' / 'scenarios.json']:
+        if chemin.exists():
+            return json.loads(chemin.read_text(encoding='utf-8'))['plf_2026']['apiMeasures']
+    return None
+
+
+def _moyenne_deflateur_2026_2030(rho, mesures=None):
+    sim = BudgetSimulatorV45(periods=10, mesures=mesures) if mesures \
+        else BudgetSimulatorV45(periods=10)
+    sim.economic_coeffs['inflation_inertia'] = rho
+    df, _, _ = sim.simulate()
+    return sum(df['Inflation %'].iloc[i] for i in range(1, 6)) / 5
+
+
+@pytest.mark.parametrize('rho', [0.20, 0.25, 0.30, 0.40, 0.50])
+def test_la_conformite_du_corridor_2026_2030_ne_depend_pas_de_l_inertie(rho):
+    """Aucune valeur plausible de ρ ne sort la calibration du corridor.
+
+    C'est la forme testable du corollaire d'I12 (« ρ est de second ordre »),
+    sur la fenêtre du brief. Elle rougirait si la calibration dérivait vers
+    le bas OU si quelqu'un montait ρ : à ρ = 0,60 la moyenne tombe à 1,372 %
+    et sort du corridor — la garde n'est donc pas vacue.
+
+    MARGE À DÉCLARER, et elle est mince : à la valeur LIVRÉE (ρ = 0,50) la
+    moyenne vaut 1,412 % sur le scénario publié, soit 0,012 pt au-dessus du
+    plancher. Le lot 8 l'écrivait déjà pour ρ seul (« EXACTEMENT 1,400 ») ;
+    ce qui manquait, c'est que cette marge est du même ordre de grandeur que
+    la sensibilité à ρ (0,062 pt). Autrement dit : la conformité tient, mais
+    elle ne tient pas AVEC BEAUCOUP DE MARGE, et le paramètre qui la
+    mangerait est celui que le dossier invitait à ne pas regarder."""
+    bas, haut = _FOURCHETTE_DEFLATEUR
+    publiees = _mesures_publiees()
+    objets = [('statu quo', None)]
+    if publiees is not None:  # fork moteur public seul : statu quo seul
+        objets.append(('scénario publié', publiees))
+    for etiquette, mesures in objets:
+        moyenne = _moyenne_deflateur_2026_2030(rho, mesures)
+        assert bas <= moyenne <= haut, (
+            f"{etiquette}, ρ={rho} : déflateur moyen 2026-2030 = "
+            f"{moyenne:.4f} % hors [{bas} ; {haut}] — la calibration est "
+            f"portée par la valeur d'inertie, pas par le modèle")
+
+
+def test_la_sensibilite_a_l_inertie_sur_la_fenetre_du_brief_est_publiee():
+    """ÉCART AU BRIEF, mesuré et encadré DES DEUX CÔTÉS.
+
+    Le brief annonçait 0,02 pt et exigeait < 0,05 ; le moteur en fait 0,062.
+    L'encadrement est bilatéral à dessein : une borne haute seule se
+    desserrerait à la prochaine dérive, une borne basse seule laisserait
+    passer une correction qui, en éteignant le transitoire, ferait disparaître
+    l'écart sans que personne ne s'en aperçoive. Toute évolution de ce nombre
+    doit être un acte, pas un effet de bord."""
+    ecart = abs(_moyenne_deflateur_2026_2030(0.25)
+                - _moyenne_deflateur_2026_2030(0.50))
+    assert 0.055 <= ecart <= 0.070, (
+        f"sensibilité de la moyenne 2026-2030 à ρ = {ecart:.4f} pt "
+        f"(mesurée 0,0620 au 2026-08-26 ; le brief annonçait 0,02 et "
+        f"demandait < 0,05 — écart assumé et déclaré)")
 
 
 # --- I13/R2 — la pente ----------------------------------------------------

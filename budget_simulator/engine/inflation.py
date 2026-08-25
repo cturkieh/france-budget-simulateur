@@ -26,6 +26,21 @@ le paramètre du code (``PHILLIPS_PENTE_MT``) est DÉSORMAIS directement la
 pente estimable, et que ρ redevient un simple paramètre de VITESSE au lieu
 d'un multiplicateur caché de la pente.
 
+CE QUE « VITESSE ET NON NIVEAU » NE VEUT PAS DIRE (clôture de la revue
+adverse, 2026-08-26). La propriété est vraie une fois le transitoire éteint —
+écart entre ρ = 0,25 et ρ = 0,50 : 0,010 pt en moyenne 2031-2035, 0,000 pt en
+2035. Elle ne dit RIEN de la fenêtre 2026-2030, qui EST le transitoire : le
+moteur part de la graine ``INFLATION_BASE`` (1,0 %) et monte vers son ancrage
+π* + κ_LR·gap ≈ 1,46 %, soit 0,46 pt plus haut. Sur cinq ans de montée, une
+vitesse déplace la moyenne — mesuré 0,062 pt, contre 0,02 pt annoncé par le
+dossier. Le corollaire du dossier (« ρ = 0,50 est de second ordre, ne pas
+dépenser de crédibilité sur ce paramètre ») reste défendable, mais pour une
+raison qui doit être TESTÉE et non supposée : la conformité au corridor de
+déflateur tient sur toute la plage plausible de ρ (0,20 à 0,50), et c'est ce
+que verrouille ``tests/test_phillips_v061.py``. La marge est mince et
+déclarée : à la valeur livrée (0,50) la moyenne 2026-2030 est à 0,012 pt du
+plancher de la fourchette.
+
 Ancrage des anticipations (ce qui légitime la forme ancrée plutôt qu'un
 AR(1) pur) : BCE, Survey of Professional Forecasters T3 2026 —
 anticipations de long terme à 2,0 %, révision 0,0 malgré un IPCH 2026 à
