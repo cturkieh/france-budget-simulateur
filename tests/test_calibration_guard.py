@@ -27,7 +27,16 @@ def baseline_df():
 # === BASELINE (aucune réforme) ===
 
 def test_baseline_dette_range(baseline_df):
-    """La dette baseline doit rester dans 162-178 % en 2035 (v0.6.0, taux honnêtes).
+    """La dette baseline doit rester dans 155-170 % en 2035 (v0.6.1).
+
+    RECALIBRAGE v0.6.1 lot 8 — Phillips ancrée (mesuré 162,1 %) : le
+    déflateur réalisé passe de ~0,9 à ~1,5 %/an, donc le PIB nominal 2035
+    est ~3 % plus haut. Effet de DÉNOMINATEUR pur sur le ratio, −10,1 pt
+    (172,2 → 162,1) ; en euros la dette bouge à peine. La fenêtre garde la
+    même demi-largeur (±8 pt) qu'en v0.6.0 : elle verrouille la mécanique de
+    Domar, pas un consensus qui n'existe pas à cet horizon. À ne PAS lire
+    comme une amélioration des finances publiques : c'est la correction d'un
+    ratio que la v0.6.0 surestimait faute de croissance nominale.
 
     RECALIBRAGE v0.6.0 (audit externe 08/2026, mesuré 169,6 %) : taux marginal
     ré-ancré sur le marché (3,47 % @ 117,6 % AFT, courbe monotone) → charge
@@ -38,15 +47,15 @@ def test_baseline_dette_range(baseline_df):
     RECALIBRAGE refonte « assemblage temporel » 2026-06-10 (mesuré 150,4 %) :
     la baseline honnête garde un déficit ~5-5,5 % SANS consolidation (l'ancien
     moteur fabriquait ~24 Md€/an d'assainissement fantôme) et une inflation
-    effective ~1,1-1,4 % (point fixe 1,5 %, gap négatif persistant) au lieu du
+    effective ~1,1-1,4 % (point fixe 1,5 % À CETTE DATE, gap négatif) au lieu du
     2,33 % artificiel qui gonflait le PIB nominal. Mécanique de Domar : à
     déficit ~5,3 % et nominal ~+2 %/an, Δratio ≈ +3 pt/an → ~150 % en 2035.
-    Point d'ancrage externe : Y5 (2030) = 129,5 %, cohérent HCFP (« >125 % en
+    Point d'ancrage externe : Y5 (2030) = 130,7 %, cohérent HCFP (« >125 % en
     2030 sans ajustement ») ; 2035 est au-delà des horizons publiés, la
     fourchette verrouille la mécanique, pas un consensus inexistant."""
     df = baseline_df
     dette = df.iloc[-1]['Dette/PIB %']
-    assert 162 < dette < 178, f"Baseline dette {dette:.1f}% hors fourchette 162-178%"
+    assert 155 < dette < 170, f"Baseline dette {dette:.1f}% hors fourchette 155-170%"
 
 
 def test_baseline_deficit_range(baseline_df):

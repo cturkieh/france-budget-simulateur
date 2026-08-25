@@ -1,4 +1,4 @@
-"""Bloc moteur — Inflation (courbe de Phillips augmentée).
+"""Bloc moteur — Inflation (courbe de Phillips ANCRÉE).
 
 Méthode couverte :
 - ``calculate_inflation`` : inflation de l'année à partir de l'état
@@ -8,7 +8,70 @@ Méthode couverte :
 
 Forme retenue : Phillips augmentée en ``output_gap`` uniquement (pas
 de terme ``unemployment_gap`` direct, déjà corrélé via Okun → évite le
-double-comptage). Coefficient 0,35 recalibré (cf commentaire inline).
+double-comptage), sous forme **ancrée** depuis la v0.6.1 (I12/R1) :
+
+    π_t = (1−ρ)·(π* + κ_LR·gap_t) + ρ·π_{t−1}
+
+soit, pour un gap constant, le point fixe π̄ = π* + κ_LR·gap.
+
+Pourquoi cette réécriture — c'est une correction d'ALGÈBRE, pas de
+calibration. La v0.6.0 posait ``(1−ρ)·π* + ρ·π_{t−1} + κ·gap`` avec le
+terme de gap HORS de l'ancrage : son point fixe valait π* + [κ/(1−ρ)]·gap,
+donc la grandeur homologue de la « pente de moyen terme » de la littérature
+valait 0,35/0,50 = 0,70 — un nombre écrit nulle part et sourcé nulle part,
+pendant que le code affichait 0,35. C'est le MÊME défaut de forme que
+l'intercept AR(1) ≠ point fixe corrigé en v0.3.0, déplacé d'un terme. Les
+deux formes sont équivalentes à κ = κ_LR·(1−ρ) près : ce qui change est que
+le paramètre du code (``PHILLIPS_PENTE_MT``) est DÉSORMAIS directement la
+pente estimable, et que ρ redevient un simple paramètre de VITESSE au lieu
+d'un multiplicateur caché de la pente.
+
+Ancrage des anticipations (ce qui légitime la forme ancrée plutôt qu'un
+AR(1) pur) : BCE, Survey of Professional Forecasters T3 2026 —
+anticipations de long terme à 2,0 %, révision 0,0 malgré un IPCH 2026 à
+2,7-3,0 % ; Banque de France, Billet de blog n° 335 (déc. 2023) — dans les
+pays sans clause d'indexation, dont la France depuis 1983, la transmission
+de l'inflation réalisée aux anticipations tombe sous 1/3 de sa valeur de
+court terme aux horizons longs.
+
+--------------------------------------------------------------------------
+CE QUE MESURE LA VARIABLE ``inflation`` (arbitrage I17, v0.6.1)
+--------------------------------------------------------------------------
+Une seule variable sert TROIS indices économiquement différents :
+  (i)   **déflateur du PIB** — ``self.deflateur_cumule *= (1 + inflation)``
+        dans ``engine/orchestrator.py``, donc le DÉNOMINATEUR du ratio de
+        dette, c'est-à-dire la sortie principale du site ;
+  (ii)  **IPC**, pour le pouvoir d'achat (``pa_macro = growth - inflation``) ;
+  (iii) **indice d'indexation** des prestations
+        (``INDEXATION_BASELINE_RATIO * inflation``).
+
+Arbitrage v0.6.1 : la variable est CALÉE SUR LE DÉFLATEUR. L'INSEE tranche
+explicitement (blog « Inflation : les déflateurs en comptabilité
+nationale », sept. 2022) : « les ressources publiques étant plus ou moins
+fonction du PIB en valeur plutôt que de la seule consommation, c'est plutôt
+le déflateur du PIB qui importe pour apprécier le taux d'emprunt réel des
+administrations publiques ». L'indexation LÉGALE des pensions se fait, elle,
+sur l'IPC hors tabac.
+
+**Biais résiduel DÉCLARÉ : −0,15 pt/an** sur les rôles (ii) et (iii) —
+écart déflateur − prix à la consommation mesuré à −0,1/−0,2 pt en régime
+normal (jusqu'à −0,6/−0,8 pt en année de choc énergétique). Ce biais est
+CONSERVATEUR : il minore la dépense indexée ET minore la perte de pouvoir
+d'achat affichée. Il n'est PAS corrigé ici : tous les handlers consomment
+``inflation``, scinder en trois variables est un changement d'architecture
+qui s'instruit séparément (la constante à créer serait alors un coin
+``ECART_IPC_DEFLATEUR``, jamais un littéral dupliqué).
+
+--------------------------------------------------------------------------
+DETTE CONNUE, HORS PÉRIMÈTRE v0.6.1 (I18)
+--------------------------------------------------------------------------
+Les termes ``effort_budgetaire`` ci-dessous (−0,12 à la consolidation,
++0,08 à l'expansion) sont NON SOURCÉS, ASYMÉTRIQUES et en double-comptage
+partiel avec le canal output gap. Trois défauts réels — donc une
+instruction à eux seuls (v0.6.2), pas un effet de bord de la recalibration.
+Aucune non-linéarité en L inversé n'est introduite : elle est sourcée mais
+asymétrique par construction (plate en bas, raide en haut), ce qui en fait
+une décision de neutralité et non un réglage.
 
 État partagé ``self.inflation_precedente`` :
 - Lu en entrée (terme d'inertie ``inflation_inertia *
@@ -37,38 +100,98 @@ from typing import Dict
 import numpy as np
 
 from .._logging import _log_debug
-from ..constants import BCE_CIBLE_INFLATION, INFLATION_STRUCTURELLE
+from ..constants import (
+    BCE_CIBLE_INFLATION,
+    BCE_PLANCHER_ACCOMMODANT,
+    INFLATION_STRUCTURELLE,
+    PHILLIPS_PENTE_MT,
+)
+
+
+def point_fixe_phillips_ancree(output_gap: float) -> float:
+    """π̄ = π* + κ_LR · gap — l'ancrage vers lequel converge le régime.
+
+    Source UNIQUE de la courbe : ``calculate_inflation`` ne fait que la
+    pondérer par l'inertie. La conséquence est testable directement — la
+    pente observée sur le point fixe EST ``PHILLIPS_PENTE_MT`` — et la
+    courbe est linéaire, donc symétrique autour de π* par construction.
+    """
+    return INFLATION_STRUCTURELLE + PHILLIPS_PENTE_MT * output_gap
+
+
+def rappel_bce(inflation: float) -> float:
+    """Règle monétaire du moteur — garde-fou, PAS thermostat de convergence.
+
+    Extraite en fonction pure en v0.6.1 (comportement inchangé) pour que
+    son inertie soit MESURABLE : un point fixe tenu par un clip ne serait
+    pas un point fixe du modèle. En v0.6.0 le plancher accommodant se
+    déclenchait dès l'année 1 du statu quo (0,725 % pré-garde → 0,95 %
+    publiée) et soutenait donc artificiellement la calibration ; depuis le
+    recalage Phillips (I12-I15) les deux branches sont inertes en statu quo,
+    ce que verrouille ``tests/test_phillips_v061.py``.
+
+    À DÉCLARER, car ce n'est vrai qu'en statu quo. Décomptes mesurés sur les
+    neuf scénarios publiés, dix années chacun :
+
+        plancher accommodant     v0.6.0        v0.6.1
+        les 7 programmes          1 à 2 fois    0 fois
+        im_competitivite_2029     5 fois        0 fois
+        im_rabot_2029            10 fois        8 fois
+
+    Autrement dit, la v0.6.0 faisait porter à un clip une partie de la
+    désinflation de TOUS les scénarios, et la TOTALITÉ de celle du plus
+    austère. Ce n'est plus le cas que pour ``im_rabot_2029``, dont l'output
+    gap est assez négatif pour que la courbe descende légitimement sous le
+    seuil — c'est le rôle d'un garde-fou. La conséquence de neutralité est
+    dite dans METHODOLOGIE.md § « ce que la version déplace, EN AGRÉGÉ » :
+    le clip soutenait la croissance nominale des programmes de consolidation,
+    donc leur dénominateur de dette.
+
+    Les deux poids de mélange restent des paramètres de la RÈGLE MONÉTAIRE
+    (vitesse de rappel), pas de la courbe de Phillips : hors périmètre du
+    lot 8, inchangés.
+    """
+    if inflation > BCE_CIBLE_INFLATION:
+        # Rappel de SURCHAUFFE (refonte 2026-06) : seuil = cible BCE, pour
+        # qu'il CONTIENNE l'inflation au-dessus de la cible au lieu de servir
+        # de thermostat permanent (l'ancien couple attracteur 3 % / seuil
+        # 2,3 % stabilisait à 2,33 % à perpétuité).
+        return 0.50 * inflation + 0.50 * BCE_CIBLE_INFLATION
+    if inflation < BCE_PLANCHER_ACCOMMODANT:
+        # Plancher accommodant : tiré vers la TENDANCIELLE (et non plus 2 %,
+        # qui contredisait le point fixe du régime).
+        return 0.70 * inflation + 0.30 * INFLATION_STRUCTURELLE
+    return inflation
 
 
 class InflationMixin:
-    """Bloc moteur — Inflation (courbe de Phillips augmentée)."""
+    """Bloc moteur — Inflation (courbe de Phillips ancrée)."""
 
     def calculate_inflation(self, year: int, economic_state: Dict) -> float:
-        """Courbe de Phillips augmentée"""
+        """Courbe de Phillips ancrée + ajustements + règle monétaire."""
         output_gap = economic_state['output_gap']
         unemployment_gap = economic_state['unemployment_gap']
         tva_impact = economic_state.get('tva_impact', 0)
         effort_budgetaire = economic_state.get('effort_budgetaire', 0)
 
-        # Phillips augmentée (forme output_gap uniquement, évite le double-comptage
-        # output_gap/unemployment_gap corrélés via Okun)
-        # Coefficient 0.35 recalibré : ancienne sensibilité totale ≈ 0.08 + 0.10/0.35 ≈ 0.37
+        # Phillips ANCRÉE (forme output_gap uniquement, évite le double-comptage
+        # output_gap/unemployment_gap corrélés via Okun) :
         #
-        # Intercept × (1 − inertie) — refonte 2026-06 : dans un AR(1)
-        # i_t = c + ρ·i_{t-1}, le point fixe est c/(1−ρ), PAS c. L'ancien code
-        # posait c = INFLATION_STRUCTURELLE (1,5 %) avec ρ = 0,5, soit un
-        # attracteur caché à 3,0 % que le rappel BCE bridait en équilibre
-        # permanent à 2,33 % (« politique restrictive » chaque année du statu
-        # quo). La forme correcte (1−ρ)·π* + ρ·i_{t-1} fait de
-        # INFLATION_STRUCTURELLE le point fixe RÉEL (1,5 %) : l'inflation
-        # converge vers la tendancielle et la BCE redevient un garde-fou de
-        # surchauffe, conformément à l'intention de calibration (décision PO
-        # 2026-05-18 Option C, jamais traduite correctement en formule).
+        #     π_t = (1−ρ)·(π* + κ_LR·gap_t) + ρ·π_{t−1}
+        #
+        # L'ancrage TOUT ENTIER — tendancielle ET écart d'activité — est pondéré
+        # par (1−ρ). Deux corrections successives du même piège :
+        #  - v0.3.0 : dans un AR(1) i_t = c + ρ·i_{t-1} le point fixe est
+        #    c/(1−ρ), pas c. L'intercept a été mis sous (1−ρ).
+        #  - v0.6.1 (I12/R1) : le terme de gap était RESTÉ hors de l'ancrage,
+        #    donc le point fixe valait π* + [κ/(1−ρ)]·gap et ρ multipliait
+        #    silencieusement la pente — le code affichait 0,35 quand la
+        #    grandeur homologue de la littérature valait 0,70, non sourcée.
+        # Le paramètre du code EST désormais la pente de moyen terme.
         inertia = self.economic_coeffs['inflation_inertia']
         inflation = (
-            (1 - inertia) * INFLATION_STRUCTURELLE +
-            inertia * self.inflation_precedente +
-            0.35 * output_gap
+            (1 - inertia) * point_fixe_phillips_ancree(output_gap) +
+            inertia * self.inflation_precedente
         )
 
         if abs(effort_budgetaire) > 0.001:
@@ -102,19 +225,14 @@ class InflationMixin:
             inflation += tva_pass_through
             _log_debug(self.debug_logs, f"Y{year}: Impact TVA +{tva_pass_through*100:.2f}%")
 
-        # Rappel BCE — garde-fou de SURCHAUFFE (refonte 2026-06) : seuil abaissé
-        # de 2,3 % à 2,0 % (cible BCE) pour qu'il CONTIENNE l'inflation au-dessus
-        # de la cible au lieu de servir de thermostat permanent (l'ancien couple
-        # attracteur 3 % / seuil 2,3 % stabilisait à 2,33 % à perpétuité).
-        # En statu quo (point fixe 1,5 %), il ne se déclenche plus.
-        if inflation > BCE_CIBLE_INFLATION:
-            inflation = 0.50 * inflation + 0.50 * BCE_CIBLE_INFLATION
-            _log_debug(self.debug_logs, f"Y{year}: Politique monétaire restrictive")
-        elif inflation < 0.008:
-            # Plancher accommodant : tiré vers la TENDANCIELLE (et non plus 2 %,
-            # qui contredisait le point fixe du régime).
-            inflation = 0.70 * inflation + 0.30 * INFLATION_STRUCTURELLE
-            _log_debug(self.debug_logs, f"Y{year}: Politique monétaire accommodante")
+        # Règle monétaire — source unique dans `rappel_bce` (fonction pure).
+        # En statu quo v0.6.1, aucune des deux branches ne se déclenche : la
+        # calibration est portée par le modèle, pas par un clip.
+        avant_bce = inflation
+        inflation = rappel_bce(inflation)
+        if inflation != avant_bce:
+            sens = "restrictive" if avant_bce > BCE_CIBLE_INFLATION else "accommodante"
+            _log_debug(self.debug_logs, f"Y{year}: Politique monétaire {sens}")
 
         inflation += np.random.normal(0, 0.0005)
         inflation = np.clip(inflation, -0.003, 0.030)

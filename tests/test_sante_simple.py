@@ -70,17 +70,25 @@ def test_simulation_complete():
     # RECALIBRAGE refonte « assemblage temporel » 2026-06-10 (mesuré sans bruit :
     # 151,4 % / -7,26 %) : baseline honnête — déficit ~5-5,5 % jamais consolidé
     # (l'assainissement fantôme de ~24 Md€/an a disparu avec le lag) + inflation
-    # effective ~1,1-1,4 % (PIB nominal moins gonflé). Ancrage : 2030 = 129,5 %,
+    # effective ~1,1-1,4 % à cette date (PIB nominal moins gonflé). Ancrage : 2030 = 129,5 %,
     # cohérent HCFP « >125 % sans ajustement ».
     # RECALIBRAGE v0.6.0 (audit externe 08/2026, mesuré sans bruit ~170,9 % /
     # ~-11,8 %) : taux marginal ré-ancré sur le marché (courbe AFT monotone,
     # charge 124 Md€ en 2030, corridor mission IGF 07/2026) → boule de neige
     # réelle en fin d'horizon. Cf. tests/test_calibration_mission_v060.py.
-    assert abs(dette_2035 - 170.9) <= 4.0, (
-        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~170,9% (v0.6.0, taux honnêtes)"
+    # RECALIBRAGE v0.6.1 lot 8 (Phillips ancrée, mesuré sans bruit 163,5 % /
+    # -11,15 %) : le déflateur réalisé passe de ~0,9 à ~1,5 %/an, donc le PIB
+    # nominal 2035 est ~3 % plus haut et le DÉNOMINATEUR du ratio de dette
+    # avec lui (-9,5 pt de dette 2035, -3,7 pt en 2030). Le déficit s'améliore
+    # aussi d'~1 pt, en partie par le même dénominateur, en partie par le
+    # décalage d'indexation pendant la transition d'inflation (biais I17
+    # déclaré). Ce recalage joue dans le MÊME sens pour tous les scénarios :
+    # cf. le paragraphe « sens des corrections » du CHANGELOG v0.6.1.
+    assert abs(dette_2035 - 163.5) <= 4.0, (
+        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~163,5% (v0.6.1, déflateur recalé)"
     )
-    assert abs(deficit_2035 - (-11.8)) <= 2.0, (
-        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-11,8% (v0.6.0, boule de neige)"
+    assert abs(deficit_2035 - (-11.2)) <= 2.0, (
+        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-11,2% (v0.6.1, boule de neige)"
     )
 
 

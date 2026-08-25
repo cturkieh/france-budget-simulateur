@@ -164,16 +164,26 @@ def test_aucune_collision_id_lfi_2026():
 # Horizons à somme nulle). Valeurs attendues recalées sur ces encodages
 # intentionnels — golden master régénéré dans le même commit, les 6 autres
 # scénarios sont bit-identiques. Aucune logique moteur modifiée.
+# RECALAGE v0.6.1 lot 8 (Phillips ancrée) : `pa_macro = growth - inflation`,
+# et le déflateur réalisé monte de ~0,6 pt/an. Les NEUF scénarios baissent, de
+# -0,3 à -2,0 pt, sans changer un seul rang du classement : c'est un effet
+# d'indice commun, pas un déplacement relatif entre programmes. Détail
+# mesuré (avant → après) : plf_2026 103,0→101,9 ; rn_2027 107,7→106,0 ;
+# lfi_2027 112,8→110,8 ; renaissance_2027 104,9→103,7 ; horizons_2027
+# 107,7→107,3 ; lr_2027 105,3→104,8 ; ps_2027 109,7→108,3 ; im_rabot_2029
+# 100,3→99,1 ; im_competitivite_2029 104,8→104,5. Rappel de lecture (I17) :
+# la variable est le DÉFLATEUR, l'indexation légale suit l'IPC — l'écart
+# déclaré de -0,15 pt/an minore encore la perte affichée ici.
 EXPECTED_PA_2029_FULL = {
-    "plf_2026": 103.0,
-    "rn_2027": 107.7,
-    "lfi_2027": 112.8,
-    "renaissance_2027": 104.9,
-    "horizons_2027": 107.7,
-    "lr_2027": 105.3,
-    "ps_2027": 109.7,
-    "im_rabot_2029": 100.3,
-    "im_competitivite_2029": 104.8,
+    "plf_2026": 101.9,
+    "rn_2027": 106.0,
+    "lfi_2027": 110.8,
+    "renaissance_2027": 103.7,
+    "horizons_2027": 107.3,
+    "lr_2027": 104.8,
+    "ps_2027": 108.3,
+    "im_rabot_2029": 99.1,
+    "im_competitivite_2029": 104.5,
 }
 
 

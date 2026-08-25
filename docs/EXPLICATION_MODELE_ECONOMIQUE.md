@@ -37,7 +37,7 @@ Ces blocs sont interconnectes par des boucles de retroaction qui capturent les e
 
 **Nouveaute v3.1** : Le DECAY_PROFILE est desormais **differencie** en 3 profils (TAXES, TRANSFERS, INVEST) melanges selon la composition des mesures. La croissance potentielle beneficie d'un nouveau mecanisme **supply-side** dynamique par canal (recherche, transition ecologique, education) avec delais, depreciation et rendements decroissants.
 
-**Nouveaute v4.0 (refonte « assemblage temporel », juin 2026)** : les flux budgetaires sont calcules par des recurrences chainees uniques appliquees des l'annee 1 (plus de regime special 2026), les recettes suivent le PIB nominal contemporain avec une elasticite unitaire, la courbe de Phillips converge reellement vers 1,5%, et la boucle annuelle est reordonnee.
+**Nouveaute v4.0 (refonte « assemblage temporel », juin 2026)** : les flux budgetaires sont calcules par des recurrences chainees uniques appliquees des l'annee 1 (plus de regime special 2026), les recettes suivent le PIB nominal contemporain avec une elasticite unitaire, la courbe de Phillips converge reellement vers son point fixe, et la boucle annuelle est reordonnee. **Nouveaute v4.1 (aout 2026)** : la courbe de Phillips est ANCREE (le terme d'output gap passe dans l'ancrage, le parametre du code devient directement la pente de moyen terme 0,20) et son point fixe est recale sur le deflateur du PIB a 1,6%.
 
 **Sequence annuelle de calcul (v4.0) :**
 ```
@@ -84,28 +84,33 @@ Growth = Potentiel + Debt Drag + Multiplicateur fiscal + Effets second ordre
 
 ### 2. Inflation
 
-**Formule generale (v4.0) :**
+**Formule generale (v4.1) — courbe ANCREE :**
 ```
-Inflation = (1 - Inertie) x Tendancielle + Inertie x Inflation precedente + Output Gap + Ajustements
+Inflation = (1 - Inertie) x (Tendancielle + Pente x Output gap) + Inertie x Inflation precedente + Ajustements
 ```
+Le gap est DANS l'ancrage : pour un gap constant, le point fixe vaut exactement `Tendancielle + Pente x gap`.
 
 **Decomposition :**
-- **Tendancielle (point fixe)** : 1,5% (inflation tendancielle France moyen terme : mediane entre la sous-jacente INSEE 2025 a 1,2% et le coeur Banque de France projete / cible BCE 1,6-2,0%). Depuis la v4.0, la forme `(1-rho) x pi* + rho x pi(t-1)` fait de cette valeur le point de convergence REEL du regime (dans un AR(1), le point fixe est `c/(1-rho)`, pas l'intercept `c` : l'ancienne forme creait un attracteur cache a 3,0%, bride par le rappel BCE en equilibre permanent a 2,33%)
-<!-- Point FIXE de la courbe de Phillips (constante nommee INFLATION_STRUCTURELLE = 0.015, budget_simulator/constants.py ; formule v4.0 dans engine/inflation.py). La constante constants.py INFLATION_BASE = 0.010 (1,0%) est distincte : c'est la graine d'inertie inflation_precedente en annee 0, PAS le point fixe Phillips. BCE_CIBLE_INFLATION = 0.020 : seuil du garde-fou de surchauffe (engine/inflation.py), PAS un point de convergence forcee depuis la v4.0. -->
-<!-- Decision PO 2026-05-18 (sourcee) : 1,2% -> 1,5%. Option C, recoupement INSEE / Banque de France / BCE. Intention confirmee 2026-06-10 : BCE = garde-fou de surchauffe >2%, pas thermostat de convergence. -->
+- **Tendancielle (point fixe)** : 1,6%, cible sur le **deflateur du PIB** France a moyen terme. Chaine sourcee : 2,0% IPCH zone euro (BCE, Survey of Professional Forecasters T3 2026) -> ~1,75% IPC France (RAA 2026, note 6, qui ecrit l'ecart) -> ~1,6% deflateur (INSEE, blog sur les deflateurs, sept. 2022). Depuis la v4.0, la forme `(1-rho) x pi* + rho x pi(t-1)` fait de cette valeur le point de convergence REEL du regime (dans un AR(1), le point fixe est `c/(1-rho)`, pas l'intercept `c`)
+<!-- Point FIXE de la courbe de Phillips (constante nommee INFLATION_STRUCTURELLE = 0.016, budget_simulator/constants.py ; formule v4.1 dans engine/inflation.py, fonction point_fixe_phillips_ancree). La constante constants.py INFLATION_BASE = 0.010 (1,0%) est distincte : c'est la graine d'inertie inflation_precedente en annee 0, PAS le point fixe Phillips. BCE_CIBLE_INFLATION = 0.020 : seuil du garde-fou de surchauffe, PAS un point de convergence forcee. BCE_PLANCHER_ACCOMMODANT = 0.008 : seuil bas, nomme en v4.1. -->
+<!-- v4.1 (26/08/2026) : 1,5% -> 1,6%. La variable inflation du moteur EST le deflateur du PIB (arbitrage documente) ; l'ancienne valeur melangeait IPC et IPCH. -->
 
 
-- **Inertie** : 50% de l'inflation precedente (anticipations, indexation)
-- **Output gap** : 0,35 x (Production - Potentiel)
+- **Inertie** : 50% de l'inflation precedente (anticipations, indexation). Parametre de VITESSE seulement depuis la v4.1 : il ne deplace plus le niveau du regime etabli
+- **Output gap** : **pente de moyen terme 0,20** x (Production - Potentiel), a l'interieur de l'ancrage
   - Output gap > 0 (surchauffe) -> Inflation en hausse
   - Output gap < 0 (sous-utilisation) -> Inflation en baisse
+  - **A declarer** : 0,20 est un choix de calibration ENCADRE (BdF *Rue de la Banque* n° 56 ~0,40 ; BCE WP n° 3133 ~0,065), PAS une estimation France — il n'en existe aucune sur l'output gap
+  - Niveau de depart : **gap initial de -0,7%** sur l'annee de base (RAA 2026 Tableau n° 2 p. 20 / avis HCFP n° 2026-3 ; variante FMI -0,4), puis `gap(t) = 0,8 x gap(t-1) + 0,2 x (croissance - potentiel)`
 - **Garde-fou BCE haut** : Si inflation > 2,0% (cible BCE), freinage monetaire (blend 50/50 vers la cible) — garde-fou de SURCHAUFFE, inactif en statu quo
-- **Garde-fou BCE bas** : Si inflation < 0,8%, politique accommodante tiree vers la TENDANCIELLE 1,5% (blend 70/30)
+- **Garde-fou BCE bas** : Si inflation < 0,8%, politique accommodante tiree vers la TENDANCIELLE 1,6% (blend 70/30). Inactif en statu quo depuis la v4.1 — il se declenchait en annee 1 auparavant
+
+**Une variable, trois roles (limite explicite)** : `inflation` sert a la fois de deflateur du PIB (denominateur de la dette), d'IPC (pouvoir d'achat) et d'indice d'indexation des prestations. Elle est calee sur le **deflateur**, parce que c'est lui qui commande le ratio de dette (INSEE tranche explicitement). Biais residuel declare de **-0,15 pt/an** sur les deux autres roles ; il est conservateur (il minore la depense indexee et la perte de pouvoir d'achat affichee).
 
 **Point de convergence :**
 ```
-Inflation long terme ~ 1,5% (point fixe Phillips)
-Inflation statu quo effective ~ 1,1-1,4% (output gap legerement negatif)
+Inflation long terme ~ 1,6% (point fixe Phillips)
+Inflation statu quo effective ~ 1,2-1,5% (output gap negatif)
 ```
 
 **Influences SUR l'inflation :**
@@ -269,12 +274,12 @@ Deficit/PIB < (Croissance + Inflation) x Dette/PIB
 ```
 
 **Application numerique :**
-Avec dette 115%, croissance 1%, inflation 1,5% (tendancielle du moteur) :
+Avec dette 115%, croissance 1%, inflation 1,6% (tendancielle du moteur) :
 ```
 Deficit max = 2,5% x 115% = 2,9% du PIB
 ```
 
-**Conclusion** : A 115% de dette, il faut un deficit inferieur a ~3% du PIB pour stabiliser le ratio (et moins encore avec l'inflation statu quo effective ~1,1-1,4%).
+**Conclusion** : A 115% de dette, il faut un deficit inferieur a ~3% du PIB pour stabiliser le ratio (et moins encore avec l'inflation statu quo effective ~1,2-1,5%).
 
 ---
 
@@ -629,7 +634,7 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 - La dette monte a ~150% d'ici 2035 sans reformes (~129,5% des 2030 — HCFP : >125% sans ajustement)
 - Le deficit se creuse sous l'effet des depenses (vieillissement, defense, sante) et de la boule de neige des interets
 - La croissance s'erode lentement via le debt drag
-- L'inflation effective reste sous le point fixe 1,5% (output gap negatif)
+- L'inflation effective reste sous le point fixe 1,6% (output gap negatif)
 - Avant la v4.0, la meme baseline affichait ~132% de dette en 2035 : l'ecart venait d'un « assainissement implicite gratuit » (~24 Md EUR/an) cree par l'ancienne mecanique d'assemblage, pas d'hypotheses economiques
 
 ---
@@ -715,7 +720,8 @@ Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (recherche +0,0025pt/Md EUR, transition +0,002pt, renovation +0,001pt, education +0,001pt), delais et depreciation differencies, rendements decroissants ln(1+x), cap +0,20pt
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
-9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe 1,5% avec garde-fou BCE a 2,0%
+9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe avec garde-fou BCE a 2,0%
+10. **Phillips ancree (v4.1)** : `(1-rho) x (pi* + 0,20 x gap) + rho x pi(t-1)`, point fixe 1,6% cale sur le deflateur du PIB, gap initial de -0,7% (RAA 2026 / HCFP)
 
 ### Validation
 
@@ -727,7 +733,7 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Dette 2035 baseline : ~150% PIB ; deficit 2035 : ~-7,5% PIB
 - Croissance potentielle : 1,0% (extensible a 1,2% avec investissement soutenu)
 - Chomage NAIRU : ~7,5%
-- Inflation : point fixe 1,5% (`INFLATION_STRUCTURELLE`), effective statu quo ~1,1-1,4% ; cible BCE 2,0% = garde-fou de surchauffe
+- Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe
 
 Ces proprietes du statu quo sont verifiees en continu par `tests/test_baseline_properties.py` (croissance reelle des depenses chaque annee, absence de marche du ratio primaire, elasticite apparente 1,00 +/- 0,02, jump-off INSEE, non-regression des deltas mesure-vs-baseline).
 

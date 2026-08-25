@@ -240,12 +240,17 @@ def test_calculate_inflation_deflation(simulator):
     simulator.inflation_precedente = 0.01
     with patch('numpy.random.normal', return_value=-0.002):
         inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
-    # Refonte 2026-06 (intercept ×(1−ρ), accommodant vers la tendancielle) :
-    #   base = 0.0075 + 0.5*0.01 + 0.35*(-0.03) = 0.0020 ; effort consolidation
-    #   -0.12*0.02 = -0.0024 → -0.0004 ; pressions déflationnistes ×0.80
-    #   → -0.00032 ; accommodant (<0.008) 0.70*(-0.00032)+0.30*0.015 = 0.00428 ;
-    #   bruit patché -0.002 → 0.00228.
-    expected = 0.0023  # Après clip et ajustement
+    # v0.6.1 lot 8 — forme ANCRÉE, π* = 1,6 %, κ_LR = 0,20 :
+    #   ancrage = 0.016 + 0.20*(-0.03)               = 0.0100
+    #   base    = 0.5*0.0100 + 0.5*0.01              = 0.0100
+    #   effort consolidation -0.12*0.02 (-0.0024)    = 0.0076
+    #   pressions déflationnistes ×0.80              = 0.00608
+    #   accommodant (<0,8 %) 0.70*0.00608+0.30*0.016 = 0.009056
+    #   bruit patché -0.002                          = 0.007056
+    # Le déplacement vs v0.6.0 (0,0023) vient de la pente : à un gap de
+    # -3 pt, l'ancienne pente effective 0,70 retirait 2,1 pt d'inflation,
+    # la nouvelle en retire 0,6 — le régime ne plonge plus au plancher.
+    expected = 0.0071
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Pressions déflationnistes" in s for s in simulator.debug_logs), "Log déflation attendu manquant"
 
@@ -272,7 +277,15 @@ def test_calculate_inflation_restrictive(simulator):
     simulator.inflation_precedente = 0.02
     with patch('numpy.random.normal', return_value=0):  # Pas de bruit
         inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
-    expected = 0.025  # Comportement réel après tensions
+    # v0.6.1 lot 8 — forme ANCRÉE, π* = 1,6 %, κ_LR = 0,20 :
+    #   ancrage = 0.016 + 0.20*0.03                  = 0.0220
+    #   base    = 0.5*0.0220 + 0.5*0.02              = 0.0210
+    #   effort expansion +0.08*0.02 (+0.0016)        = 0.0226
+    #   tensions inflationnistes min(×1.08 ; 3 %)    = 0.024408
+    #   rappel BCE (>2 %) 0.50*0.024408+0.50*0.020   = 0.022204
+    # Le rappel BCE joue ici, et c'est son rôle : gap de +3 pt et chômage
+    # sous le NAIRU = surchauffe, pas statu quo.
+    expected = 0.0222
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Tensions inflationnistes" in s for s in simulator.debug_logs), "Log tensions manquant"
 

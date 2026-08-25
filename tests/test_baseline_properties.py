@@ -100,7 +100,10 @@ def test_b_aucune_marche_ratio_primaire(statu_quo):
       ajustements COR/ONDAM du moteur) face à une croissance bridée par le debt
       drag (~0,35-0,55 % réel mesuré) : marches +0,37/+0,48 pt économiquement
       VOULUES (scénario vieillissement non financé), sans aucun terme de prix
-      ou de couture (inflation stable ~1,1 % sur la fenêtre).
+      ou de couture (inflation stable ~1,5 % sur la fenêtre depuis le recalage
+      Phillips v0.6.1 — ce test porte sur les MARCHES du ratio, pas sur son
+      niveau : un déflateur plus haut déplace numérateur et dénominateur
+      ensemble et ne crée aucune marche).
     """
     results, details = statu_quo
     ratios = [PRIMARY_SPENDING_2025 / PIB_BASE_2025_MD_EUR * 100] + [

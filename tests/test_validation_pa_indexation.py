@@ -42,10 +42,11 @@ def test_autres_indicateurs_inchanges(statu_quo):
           f"Dette/PIB {dette_2035:.1f}% / Déficit/PIB {deficit_2035:.1f}%")
 
     # Vérifications de cohérence (plages élargies pour robustesse)
-    # Inflation : plage recalée [0,8 ; 2,2] (refonte 2026-06-10) — point fixe
-    # Phillips = 1,5 % (intercept ×(1−ρ) corrigé) et output gap négatif
-    # persistant en statu quo → effective ~1,1-1,4 %. L'ancien plancher 1,5 %
-    # encodait l'attracteur artificiel 2,33 %.
+    # Inflation : plage [0,8 ; 2,2], INCHANGÉE depuis la refonte 2026-06-10 —
+    # elle avait alors remplacé un plancher à 1,5 % qui encodait l'attracteur
+    # artificiel 2,33 %. Le point fixe Phillips vaut 1,6 % depuis la v0.6.1
+    # (déflateur du PIB) et l'output gap reste négatif en statu quo →
+    # effective ~1,2-1,5 %, toujours au milieu de la plage.
     assert 0.8 <= inflation_2035 <= 2.2, f"Inflation hors plage : {inflation_2035:.2f}%"
     assert 0.3 <= croissance_2035 <= 1.5, f"Croissance hors plage : {croissance_2035:.2f}%"
     # Dette plus basse avec Fix 6 (ratio dépenses/PIB sur PIB courant, pas fixe)

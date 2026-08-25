@@ -14,6 +14,7 @@ from .constants import (
     DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_NAIRU, GINI_BASE,
     GINI_HARD_CEILING, GINI_SOFT_FLOOR,
     INFLATION_BASE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
+    OUTPUT_GAP_INITIAL,
     TAUX_INTERET_BASE, TAUX_PLAFOND_ABSOLU,
 )
 from .handlers.additionnels import AdditionnelsMixin
@@ -593,7 +594,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.pib_nominal = self.base_params['pib_base']
         self.deflateur_cumule = 1.000
 
-        self.output_gap_courant = -0.015
+        self.output_gap_courant = OUTPUT_GAP_INITIAL  # source unique (constants.py)
         self.debt_structure = {
             'taux_moyen': 0.019,
             'taux_marginal': 0.036,
@@ -657,7 +658,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.dette_courante = self.base_params['pib_base'] * self.base_params['dette_ratio']
         self.pib_nominal = self.base_params['pib_base']
         self.pib_reel_base2025 = self.base_params['pib_base']
-        self.output_gap_courant = -0.015
+        self.output_gap_courant = OUTPUT_GAP_INITIAL  # source unique (constants.py)
         self.deflateur_cumule = 1.000
 
         # --- Mémoire inter-années ---

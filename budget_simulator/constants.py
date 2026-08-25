@@ -58,18 +58,110 @@ if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
 # ni la cible BCE (ancrage de convergence ~2,0 %, dans le rappel BCE inflation.py).
 INFLATION_BASE = 0.010  # graine inertie inflation année 0 (init inflation_precedente)
 # INFLATION_STRUCTURELLE : inflation TENDANCIELLE de moyen terme France =
-# POINT FIXE de la courbe de Phillips augmentée (engine/inflation.py).
-# Refonte 2026-06 : la formule applique désormais (1−ρ)·π* + ρ·π_{t-1}, donc
-# cette constante EST le point de convergence du régime (1,5 %). L'ancienne
-# forme (π* + ρ·π_{t-1}) en faisait un intercept brut → attracteur caché
-# c/(1−ρ) = 3,0 %, bridé par le rappel BCE en équilibre permanent à 2,33 % :
-# la doc promettait 1,5 % mais l'arithmétique livrait 2,33 (piège intercept
-# AR(1) ≠ point fixe, diagnostic 2026-06-10).
-# Calibration : 1,5 % = médian sourcé entre la sous-jacente INSEE 2025 (+1,2 %)
-# et le cœur Banque de France projeté / cible BCE (1,6-2,0 %). Décision PO
-# 2026-05-18, Option C ; intention confirmée par décision PO 2026-06-10
-# (BCE = garde-fou de surchauffe >2 %, pas thermostat de convergence).
-INFLATION_STRUCTURELLE = 0.015  # 1,5 % — point fixe Phillips, inflation tendancielle moyen terme FR
+# POINT FIXE de la courbe de Phillips ancrée (engine/inflation.py).
+# Refonte 2026-06 : la formule applique (1−ρ)·π* + ρ·π_{t-1}, donc cette
+# constante EST le point de convergence du régime. L'ancienne forme
+# (π* + ρ·π_{t-1}) en faisait un intercept brut → attracteur caché c/(1−ρ)
+# = 3,0 %, bridé par le rappel BCE en équilibre permanent à 2,33 % : la doc
+# promettait 1,5 % mais l'arithmétique livrait 2,33 (piège intercept AR(1)
+# ≠ point fixe, diagnostic 2026-06-10).
+#
+# RECALAGE v0.6.1 (I15/R4) : 1,5 % → 1,6 %. La variable `inflation` du moteur
+# est le DÉFLATEUR DU PIB (cf. arbitrage I17 dans engine/inflation.py), pas
+# l'IPC — la calibration doit donc viser un déflateur. Chaîne d'ancrage,
+# entièrement sourcée, maillon par maillon :
+#   2,0 % IPCH zone euro   BCE, Survey of Professional Forecasters T3 2026 :
+#                          anticipations de long terme 2,0 %, révision 0,0
+#                          malgré un IPCH 2026 à 2,7-3,0 % (ancrage tenu).
+#   → ≈1,75 % IPC France   Gouvernement, Rapport d'avancement annuel 2026 du
+#                          plan budgétaire et structurel à moyen terme
+#                          2025-2029 (avril 2026), NOTE 6, qui écrit
+#                          explicitement l'écart : « en France, l'inflation
+#                          au sens de l'IPC est légèrement plus faible sur
+#                          longue période que celle au sens de l'IPCH ; à
+#                          concept égal, les évolutions des prix sont un peu
+#                          plus dynamiques pour les pays les moins riches de
+#                          la zone euro ».
+#   → ≈1,6 % déflateur     écart déflateur − prix à la consommation mesuré à
+#                          −0,1/−0,2 pt en régime normal (INSEE, blog
+#                          « Inflation : les déflateurs en comptabilité
+#                          nationale », sept. 2022 ; décomposition officielle
+#                          2026 du RAA p. 12 : −0,4 pt de prix de la demande
+#                          intérieure, −0,2 pt de termes de l'échange).
+# Cohérent avec le corridor officiel de déflateur 1,3/1,6/1,6/1,5/1,5 %
+# (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030),
+# verrouillé par tests/test_calibration_mission_v060.py.
+INFLATION_STRUCTURELLE = 0.016  # 1,6 % — point fixe Phillips, DÉFLATEUR du PIB tendanciel FR
+
+# PHILLIPS_PENTE_MT : pente de MOYEN TERME de la courbe de Phillips sur
+# l'output gap — c'est-à-dire, depuis la forme ancrée de la v0.6.1 (I12/R1),
+# directement le paramètre de la formule : π̄ = π* + PHILLIPS_PENTE_MT · gap.
+# Avant la v0.6.1 le code portait 0,35 HORS de l'ancrage, ce qui faisait de ρ
+# un multiplicateur caché : la grandeur homologue de la littérature valait en
+# réalité 0,35/0,50 = 0,70, jamais écrite et sans source.
+#
+# ⚠️ CHOIX DE CALIBRATION ENCADRÉ, PAS UNE ESTIMATION FRANCE (§B.2 item 14
+# du dossier v0.6.1) : il n'existe aucune estimation publiée de la pente de
+# Phillips sur la France seule et sur l'output gap. Les bornes :
+#  - haut ≈ 0,40 : Banque de France, Berson, de Charsonville, Diev, Faubert,
+#    Ferrara, Guilloux-Nefussi, Kalantzis, Lalliard, Matheron, Mogliani
+#    (2018), « La courbe de Phillips existe-t-elle encore ? », Rue de la
+#    Banque n° 56, fév. 2018, T1 et graphique G3 — pente de moyen terme
+#    définie par la BdF elle-même comme 4·c₂/(1−c₁), soit 4×0,07/(1−0,27)
+#    = 0,38, « stable […] significativement non nulle » (zone euro, IPCH,
+#    trimestriel 1999-2017) ;
+#  - bas ≈ 0,065 : BCE, Beschin, Paredes, Polichetti, Renault (2025), « The
+#    slope of the euro area price Phillips curve: evidence from regional
+#    data », ECB Working Paper n° 3133, oct. 2025 — −0,19 brut, −0,12 avec
+#    anticipations, −0,02 avec effets fixes pays×temps, soit ≈ 0,065 / 0,041
+#    / 0,007 une fois converti sur l'output gap.
+#  - qualitatif France : Banque de France, Dubois, Ducoudré, Martin,
+#    Petronevich, Seghini, Thubin, Turunen (2026), « Re-estimated FR-BDF »,
+#    WP n° 1044, 13/05/2026 — « a steeper price Phillips curve along with a
+#    flatter wage Phillips curve », COEFFICIENTS NON PUBLIÉS (§B.2 item 15).
+# Motif du 0,20 : dans les scénarios français de référence l'output gap est
+# négatif sur tout l'horizon, donc sur le segment PLAT au sens de Benigno &
+# Eggertsson (NBER WP 31197) — régime où les estimations à anticipations
+# contrôlées (0,05-0,12) sont les plus pertinentes. Retenir 0,40 (valeur
+# tous régimes) sur-punirait la conjoncture basse.
+# NEUTRALITÉ (§C.5) : aplatir la pente retire aux programmes d'EXPANSION une
+# part de leur pénalité inflationniste ET aux programmes de CONSOLIDATION
+# leur prime désinflationniste implicite. La forme reste LINÉAIRE, donc
+# symétrique par construction (la non-linéarité en L inversé, elle, serait
+# asymétrique : plate en bas, raide en haut — hors v0.6.1, cf. §C.4).
+PHILLIPS_PENTE_MT = 0.20  # pente de moyen terme sur l'output gap (fourchette de travail 0,15-0,25)
+
+# OUTPUT_GAP_INITIAL : niveau de l'output gap posé sur l'année de BASE (2025),
+# donc la valeur que lit la courbe de Phillips de la PREMIÈRE année simulée
+# (l'année de base ne passe pas par la récurrence). La récurrence
+# gap_t = 0,8·gap_{t−1} + 0,2·(g − g*) (engine/orchestrator.py) déroule
+# ensuite le sentier — elle n'est PAS remplacée : avec l'identité comptable,
+# en statu quo (croissance = potentielle) le gap ne se refermerait jamais et
+# l'inflation resterait durablement déprimée. On corrige le NIVEAU, pas la LOI.
+#
+# v0.6.0 : −1,5 %, sans aucun commentaire de source, et DUPLIQUÉ en deux
+# points de simulator.py (§B.2 item 19) — soit 2 à 4 fois plus bas que les
+# deux estimations officielles disponibles :
+#  - Gouvernement, Rapport d'avancement annuel 2026 du plan budgétaire et
+#    structurel à moyen terme 2025-2029, avril 2026, Tableau n° 2 p. 20
+#    (avis HCFP n° 2026-3 du 17/04/2026) : −0,7 (2027), −0,7 (2028),
+#    −0,5 (2029) ;
+#  - FMI, France: 2026 Article IV Consultation, PR n° 26/255, 22/07/2026,
+#    Table 1 : −0,4 (2026), −0,4 (2027), −0,3 (2028).
+# Retenu : −0,7 % (le point RAA/HCFP, source nationale et cohérente avec le
+# reste de la calibration budgétaire du moteur). La variante FMI (−0,4) est
+# documentée et reste dans l'encadrement testé.
+OUTPUT_GAP_INITIAL = -0.007  # −0,7 % — RAA 2026 T2 p. 20 / HCFP n° 2026-3 (variante FMI : −0,4)
+
+# BCE_PLANCHER_ACCOMMODANT : seuil bas de la règle monétaire du moteur, pendant
+# symétrique de BCE_CIBLE_INFLATION (seuil haut) — nommé en v0.6.1 pour que la
+# règle monétaire ne porte plus un seuil en littéral quand l'autre est une
+# constante. Valeur INCHANGÉE. Enjeu mesuré : sous ce seuil le plancher tire
+# l'inflation vers la tendancielle, et en v0.6.0 il se déclenchait DÈS
+# L'ANNÉE 1 du statu quo (0,725 % pré-garde → 0,95 % publiée) : la calibration
+# était portée par un clip. tests/test_phillips_v061.py vérifie désormais que
+# les deux garde-fous restent INERTES en statu quo.
+BCE_PLANCHER_ACCOMMODANT = 0.008  # 0,8 % — seuil de la politique monétaire accommodante
 CROISSANCE_POTENTIELLE = 0.011  # 1,1 % — moyenne du sentier de la mission
                                 # Jaravel/Ragot/Tavernier/Valla (07/2026) :
                                 # 1,2 / 1,2 / 1,0 / 1,0 % (2027-2030). v0.5.1 : 1,0.

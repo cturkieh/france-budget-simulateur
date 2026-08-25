@@ -102,7 +102,7 @@ def test_apply_fonction_publique(simulator):
     assert 'depenses' in impacts
     assert any("FP" in s for s in simulator.debug_logs), "Log FP manquant"
 
-# Test pour calculate_inflation (Phillips augmentée Y1, valeur exacte 0.01731)
+# Test pour calculate_inflation (Phillips ANCRÉE, valeur exacte)
 def test_calculate_inflation(simulator):
     economic_state = {
         'output_gap': -0.015,
@@ -113,13 +113,17 @@ def test_calculate_inflation(simulator):
     simulator.inflation_precedente = 0.01  # Inflation précédente 1.0%
     with patch('numpy.random.normal', return_value=0):
         inflation = simulator.calculate_inflation(year=2, economic_state=economic_state)
-    # Calcul exact (engine/inflation.py, refonte 2026-06 : intercept ×(1−ρ),
+    # Calcul exact (engine/inflation.py, v0.6.1 lot 8 : forme ANCRÉE
+    # (1−ρ)·(π* + κ_LR·gap) + ρ·π_{t−1} avec π* = 1,6 % et κ_LR = 0,20,
     # pass-through TVA gaté year==2 — impacts t−1 —, random patché à 0) :
-    #   base       = (1-0.50)*0.015 + 0.50*0.01 + 0.35*(-0.015) = 0.00725
-    #   + effort   = 0.08*abs(-0.007)                (+0.00056) = 0.00781
-    #   + TVA (y2) = min(0.0071*0.3, 0.002)          (+0.002)   = 0.00981
-    #   pas de seuil défla/infla, pas de rappel BCE (0.008 ≤ 0.00981 ≤ 0.020)
-    expected = 0.00981
+    #   ancrage    = 0.016 + 0.20*(-0.015)                       = 0.0130
+    #   base       = (1-0.50)*0.0130 + 0.50*0.01                 = 0.0115
+    #   + effort   = 0.08*abs(-0.007)                (+0.00056)  = 0.01206
+    #   + TVA (y2) = min(0.0071*0.3, 0.002)          (+0.002)    = 0.01406
+    #   pas de seuil défla/infla, pas de rappel BCE (0.008 ≤ 0.01406 ≤ 0.020)
+    # v0.6.0 donnait 0.00981 : la pente effective valait 0,70 (κ hors
+    # ancrage), soit -1,05 pt d'inflation pour ce gap contre -0,30 désormais.
+    expected = 0.01406
     assert abs(inflation - expected) < 0.001, f"Expected {expected}, got {inflation:.5f}"
 
 # Test pour validate_trajectory (basé sur Status Quo : croissance moyenne 0.8%, dette 161%, Okun 10/10)

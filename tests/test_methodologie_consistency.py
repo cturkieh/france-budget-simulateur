@@ -104,10 +104,28 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             must_appear_in=_ALL_DOCS,
         ),
         CriticalConstant(
-            name="INFLATION_STRUCTURELLE (intercept Phillips)",
+            name="INFLATION_STRUCTURELLE (point fixe Phillips)",
             source="constants.INFLATION_STRUCTURELLE",
             raw_value=constants.INFLATION_STRUCTURELLE,
-            representations=("1,5%", "1,5 %"),
+            representations=("1,6%", "1,6 %"),
+            must_appear_in=_ALL_DOCS,
+        ),
+        CriticalConstant(
+            name="PHILLIPS_PENTE_MT (pente de moyen terme, output gap)",
+            source="constants.PHILLIPS_PENTE_MT",
+            raw_value=constants.PHILLIPS_PENTE_MT,
+            representations=("0,20",),
+            # Motif contextualisé : "0,20" nu matcherait n'importe quel 0,20
+            # d'une doc de 110 Ko (faux-vert documenté ligne ~500).
+            doc_patterns=("pente de moyen terme 0,20",),
+            must_appear_in=_ALL_DOCS,
+        ),
+        CriticalConstant(
+            name="OUTPUT_GAP_INITIAL (niveau posé sur l'année de base)",
+            source="constants.OUTPUT_GAP_INITIAL",
+            raw_value=constants.OUTPUT_GAP_INITIAL,
+            representations=("-0,7%",),
+            doc_patterns=("gap initial de -0,7%",),
             must_appear_in=_ALL_DOCS,
         ),
         CriticalConstant(
