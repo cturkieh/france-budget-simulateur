@@ -261,10 +261,26 @@ deux sources de donnees independantes** :
 
 | Route | Base | Resultat |
 |---|---|---|
-| (a) Table de cohorte Insee (Dubois-Koubi via Cour fev. 2025, note 122) | cohorte annuelle ~800 000 | **+0,13** |
+| (a) Troisieme derivation — **base intermediaire non reproductible** (cf. ci-dessous) | non publiable en l'etat | **+0,13** |
 | (b) Cles Dubois-Koubi hommes (63 % emploi / 26 % chomage / 11 % inactivite) | 305 000 decalants | **+0,19** |
 | (c) Cles Rabate-Rochut (44 / 27 / 29) | 305 000 decalants | **+0,21** |
 | | **Moyenne retenue** | **+0,18** |
+
+**Ce que nous ne pouvons pas etayer, et nous le disons plutot que de le
+combler** (revue adverse du 25/08) : les routes (b) et (c) se recalculent
+integralement a partir des elements ci-dessous — cle de repartition publiee ×
+variation de population active, rapportee a la population active totale. La
+route (a) ne s'y ramene pas : la localisation de source et la base de calcul
+qui figuraient ici n'ont pas ete etablies par la collecte, et la base publiee ne
+reconstituait pas le resultat publie. Elles sont **retirees** — la regle du
+projet est de retirer, jamais de re-sourcer par approximation.
+
+Consequence a connaitre, dans les deux sens : la moyenne retenue (**+0,18**)
+est tiree vers le BAS par cette route (0,13 contre 0,19 et 0,21). Une bosse de
+chomage plus faible **allege** le cout affiche des programmes de report d'age
+et **allege** le gain affiche des programmes d'abaissement. La valeur n'a pas
+ete recalculee ici : la modifier serait un recalibrage, qui exige sa propre
+passe de sourcing, pas une correction de redaction.
 
 Sources primaires : Dubois Y. & Koubi M., Insee, document de travail
 G2016/08 (2016) et Insee Analyses n 30 (05/01/2017) ; Rabate S. & Rochut J.,

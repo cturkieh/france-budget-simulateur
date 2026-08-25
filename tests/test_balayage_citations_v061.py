@@ -127,3 +127,43 @@ def test_la_carte_n_est_pas_vide():
     """Garde de la garde : une carte vidée passerait tous les tests ci-dessus
     sans rien mesurer. Tant qu'une dette existe, elle doit être nommée."""
     assert _DETTE_D_AUDIT, "la carte de dette d'audit ne doit pas être vidée en silence"
+
+
+# --------------------------------------------------------------------------
+# 3. Un locator ajouté AU-DELÀ de ce que la collecte a établi
+# --------------------------------------------------------------------------
+
+#: Motifs bannis sur la SEULE valeur maison du chantier (la bosse de chômage
+#: +0,18 pt). Le §B.1-8 du dossier exige qu'elle soit publiée avec ses trois
+#: routes ; il n'établit NI la note 122 de la Cour de février 2025 (les notes
+#: qu'il cite pour ce rapport sont 121 et 125), NI une base « cohorte annuelle
+#: ~800 000 ». Cette base ne reconstitue d'ailleurs pas le résultat publié
+#: (+0,13 pt) : appliquée à la formule des deux autres routes elle donne
+#: +0,47 pt. C'est exactement le mode de défaillance de la séance du COR datée
+#: d'un jour où elle n'a pas eu lieu, que le lot 1 a retirée (cf.
+#: `test_meta_garde_aucune_seance_du_cor_a_une_date_inexistante`) — un locator
+#: précis ajouté au-delà de la collecte, sur un dépôt public.
+_LOCATORS_NON_ETABLIS = {
+    r"note\s*n?°?\s*122": "la Cour de février 2025 n'est citée par le dossier "
+                          "que pour ses notes 121 et 125",
+    r"cohorte annuelle": "aucune base « cohorte annuelle » n'est établie par la "
+                         "collecte, et elle ne reconstitue pas le +0,13 pt publié",
+}
+
+
+@pytest.mark.parametrize("motif", sorted(_LOCATORS_NON_ETABLIS))
+def test_aucun_locator_ajoute_au_dela_de_la_collecte(motif):
+    """Ce que la collecte n'a pas établi n'est pas publié comme une source.
+
+    Règle du dossier (§B) : quand un point est INTROUVABLE ou NON ÉTABLI, on
+    RETIRE — on ne re-source pas par approximation. Une valeur maison reste
+    publiable ; sa localisation dans un document ne l'est que si elle a été lue.
+    """
+    regex = re.compile(motif)
+    fautifs = [f"{f.relative_to(ROOT)}:{i}"
+               for f in _fichiers_publies()
+               for i, ligne in enumerate(f.read_text(encoding='utf-8').splitlines(), 1)
+               if regex.search(ligne)]
+    assert not fautifs, (
+        f"locator non établi « {motif} » ({_LOCATORS_NON_ETABLIS[motif]}) : "
+        f"{fautifs}")
