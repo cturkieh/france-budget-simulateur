@@ -55,6 +55,7 @@ from budget_simulator.constants import (  # noqa: E402
     CHOMAGE_CLIP_MAX,
     CHOMAGE_CLIP_MIN,
     CHOMAGE_SENIORS_PIC,
+    HANDLER_FAILED_KEY,
     OFFRE_SENIORS_PIB_NIVEAU_LT,
     PARAM_DOMAINS,
     PHASING_CHOMAGE_SENIORS,
@@ -83,6 +84,21 @@ def _mesures(age):
 # ==========================================================================
 # (a) — ancrage du phasing sur le DÉBUT DE L'ÉCART, pas sur le début du run
 # ==========================================================================
+
+def test_premisse_du_fichier_la_reference_legale_est_bien_gelee_deux_ans():
+    """Le « +2 » de ``PREMIERE_ANNEE_ECART`` n'est pas un chiffre magique.
+
+    Les attendus de ce bloc sont construits à partir de cet offset, et non de
+    ``retraites_annee_debut_ecart_age`` — c'est ce qui les empêche d'être
+    tautologiques (ils comparent le code à une attente INDÉPENDANTE). Encore
+    faut-il que l'attente soit juste : on la vérifie ici contre le calendrier
+    légal lui-même, sans passer par la fonction testée. Si le calendrier est
+    recalibré, ce test rougit le premier et dit pourquoi."""
+    assert retraites_ref_age_ans(PREMIERE_ANNEE_ECART - 1) == AGE_GEL
+    assert retraites_ref_age_ans(PREMIERE_ANNEE_ECART) != AGE_GEL
+    assert all(retraites_ref_age_ans(a) == AGE_GEL
+               for a in range(POLICY_START_YEAR, PREMIERE_ANNEE_ECART))
+
 
 def test_annee_debut_ecart_suit_le_calendrier_legal():
     """Un programme calé sur le gel n'ouvre son écart qu'à la fin du gel."""
@@ -256,6 +272,10 @@ def test_payload_non_dict_passe_par_le_chemin_trace(caplog):
     assert df['Dette/PIB %'].notna().all(), "trajectoire NaN = échec silencieux"
     assert any(rec.levelname == 'ERROR' for rec in caplog.records), \
         "un payload illisible doit laisser une trace filtrable"
+    # …et par le drapeau d'état observable, l'autre moitié du contrat : c'est
+    # lui que le golden master et les tests stricts surveillent.
+    assert HANDLER_FAILED_KEY in sim._last_impacts.get('retraites', {}), \
+        "l'anomalie doit aussi poser HANDLER_FAILED_KEY, pas seulement logger"
 
 
 # ==========================================================================
@@ -279,12 +299,22 @@ def test_la_bosse_retractee_est_celle_reellement_appliquee_quand_le_clip_mord():
     croissance = sim.base_params['croissance_potentielle']
     u_prev = CHOMAGE_CLIP_MAX - 0.0001  # trajectoire déjà collée au plafond
 
-    u_avec = _appel(sim, _mesures(haute), u_prev, croissance, annee_idx)
+    mesures = _mesures(haute)
+    u_avec = _appel(sim, mesures, u_prev, croissance, annee_idx)
     retractee = sim._chomage_seniors_prev
     u_sans = _appel(sim, {}, u_prev, croissance, annee_idx)
+    table = chomage_seniors_ecart(mesures, sim.annee_base + annee_idx)
 
     assert u_avec == pytest.approx(CHOMAGE_CLIP_MAX), "le clip doit mordre, sinon le test est vide"
+    # L'INVARIANT : retirer l'état reporté du taux publié doit rendre le taux
+    # que la même année aurait produit SANS bosse.
     assert u_avec - retractee == pytest.approx(u_sans, abs=1e-15)
+    # Et la correction doit avoir MORDU : sans elle, l'état reporté vaudrait la
+    # table entière. Sans cette assertion, le test resterait vert si le clip ne
+    # faisait qu'effleurer.
+    assert 0 < retractee < table, (
+        f"part réellement appliquée {retractee:.6f} vs table {table:.6f} — "
+        "le test doit mesurer un écrêtage effectif")
 
 
 def test_la_bosse_retractee_vaut_la_table_quand_le_clip_ne_mord_pas():
@@ -304,7 +334,13 @@ def test_la_bosse_retractee_vaut_la_table_quand_le_clip_ne_mord_pas():
 def test_le_clip_du_chomage_reste_inatteignable_sur_les_scenarios_publies():
     """Mesure, et non hypothèse : la correction ci-dessus est bit-identique sur
     le produit livré tant que la trajectoire reste à l'intérieur du clip. Ce
-    test le VÉRIFIE scénario par scénario au lieu de l'affirmer."""
+    test le VÉRIFIE scénario par scénario au lieu de l'affirmer.
+
+    La garde n'est pas marginale : les marges mesurées au moment de l'écriture
+    vont de 2,90 pt (im_rabot_2029) à 3,57 pt (im_competitivite_2029) — le
+    chômage des neuf scénarios vit entre 6,96 % et 9,10 %, très loin des deux
+    bornes. Une bascule ne pourrait donc pas venir d'un arrondi : elle
+    signalerait un vrai changement de calibration, et c'est ce qu'on veut voir."""
     marges = {}
     for nom, mesures in SCENARIOS.items():
         df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()

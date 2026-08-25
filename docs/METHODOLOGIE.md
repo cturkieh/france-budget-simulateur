@@ -1025,7 +1025,30 @@ esperes / 47,6 nets etait a un facteur ~3 du code (audit 08/2026, constat 6) :
 ### Fraude Sociale
 
 **Potentiel** : 13 Md EUR (RSA, APL, arrets maladie abusifs)
-- Source : HCFPS sept. 2024, Cour des comptes RAFSS mai 2025
+
+> **Valeur NON AUDITEE — dette declaree (balayage v0.6.1).** L'attribution
+> qui figurait ici a un « haut conseil » de la protection sociale millesime
+> sept. 2024 est **retiree** : l'acronyme employe ne designait aucun
+> organisme. Ce n'est pas une faute de frappe a reparer — les deux
+> institutions reelles au nom voisin (**HCFiPS** et HCFEA) ont ete verifiees,
+> aucune ne publie ces chiffres. L'attribution n'est donc **pas remplacee**
+> par une source de substitution.
+>
+> Ce que dit la source primaire reellement disponible — Cour des comptes,
+> *Certification des comptes du regime general de securite sociale et du
+> CPSTI, exercice 2024*, mai 2025 : le risque financier residuel sur les
+> prestations CAF vaut **11,7 % a 9 mois (9,4 Md EUR)** et **8,0 % a 24 mois
+> (6,3 Md EUR, jamais detecte)** ; la fraude estimee vaut **4,25 Md EUR, soit
+> 5,1 % des prestations legales** (2023).
+>
+> Deux tensions avec la calibration du moteur, dites plutot que tues :
+> le « potentiel 13 Md EUR » **depasse le risque residuel total** mesure par
+> la Cour ; et **30 a 36 %** de ce risque sont des **rappels**, c'est-a-dire
+> de l'argent **du aux allocataires**, dont la detection **augmente** la
+> depense — le gisement brut d'indus plafonne donc vers **4,0-4,4 Md EUR**.
+> Le levier `fraude_sociale` n'etait pas au perimetre du dossier de sourcing
+> v0.6.1 : le ROI 8,75, le taux de recuperation 0,70 et le plafond 13 Md EUR
+> sont laisses **inchanges** et instruits dans une passe dediee.
 
 **Numerisation integree** :
 - Croisement fichiers CAF/Pole Emploi/CPAM operationnel
@@ -1600,7 +1623,6 @@ inchangee », la trajectoire est insoutenable.
 - **COR** (Conseil d'Orientation des Retraites)
 - **CNAM** (Caisse Nationale d'Assurance Maladie)
 - **Unedic** (Union nationale interprofessionnelle pour l'emploi)
-- **HCFPS** (Haut Conseil du Financement de la Protection Sociale) — rapports fraude sociale / minima sociaux (sept. & oct. 2024)
 - **Senat** (Commission des finances) — rapports finances 2024
 
 ### Organismes d'Audit

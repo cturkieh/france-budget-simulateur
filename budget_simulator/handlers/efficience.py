@@ -41,7 +41,10 @@ Convention d'application :
 
 Sources principales :
 - DGFiP 2024, Cour des comptes 2025 — fraude fiscale.
-- HCFPS 2024, CNAF 2023, Cour des comptes 2025 — fraude sociale.
+- Cour des comptes, « Certification des comptes du régime général de
+  sécurité sociale et du CPSTI — exercice 2024 », mai 2025 — fraude sociale
+  (ordre de grandeur du gisement ET sa nature, cf. `_apply_fraude_sociale`).
+  https://www.ccomptes.fr/sites/default/files/2025-05/20250516-certification-comptes-securite-sociale-2024.pdf
 - METHODOLOGIE.md § Fonction Publique — réforme FP.
 - DGAFP 2024, INSEE 2024 — effectifs / point d'indice FP.
 - Cour des comptes 2025, IGF 2024 — optimisation dette.
@@ -176,7 +179,33 @@ class EfficienceMixin(_MixinBase):
     def _apply_fraude_sociale(self, measure: Dict, params: Dict, year: int,
                               gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """Lutte fraude sociale (RSA, APL). Potentiel 13 Md€, ROI 8.75x (numérisation intégrée), phasing 4 ans.
-        Sources: HCFPS 2024, Cour comptes 2025. Voir METHODOLOGIE.md § Lutte contre la Fraude."""
+        Voir METHODOLOGIE.md § Lutte contre la Fraude.
+
+        CE QUI EST SOURCÉ — Cour des comptes, « Certification des comptes du
+        régime général de sécurité sociale et du CPSTI, exercice 2024 »,
+        mai 2025 : le risque financier résiduel sur les prestations CAF vaut
+        11,7 % à 9 mois (9,4 Md€) et 8,0 % à 24 mois (6,3 Md€, jamais
+        détecté) ; la fraude estimée vaut 4,25 Md€, soit 5,1 % des
+        prestations légales (2023).
+
+        CE QUI NE L'EST PAS, ET DOIT ÊTRE DIT — le ROI de 8,75, le taux de
+        récupération de 0,70 et le plafond de 13 Md€ sont une calibration
+        héritée de la v4.5, qu'AUCUNE source consultée ne porte. Le levier
+        `fraude_sociale` n'était pas au périmètre du dossier de sourcing
+        v0.6.1 : ces trois valeurs sont donc laissées INCHANGÉES et déclarées
+        comme dette d'audit plutôt que rhabillées d'une citation empruntée.
+        Deux tensions connues, à instruire dans la passe dédiée :
+          - le « potentiel 13 Md€ » dépasse le risque résiduel total mesuré
+            par la Cour (9,4 Md€ à 9 mois) ;
+          - 30 à 36 % de ce risque sont des RAPPELS, c'est-à-dire de l'argent
+            DÛ aux allocataires : les détecter AUGMENTE la dépense. Le
+            gisement brut d'indus plafonne donc vers 4,0-4,4 Md€.
+        L'attribution qui figurait ici à un « haut conseil » de la protection
+        sociale millésimé 2024 est RETIRÉE : l'acronyme employé ne désignait
+        aucun organisme. Ce n'est PAS une faute de frappe à réparer — les deux
+        institutions réelles au nom voisin (HCFiPS et HCFEA) ont été
+        vérifiées, aucune ne publie ces chiffres. L'attribution n'est donc pas
+        remplacée par une source de substitution."""
         # Conversion intensité (0-1) vers Md€ (0-3)
         # Frontend v4.5+ envoie intensité 0-1, mais legacy peut envoyer Md€ directement
         effort_raw = params.get('effort', 0)
@@ -197,8 +226,11 @@ class EfficienceMixin(_MixinBase):
         # ===== ROI : 8.75x (numérisation/data mining intégrée par défaut) =====
         # ANCIEN MODÈLE : 7x base + 25% bonus optionnel si checkbox cochée
         # NOUVEAU MODÈLE : 8.75x baseline (croisement fichiers CAF/Pôle Emploi opérationnel)
-        # Justification : CNAF 2023, HCFPS 2024, Plan antifraude 2023-2027
-        # Ce n'est plus une "option" mais la réalité structurelle CAF/CPAM 2025+
+        # Justification : CNAF 2023, Plan antifraude 2023-2027 — le croisement
+        # de fichiers est bien opérationnel, mais AUCUNE source consultée ne
+        # publie ce multiplicateur. Valeur NON AUDITÉE, cf. la docstring
+        # ci-dessus (l'attribution retirée ici renvoyait à un organisme
+        # inexistant : retirée, non remplacée).
         roi_base = 8.75
         efficacite_recuperation = 0.70
 

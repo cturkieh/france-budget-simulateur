@@ -413,7 +413,7 @@
           "step": 0.5,
           "label": "Budget contrôles (Md€)",
           "type": "number",
-          "tooltip": "ROI 8.75x avec IA/datamining intégré (HCFPS 2024). Potentiel : 13 Md€ (RSA, APL, arrêts maladie abusifs). Phasing 4 ans. Neutralité : Gini=0, PA=0, Compétitivité=0."
+          "tooltip": "ROI 8.75x avec IA/datamining intégré. Potentiel : 13 Md€ (RSA, APL, arrêts maladie abusifs). Phasing 4 ans. Neutralité : Gini=0, PA=0, Compétitivité=0. Calibration NON AUDITÉE (v0.6.1) : la Cour des comptes (certification des comptes de la sécurité sociale 2024, mai 2025) mesure un risque résiduel de 9,4 Md€ à 9 mois, dont 30 à 36 % sont des rappels dus aux allocataires."
         }
       }
     },

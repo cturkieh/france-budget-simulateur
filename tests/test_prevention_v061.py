@@ -595,7 +595,12 @@ def test_scenarios_publies_migres_sur_la_nouvelle_base():
 # Le fichier de garde cite lui-même les motifs qu'il traque (docstrings) :
 # exclusion explicite et documentée, sans quoi le verrou se déclencherait sur
 # sa propre justification.
-_FICHIER_DE_GARDE = Path(__file__).name
+#: Fichiers qui CITENT les motifs pour les interdire ou les inventorier — les
+#: auditer reviendrait à faire rougir la garde sur sa propre définition.
+#: `test_balayage_citations_v061.py` porte la carte des citations non auditées
+#: du balayage v0.6.1, dont l'entrée « IGAS 2023 » explique justement pourquoi
+#: CETTE garde-ci est contextuelle.
+_FICHIERS_DE_GARDE = {Path(__file__).name, "test_balayage_citations_v061.py"}
 
 
 def _fichiers_a_auditer():
@@ -610,7 +615,7 @@ def _fichiers_a_auditer():
                    + [_RACINE / "policy_measures.json"]
                    + list((_RACINE / "docs").glob("*.md"))
                    + list((_RACINE / "tests").glob("*.py"))):
-        if chemin.name != _FICHIER_DE_GARDE:
+        if chemin.name not in _FICHIERS_DE_GARDE:
             yield chemin
 
 
