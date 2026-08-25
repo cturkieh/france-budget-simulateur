@@ -8,9 +8,22 @@ finances publiques à horizon 2030 », avec l'appui de l'IGF, juillet 2026
 Valeurs littérales des Tableaux 3/4/5/6. Même convention stock-flux que le
 moteur (ΔDette = déficit, note 3 p. -14-).
 
-Objet comparé : le scénario « Budget 2026 voté » (statu quo du site) — la
-mission suppose la cible 2026 (déficit 5,0 %) atteinte par la loi de finances,
-puis politique inchangée.
+Objet comparé : le scénario « Budget 2026 voté » (statu quo du site) TEL QU'IL
+EST PUBLIÉ — la mission suppose la cible 2026 (déficit 5,0 %) atteinte par la
+loi de finances, puis politique inchangée.
+
+Sur les retraites, les deux objets décrivent désormais la même chose sans
+aucun aménagement : la mission retient « suspension de la réforme des retraites
+jusqu'en 2028 » PUIS la reprise vers 64 ans, et c'est exactement ce que rend
+``constants.retraites_ref_age_ans(year)`` — la référence légale que le moteur
+applique quand aucun âge n'est posé (item I3). Le scénario figeait
+``age_depart = 62,75`` sur tout l'horizon, ce qui ne décrit plus « la politique
+votée » depuis I3 mais « je suspends la réforme DÉFINITIVEMENT » : une mesure,
+pas un tendanciel, facturée jusqu'à +4,70 pt de dette 2035 CONTRE le scénario
+de référence. La clé a été retirée de `scenarios.json` (clôture de la revue du
+lot 3) ; ``test_le_scenario_publie_suit_le_calendrier_legal`` verrouille ce
+retrait, pour que le corridor ne puisse plus être remis en état de comparer
+deux objets différents.
 
 Tolérances (resserrées post-revue adverse 24/08, repricing linéaire demi-vie
 4 ans en place — écarts mesurés : taux ≤ 0,17 pt, charge ≤ 3 Md€, dette
@@ -43,36 +56,8 @@ TOL_CHARGE = 5.0    # Md€ (mesuré ≤ 3)
 TOL_TAUX = 0.25     # pt (mesuré ≤ 0,17)
 
 
-def _sans_age_depart_fige(mesures):
-    """Retire `retraites.age_depart` du scenario de reference — ARTEFACT
-    D'ENCODAGE connu, a corriger dans `scenarios.json` (decision produit).
-
-    Ce corridor compare le TENDANCIEL du moteur a celui de la mission
-    Jaravel/Ragot/Tavernier/Valla (IGF, 07/2026), dont les hypotheses
-    retraites integrent explicitement « suspension de la reforme des
-    retraites jusqu'en 2028 » PUIS la reprise vers 64 ans. Depuis la v0.6.1
-    (item I3), c'est exactement ce que rend `retraites_ref_age_ans(year)`
-    quand aucun age n'est pose.
-
-    Or `scenarios.json` fige `age_depart = 62,75` sur tout l'horizon pour
-    `plf_2026` : ce n'est plus « la politique votee », c'est « je suspends la
-    reforme DEFINITIVEMENT » — une mesure, pas un tendanciel. Le canal emploi
-    seniors (lot 3) donne desormais un prix a cette mesure : +0,86 pt de
-    dette en 2030 et +4,70 pt en 2035, CONTRE le scenario de la politique
-    votee. Le corridor comparerait donc deux objets differents.
-
-    Ce retrait vaut pour la MESURE du corridor uniquement : l'artefact reste
-    entier cote produit (golden master inclus) tant que la cle n'est pas
-    retiree de `frontend-react/src/data/scenarios.json` — un retrait qui
-    releve du proprietaire (caracterisation d'un scenario publie, item I34).
-    """
-    if 'retraites' not in mesures:
-        return mesures
-    retraites = {k: v for k, v in mesures['retraites'].items() if k != 'age_depart'}
-    return {**mesures, 'retraites': retraites}
-
-
-def _statu_quo():
+def _mesures_publiees():
+    """Mesures du scénario de référence, LUES SANS AUCUN AMÉNAGEMENT."""
     # Résolution ROBUSTE (revue adverse 24/08 : abspath ne suit pas le symlink
     # tests/ du parent → le test se skippait dans TOUTES les CI). Ordre :
     # (1) BUDGETLAB_SCENARIOS_JSON — l'env var que le conftest parent expose
@@ -88,16 +73,34 @@ def _statu_quo():
     for chemin in candidats:
         if chemin.exists():
             with open(chemin) as f:
-                mesures = json.load(f)['plf_2026']['apiMeasures']
-            mesures = _sans_age_depart_fige(mesures)
-            return BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+                return json.load(f)['plf_2026']['apiMeasures']
     pytest.skip("scenarios.json introuvable (fork moteur public seul) — corridor non exécutable")
 
 
 @pytest.fixture(scope='module')
 def trajectoire():
-    df, budget, _ = _statu_quo()
+    df, budget, _ = BudgetSimulatorV45(
+        periods=10, mesures=_mesures_publiees()).simulate()
     return df, budget
+
+
+def test_le_scenario_publie_suit_le_calendrier_legal():
+    """Garde permanente : « Budget 2026 (voté) » ne pose PAS d'âge de départ.
+
+    Poser un âge, fût-ce la valeur du gel, y inscrit une MESURE — la
+    suspension définitive de la réforme — là où le scénario doit décrire la
+    loi votée, c'est-à-dire le calendrier légal lui-même. Depuis l'item I3 le
+    moteur applique ce calendrier quand la clé est absente, et alors seulement
+    l'impact est rigoureusement nul chaque année.
+
+    Cette garde tient AUSSI le corridor honnête : sans elle, on pourrait le
+    faire repasser au vert en neutralisant la clé côté test au lieu de côté
+    donnée — c'est exactement ce que faisait le contournement retiré ici."""
+    retraites = _mesures_publiees().get('retraites', {})
+    assert 'age_depart' not in retraites, (
+        "plf_2026 pose un age_depart : le scénario « la politique votée » "
+        "décrirait une suspension définitive de la réforme des retraites, "
+        "mesurée jusqu'à +4,70 pt de dette 2035 contre lui-même")
 
 
 def test_corridor_deficit(trajectoire):

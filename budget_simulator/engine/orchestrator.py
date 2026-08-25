@@ -113,6 +113,15 @@ class OrchestratorMixin:
         for measure_id, params in self.mesures.items():
             if measure_id not in defaults:
                 continue
+            # Auxiliaire de JOURNALISATION uniquement (appelé une fois, en
+            # 2026, pour lister les leviers déviés). Un payload illisible ne
+            # doit donc jamais y décider du sort de la simulation : sans cette
+            # garde, un `mesures['x']` non-dict levait ici une AttributeError
+            # AVANT `apply_measures`, c'est-à-dire hors du `try` per-mesure qui
+            # trace (logger.error + HANDLER_FAILED_KEY). On l'ignore ici pour
+            # que l'anomalie ressorte par la porte unique, qui la qualifie.
+            if not isinstance(params, dict):
+                continue
             for param_name, value in params.items():
                 if param_name not in defaults[measure_id]:
                     continue

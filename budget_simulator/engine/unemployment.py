@@ -61,6 +61,7 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import chomage_seniors_ecart
+from ..constants import CHOMAGE_CLIP_MAX, CHOMAGE_CLIP_MIN
 
 
 class UnemploymentMixin:
@@ -135,19 +136,34 @@ class UnemploymentMixin:
         # exactement la table année après année.
         # `year` est l'index d'année de la boucle (1 = 2026) ; la table est
         # indexée sur l'année CIVILE, comme le calendrier légal de l'AOD.
-        # Cas limite assumé : si le clip [4 % ; 12 %] ci-dessous mord, la bosse
-        # retirée l'année suivante n'aura pas été intégralement appliquée. Le
-        # clip est un filet de bout de course (jamais atteint sur les
-        # scénarios livrés) ; le corriger demanderait de mémoriser la part
-        # écrêtée, pour un gain nul sur tout état atteignable.
+        #
+        # L'ÉTAT REPORTÉ EST LA PART RÉELLEMENT APPLIQUÉE, pas la table
+        # (v0.6.1, clôture de la revue du lot 3). Le clip de plausibilité
+        # ci-dessous s'interpose entre la bosse et le taux publié : écrire la
+        # table telle quelle ferait rétracter l'année suivante une bosse
+        # jamais entrée dans la série, et la ferait dériver vers le bas.
+        # `clip(u + bosse) − clip(u)` est exactement l'écart de niveau que la
+        # bosse a réellement créé — donc exactement ce qu'il faut retirer. La
+        # formule dégénère en `ecart_seniors` dès que le clip ne mord pas,
+        # c'est-à-dire sur tout état atteignable par les scénarios livrés (le
+        # fait est MESURÉ en CI, scénario par scénario, plutôt que supposé).
         ecart_seniors = chomage_seniors_ecart(self.mesures, self.annee_base + year)
-        unemployment += ecart_seniors
-        self._chomage_seniors_prev = ecart_seniors
+        avec_bosse = unemployment + ecart_seniors
+        structurel = np.clip(unemployment, CHOMAGE_CLIP_MIN, CHOMAGE_CLIP_MAX)
+        applique = np.clip(avec_bosse, CHOMAGE_CLIP_MIN, CHOMAGE_CLIP_MAX)
+        if structurel == unemployment and applique == avec_bosse:
+            # Aucun écrêtage : on reporte la table AU BIT PRÈS. La différence
+            # de deux flottants clampés vaudrait la table à ~1e-17 près, ce qui
+            # suffirait à déplacer le golden master sans qu'aucun phénomène
+            # n'ait changé. La branche exacte garde la correction invisible sur
+            # tout état atteignable, et opérante là où elle sert.
+            self._chomage_seniors_prev = ecart_seniors
+        else:
+            self._chomage_seniors_prev = float(applique - structurel)
+        unemployment = applique
 
         if abs(ecart_seniors) > 0.00001:
             _log_debug(self.debug_logs,
                 f"Y{year}: Bosse chomage seniors = {ecart_seniors*100:+.3f} points")
-
-        unemployment = np.clip(unemployment, 0.04, 0.12)
 
         return unemployment

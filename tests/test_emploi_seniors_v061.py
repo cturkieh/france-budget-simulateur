@@ -249,16 +249,89 @@ def test_effet_de_niveau_borne_le_pib_a_dix_ans():
         f"niveau de PIB 2035 {ecart_pct:+.2f} % hors de la fenêtre publiée")
 
 
+def _paires_miroirs(ecarts=(0.25, 1.0, 2.25)):
+    """Couples (mesures_hausse, mesures_baisse, année) réellement MIROIRS.
+
+    RECALIBRAGE (clôture de la revue du lot 3). Les profils macro sont
+    désormais ancrés sur le DÉBUT DE L'ÉCART du programme et non sur le début
+    du run. Deux programmes construits pour avoir des écarts opposés la même
+    année ne sont donc plus automatiquement comparables : si l'un d'eux se
+    trouve posé EXACTEMENT sur l'âge gelé (62,75 ans), il décrit « je suspends
+    la réforme », son écart au droit en vigueur ne s'ouvre qu'en 2028 et il
+    n'est pas au même point de sa montée en charge que son vis-à-vis.
+
+    Les comparer quand même ne mesurerait pas la symétrie du barème mais le
+    calendrier légal. On écarte donc ces couples ici — ils sont traités par
+    ``test_ancrage_distinct_n_est_pas_une_asymetrie`` — et le filtre S'AUDITE
+    LUI-MÊME : il n'a le droit d'écarter QUE le programme posé sur l'âge gelé,
+    et doit laisser au moins huit couples par écart. Sans cette double garde,
+    un futur bug d'ancrage viderait le test au lieu de le faire rougir."""
+    gel = retraites_ref_age_ans(POLICY_START_YEAR)
+    couples = []
+    for ecart in ecarts:
+        retenus = 0
+        for year in ANNEES:
+            haut, bas = _mesures_ecart(ecart, year), _mesures_ecart(-ecart, year)
+            if (_seniors.retraites_annee_debut_ecart_age(haut)
+                    != _seniors.retraites_annee_debut_ecart_age(bas)):
+                assert bas['retraites']['age_depart'] == gel, (
+                    f"ancrages divergents pour un couple ({ecart}, {year}) dont "
+                    "aucun bras n'est posé sur l'âge gelé : ce n'est plus le cas connu")
+                continue
+            couples.append((haut, bas, year))
+            retenus += 1
+        assert retenus >= len(ANNEES) - 1, (
+            f"écart {ecart} : {retenus} couples retenus sur {len(ANNEES)} — le "
+            "filtre d'ancrage vide le test au lieu de le faire rougir")
+    return couples
+
+
 def test_canal_offre_strictement_symetrique():
     """Arbitrage C1 — symétrie stricte : abaisser l'AOD d'un an retire au PIB
     exactement ce qu'un report d'un an lui apporte. Le facteur d'asymétrie
     0,70 publié par la Cour est REJETÉ (il allégerait mécaniquement le coût
     affiché des programmes d'abaissement, donc prendrait parti)."""
-    for ecart in (0.25, 1.0, 2.25):
-        for year in ANNEES:
-            hausse = _seniors.offre_seniors_niveau_pib(_mesures_ecart(ecart, year), year)
-            baisse = _seniors.offre_seniors_niveau_pib(_mesures_ecart(-ecart, year), year)
-            assert hausse == pytest.approx(-baisse, abs=1e-15)
+    for haut, bas, year in _paires_miroirs():
+        hausse = _seniors.offre_seniors_niveau_pib(haut, year)
+        baisse = _seniors.offre_seniors_niveau_pib(bas, year)
+        assert hausse == pytest.approx(-baisse, abs=1e-15)
+
+
+def test_ancrage_distinct_n_est_pas_une_asymetrie():
+    """Les deux couples écartés ci-dessus, nommés et traités plutôt que tus.
+
+    Dans les deux cas le bras « baisse » vaut 62,75 ans — l'âge GELÉ. Ce n'est
+    pas le miroir d'un report, c'est un autre programme : « je suspends la
+    réforme », qui ne s'écarte du droit en vigueur qu'à partir de 2028. Et il
+    n'a PAS de miroir exact : la référence légale ne monte jamais que vers le
+    haut, donc tout programme d'écart POSITIF diverge dès 2026.
+
+    La symétrie se prouve alors sur ce qui la porte — le coefficient appliqué
+    à l'écart, à POSITION ÉGALE DE RAMPE. S'il était plus faible du côté des
+    abaissements (facteur 0,70 de la Cour, rejeté par l'arbitrage C1), c'est
+    ici que ça se verrait."""
+    gel = retraites_ref_age_ans(POLICY_START_YEAR)
+    suspension = {'retraites': {'age_depart': gel}}
+    report = {'retraites': {'age_depart': 65.0}}
+    debut_suspension = _seniors.retraites_annee_debut_ecart_age(suspension)
+    assert debut_suspension == POLICY_START_YEAR + 2
+    assert _seniors.retraites_annee_debut_ecart_age(report) == POLICY_START_YEAR
+
+    positions = 0
+    for position in range(POLICY_START_YEAR + 10 - debut_suspension):
+        an_bas = debut_suspension + position
+        an_haut = POLICY_START_YEAR + position
+        ecart_bas = _seniors.retraites_ecart_age_ans_moteur(suspension, an_bas)
+        ecart_haut = _seniors.retraites_ecart_age_ans_moteur(report, an_haut)
+        assert ecart_bas < 0 < ecart_haut, "les deux signes doivent être représentés"
+        for canal in (_seniors.offre_seniors_niveau_pib, _seniors.chomage_seniors_ecart):
+            coef_bas = canal(suspension, an_bas) / ecart_bas
+            coef_haut = canal(report, an_haut) / ecart_haut
+            assert coef_bas == pytest.approx(coef_haut, rel=1e-12), (
+                f"{canal.__name__} position {position} : coefficient "
+                f"{coef_bas:.6f} à la baisse vs {coef_haut:.6f} à la hausse")
+        positions += 1
+    assert positions == 8
 
 
 def test_statu_quo_neutre_sur_le_canal_offre():
@@ -363,10 +436,14 @@ def test_p2_pas_amplification_ar1_bout_en_bout(monkeypatch):
 
 def test_bosse_chomage_symetrique():
     """Symétrie stricte (C1) : abaisser l'AOD retire du chômage ce qu'un
-    report en ajoute. Le canal ne prend pas parti."""
-    for year in ANNEES:
-        hausse = _seniors.chomage_seniors_ecart(_mesures_ecart(1.0, year), year)
-        baisse = _seniors.chomage_seniors_ecart(_mesures_ecart(-1.0, year), year)
+    report en ajoute. Le canal ne prend pas parti.
+
+    Même filtre d'ancrage que le canal d'offre (cf. ``_paires_miroirs``) : le
+    couple dont un bras tombe sur l'âge gelé est traité séparément par
+    ``test_ancrage_distinct_n_est_pas_une_asymetrie``."""
+    for haut, bas, year in _paires_miroirs(ecarts=(1.0,)):
+        hausse = _seniors.chomage_seniors_ecart(haut, year)
+        baisse = _seniors.chomage_seniors_ecart(bas, year)
         assert hausse == pytest.approx(-baisse, abs=1e-15)
 
 
@@ -673,12 +750,28 @@ def test_lecture_defensive_du_parametre_age():
     doit y être DÉFENSIF sur le type. La porte unique tracée reste
     ``apply_measures`` (logger.error + ``HANDLER_FAILED_KEY``, ExceptionGroup
     en mode STRICT) — lever ici court-circuiterait ce contrat, et l'anomalie
-    ne serait pas rendue plus visible."""
-    for valeur in ('pas-un-nombre', None, float('nan'), True):
+    ne serait pas rendue plus visible.
+
+    RECALIBRAGE (clôture de la revue du lot 3) : ce test listait aussi
+    ``float('nan')`` et ``True`` parmi les valeurs dégradées à neutre. C'était
+    précisément le défaut. Ces deux-là ne font PAS lever la porte unique : en
+    mode tolérant elle les CLAMPE à la borne basse du domaine (60 ans), et le
+    handler chiffre alors un abaissement de 2,75 à 4 ans. Les neutraliser ici
+    faisait chiffrer un programme hybride — dépenses d'un abaissement, offre
+    de travail et chômage d'un statu quo. La frontière n'est pas le type lu,
+    c'est le comportement de la porte ; la contre-épreuve comportementale vit
+    dans ``tests/test_cloture_revue_lot3.py``."""
+    for valeur in ('pas-un-nombre', None):
         mesures = {'retraites': {'age_depart': valeur}}
         assert _seniors.retraites_ecart_age_ans_moteur(mesures, 2030) == 0.0
 
     assert _seniors.retraites_ecart_age_ans_moteur({}, 2030) == 0.0
+
+    borne_basse = constants.PARAM_DOMAINS['retraites']['age_depart'][0]
+    attendu = borne_basse - retraites_ref_age_ans(2030)
+    for valeur in (float('nan'), True, False):
+        mesures = {'retraites': {'age_depart': valeur}}
+        assert _seniors.retraites_ecart_age_ans_moteur(mesures, 2030) == pytest.approx(attendu)
 
 
 def test_ecart_age_borne_par_le_registre_de_domaines():

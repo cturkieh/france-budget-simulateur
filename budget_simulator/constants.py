@@ -226,6 +226,17 @@ POLICY_START_YEAR = 2026
 # pour éviter qu'une régression silencieuse ne passe quand la mesure était à default.
 HANDLER_FAILED_KEY = '_handler_failed'
 
+# === FILET DE PLAUSIBILITÉ DU TAUX DE CHÔMAGE ===
+# Bornes de bout de course de `UnemploymentMixin.calculate_unemployment` : elles
+# ne CALIBRENT rien (aucune trajectoire livrée ne les approche — vérifié en CI
+# scénario par scénario, cf. tests/test_cloture_revue_lot3.py), elles évitent
+# qu'un enchaînement d'entrées aberrantes ne publie un taux hors du plausible.
+# Littéraux inline depuis la v0.4 ; nommées en v0.6.1 parce que la correction
+# de la rétraction de la bosse seniors les lit DEUX fois — un clip qui mord
+# doit être mesurable des deux côtés, sinon l'écart n'est pas réconciliable.
+CHOMAGE_CLIP_MIN = 0.04
+CHOMAGE_CLIP_MAX = 0.12
+
 # === DOMAINES LÉGITIMES DES PARAMÈTRES D'INTENSITÉ (Lot C Item 1) ===
 # Garde-fou scénario/API : le slider frontend borne déjà l'utilisateur ;
 # ce registre protège les entrées HORS-UI (scénarios, API, config) qui

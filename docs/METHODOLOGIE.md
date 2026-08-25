@@ -314,6 +314,20 @@ des APU +17,7). Le simulateur ne cale rien sur ce total : il le retrouve.
    personne**. Sa sensibilite est testee : le bouclage a dix ans est de
    17,5 Md EUR avec la multiplication et 18,2 sans — le choix ne change pas
    la conclusion.
+3. **Les deux profils demarrent a l'annee ou l'ecart s'ouvre**, pas a l'annee
+   ou la simulation commence. Ils decrivent la reaction de l'economie a un
+   choc d'age : leur horloge part quand le choc part. La distinction n'est pas
+   theorique — la reference legale monte de 62,75 ans (2026-2027) a 64,0 ans
+   (2032), donc un programme qui pose l'age a 62,75 a un ecart **rigoureusement
+   nul** les deux premieres annees et ne s'ecarte du droit en vigueur qu'a
+   partir de 2028. Indexer sur l'annee de depart de la simulation lui
+   appliquait la bosse de chomage **en pleine phase de resorption** et un
+   niveau de PIB deja presque forme.
+4. **Un ecart qui s'ouvre progressivement est date une seule fois.** Le
+   simulateur ne convolue pas une suite de chocs annuels : il date le choc a
+   sa premiere annee non nulle et applique une seule montee en charge. Une
+   convolution exigerait de decomposer un profil publie en reponses
+   impulsionnelles, ce que le COR ne publie pas.
 
 **Ce qui n'est deliberement PAS modelise** (et pourquoi — c'est de la sobriete,
 pas un oubli) :
