@@ -394,6 +394,17 @@ class OrchestratorMixin:
 
                 self.update_demography(year)
 
+                # Canal d'offre de travail seniors (v0.6.1, I7) : posé en TÊTE
+                # d'année, avant calculate_growth. Contrairement à l'impulsion
+                # budgétaire (laguée d'un an pour casser la circularité
+                # mesures → macro → flux → mesures), un choc d'offre de travail
+                # ne dépend que du paramètre de politique et du calendrier légal
+                # de l'AOD : rien à casser, et le lagger décalerait d'un an tout
+                # le profil publié. Conséquence recherchée : croissance, Okun et
+                # output gap de l'année lisent TOUS le même potentiel, bonus
+                # inclus — le choc d'offre n'ouvre donc aucun écart (I6).
+                self.update_labour_supply(year)
+
                 _log_debug(self.debug_logs, f"Y{year_idx}: Output gap = {output_gap:.3f}")
 
                 # ============================================================
@@ -763,6 +774,11 @@ class OrchestratorMixin:
                 'Output_Gap %': round(output_gap * 100, 2),
                 'Croissance_Potentielle %': round(self.base_params['croissance_potentielle'] * 100, 2),
                 'Bonus_Potentiel_Supply %': round(self._potential_growth_bonus * 100, 3),
+                # Canal emploi seniors (v0.6.1) : INCRÉMENT de l'année, exposé
+                # séparément de l'offre STRUCTURELLE ci-dessus — sans colonne
+                # dédiée, un lecteur ne peut pas décomposer la croissance
+                # potentielle totale entre offre de travail et capital public.
+                'Bonus_Offre_Travail %': round(self._labour_supply_bonus * 100, 3),
                 # Somme réellement consommée par le moteur (tendanciel + offre
                 # structurelle + offre de travail) — v0.6.1 : passe par le
                 # lecteur unique pour que la colonne publiée ne puisse plus

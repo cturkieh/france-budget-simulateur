@@ -26,10 +26,16 @@ seul palier 64→63) est rejeté : rien ne le valide de 62 vers 60, et il
 allègerait mécaniquement le coût affiché des programmes d'abaissement de
 l'âge — c'est-à-dire prendrait parti (cf. § C.3 du dossier).
 
-NB périmètre : ce lot ne modélise QUE le canal des moindres dépenses de
-pension. Le canal emploi (PIB, chômage, cotisations) est le lot suivant du
-chantier v0.6.1 — il n'y a donc volontairement AUCUN test « aucun effet PIB /
-chômage » ici, il serait à supprimer dès le lot emploi.
+NB périmètre : ce fichier ne couvre QUE le canal des moindres dépenses de
+pension. Le canal emploi (PIB, chômage, fuite sociale) est livré par le lot 3
+et testé dans ``tests/test_emploi_seniors_v061.py`` — d'où l'absence
+délibérée, ici, de tout test « aucun effet PIB / chômage ».
+
+MAJ lot 3 : le handler émet désormais l'économie NETTE de la fuite sociale
+résiduelle (9,6 %). Les propriétés de ce fichier — platitude, symétrie
+stricte, constance du marginal, calendrier légal — sont toutes invariantes
+par ce facteur multiplicatif uniforme ; seule la valeur absolue attendue du
+test de niveau a été recalée, à partir des DEUX constantes.
 """
 import ast
 import inspect
@@ -40,6 +46,7 @@ from pathlib import Path
 import pytest
 
 from budget_simulator.constants import (
+    FUITE_SOCIALE_RESIDUELLE,
     PARAM_DOMAINS,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
@@ -78,13 +85,20 @@ def _economie(ecart_ans: float, year: int = PLEIN_REGIME) -> float:
 
 
 def test_bareme_plat_une_annee_dage_vaut_le_coefficient_unique():
-    """Une année d'âge = RETRAITES_COEFF_AGE_MD_EUR à plein régime.
+    """Une année d'âge = RETRAITES_COEFF_AGE_MD_EUR BRUT à plein régime.
 
     Sources primaires convergentes : DG Trésor (COR 27/01/2022, doc n° 12,
     diapo 5) −0,4 pt de PIB pour 2 ans = 0,20 pt/an × 2 991 Md€ = 5,98 Md€ ;
     Cour des comptes 02/2025, T6 p. 72 = 6,0 Md€ (4,3 base + 1,7 complémentaires).
+
+    RECALIBRATION v0.6.1 lot 3 : le handler émet désormais l'économie NETTE
+    de la fuite sociale résiduelle (I9 — 9,6 % des économies brutes partent en
+    indemnités journalières et minima sociaux). Le coefficient BRUT reste
+    verrouillé sur les deux sources : l'attendu est construit à partir des
+    deux constantes, il suit donc un recalibrage de l'une comme de l'autre.
     """
-    assert _economie(1.0) == pytest.approx(RETRAITES_COEFF_AGE_MD_EUR, abs=1e-9)
+    attendu = RETRAITES_COEFF_AGE_MD_EUR * (1 - FUITE_SOCIALE_RESIDUELLE)
+    assert _economie(1.0) == pytest.approx(attendu, abs=1e-9)
 
 
 @pytest.mark.parametrize("ecart", [0.25, 1.0, 2.75])
@@ -227,7 +241,27 @@ def test_meta_garde_aucun_litteral_de_coefficient_dage_dans_le_handler():
         "— toute constante de calibration vit dans budget_simulator/constants.py"
     )
     assert "RETRAITES_COEFF_AGE_MD_EUR" in source
-    assert "retraites_ref_age_ans" in source
+    # v0.6.1 lot 3 : la référence légale n'est plus lue directement par le
+    # handler — elle vient de la SOURCE UNIQUE `_seniors.retraites_ecart_age_ans`,
+    # partagée avec les canaux macro (offre de travail, bosse de chômage).
+    # Sans partage, un recalibrage du calendrier n'atteindrait qu'un canal.
+    assert "retraites_ecart_age_ans" in source
+
+    # Contre-épreuve COMPORTEMENTALE de la source unique (la garde de source
+    # ci-dessus est syntaxique) : l'écart vu par le handler et celui vu par le
+    # moteur coïncident sur tout le domaine UI et tout l'horizon.
+    from budget_simulator._seniors import (
+        retraites_ecart_age_ans,
+        retraites_ecart_age_ans_moteur,
+    )
+
+    borne_basse, borne_haute = PARAM_DOMAINS['retraites']['age_depart']
+    for annee in range(POLICY_START_YEAR, POLICY_START_YEAR + 10):
+        for age in (borne_basse, 62.75, 64.0, borne_haute):
+            assert retraites_ecart_age_ans({'age_depart': age}, annee) == pytest.approx(
+                retraites_ecart_age_ans_moteur({'retraites': {'age_depart': age}}, annee),
+                abs=1e-12,
+            )
 
 
 def test_meta_garde_aucun_litteral_des_baremes_retires_dans_le_package():

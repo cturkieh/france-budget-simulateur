@@ -43,8 +43,13 @@ Paire PRODUCTEUR → CONSOMMATEUR inter-méthodes (invariant load-bearing) :
   dans la boucle ; ``simulate()`` ne fait que LIRE ``_fiscal_impulses``
   / ``_potential_growth_bonus`` pour le reporting (jamais réécrire).
 - ``_labour_supply_bonus`` (offre de TRAVAIL) est le troisième terme du
-  lecteur unique. Il n'a PAS encore de producteur : le canal emploi est
-  le lot suivant du chantier v0.6.1. Il vit hors du tendanciel à
+  lecteur unique. Son producteur est ``update_labour_supply``, appelée en
+  TÊTE de l'année par ``simulate()`` (et non en fin, comme
+  ``update_potential_growth``) : un choc d'offre de travail ne dépend que
+  du paramètre de politique et du calendrier légal, il n'entre dans
+  aucune boucle de rétroaction qu'il faudrait casser par un lag. Elle
+  écrit aussi ``_labour_supply_level``, le NIVEAU de PIB déjà acquis, dont
+  le bonus de l'année est l'incrément. Il vit hors du tendanciel à
   dessein — voir la docstring de ``croissance_potentielle_totale``.
 - Conséquence non évidente : ``base_params['croissance_potentielle']``
   N'EST PAS immutable — il dérive année après année. L'hôte
@@ -92,6 +97,7 @@ from typing import Dict
 import numpy as np
 
 from .._logging import _log_debug
+from .._seniors import offre_seniors_niveau_pib
 
 logger = logging.getLogger(__name__)
 
@@ -129,8 +135,9 @@ class GrowthMixin:
           dans [0,007 ; 0,012] ;
         - ``_potential_growth_bonus`` — offre STRUCTURELLE (``SUPPLY_EFFECTS``
           : recherche, éducation, transition, rénovation), plafonnée ±0,20 pt ;
-        - ``_labour_supply_bonus`` — offre de TRAVAIL (canal emploi, lot
-          suivant), encore nulle.
+        - ``_labour_supply_bonus`` — offre de TRAVAIL (canal emploi seniors,
+          v0.6.1) : INCRÉMENT annuel d'un effet de NIVEAU de PIB, produit par
+          ``update_labour_supply``.
 
         Les deux bonus vivent hors du tendanciel À DESSEIN : les reverser
         dans ``base_params['croissance_potentielle']`` les ferait écrêter par
@@ -140,6 +147,45 @@ class GrowthMixin:
         return (self.base_params['croissance_potentielle']
                 + self._potential_growth_bonus
                 + self._labour_supply_bonus)
+
+    def update_labour_supply(self, year: int) -> None:
+        """Canal d'offre de travail seniors → croissance potentielle (v0.6.1, I7).
+
+        Une mesure d'âge augmente l'offre de travail, donc le PIB POTENTIEL :
+        ``+0,80 pt de NIVEAU de PIB par année d'AOD`` à long terme (consensus
+        des trois équipes du COR, séance du 26/03/2026 : « 0,7 à 0,9 point »,
+        « 210 000 à 240 000 emplois »). Sources, profils et choix assumés :
+        ``constants.py``, section « CANAL EMPLOI SENIORS ».
+
+        NIVEAU ≠ TAUX — c'est tout l'objet de cette méthode. La table décrit
+        un NIVEAU de PIB ; ``calculate_growth`` consomme un TAUX. Le bonus de
+        l'année est donc l'INCRÉMENT du niveau : la somme des incréments
+        reconstitue exactement le niveau visé, et l'incrément maximal vaut
+        +0,12 pt de croissance une seule année (Y5). La v0.6.0 ajoutait
+        « +0,8 pt » au taux CHAQUE année — ~+8 % de PIB en dix ans, quatorze
+        fois l'effet publié : c'est l'une des deux raisons de son retrait.
+
+        Le niveau se recalcule à chaque année à partir de l'écart d'âge de
+        l'ANNÉE (la référence légale monte jusqu'en 2032) : un incrément
+        NÉGATIF est donc normal et voulu quand l'avance d'un programme sur le
+        droit en vigueur se réduit.
+
+        Appelée en TÊTE de l'année simulée (``simulate()``), à la différence
+        de ``update_potential_growth`` qui la clôt. Ce n'est pas une entorse
+        au lag d'un an de l'impulsion budgétaire : ce lag existe pour casser
+        la circularité mesures → macro → flux → mesures, alors qu'un choc
+        d'offre de travail ne dépend QUE du paramètre de politique et du
+        calendrier légal — aucune circularité à casser, et lagger décalerait
+        d'un an tout le profil publié.
+        """
+        niveau = offre_seniors_niveau_pib(self.mesures, year)
+        self._labour_supply_bonus = niveau - self._labour_supply_level
+        self._labour_supply_level = niveau
+
+        if abs(self._labour_supply_bonus) > 0.00001:
+            _log_debug(self.debug_logs,
+                f"Y{year}: Offre de travail seniors = {self._labour_supply_bonus*100:+.3f}% "
+                f"(niveau cumule {niveau*100:+.3f}% de PIB)")
 
     def calculate_growth(self, year: int, economic_state: Dict) -> float:
         output_gap = economic_state['output_gap']
@@ -333,15 +379,22 @@ class GrowthMixin:
                 f"Y{year}: Crowding-out {crowding_effect*100:.3f}% "
                 f"(intensité {crowding_intensity:.3f}, inv={part_inv:.0%})")
 
-        # NB v0.6.1 (revue adverse 24/08) : le « volet emploi seniors » (COR,
-        # séance plénière du 26 mars 2026, Document n° 2 — consensus des trois
-        # équipes : +0,7-0,9 pt de PIB par année d'AOD) a été implémenté ici
-        # PUIS RETIRÉ avec la fuite sociale jumelle : routé par Okun-demande il
-        # créait un écho de chômage divergent, sur-calibrait le levier d'âge de
-        # ~+49 % vs la contre-épreuve Cour 02/2025 T5, et double-comptait les
-        # cotisations retraites (élasticité PO 1,0 vs « PO HORS cotisations »
-        # chez la Cour). À réintroduire comme choc d'OFFRE correctement routé
-        # (potentielle + neutralisation Okun) avec réconciliation des sources.
+        # NB v0.6.1 : le « volet emploi seniors » (COR, séance plénière du
+        # 26 mars 2026, Document n° 2 — consensus des trois équipes :
+        # +0,7-0,9 pt de PIB par année d'AOD) a été implémenté ICI en v0.6.0
+        # PUIS RETIRÉ. Il est RÉINTRODUIT en v0.6.1, mais PAS à cet endroit —
+        # et les trois défauts qui avaient motivé son retrait sont fermés par
+        # construction, pas par un coefficient :
+        #  1. écho de chômage divergent : il était routé comme un choc de
+        #     DEMANDE. Il passe désormais par la croissance POTENTIELLE
+        #     (update_labour_supply → croissance_potentielle_totale), donc
+        #     Okun et l'output gap ne le voient pas (correction I6) ;
+        #  2. sur-calibrage ~+49 % : « +0,8 pt » était ajouté au TAUX de
+        #     croissance chaque année, alors que la source publie un effet de
+        #     NIVEAU de PIB. Le moteur ne consomme plus que son incrément ;
+        #  3. double comptage des cotisations retraite : le handler retraites
+        #     n'a plus AUCUN slot recettes, la ligne naît du seul canal PIB.
+        # Ne pas réintroduire de terme seniors dans ce bloc de DEMANDE.
 
         croissance += np.random.normal(0, 0.003)
         croissance = np.clip(croissance, -0.035, 0.025)

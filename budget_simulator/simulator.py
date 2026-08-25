@@ -623,7 +623,19 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # base_params['croissance_potentielle'], que update_potential_growth
         # clippe dans [0,007 ; 0,012] et mute en place (hystérèse) — il y
         # serait écrêté ET rendu permanent alors qu'il est transitoire.
+        # v0.6.1 lot 3 : son producteur est GrowthMixin.update_labour_supply
+        # (canal emploi seniors), qui écrit AUSSI _labour_supply_level.
         self._labour_supply_bonus = 0.0
+        # NIVEAU de PIB déjà acquis par le canal d'offre de travail (fraction
+        # de PIB). Le bonus ci-dessus n'en est que l'INCRÉMENT annuel : sans
+        # cet état, un effet de NIVEAU serait relu comme un effet de TAUX et
+        # composerait année après année (l'erreur retirée de la v0.6.0).
+        self._labour_supply_level = 0.0
+        # Bosse de chômage seniors appliquée l'année précédente. Retirée de
+        # l'état reporté par calculate_unemployment avant la récurrence : un
+        # écart de NIVEAU laissé dans l'état s'accumulerait vers ~16,7 fois
+        # sa valeur (convergence NAIRU).
+        self._chomage_seniors_prev = 0.0
 
         # Valeur user de croissance_potentielle avant mutation par simulate()
         self._pre_simulate_croissance_potentielle = self.base_params['croissance_potentielle']
@@ -671,7 +683,11 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._potential_growth_bonus = 0.0
         self._supply_years = {}
         self._supply_bonus_by_key = {}
-        self._labour_supply_bonus = 0.0  # Offre de travail (v0.6.1) : transitoire, jamais reporté
+        # Canal emploi seniors (v0.6.1) : transitoire, jamais reporté d'une
+        # simulation à l'autre — les trois états forment un accumulateur.
+        self._labour_supply_bonus = 0.0
+        self._labour_supply_level = 0.0
+        self._chomage_seniors_prev = 0.0
 
         # --- Spending baseline et compound itératif ---
         self.spending_categories_base = dict(self._spending_categories_base_initial)

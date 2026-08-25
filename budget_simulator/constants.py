@@ -364,6 +364,159 @@ PHASING_RETRAITES_5ANS = (0.20, 0.40, 0.60, 0.80, 1.00, 1.00)
 # Niches fiscales TGE — Cour des comptes 2024 : débouclage 30-50% Y1, 70% Y2, 100% Y3+.
 PHASING_NICHES_FISCALES_TGE = (0.40, 0.70, 1.00, 1.00, 1.00, 1.00)
 
+# === CANAL EMPLOI SENIORS (v0.6.1 — I7 à I10) ===
+# Une mesure d'âge n'agit pas seulement sur les pensions versées : elle
+# augmente l'offre de travail, donc le PIB potentiel, donc les recettes.
+# Les trois briques ci-dessous forment une IDENTITÉ COMPTABLE et ne se
+# livrent pas séparément (COR, séance plénière du 26 mars 2026, Document
+# n° 3 « Effets macroéconomiques d'une mesure d'âge », encadré 2) :
+#   A. moindres dépenses de pension       → handler retraites
+#      (RETRAITES_COEFF_AGE_MD_EUR ci-dessus)
+#   D. surcroît d'offre de travail → PIB  → OFFRE_SENIORS_* ci-dessous
+#   E. bosse de chômage transitoire       → CHOMAGE_SENIORS_* ci-dessous
+#   F. fuite sociale résiduelle           → FUITE_SOCIALE_RESIDUELLE
+# Les cotisations retraite (ligne B de la Cour) et les autres recettes
+# publiques (ligne C) n'ont AUCUN slot : elles naissent entièrement du
+# canal PIB, ce qui rend le double comptage structurellement impossible
+# (arbitrage du propriétaire, 25/08/2026). Voir RETRAITES_PART_COTISATIONS_PO.
+#
+# Source commune du volet macro : COR, séance plénière du 26 mars 2026,
+# « Impact macroéconomique des leviers d'équilibre financier d'un système de
+# retraite », Documents n° 2 (SG-COR, tableau 4), n° 3 (DG Trésor), n° 4
+# (I-MIP/CepreHANK), n° 5 (OFCE/EmeRaude) et Dossier en bref.
+# https://www.cor-retraites.fr/reunions-du-cor/impact-macroeconomique-leviers-dequilibre-financier-dun-systeme-retraite
+
+# --- D. Offre de travail → NIVEAU de PIB (I7) ---------------------------
+# +0,80 pt de NIVEAU de PIB par année d'AOD à long terme : milieu du
+# consensus des trois équipes du COR, publié tel quel par le Conseil
+# (Dossier en bref du 26/03/2026 : « 0,7 à 0,9 point de PIB », « 210 000 à
+# 240 000 emplois »). Modèles individuels à long terme (Doc n° 2, T4) :
+# I-MIP 0,93 / OFCE 0,78 / DG Trésor 0,7 à 20 ans.
+#
+# ATTENTION — c'est un effet de NIVEAU, pas de TAUX. Le moteur ne consomme
+# que l'INCRÉMENT annuel de ce niveau (engine/growth.py,
+# update_labour_supply) : l'incrément maximal vaut +0,12 pt de croissance,
+# une seule année. La v0.6.0 ajoutait « +0,8 pt » au taux de croissance
+# CHAQUE année, ce qui composait à ~+8 % de PIB en dix ans — quatorze fois
+# l'effet publié. C'était l'une des deux raisons du retrait de ce canal.
+OFFRE_SENIORS_PIB_NIVEAU_LT = 0.0080
+
+# Profil d'ABSORPTION macroéconomique — moyenne des trois modèles du COR
+# (Doc n° 2, T4 : 0,107 / 0,297 / 0,433 / 0,600 / 0,723 / 0,855 % de PIB aux
+# horizons 1 / 2 / 5 / 10 / 20 ans / LT), normalisée sur sa valeur de long
+# terme (0,855) : 0,125 / 0,347 / 0,507 / 0,702 / 0,846 / 1,000.
+# CHOIX À ASSUMER : les horizons 3, 4 et 6 à 9 ans ne sont pas publiés —
+# interpolation log-linéaire entre les points publiés (0,393 et 0,446 pour
+# Y3-Y4 ; 0,541 / 0,578 / 0,617 / 0,658 pour Y6-Y9).
+# Non consommée par le moteur : elle existe pour que le profil ci-dessous
+# reste AUDITABLE (un test-propriété vérifie qu'il en est bien le produit par
+# la montée en charge cohortes) et pour servir de variante de sensibilité.
+ABSORPTION_OFFRE_SENIORS = (0.125, 0.347, 0.393, 0.446, 0.507,
+                            0.541, 0.578, 0.617, 0.658, 0.702)
+
+# Table effectivement consommée = absorption × montée en charge par cohortes
+# (PHASING_RETRAITES_5ANS). CHOIX À ASSUMER : les deux profils décrivent des
+# phénomènes distincts — l'absorption du choc par l'économie d'un côté, le
+# rythme d'entrée des générations concernées de l'autre ; le calibrage COR
+# est explicitement SANS progressivité (Dossier en bref : « Il n'intègre
+# aucun délai de progressivité »), quand le volet budgétaire du moteur
+# applique déjà une montée en charge sur 5 ans. Le raisonnement est solide,
+# le PRODUIT n'est mesuré par personne : sa sensibilité est testée
+# (tests/test_emploi_seniors_v061.py, P3 tourne avec ET sans).
+PHASING_OFFRE_SENIORS = (0.025, 0.139, 0.236, 0.357, 0.507,
+                         0.541, 0.578, 0.617, 0.658, 0.702)
+
+# --- E. Bosse de chômage transitoire (I8) --------------------------------
+# +0,18 pt de taux de chômage par année d'AOD, AU PIC.
+#
+# DÉRIVATION MAISON, à ne JAMAIS présenter comme une estimation officielle :
+# la valeur ex ante est irréductiblement NON TRANCHÉE entre les équipes du
+# COR (Doc n° 2, T4, à 1 an : DG Trésor 0,00 / I-MIP −0,40 / OFCE +0,55).
+# Trois routes indépendantes, convergentes à ±0,04 pt, donnent 0,13 / 0,19 /
+# 0,21 (moyenne 0,18) ; elles partent de la part « chômage » du devenir des
+# séniors décalés, stable à 26-27 % sur deux méthodologies et deux sources
+# de données indépendantes :
+#  - Dubois Y. & Koubi M., « Relèvement de l'âge de départ à la retraite :
+#    quel impact sur l'activité des séniors de la réforme des retraites de
+#    2010 ? », Insee, document de travail G2016/08 (2016) et Insee Analyses
+#    n° 30 (05/01/2017) — 26 % (hommes) / 27 % (femmes) ;
+#    https://www.insee.fr/fr/statistiques/fichier/2121629/G2016-08.pdf
+#  - Rabaté S. & Rochut J., « Employment and substitution effects of raising
+#    the statutory retirement age in France », Journal of Pension Economics
+#    and Finance 19(3), 2020, p. 293-308 — 27 % ;
+#    https://shs.hal.science/halshs-01622346/document
+#  - base démographique : population active 31 802 milliers, chômage 7,3 %
+#    (COR 26/03/2026, Doc n° 4, note 7).
+# Position dans le débat : entre DG Trésor 0,0 et OFCE +0,55, très loin de
+# Mésange +0,7 / e-mod.fr +0,5, que la Cour des comptes désavoue
+# explicitement (février 2025, p. 67, note 121 : « les recherches
+# micro-économétriques menées sur la réforme de 2010 ont montré que
+# l'évolution du chômage observée ne correspondait pas à celle prédite par
+# les modèles »).
+CHOMAGE_SENIORS_PIC = 0.0018
+
+# Profil de RÉSORPTION — seule série publiée présentant une résorption
+# complète : OFCE/EmeRaude (COR 26/03/2026, Doc n° 2, T4 : 0,55 / 0,56 /
+# 0,31 / 0,20 / 0,09 / 0,00 pt aux horizons 1 / 2 / 5 / 10 / 20 ans / LT),
+# rebasée sur son maximum (0,56 à 2 ans). CHOIX À ASSUMER : Y3-Y4 et Y6-Y9
+# sont des interpolations log-linéaires entre points publiés.
+# Non consommée par le moteur, même rôle d'auditabilité que
+# ABSORPTION_OFFRE_SENIORS ci-dessus.
+# Mécanisme sourcé de la résorption (COR Doc n° 6, partie 3) : l'offre de
+# travail accrue ralentit les salaires et le revenu global de l'économie
+# augmente — les deux canaux relèvent la demande de travail.
+RESORPTION_CHOMAGE_SENIORS = (0.98, 1.00, 0.82, 0.67, 0.554,
+                              0.507, 0.465, 0.426, 0.390, 0.357)
+
+# Table effectivement consommée = résorption × montée en charge par cohortes
+# (même choix assumé que pour l'offre). Écart de chômage résultant, par
+# année d'AOD : 0,035 / 0,072 / 0,089 / 0,097 / 0,100 / 0,091 / 0,084 /
+# 0,077 / 0,070 / 0,064 pt — pic +0,10 pt en Y4-Y5.
+PHASING_CHOMAGE_SENIORS = (0.196, 0.400, 0.492, 0.536, 0.554,
+                           0.507, 0.465, 0.426, 0.390, 0.357)
+
+# --- F. Fuite sociale résiduelle (I9) ------------------------------------
+# +9,6 % de la moindre dépense brute de pension, et NON 20 %.
+# Cour des comptes, février 2025, p. 67-68, citant DREES note BRET n° 21-43,
+# janvier 2022 et DARES note SD-EMT–DSIDE, janvier 2022 (les deux notes
+# primaires N'ONT PAS été consultées directement — à citer via la Cour,
+# p. 67, note 125, jamais en première main) : « l'augmentation des
+# prestations sociales et d'assurance chômage serait de l'ordre de 20 % des
+# économies brutes attendues pour le système de retraites. 52 % de cette
+# augmentation serait liée aux prestations d'assurance chômage, 36 % aux
+# indemnités journalières et 12 % aux minima sociaux. »
+# On ne retient donc que 48 % × 20 % = 9,6 % (IJ + minima) : la part
+# assurance-chômage (52 %) est DÉJÀ produite endogènement par la catégorie
+# de dépense `chomage` du moteur, indexée sur le taux de chômage — que la
+# brique E ci-dessus fait précisément bouger. L'inscrire aussi dans le
+# handler serait un double comptage.
+# Vérification croisée : au pic, +0,10 pt appliqué à la catégorie `chomage`
+# (base 40 Md€, facteur u/u_base avec u_base = 7,6 %) donne 0,53 Md€, contre
+# 52 % × 20 % × 6,0 = 0,62 Md€ dans la clé DREES/DARES — écart 14 %.
+# Corroboration indépendante : Rabaté & Rochut 2020, « crowding out effects
+# […] around one fifth of the fiscal gains ».
+FUITE_SOCIALE_RESIDUELLE = 0.096
+
+# --- Contrôle du double comptage des cotisations (I10) -------------------
+# Constante de CONTRÔLE, pas de calcul : aucun code ne la consomme, seul un
+# test-propriété s'en sert. Cour des comptes, février 2025, tableau n° 6,
+# p. 72 (décalage d'un an de l'AOD, variante symétrique générations
+# 1964-1968, exercice 2035, Md€ constants 2024) : dépenses de retraites
+# +6,0 / cotisations retraites +2,4 / autres recettes publiques +9,3 /
+# ensemble des APU +17,7. La part des prélèvements additionnels qui relève
+# des cotisations retraite vaut donc 2,4 / (2,4 + 9,3) = 20,5 %.
+# C'est la grandeur que la DG Trésor DÉDUIT avant d'appliquer son taux de
+# 53 % au surcroît de PIB (COR 26/03/2026, Doc n° 3, encadré 2, note 6 :
+# « les cotisations retraites sont déduites du surcroît de recettes
+# publiques, étant déjà comptabilisées dans le solde du système de
+# retraites »). Le moteur, lui, applique ELASTICITE_PO_PIB = 1,0 au PIB : il
+# produit donc les DEUX lignes d'un coup — ce qui n'est correct QUE parce
+# que le handler retraites n'a aucun slot cotisations.
+# Contre-épreuve T5 p. 68 (réforme 2023 entière) : 5,5 / (5,5 + 10,9) =
+# 33,5 % ; l'écart s'explique par l'objet (T5 mêle 2 ans d'AOD ET
+# l'accélération de la durée d'assurance). Fourchette de contrôle 20-33 %.
+RETRAITES_PART_COTISATIONS_PO = 0.205
+
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré
 # (INSEE 2024 - Revenus disponibles bruts) :

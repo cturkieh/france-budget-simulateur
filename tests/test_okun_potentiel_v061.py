@@ -80,20 +80,34 @@ TERMES_OFFRE = ('_potential_growth_bonus', '_labour_supply_bonus')
 
 def _double_injectant(etat):
     """Double de test : joue le rôle d'un producteur de choc d'offre en
-    écrivant un bonus CONSTANT dans ``etat``, à la même place de la boucle que
-    les producteurs réels (``update_potential_growth``, qui clôt l'année).
+    écrivant un bonus CONSTANT dans ``etat``, À LA PLACE EXACTE du producteur
+    réel dans la boucle annuelle.
 
-    Pour ``_labour_supply_bonus`` il tient lieu du futur producteur du canal
-    emploi seniors (lot I7-I10). La valeur injectée est le PLAFOND
-    conventionnel du moteur, PAS une calibration de ce canal : ces tests
-    mesurent une propriété d'algèbre, ils ne chiffrent aucune réforme (§ B.1
-    du dossier — ne rien combler par invention).
+    Les deux termes d'offre ont des producteurs distincts, et le double doit
+    se substituer à chacun au bon moment :
+    - ``_potential_growth_bonus`` → ``update_potential_growth``, qui CLÔT
+      l'année (offre structurelle, SUPPLY_EFFECTS) ;
+    - ``_labour_supply_bonus`` → ``update_labour_supply``, qui OUVRE l'année
+      (canal emploi seniors, livré par le lot I7-I10 : le double n'en tient
+      plus lieu, il s'AJOUTE à lui pour que la paire avec/sans isole le seul
+      bonus injecté).
+
+    La valeur injectée est le PLAFOND conventionnel du moteur, PAS une
+    calibration : ces tests mesurent une propriété d'algèbre, ils ne
+    chiffrent aucune réforme (§ B.1 du dossier — ne rien combler par
+    invention).
     """
 
     class _Double(BudgetSimulatorV45):
         def update_potential_growth(self, growth, year):
             super().update_potential_growth(growth, year)
-            setattr(self, etat, BONUS_MAX)
+            if etat == '_potential_growth_bonus':
+                self._potential_growth_bonus = BONUS_MAX
+
+        def update_labour_supply(self, year):
+            super().update_labour_supply(year)
+            if etat == '_labour_supply_bonus':
+                self._labour_supply_bonus += BONUS_MAX
 
     _Double.__name__ = f'SimulateurAvecBonus{etat}'
     return _Double

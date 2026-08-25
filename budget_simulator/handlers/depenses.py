@@ -1,10 +1,15 @@
 """Section 2 — Maîtrise des dépenses.
 
 Mesures couvertes (6 handlers) :
-- ``retraites`` : âge de départ (réf. 62,75 ans), durée de cotisation
-  (réf. 42,5 ans) et indexation des pensions. Coefficient stationnaire
-  -16 Md€/an pour +1 an d'âge, montée en charge 5 ans (cohortes COR).
-  Gini/PA modulés selon la mortalité différentielle et la désindexation.
+- ``retraites`` : âge de départ, durée de cotisation (réf. 42,5 ans) et
+  indexation des pensions. Barème d'âge PLAT et SYMÉTRIQUE à 6,0 Md€/an par
+  année d'écart au DROIT EN VIGUEUR de l'année (calendrier légal post-LFSS
+  2026 : 62,75 ans jusqu'en 2027, puis +3 mois par an jusqu'à 64,0 en 2032),
+  net de 9,6 % de fuite sociale résiduelle, montée en charge 5 ans (cohortes
+  COR). Gini/PA modulés selon la mortalité différentielle et la
+  désindexation. Le « -16 Md€/an » de la v0.5.1 et le barème à deux segments
+  de la v0.6.0 (14,2 sous 64 ans) sont RETIRÉS : ils venaient d'une collision
+  entre deux « 17,7 Md€ » sans rapport (cf. constants.py § barème d'âge).
 - ``sante`` : réforme structurelle 3 leviers (hôpital, ambulatoire,
   prévention/organisation, potentiel -30 Md€ en 2030, phasing admin vs
   structurel distinct) + franchise/participation forfaitaire + budget
@@ -42,7 +47,10 @@ Convention d'application :
   gating, et § "Sante" pour le détail des leviers santé.
 
 Sources principales :
-- COR Rapport annuel 2024, OFCE Brief 124 (15/02/2024) — retraites.
+- COR Rapport annuel 2024, OFCE Brief 124 (15/02/2024) — retraites ;
+  DG Trésor (COR 27/01/2022, doc n° 12) et Cour des comptes 02/2025 T6 p. 72
+  pour le barème d'âge ; DREES/DARES via Cour 02/2025 p. 67-68 pour la fuite
+  sociale résiduelle (détail et URL : constants.py).
 - PLFSS 2026, IGAS 2024, CCSS 2024 — santé.
 - Unédic 2025, OFCE 2023, INSEE 2024, France Stratégie 2019 — chômage.
 - IFRAP 2025, HCFPS 2024, DREES, France Stratégie 2024, IPP Bozio 2023 — ASU.
@@ -80,6 +88,7 @@ reproduire le pattern.
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
     RETRAITES_COEFF_AGE_MD_EUR,
@@ -87,9 +96,9 @@ from ..constants import (
     RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
     RETRAITES_REF_DUREE_ANS,
-    retraites_ref_age_ans,
 )
 from .._logging import _log_debug
+from .._seniors import retraites_ecart_age_ans
 from ._phasing import _year_phasing, asu_is_active, asu_phasing
 from ._types import ImpactsDict
 
@@ -112,14 +121,25 @@ class DepensesMixin(_MixinBase):
         # Garde defensive : si appel direct hors boucle simulate(), retourne neutre.
         if year < POLICY_START_YEAR:
             return 0, 0, {}
-        # Référence d'âge = DROIT EN VIGUEUR l'année simulée (calendrier légal
+        # Écart au DROIT EN VIGUEUR de l'année simulée (calendrier légal
         # post-LFSS 2026 : 62,75 ans gelés jusqu'en 2027, puis +3 mois par
-        # génération jusqu'à 64 ans en 2032). Elle n'est plus figée à 62,75 :
-        # la reprise de la montée en charge est DÉJÀ dans la baseline (mission
-        # IGF 07/2026), donc la chiffrer une seconde fois serait du double
-        # comptage — dans les deux sens (cf. constants.py § référence d'âge).
-        ref_age = retraites_ref_age_ans(year)
-        age = params.get('age_depart', ref_age)
+        # génération jusqu'à 64 ans en 2032). La référence n'est plus figée à
+        # 62,75 : la reprise de la montée en charge est DÉJÀ dans la baseline
+        # (mission IGF 07/2026), donc la chiffrer une seconde fois serait du
+        # double comptage — dans les deux sens (cf. constants.py § référence
+        # d'âge).
+        # SOURCE UNIQUE `_seniors.retraites_ecart_age_ans` : le canal
+        # budgétaire (ici) et les canaux macro du moteur (offre de travail,
+        # bosse de chômage) doivent partir du MÊME écart, sans quoi un
+        # recalibrage du calendrier légal n'en atteindrait qu'une partie.
+        ecart_age = retraites_ecart_age_ans(params, year)
+        # `age_ref_gating` n'entre dans AUCUN calcul économique : c'est la clé
+        # d'identité de paramètre du gating one-time du Gini ci-dessous
+        # (_is_first_year_change). Elle doit rester la valeur BRUTE du
+        # curseur, invariante d'une année sur l'autre — la remplacer par
+        # l'écart la ferait bouger avec le calendrier légal 2028-2032 et
+        # re-déclencherait l'effet Gini plein chaque année.
+        age_ref_gating = params.get('age_depart')
         indexation = params.get('indexation', 1.0)
         duration = params.get('duree_cotisation', RETRAITES_REF_DUREE_ANS)
         # Montee en charge cohortes 5 ans (COR 2024). Formules SYMETRIQUES
@@ -136,8 +156,19 @@ class DepensesMixin(_MixinBase):
         # Le barème v0.6.0 (14,2 sous 64 ans) reposait sur une collision entre
         # deux « 17,7 Md€ » sans rapport ; sa falaise de −58 % à 64 ans venait
         # entièrement de ce premier segment, pas d'un phénomène sourcé.
-        economie_brute_age = RETRAITES_COEFF_AGE_MD_EUR * (age - ref_age)
+        economie_brute_age = RETRAITES_COEFF_AGE_MD_EUR * ecart_age
         delta_spending -= economie_brute_age * phasing
+        # Fuite sociale résiduelle (v0.6.1, I9) : une partie des seniors
+        # décalés bascule sur d'autres prestations, ce qui ANNULE une part de
+        # l'économie brute. On ne retient que 9,6 % (indemnités journalières
+        # 36 % + minima sociaux 12 % de la clé DREES/DARES relayée par la Cour
+        # des comptes) et NON les 20 % de la clé complète : la part
+        # assurance-chômage (52 %) est déjà produite endogènement par la
+        # catégorie de dépense `chomage`, indexée sur le taux de chômage — que
+        # la bosse seniors (engine/unemployment.py) fait précisément bouger.
+        # SYMÉTRIQUE comme le reste du levier : un abaissement d'âge économise
+        # ces mêmes prestations. Sources : constants.py § CANAL EMPLOI SENIORS.
+        delta_spending += economie_brute_age * phasing * FUITE_SOCIALE_RESIDUELLE
         delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
         # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
         # par annee ecoulee et par point d'ecart a la pleine indexation,
@@ -157,7 +188,7 @@ class DepensesMixin(_MixinBase):
         # Le coefficient lui-même est INCHANGÉ : l'effet distributif du canal
         # emploi n'est pas établi (hétérogénéité forte documentée), il ne sera
         # pas ajusté hors d'une passe dédiée.
-        gini_age = 0.001 * (age - ref_age) / 1.25
+        gini_age = 0.001 * ecart_age / 1.25
 
         # Gini : Indexation ↓ = paupérisation retraités (régressif)
         # Règle : Indexation 100%→90% = +0.005 Gini (OFCE Brief 124, 15/02/2024)
@@ -165,7 +196,7 @@ class DepensesMixin(_MixinBase):
 
         # Guard Gini: plein effet année 1, 10% résiduel les années suivantes
         # (flux annuel des nouvelles cohortes de retraités impactées)
-        gini_params = {'age': age, 'indexation': indexation}
+        gini_params = {'age': age_ref_gating, 'indexation': indexation}
         if self._is_first_year_change('retraites_gini', gini_params):
             gini = gini_age + gini_indexation
         else:

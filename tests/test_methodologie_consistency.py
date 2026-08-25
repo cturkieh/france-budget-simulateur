@@ -220,6 +220,35 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             must_appear_in=(METHODO, PUBLIC_METHODO),
             doc_patterns=("42,5 ans",),
         ),
+        # v0.6.1 lot 3 — canal emploi seniors. Les trois valeurs qu'un lecteur
+        # verra citées (et qu'un contradicteur ira vérifier) entrent au verrou :
+        # l'effet PIB, la bosse de chômage (DÉRIVATION MAISON, à publier comme
+        # telle) et la fuite sociale (9,6 % et non 20 % — le point le plus
+        # contre-intuitif du lot).
+        CriticalConstant(
+            name="seniors — niveau de PIB par année d'âge (long terme)",
+            source="constants.OFFRE_SENIORS_PIB_NIVEAU_LT",
+            raw_value=constants.OFFRE_SENIORS_PIB_NIVEAU_LT,
+            representations=("0,80%", "0,80 %"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("0,80% de niveau de PIB par annee d'age",),
+        ),
+        CriticalConstant(
+            name="seniors — bosse de chômage au pic par année d'âge",
+            source="constants.CHOMAGE_SENIORS_PIC",
+            raw_value=constants.CHOMAGE_SENIORS_PIC,
+            representations=("0,18%", "0,18 %"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("0,18% au pic par annee d'age",),
+        ),
+        CriticalConstant(
+            name="seniors — fuite sociale résiduelle (part des économies brutes)",
+            source="constants.FUITE_SOCIALE_RESIDUELLE",
+            raw_value=constants.FUITE_SOCIALE_RESIDUELLE,
+            representations=("9,6%", "9,6 %"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("9,6% des economies brutes",),
+        ),
     )
 
 

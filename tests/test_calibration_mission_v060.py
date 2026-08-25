@@ -43,6 +43,35 @@ TOL_CHARGE = 5.0    # Md€ (mesuré ≤ 3)
 TOL_TAUX = 0.25     # pt (mesuré ≤ 0,17)
 
 
+def _sans_age_depart_fige(mesures):
+    """Retire `retraites.age_depart` du scenario de reference — ARTEFACT
+    D'ENCODAGE connu, a corriger dans `scenarios.json` (decision produit).
+
+    Ce corridor compare le TENDANCIEL du moteur a celui de la mission
+    Jaravel/Ragot/Tavernier/Valla (IGF, 07/2026), dont les hypotheses
+    retraites integrent explicitement « suspension de la reforme des
+    retraites jusqu'en 2028 » PUIS la reprise vers 64 ans. Depuis la v0.6.1
+    (item I3), c'est exactement ce que rend `retraites_ref_age_ans(year)`
+    quand aucun age n'est pose.
+
+    Or `scenarios.json` fige `age_depart = 62,75` sur tout l'horizon pour
+    `plf_2026` : ce n'est plus « la politique votee », c'est « je suspends la
+    reforme DEFINITIVEMENT » — une mesure, pas un tendanciel. Le canal emploi
+    seniors (lot 3) donne desormais un prix a cette mesure : +0,86 pt de
+    dette en 2030 et +4,70 pt en 2035, CONTRE le scenario de la politique
+    votee. Le corridor comparerait donc deux objets differents.
+
+    Ce retrait vaut pour la MESURE du corridor uniquement : l'artefact reste
+    entier cote produit (golden master inclus) tant que la cle n'est pas
+    retiree de `frontend-react/src/data/scenarios.json` — un retrait qui
+    releve du proprietaire (caracterisation d'un scenario publie, item I34).
+    """
+    if 'retraites' not in mesures:
+        return mesures
+    retraites = {k: v for k, v in mesures['retraites'].items() if k != 'age_depart'}
+    return {**mesures, 'retraites': retraites}
+
+
 def _statu_quo():
     # Résolution ROBUSTE (revue adverse 24/08 : abspath ne suit pas le symlink
     # tests/ du parent → le test se skippait dans TOUTES les CI). Ordre :
@@ -60,6 +89,7 @@ def _statu_quo():
         if chemin.exists():
             with open(chemin) as f:
                 mesures = json.load(f)['plf_2026']['apiMeasures']
+            mesures = _sans_age_depart_fige(mesures)
             return BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
     pytest.skip("scenarios.json introuvable (fork moteur public seul) — corridor non exécutable")
 

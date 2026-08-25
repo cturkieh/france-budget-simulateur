@@ -191,21 +191,140 @@ definitivement » — ce qui a un cout (jusqu'a 7,5 Md EUR/an a partir de 2032).
    qui ne demande pas de prendre parti, et c'est deja la philosophie du
    handler.
 
-**Perimetre du levier — ce qu'il ne contient PAS :**
+**Perimetre du levier — ce que le handler ne contient PAS (et ou ca vit) :**
 - Le canal **cotisations** (Cour, T6 : +2,4 Md EUR par annee d'age ; DG Tresor :
   +1,5) n'a **aucun slot** dans le handler retraites : il nait du canal
-  PIB/emploi, ce qui rend le double comptage structurellement impossible.
-- Le **canal emploi** lui-meme (effet d'une mesure d'age sur l'emploi des
-  seniors, puis sur le PIB et les recettes) est **volontairement absent dans
-  les deux sens** a ce stade. C'est un ecart important a dire en clair : selon
-  le consensus des trois equipes du COR, un abaissement d'un an detruirait
-  210 000 a 240 000 emplois et couterait 0,7 a 0,9 pt de PIB, soit encore
-  ~9 Md EUR/an de recettes publiques par annee d'age.
-- La **fuite sociale** vers les autres prestations (chomage, invalidite, AAH)
-  n'est pas modelisee non plus. Le debat « 20 % ou 25 % » est clos : **les
-  deux, selon le denominateur** (20 % = hors invalidite/AAH, avec chomage,
-  rapporte au solde du systeme — Cour des comptes ; 25 % = avec invalidite/AAH,
-  hors chomage, rapporte aux depenses de retraites — DREES).
+  PIB/emploi ci-dessous, ce qui rend le double comptage structurellement
+  impossible. Ce n'est pas une omission, c'est la garde elle-meme.
+- Le **canal emploi seniors** (offre de travail -> PIB -> recettes, bosse de
+  chomage transitoire, fuite sociale residuelle) est modelise depuis la
+  v0.6.1 — voir la section dediee ci-dessous. Il etait absent des versions
+  precedentes, **dans les deux sens**.
+
+### Canal emploi seniors (v0.6.1)
+
+Une mesure d'age ne fait pas que decaler des pensions : elle **augmente
+l'offre de travail**, donc le PIB, donc les recettes publiques ; elle produit
+au passage une **bosse de chomage transitoire** et une **fuite** vers d'autres
+prestations. Ces trois effets forment une **identite comptable** et sont
+livres ensemble (COR, seance pleniere du 26 mars 2026, Document n 3,
+encadre 2). Ils jouent en sens **opposes** : le premier en faveur des
+programmes de report d'age, les deux autres contre.
+
+**1. Offre de travail -> PIB : +0,80% de niveau de PIB par annee d'age**
+
+C'est le milieu du consensus publie par le COR (Dossier en bref du
+26/03/2026 : « 0,7 a 0,9 point de PIB », « 210 000 a 240 000 emplois » pour un
+an d'age). Les trois modeles a long terme : I-MIP 0,93 / OFCE 0,78 /
+DG Tresor 0,7 a 20 ans.
+
+**C'est un effet de NIVEAU, pas de TAUX** — la distinction est structurante.
+Le moteur ne consomme que l'**increment annuel** de ce niveau : +0,12 point de
+croissance au maximum, une seule annee (2030), et jamais plus de +0,15.
+Montee en charge (fraction du niveau de long terme, par annee) :
+
+| Annee | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Fraction du LT | 0,025 | 0,139 | 0,236 | 0,357 | 0,507 | 0,541 | 0,578 | 0,617 | 0,658 | 0,702 |
+| Niveau de PIB (pt) | 0,02 | 0,11 | 0,19 | 0,29 | 0,41 | 0,43 | 0,46 | 0,49 | 0,53 | 0,56 |
+
+Le canal passe par la **croissance potentielle**, jamais par la demande : un
+choc d'offre n'ouvre donc ni ecart d'Okun ni output gap (cf. § Croissance
+Potentielle Supply-Side).
+
+**2. Bosse de chomage transitoire : +0,18% au pic par annee d'age**
+
+Une partie des seniors maintenus en activite bascule au chomage plutot qu'en
+emploi. Cette valeur est une **DERIVATION PROPRE A CE SIMULATEUR — elle n'est
+publiee par aucune institution**, et il faut le dire clairement, parce que
+c'est le point ou les modeles officiels divergent le plus : a un an, la
+DG Tresor trouve **0,00**, l'I-MIP **-0,40** et l'OFCE **+0,55** (COR
+26/03/2026, Document n 2, tableau 4). La divergence est irreductible a court
+terme ; nous ne tranchons pas a leur place, nous nous positionnons entre eux
+et nous publions comment.
+
+Les trois routes de la derivation, toutes appuyees sur la part « chomage » du
+devenir des seniors decales — **stable a 26-27 % sur deux methodologies et
+deux sources de donnees independantes** :
+
+| Route | Base | Resultat |
+|---|---|---|
+| (a) Table de cohorte Insee (Dubois-Koubi via Cour fev. 2025, note 122) | cohorte annuelle ~800 000 | **+0,13** |
+| (b) Cles Dubois-Koubi hommes (63 % emploi / 26 % chomage / 11 % inactivite) | 305 000 decalants | **+0,19** |
+| (c) Cles Rabate-Rochut (44 / 27 / 29) | 305 000 decalants | **+0,21** |
+| | **Moyenne retenue** | **+0,18** |
+
+Sources primaires : Dubois Y. & Koubi M., Insee, document de travail
+G2016/08 (2016) et Insee Analyses n 30 (05/01/2017) ; Rabate S. & Rochut J.,
+*Journal of Pension Economics and Finance* 19(3), 2020, p. 293-308. Base
+demographique : population active 31 802 milliers, chomage 7,3 % (COR
+26/03/2026, Document n 4, note 7).
+
+Position dans le debat : entre DG Tresor 0,0 et OFCE +0,55, tres loin de
+Mesange +0,7 / e-mod.fr +0,5 — que la Cour des comptes desavoue explicitement
+(fevrier 2025, p. 67, note 121 : « les recherches micro-econometriques menees
+sur la reforme de 2010 ont montre que l'evolution du chomage observee ne
+correspondait pas a celle predite par les modeles »).
+
+La bosse se **resorbe** (profil OFCE, seule serie publiee allant jusqu'a
+l'extinction) : pic **+0,10 point** en annees 4-5 par annee d'age, +0,064 a
+dix ans, +0,029 a vingt ans, **zero a long terme**. Le mecanisme de la
+resorption est source (COR, Document n 6, partie 3) : l'offre de travail
+accrue ralentit les salaires et le revenu global de l'economie augmente — les
+deux relevent la demande de travail.
+
+**3. Fuite sociale residuelle : 9,6% des economies brutes**
+
+Cour des comptes, fevrier 2025, p. 67-68, citant **DREES, note BRET n 21-43,
+janvier 2022** et **DARES, note SD-EMT-DSIDE, janvier 2022** — les deux notes
+primaires **n'ont pas pu etre consultees directement**, elles sont donc citees
+**via la Cour** (p. 67, note 125) et jamais comme source de premiere main :
+la hausse des prestations represente **20 %** des economies brutes, dont
+**52 % d'assurance chomage, 36 % d'indemnites journalieres et 12 % de minima
+sociaux**.
+
+Le simulateur n'en inscrit que **9,6 %** (= 48 % x 20 %, soit les indemnites
+journalieres et les minima sociaux) : la part assurance-chomage est **deja
+produite** par le moteur, dont la categorie de depense « chomage » suit le
+taux de chomage — que la bosse ci-dessus fait precisement bouger. Inscrire
+les 20 % complets serait un double comptage. Verification croisee : au pic,
++0,10 point de chomage sur une base de 40 Md EUR donne 0,53 Md EUR, contre
+0,62 Md EUR par la cle DREES/DARES — ecart de 14 %.
+
+Le debat « 20 % ou 25 % » est clos : **les deux, selon le denominateur**
+(20 % = hors invalidite/AAH, avec chomage, rapporte au solde du systeme —
+Cour des comptes ; 25 % = avec invalidite/AAH, hors chomage, rapporte aux
+depenses de retraites — DREES).
+
+**Bouclage : ce que l'ensemble reconstitue**
+
+Pour une annee d'age a horizon dix ans, moindres depenses + recettes nees du
+PIB donnent **17,5 Md EUR**, contre **17,7 Md EUR** dans la decomposition de
+la Cour des comptes (fevrier 2025, tableau n 6, p. 72 : depenses de retraites
++6,0 / cotisations retraites +2,4 / autres recettes publiques +9,3 / ensemble
+des APU +17,7). Le simulateur ne cale rien sur ce total : il le retrouve.
+
+**Choix assumes de ce canal (declares, jamais masques) :**
+1. Les horizons 3, 4 et 6 a 9 ans ne sont publies par personne : ce sont des
+   **interpolations log-lineaires** entre les points publies (1, 2, 5, 10, 20
+   ans et long terme).
+2. La montee en charge par cohortes (5 ans) **multiplie** le profil
+   d'absorption macroeconomique. Les deux profils decrivent des phenomenes
+   distincts et le raisonnement tient, mais **le produit n'est mesure par
+   personne**. Sa sensibilite est testee : le bouclage a dix ans est de
+   17,5 Md EUR avec la multiplication et 18,2 sans — le choix ne change pas
+   la conclusion.
+
+**Ce qui n'est deliberement PAS modelise** (et pourquoi — c'est de la sobriete,
+pas un oubli) :
+
+| Tentation | Pourquoi non |
+|---|---|
+| Effet d'eviction sur l'emploi des jeunes | Consensus macro sur l'**absence** d'effet : Kalwij, Kapteyn & De Vos 2010 (22 pays OCDE, 1960-2008), Gruber, Milligan & Wise 2009, Ben Salem, Blanchet, Bozio & Roger 2010, Munnell & Wu 2012, Carta, D'Amuri & von Wachter 2025. L'effet existe au niveau de la **firme** et ne remonte pas au macro |
+| Effet sur la productivite | « La litterature empirique ne met pas en evidence d'effet negatif systematique » (COR 26/03/2026, Document n 6, p. 8) |
+| Baisse de l'epargne par anticipation | Non identifiable en France ; la DG Tresor emet elle-meme un doute (COR, Document n 3, annexe p. 8-9) |
+| Elasticite OFCE 0,30 (emploi / population active) | Decrit un choc « soudain » et indifferencie ; l'ex post francais donne 0,60-0,70, la population touchee etant deja en emploi |
+| Effet du canal sur les **inegalites** | **NON ETABLI** : l'heterogeneite est forte et documentee (capital humain eleve prolonge son activite, carrieres discontinues basculent en chomage ou invalidite), mais aucune source ne la chiffre. Le coefficient Gini du levier d'age reste **inchange** par ce canal |
 
 **Piege de lecture a connaitre : les deux « 17,7 Md EUR » n'ont aucun rapport**
 
@@ -268,6 +387,11 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 - **Inegalites** : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee.
 - **Pouvoir d'achat** : Gel total indexation retraites = -0,007 PA agrégé/an récurrent (OFCE Brief 124, 15/02/2024)
 - **Competitivite** : Impact neutre (pas de lien direct entreprises)
+- **Croissance et chomage** : depuis la v0.6.1, le levier d'age agit aussi par
+  le canal emploi seniors (section ci-dessus) — croissance potentielle a la
+  hausse, bosse de chomage transitoire, recettes supplementaires nees du PIB.
+  Ces effets sont **strictement symetriques** : un abaissement de l'age retire
+  a l'economie exactement ce qu'un report lui apporte
 
 ---
 

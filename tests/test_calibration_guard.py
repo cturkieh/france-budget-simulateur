@@ -204,16 +204,18 @@ def test_retraites_64ans_ne_capture_que_lacceleration_du_calendrier(baseline_df)
     peut donc plus etre credite de l'economie que la loi produit toute seule :
     il ne capture que l'ACCELERATION du calendrier sur 2026-2031.
 
-    Decomposition exacte du reste (6,0 Md€ par annee d'ecart, phasing 5 ans) :
-    1,5 + 3,0 + 3,6 + 3,6 + 3,0 + 1,5 = 16,2 Md€ d'economies directes cumulees,
-    puis ZERO a partir de 2032. Mesure : -17,7 Md€ de dette Y10 (16,2 directs
-    + interets evites - feedback macro). Fenetre [-30 ; -8] : au-dela de -30 =
-    la reference d'age est retombee sur une valeur figee (le double comptage
-    est revenu) ; au-dessus de -8 = l'acceleration 2026-2031 a disparu.
+    Decomposition du canal budgetaire direct (6,0 Md€ par annee d'ecart,
+    phasing 5 ans, net de 9,6 % de fuite sociale residuelle) : 1,4 + 2,7 +
+    3,3 + 3,3 + 2,7 + 1,4 = 14,7 Md€ cumules, puis ZERO a partir de 2032.
 
-    L'ancienne fenetre [-260 ; -150] mesurait un tout autre objet : un bareme
-    a 14,2 Md€/an (collision entre deux « 17,7 Md€ » sans rapport) applique a
-    un ecart de 1,25 annee maintenu sur tout l'horizon.
+    RECALIBRATION v0.6.1 lot 3 : le canal emploi seniors s'ajoute a ce canal
+    direct (surcroit d'offre de travail -> PIB -> recettes, net de la bosse de
+    chomage). Mesure : -39,5 Md€ de dette Y10, contre -17,7 avant le lot.
+    Fenetre [-90 ; -22], BILATERALE et adossee a deux contre-epreuves
+    mesurees :
+    - au-dessus de -22 : le canal emploi a disparu (sans lui : -17,7) ;
+    - au-dela de -90 : le canal est relu comme un effet de TAUX et non de
+      NIVEAU (la regression v0.6.0 donne -173 Md€, mesuree).
     """
     df_base = baseline_df
 
@@ -224,12 +226,12 @@ def test_retraites_64ans_ne_capture_que_lacceleration_du_calendrier(baseline_df)
     df_64, _, _ = sim_64.simulate()
 
     economie_md = df_64.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
-    assert -30 < economie_md < -8, (
+    assert -90 < economie_md < -22, (
         f"Acceleration vers 64 ans hors fenetre v0.6.1 : {economie_md:+.0f} Md€"
     )
 
     delta_dette_y10 = df_64.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
-    assert -0.7 < delta_dette_y10 < -0.05, (
+    assert -2.5 < delta_dette_y10 < -0.3, (
         f"Acceleration vers 64 ans : delta dette Y10 hors fenetre v0.6.1 : "
         f"delta={delta_dette_y10:+.2f} pts (base={df_base.iloc[-1]['Dette/PIB %']:.1f}%, "
         f"64ans={df_64.iloc[-1]['Dette/PIB %']:.1f}%)"
@@ -244,12 +246,18 @@ def test_retraites_65ans_reduit_dette_significativement(baseline_df):
     2032 (le calendrier legal ayant rattrape 64 ans). A 6,0 Md€ par annee
     d'age (DG Tresor, COR 27/01/2022, doc n 12, diapo 5 ; Cour des comptes
     02/2025, T6 p. 72), cela fait ~46 Md€ d'economies directes cumulees sur
-    l'horizon. Mesure : -74 Md€ de dette Y10 (directs + interets evites -
-    feedback macro).
+    l'horizon, ~42 nettes de la fuite sociale residuelle.
 
-    Anti-faux-vert bilateral : sous -110 = double comptage ou canal emploi
-    reintroduit sans calibration ; au-dessus de -45 = bareme sous-calibre ou
-    reference d'age qui derive au-dela de la cible legale.
+    RECALIBRATION v0.6.1 lot 3 : le canal emploi seniors ajoute le surcroit
+    de recettes ne du PIB (~+0,51 % de PIB reel en 2035), net de la bosse de
+    chomage transitoire. Mesure : -170 Md€ de dette Y10, contre -74 avant le
+    lot. C'est l'ordre de grandeur de la Cour (T6 p. 72 : 17,7 Md€ par an au
+    plein regime, toutes APU) cumule sur dix ans.
+
+    Anti-faux-vert bilateral, adosse a deux contre-epreuves mesurees :
+    - au-dessus de -110 : le canal emploi a disparu (sans lui : -74) ;
+    - au-dela de -300 : le canal est relu comme un effet de TAUX et non de
+      NIVEAU (la regression v0.6.0 donne -537 Md€, mesuree).
     """
     df_base = baseline_df
 
@@ -259,12 +267,12 @@ def test_retraites_65ans_reduit_dette_significativement(baseline_df):
     ).simulate()
 
     economie_md = df_65.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
-    assert -110 < economie_md < -45, (
+    assert -300 < economie_md < -110, (
         f"Economie retraite 65 ans hors fenetre v0.6.1 : {economie_md:+.0f} Md€"
     )
 
     delta_dette_y10 = df_65.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
-    assert -2.0 < delta_dette_y10 < -0.6, (
+    assert -9.0 < delta_dette_y10 < -2.5, (
         f"Retraite 65 ans devrait reduire la dette Y10 : delta={delta_dette_y10:+.2f} pts "
         f"(base={df_base.iloc[-1]['Dette/PIB %']:.1f}%, 65ans={df_65.iloc[-1]['Dette/PIB %']:.1f}%)"
     )

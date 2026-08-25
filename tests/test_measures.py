@@ -31,15 +31,21 @@ def test_apply_retraites(simulator):
     # (DG Trésor COR 27/01/2022 doc n° 12 ; Cour des comptes 02/2025 T6 p. 72)
     # — le 14,2 de la v0.6.0 venait d'une collision entre deux « 17,7 Md€ »
     # sans rapport, cf. tests/test_retraites_v061.py.
+    # v0.6.1 lot 3 : l'économie d'âge est NETTE de la fuite sociale
+    # résiduelle (9,6 % partent en indemnités journalières et minima sociaux
+    # — clé DREES/DARES via Cour des comptes 02/2025 p. 67-68). La tolérance
+    # passe de 0,1 à 1e-9 : à 0,1 elle absorbait silencieusement l'ajout de
+    # cette brique (0,029 Md€ sur ce cas), c'est-à-dire qu'elle validait un
+    # calcul qu'elle ne mesurait plus.
     # year_idx=0 (2026) → phasing = (0+1)/5 = 0.2
-    # age: -6,0 * (63 - 62,75) * 0,2 = -0,30
+    # age: -6,0 * (63 - 62,75) * 0,2 * (1 - 0,096) = -0,2712
     # duration: -4 * (43.5 - 42.5) * 0.2 = -0.8
     # indexation: -1.5 * (1 - 0.7) * 1 = -0.45
     phasing = 0.2
-    expected_spending = (-6.0 * (63 - 62.75) * phasing
+    expected_spending = (-6.0 * (63 - 62.75) * phasing * (1 - 0.096)
                          - 4.0 * (43.5 - 42.5) * phasing
                          - 1.5 * (1 - 0.7) * 1)
-    assert abs(delta_spending - expected_spending) < 0.1, f"Expected {expected_spending:.2f}, got {delta_spending:.2f}"
+    assert abs(delta_spending - expected_spending) < 1e-9, f"Expected {expected_spending:.4f}, got {delta_spending:.4f}"
     assert delta_revenue == 0
     assert 'depenses' in impacts
 
