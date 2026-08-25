@@ -3,8 +3,9 @@ import logging
 
 from .constants import (
     POLICY_MEASURES_PATH,
-    RETRAITES_REF_AGE_ANS,
+    POLICY_START_YEAR,
     RETRAITES_REF_DUREE_ANS,
+    retraites_ref_age_ans,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,13 @@ def load_default_values():
     """
     return {
         'tva_rate': {'taux': 0.20},
-        'retraites': {'age_depart': RETRAITES_REF_AGE_ANS, 'indexation': 1.0,
+        # Âge de départ : le droit en vigueur l'année où les politiques
+        # démarrent (62,75 ans, gel LFSS 2026). Le handler, lui, compare à
+        # l'âge légal de CHAQUE année simulée — un curseur laissé sur ce
+        # défaut décrit donc « je suspends la réforme définitivement », pas
+        # « je ne touche à rien » (cf. constants.retraites_ref_age_ans).
+        'retraites': {'age_depart': retraites_ref_age_ans(POLICY_START_YEAR),
+                      'indexation': 1.0,
                       'duree_cotisation': RETRAITES_REF_DUREE_ANS},
         'fonction_publique': {'effectifs': 0, 'point_indice': 0},
         'fonction_publique_reforme': {'fusion_agences': 0, 'digitalisation': 0},

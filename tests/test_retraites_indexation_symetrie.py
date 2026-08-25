@@ -15,6 +15,7 @@ import pytest
 from budget_simulator.constants import (
     POLICY_START_YEAR,
     RETRAITES_EROSION_PLATEAU_ANS,
+    retraites_ref_age_ans,
 )
 from budget_simulator.simulator import BudgetSimulatorV45
 
@@ -57,17 +58,24 @@ def test_pleine_indexation_neutre():
 
 def test_symetrie_age_et_duree():
     """Le refactor uniformise aussi âge et durée : ±1 an autour de la
-    référence 2025 → impacts budgétaires miroirs (même contrat que
-    l'indexation, non couvert par les golden masters en direction baisse)."""
+    référence → impacts budgétaires miroirs (même contrat que l'indexation,
+    non couvert par les golden masters en direction baisse).
+
+    Recalibrage v0.6.1 : l'écart d'âge se mesure désormais au DROIT EN VIGUEUR
+    de l'année simulée (62,75 ans gelés jusqu'en 2027, puis +3 mois/an jusqu'à
+    64 ans en 2032), plus à une référence figée à 62,75. Les valeurs ±1 an
+    sont donc dérivées de `retraites_ref_age_ans(year)` au lieu d'être
+    épinglées — c'est la symétrie qui est testée, pas le millésime."""
     sim = BudgetSimulatorV45(mesures={})
     year = POLICY_START_YEAR + 4
+    ref_age = retraites_ref_age_ans(year)
 
     def delta(params):
         d, _, _ = sim._apply_retraites({}, params, year, _GDP, _INFLATION, _UNEMP)
         return d
 
-    assert delta({'age_depart': 63.75}) == pytest.approx(
-        -delta({'age_depart': 61.75}))
+    assert delta({'age_depart': ref_age + 1.0}) == pytest.approx(
+        -delta({'age_depart': ref_age - 1.0}))
     assert delta({'duree_cotisation': 43.5}) == pytest.approx(
         -delta({'duree_cotisation': 41.5}))
 

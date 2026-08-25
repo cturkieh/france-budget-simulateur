@@ -26,15 +26,17 @@ def test_apply_retraites(simulator):
     params = {'age_depart': 63.0, 'indexation': 0.7, 'duree_cotisation': 43.5}
     year = 2026  # year_idx = 0, phasing = 0.2
     delta_spending, delta_revenue, impacts = simulator._apply_retraites(measure, params, year, 2994, 0.01, 0.076)
-    # Reference age is 62.75 (COR 2024), reference duration 42.5.
-    # v0.6.0 : barème d'âge décroissant (14,2 Md€/an < 64 ans, Sénat l23-498).
+    # Référence d'âge 2026 = 62,75 ans (AOD gelé, LFSS 2026) ; référence de
+    # durée 42,5 ans. v0.6.1 : barème d'âge PLAT et SYMÉTRIQUE à 6,0 Md€/an
+    # (DG Trésor COR 27/01/2022 doc n° 12 ; Cour des comptes 02/2025 T6 p. 72)
+    # — le 14,2 de la v0.6.0 venait d'une collision entre deux « 17,7 Md€ »
+    # sans rapport, cf. tests/test_retraites_v061.py.
     # year_idx=0 (2026) → phasing = (0+1)/5 = 0.2
-    # age: -14.2 * (63 - 62.75) * 0.2 = -0.71 (barème décroissant, segment < 64)
+    # age: -6,0 * (63 - 62,75) * 0,2 = -0,30
     # duration: -4 * (43.5 - 42.5) * 0.2 = -0.8
     # indexation: -1.5 * (1 - 0.7) * 1 = -0.45
-    # (fuite sociale + volet emploi : lot RETIRÉ, cf. test_retraites_v060.py)
     phasing = 0.2
-    expected_spending = (-14.2 * (63 - 62.75) * phasing
+    expected_spending = (-6.0 * (63 - 62.75) * phasing
                          - 4.0 * (43.5 - 42.5) * phasing
                          - 1.5 * (1 - 0.7) * 1)
     assert abs(delta_spending - expected_spending) < 0.1, f"Expected {expected_spending:.2f}, got {delta_spending:.2f}"

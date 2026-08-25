@@ -193,17 +193,27 @@ def test_pas_de_contamination_tva(baseline_df):
     )
 
 
-def test_retraites_64ans_reduit_dette_significativement(baseline_df):
-    """Recul age legal 62.75 -> 64 ans : economie calibree COR 2024, verifiee en Md€ (verite
-    physique) ET en points de dette (borne elargie pour la baseline tendancielle A+B).
+def test_retraites_64ans_ne_capture_que_lacceleration_du_calendrier(baseline_df):
+    """RECADRAGE v0.6.1 — « 64 ans » n'est plus une reforme, c'est le DROIT
+    EN VIGUEUR a partir de 2032.
 
-    Calibre sur COR 2024 : montee en charge 5 ans, coefficient stationnaire -16 Md€/an,
-    cumul ~ -160 Md€. RECALIBRAGE 2026-06 (baseline A+B, tendanciel ~+1,1%/an) : la trajectoire
-    statu-quo de reference etant plus pentue, la MEME economie en Md€ pese mecaniquement MOINS en
-    POINTS de dette (denominateur plus gros) -> la borne ratio passe de [-3.5,-2.0] (ancienne
-    baseline) a [-2.3,-0.9]. La garde Md€ ci-dessous VERROUILLE la verite physique COR
-    independamment du denominateur (anti-faux-vert : une borne ratio elargie ne doit jamais
-    masquer une reforme sous-calibree). Le handler retraites (depenses.py) est INCHANGE.
+    La reference d'age du moteur suit desormais le calendrier legal
+    post-LFSS 2026 (62,75 ans geles jusqu'en 2027, puis +3 mois par an jusqu'a
+    64,0 ans en 2032), et cette montee en charge est deja dans la baseline
+    (tendanciel mission IGF 07/2026). Un programme « je maintiens 64 ans » ne
+    peut donc plus etre credite de l'economie que la loi produit toute seule :
+    il ne capture que l'ACCELERATION du calendrier sur 2026-2031.
+
+    Decomposition exacte du reste (6,0 Md€ par annee d'ecart, phasing 5 ans) :
+    1,5 + 3,0 + 3,6 + 3,6 + 3,0 + 1,5 = 16,2 Md€ d'economies directes cumulees,
+    puis ZERO a partir de 2032. Mesure : -17,7 Md€ de dette Y10 (16,2 directs
+    + interets evites - feedback macro). Fenetre [-30 ; -8] : au-dela de -30 =
+    la reference d'age est retombee sur une valeur figee (le double comptage
+    est revenu) ; au-dessus de -8 = l'acceleration 2026-2031 a disparu.
+
+    L'ancienne fenetre [-260 ; -150] mesurait un tout autre objet : un bareme
+    a 14,2 Md€/an (collision entre deux « 17,7 Md€ » sans rapport) applique a
+    un ecart de 1,25 annee maintenu sur tout l'horizon.
     """
     df_base = baseline_df
 
@@ -213,38 +223,50 @@ def test_retraites_64ans_reduit_dette_significativement(baseline_df):
     )
     df_64, _, _ = sim_64.simulate()
 
-    # Garde PHYSIQUE (Md€, verite COR) : l'economie de dette Y10 reste calibree en euros, quel
-    # que soit le denominateur.
-    # RECALIBRAGE refonte « assemblage temporel » 2026-06-10 : mesure -163,1 Md€
-    # -> fenetre [-185, -135]. Decomposition exacte : economies directes handler
-    # 160 Md€ cumules (phasing COR 0,2->1,0 puis -20 Md€/an stationnaire,
-    # handler INCHANGE) + interets evites composes (~14 Md€) - feedback macro
-    # modere (multiplicateur consolidation + second tour recettes, ~11 Md€).
-    # L'ancienne mesure -115,7 etait LE chiffre suspect : ~44 Md€ d'economies
-    # s'evaporaient dans le lag d'assemblage (recettes laguees + deflateur
-    # retarde) — la refonte rend les reformes structurelles a leur vrai
-    # rendement physique. Anti-faux-vert bilateral : retomber vers -115 =
-    # retour du lag ; depasser -185 = double-comptage.
-    # RECALIBRAGE v0.6.0 final (mesure -202 Md€, bareme decroissant SEUL — le
-    # lot fuite sociale + volet emploi a ete retire par la revue adverse du
-    # 24/08, cf. tests/test_retraites_v060.py) : economies directes brutes
-    # ~124 Md€ cumules (14,2 Md€/an a plein regime, phasing 5 ans) + interets
-    # evites aux taux v0.6.0 (marginal ~4-5 % en fin d'horizon, bien superieur
-    # a v0.5.1) + retours macro. Anti-faux-vert bilateral : sous -260 =
-    # double-comptage ou canal emploi reintroduit sans calibration ; au-dessus
-    # de -150 = perte de la verite physique (bareme sous-calibre).
     economie_md = df_64.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
-    assert -260 < economie_md < -150, (
-        f"Economie retraite 64 ans hors fenetre v0.6.0 (bareme Senat/COR): {economie_md:+.0f} Md€"
+    assert -30 < economie_md < -8, (
+        f"Acceleration vers 64 ans hors fenetre v0.6.1 : {economie_md:+.0f} Md€"
     )
 
-    # Garde RATIO (points de dette) : recalee avec la garde Md€ (mesure -3,84 pt :
-    # -163 Md€ sur un PIB 2035 plus bas — inflation 1,1-1,4 % vs 2,33 % artificiel).
     delta_dette_y10 = df_64.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
-    assert -7.5 < delta_dette_y10 < -3.0, (
-        f"Retraite 64 ans devrait reduire dette Y10 (borne refonte [-5.0,-2.5]): "
+    assert -0.7 < delta_dette_y10 < -0.05, (
+        f"Acceleration vers 64 ans : delta dette Y10 hors fenetre v0.6.1 : "
         f"delta={delta_dette_y10:+.2f} pts (base={df_base.iloc[-1]['Dette/PIB %']:.1f}%, "
         f"64ans={df_64.iloc[-1]['Dette/PIB %']:.1f}%)"
+    )
+
+
+def test_retraites_65ans_reduit_dette_significativement(baseline_df):
+    """Verite physique du bareme d'age, mesuree LA OU un programme depasse
+    reellement le droit en vigueur.
+
+    65 ans, c'est +2,25 annees d'ecart en 2026 puis +1,0 annee a partir de
+    2032 (le calendrier legal ayant rattrape 64 ans). A 6,0 Md€ par annee
+    d'age (DG Tresor, COR 27/01/2022, doc n 12, diapo 5 ; Cour des comptes
+    02/2025, T6 p. 72), cela fait ~46 Md€ d'economies directes cumulees sur
+    l'horizon. Mesure : -74 Md€ de dette Y10 (directs + interets evites -
+    feedback macro).
+
+    Anti-faux-vert bilateral : sous -110 = double comptage ou canal emploi
+    reintroduit sans calibration ; au-dessus de -45 = bareme sous-calibre ou
+    reference d'age qui derive au-dela de la cible legale.
+    """
+    df_base = baseline_df
+
+    df_65, _, _ = BudgetSimulatorV45(
+        periods=10,
+        mesures={'retraites': {'age_depart': 65, 'indexation': 1.0, 'duree_cotisation': 42.5}},
+    ).simulate()
+
+    economie_md = df_65.iloc[-1]['Dette'] - df_base.iloc[-1]['Dette']
+    assert -110 < economie_md < -45, (
+        f"Economie retraite 65 ans hors fenetre v0.6.1 : {economie_md:+.0f} Md€"
+    )
+
+    delta_dette_y10 = df_65.iloc[-1]['Dette/PIB %'] - df_base.iloc[-1]['Dette/PIB %']
+    assert -2.0 < delta_dette_y10 < -0.6, (
+        f"Retraite 65 ans devrait reduire la dette Y10 : delta={delta_dette_y10:+.2f} pts "
+        f"(base={df_base.iloc[-1]['Dette/PIB %']:.1f}%, 65ans={df_65.iloc[-1]['Dette/PIB %']:.1f}%)"
     )
 
 

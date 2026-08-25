@@ -82,14 +82,12 @@ from typing import TYPE_CHECKING, Dict, Tuple
 from ..constants import (
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
-    RETRAITES_COEFF_AGE_SEUIL_ANS,
-    RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR,
-    RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR,
+    RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
-    RETRAITES_REF_AGE_ANS,
     RETRAITES_REF_DUREE_ANS,
+    retraites_ref_age_ans,
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing, asu_is_active, asu_phasing
@@ -114,33 +112,31 @@ class DepensesMixin(_MixinBase):
         # Garde defensive : si appel direct hors boucle simulate(), retourne neutre.
         if year < POLICY_START_YEAR:
             return 0, 0, {}
-        age = params.get('age_depart', RETRAITES_REF_AGE_ANS)
+        # Référence d'âge = DROIT EN VIGUEUR l'année simulée (calendrier légal
+        # post-LFSS 2026 : 62,75 ans gelés jusqu'en 2027, puis +3 mois par
+        # génération jusqu'à 64 ans en 2032). Elle n'est plus figée à 62,75 :
+        # la reprise de la montée en charge est DÉJÀ dans la baseline (mission
+        # IGF 07/2026), donc la chiffrer une seconde fois serait du double
+        # comptage — dans les deux sens (cf. constants.py § référence d'âge).
+        ref_age = retraites_ref_age_ans(year)
+        age = params.get('age_depart', ref_age)
         indexation = params.get('indexation', 1.0)
         duration = params.get('duree_cotisation', RETRAITES_REF_DUREE_ANS)
-        # Coefficients COR 2024 (cible ~17,7 Md€ en 2030 et 23 Md€ stationnaire
-        # pour 62,75 → 64 ans), montee en charge cohortes 5 ans. Formules
-        # SYMETRIQUES autour des references RETRAITES_REF_* : hausse =
-        # economie, baisse = surcout miroir (cf METHODOLOGIE.md § Retraites).
+        # Montee en charge cohortes 5 ans (COR 2024). Formules SYMETRIQUES
+        # autour des references : hausse = economie, baisse = surcout miroir
+        # (cf METHODOLOGIE.md § Retraites).
         year_idx = max(0, year - POLICY_START_YEAR)
         phasing = _year_phasing(year_idx, PHASING_RETRAITES_5ANS)
         delta_spending = 0.0
-        # v0.6.0 — barème d'âge à rendement DÉCROISSANT : 2 segments continus,
-        # 14,2 Md€/an jusqu'à 64 ans (Sénat l23-498 : 17,7 Md€ / 1,25 an) puis
-        # 6 Md€/an au-delà (COR 19/03/2026, Doc n°3, T4 : palier 64→65 =
-        # 0,2 pt de PIB). Le 16,0 linéaire v0.5.1 surestimait les scénarios à
-        # 65 ans. NB v0.6.1 (revue adverse 24/08) : le lot « fuite sociale
-        # 20 % + volet emploi COR » a été implémenté PUIS RETIRÉ — sur-calibrage
-        # ~+49 % vs la contre-épreuve Cour 02/2025 T5, écho Okun divergent, et
-        # conflit de sources (Sénat 17,7 vs Cour 9,7) à réconcilier avant
-        # livraison. Sous 62,75 ans : 14,2 prolongé par défaut — la Cour 2021
-        # (14 Md€ bruts pour 60→62, soit ~7/an) suggère MOINS : surcoût des
-        # abaissements possiblement surestimé, à trancher en v0.6.1.
-        ecart_avant_seuil = min(age, RETRAITES_COEFF_AGE_SEUIL_ANS) - RETRAITES_REF_AGE_ANS
-        ecart_apres_seuil = max(0.0, age - RETRAITES_COEFF_AGE_SEUIL_ANS)
-        economie_brute_age = (
-            RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR * ecart_avant_seuil
-            + RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR * ecart_apres_seuil
-        )
+        # v0.6.1 — barème d'âge PLAT et STRICTEMENT SYMÉTRIQUE : une année
+        # d'âge = RETRAITES_COEFF_AGE_MD_EUR de moindres dépenses de pension,
+        # partout sur [60 ; 67] et dans les deux sens (DG Trésor, COR
+        # 27/01/2022, doc n° 12, diapo 5 ; Cour des comptes 02/2025, T6 p. 72
+        # — sources, choix assumés et bande de sensibilité dans constants.py).
+        # Le barème v0.6.0 (14,2 sous 64 ans) reposait sur une collision entre
+        # deux « 17,7 Md€ » sans rapport ; sa falaise de −58 % à 64 ans venait
+        # entièrement de ce premier segment, pas d'un phénomène sourcé.
+        economie_brute_age = RETRAITES_COEFF_AGE_MD_EUR * (age - ref_age)
         delta_spending -= economie_brute_age * phasing
         delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
         # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
@@ -154,8 +150,14 @@ class DepensesMixin(_MixinBase):
         # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
         # Recul âge pénalise davantage classes populaires (mortalité différentielle)
         # Ouvriers : espérance vie -6 ans vs cadres, taux emploi 55-64 ans 52% vs 71%
-        # Règle : 62.75→64 ans = +0.001 Gini (COR 2024 "effet hétérogène espérance vie")
-        gini_age = 0.001 * (age - RETRAITES_REF_AGE_ANS) / 1.25
+        # Règle : +1,25 année d'âge au-dessus du droit en vigueur = +0.001 Gini
+        # (COR 2024, « effet hétérogène espérance vie »). v0.6.1 : l'écart est
+        # mesuré par rapport à l'âge légal de l'ANNÉE, comme le canal
+        # budgétaire, pour que le statu quo reste neutre sur les inégalités.
+        # Le coefficient lui-même est INCHANGÉ : l'effet distributif du canal
+        # emploi n'est pas établi (hétérogénéité forte documentée), il ne sera
+        # pas ajusté hors d'une passe dédiée.
+        gini_age = 0.001 * (age - ref_age) / 1.25
 
         # Gini : Indexation ↓ = paupérisation retraités (régressif)
         # Règle : Indexation 100%→90% = +0.005 Gini (OFCE Brief 124, 15/02/2024)

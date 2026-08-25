@@ -275,29 +275,84 @@ PARAM_DOMAINS = {
 # pour la garde CODE→DOC de tests/test_methodologie_consistency.py — la dérive
 # ×2 constatée le 2026-08-04 (code 16/4 vs doc et tooltips 8/2) est le mode de
 # défaillance que ce verrou bloque désormais.
-RETRAITES_REF_AGE_ANS = 62.75            # référence 2025 : 62 ans 9 mois (réforme 2023 en montée en charge)
+# --- Référence d'âge = CALENDRIER LÉGAL, pas une valeur figée (v0.6.1, I3) ---
+# La LFSS 2026 suspend l'âge d'ouverture des droits (AOD) à 62 ans et 9 mois à
+# compter du 1er septembre 2026 et JUSQU'AU 1er JANVIER 2028 SEULEMENT ; la
+# montée en charge de la réforme 2023 (+3 mois par génération) reprend ensuite
+# jusqu'à 64 ans. Sources : service-public.gouv.fr, « Suspension de la réforme
+# des retraites : qui est concerné » ; OFCE, billet du 29/01/2026,
+# https://www.ofce.sciences-po.fr/blog2024/fr/2026/20260129_MD/
+#
+# Pourquoi une FONCTION et pas une constante : la baseline du moteur est calée
+# sur le tendanciel de la mission IGF de juillet 2026, dont les hypothèses
+# retraites intègrent explicitement « suspension de la réforme des retraites
+# jusqu'en 2028 » — la reprise vers 64 ans est DANS la baseline. Avec une
+# référence figée à 62,75, un programme qui dit « je maintiens 64 ans » était
+# crédité d'une économie que la loi produit déjà (double comptage pur), et un
+# programme à 60 ans était chiffré sur 2,75 années alors que l'écart au droit
+# en vigueur à horizon 2032 est de 4,0 années.
+RETRAITES_REF_AGE_ANS = 62.75            # AOD gelé 2026-2027 : 62 ans 9 mois (LFSS 2026)
+RETRAITES_REF_AGE_CIBLE_ANS = 64.0       # cible de la réforme 2023, atteinte en 2032
+RETRAITES_REF_AGE_DERNIERE_ANNEE_GEL = 2027  # suspension jusqu'au 01/01/2028
+RETRAITES_REF_AGE_PAS_ANNUEL_ANS = 0.25  # +3 mois par génération (réforme 2023)
 RETRAITES_REF_DUREE_ANS = 42.5           # référence 2025 : 170 trimestres
-# --- Barème d'âge v0.6.0 : rendement DÉCROISSANT (sourcing 24/08/2026) ---
-# v0.5.1 : coefficient linéaire 16,0 Md€/an sur tout le domaine — +13 % au-dessus
-# de sa propre cible (16,0 × 1,25 = 20 vs 17,7 Md€) et surestimation forte des
-# scénarios au-delà de 64 ans (le pic des liquidations à 62 ans n'existe plus).
-# Barème continu à 2 segments, chacun ancré sur une source officielle :
-RETRAITES_COEFF_AGE_SEUIL_ANS = 64.0
-RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR = 14.2  # Sénat l23-498 : 17,7 Md€ (2030) / 1,25 an (62,75→64) ;
-                                               # appliqué aussi sous 62,75 (pas de source < 62 dans
-                                               # cette passe — choix documenté § design)
-RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR = 6.0   # COR 19/03/2026, Doc n°3, tableau 4 : palier 64→65
-                                               # = 0,2 pt de PIB (≈ 6,0 Md€, PIB 2025 2 991 Md€)
 
-# --- Lot « fuite sociale + volet emploi » : RETIRÉ avant livraison v0.6.0 ---
-# (revue adverse 24/08/2026). La fuite (20 %, Cour des comptes 02/2025 p. 67)
-# et le volet emploi (COR 19/03/2026, +0,7-0,9 pt PIB/année d'AOD) forment un
-# lot indissociable ; l'implémentation sur-calibrait le levier d'âge de ~+49 %
-# vs la contre-épreuve Cour T5 (double comptage partiel des cotisations via
-# ELASTICITE_PO_PIB=1,0), créait un écho Okun divergent sur le chômage, et les
-# sources brutes se contredisent (Sénat l23-498 : 17,7 Md€ vs Cour/DG Trésor
-# T5 : 9,7 Md€ pour le seul système). À réintroduire en v0.6.1 après
-# réconciliation, avec le canal emploi routé en choc d'OFFRE.
+
+def retraites_ref_age_ans(year: int) -> float:
+    """Âge légal d'ouverture des droits applicable l'année civile ``year``.
+
+    62,75 ans jusqu'en 2027 (gel LFSS 2026), puis +0,25 an par an jusqu'à
+    64,0 ans en 2032, plafonné ensuite. Bornée des deux côtés : aucun
+    millésime hors de l'horizon publié ne peut faire dériver la référence.
+    """
+    if year <= RETRAITES_REF_AGE_DERNIERE_ANNEE_GEL:
+        return RETRAITES_REF_AGE_ANS
+    montee = RETRAITES_REF_AGE_PAS_ANNUEL_ANS * (year - RETRAITES_REF_AGE_DERNIERE_ANNEE_GEL)
+    return min(RETRAITES_REF_AGE_CIBLE_ANS, RETRAITES_REF_AGE_ANS + montee)
+
+
+# --- Barème d'âge v0.6.1 : PLAT et SYMÉTRIQUE, 6,0 Md€ par année d'âge ---
+# Remplace le barème à 2 segments de la v0.6.0 (14,2 avant 64 ans / 6,0 au-delà).
+# Le 14,2 venait d'une COLLISION NUMÉRIQUE entre deux « 17,7 Md€ » sans rapport
+# (cf. METHODOLOGIE.md § Retraites, table de passage) : celui du Sénat mêlait
+# l'âge ET l'accélération Touraine, sur le seul système de retraites, en euros
+# courants 2030 et en montée en charge partielle. Rapporté à une année d'âge,
+# il surestimait le rendement d'un facteur ≈ 2,4.
+#
+# Les deux sources primaires qui chiffrent réellement UNE année d'âge sur les
+# moindres dépenses convergent au dixième :
+#  - DG Trésor, « Effets d'une mesure d'âge sur le solde des APU », document
+#    n° 12 de la séance plénière du COR du 27/01/2022, diapositive 5 : −0,4 pt
+#    de PIB pour un report de 2 ans, soit 0,20 pt/an × 2 991 Md€ = 5,98 Md€.
+#    https://www.cor-retraites.fr/sites/default/files/2022-01/Doc12_Mesure%20d%27%C3%A2ge_DG%20Tr%C3%A9sor_V2.pdf
+#  - Cour des comptes, « Situation financière et perspectives du système de
+#    retraites », février 2025, tableau n° 6, p. 72 (variante symétrique
+#    générations 1964-1968, exercice 2035, Md€ constants 2024) : +6,0 Md€ de
+#    moindres dépenses par année d'âge (4,3 base + 1,7 complémentaires).
+#    https://www.ccomptes.fr/sites/default/files/2025-03/20250220-Situation-financiere-et-perspectives-du-systeme-de%20retraites.pdf
+# Base de conversion validée par le COR lui-même (Dossier en bref du
+# 26/03/2026 : « 0,2 point de PIB ex ante (6 milliards d'euros) »).
+#
+# PLAT sur tout le domaine [60 ; 67] et SYMÉTRIQUE dans les deux sens
+# (arbitrage du propriétaire, 25/08/2026). Deux choix à assumer, déclarés dans
+# METHODOLOGIE.md § Retraites :
+#  1. AU-DELÀ DE 65 ANS, aucune source consultée ne chiffre 65→66 ni 66→67
+#     alors que le domaine UI monte à 67 : prolonger le palier est une
+#     convention, pas une estimation. Le rendement décroissant est réel mais
+#     DOUX (0,285 → 0,25 → 0,20-0,25 pt sur le solde système), jamais en falaise.
+#  2. SYMÉTRIE STRICTE : le facteur d'asymétrie publié (0,70 à la baisse) est
+#     mesuré sur le seul palier 64→63 et découle d'une hypothèse explicite sur
+#     les carrières longues ; rien ne le valide de 62 vers 60. L'appliquer
+#     allégerait mécaniquement le coût affiché des programmes d'abaissement de
+#     l'âge, donc prendrait parti. Bande de sensibilité publiée : une baisse
+#     d'une année d'âge coûte de 4,2 à 6,0 Md€/an.
+#
+# PÉRIMÈTRE : moindres dépenses de pension UNIQUEMENT. Le canal cotisations
+# (Cour T6 : +2,4 Md€/an ; DG Trésor : +1,5) n'a PAS de slot dans ce handler —
+# il naît du canal PIB/emploi (lot « emploi seniors » du chantier v0.6.1), ce
+# qui rend le double comptage structurellement impossible.
+RETRAITES_COEFF_AGE_MD_EUR = 6.0
+
 RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
 RETRAITES_EROSION_INDEXATION_MD_EUR = 1.5  # Md€/an par année écoulée pour un gel total (proportionnel à l'écart)
 RETRAITES_EROSION_PLATEAU_ANS = 7        # renouvellement des cohortes : l'écart au statu quo cesse de croître

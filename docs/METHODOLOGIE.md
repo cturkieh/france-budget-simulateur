@@ -117,31 +117,132 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 
 ### Parametres Cles
 
-| Parametre | Valeur Reference 2025 | Impact |
-|-----------|----------------------|--------|
-| Age legal | 62,75 ans (62 ans 9 mois) | rendement DECROISSANT : +/-14,2 Md EUR par annee jusqu'a 64 ans, +/-6 Md EUR par annee au-dela de 64 ans ; phasing cohortes 5 ans |
+| Parametre | Reference | Impact |
+|-----------|-----------|--------|
+| Age legal | le DROIT EN VIGUEUR de l'annee simulee : 62,75 ans (62 ans 9 mois) en 2026-2027, puis +3 mois par an jusqu'a 64,0 ans en 2032 | bareme PLAT et SYMETRIQUE : +/-6,0 Md EUR par annee d'age d'ecart a la reference, sur tout le domaine 60-67 ans ; phasing cohortes 5 ans |
 | Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre (+/-4 Md EUR par annee, phasing 5 ans) |
 | Indexation | 100% inflation | +/-1,5 Md EUR par annee ecoulee pour un ecart de 100%, proportionnel et SYMETRIQUE, plateau 7 ans |
 
 ### Hypotheses Economiques
 
-**Age de depart (refonte v0.6.0, rendement decroissant + fuite + emploi) :**
-- Bareme BRUT a 2 segments continus : 14,2 Md EUR/an par annee d'age jusqu'a
-  64 ans (Senat, rapport l23-498 : 17,7 Md EUR en 2030 pour 62,75 -> 64, soit
-  17,7/1,25) puis 6 Md EUR par annee au-dela de 64 ans (COR, seance du
-  19/03/2026, Doc n 3, tableau 4 : palier 64 -> 65 = 0,2 pt de PIB) — le pic
-  des liquidations a 62 ans n'existe plus au-dela de 64. Montee en charge
-  cohortes 5 ans. Le segment < 62,75 reprend 14,2 (pas de source dediee sous
-  62 ans dans cette passe — choix documente).
-- Limite documentee (v0.6.1) : ni la fuite sociale vers les autres prestations
-  (~20 % des economies brutes, Cour des comptes 02/2025) ni le volet emploi
-  des seniors (+0,7-0,9 pt de PIB par annee d'age, consensus COR 19/03/2026)
-  ne sont modelises — un lot indissociable, retire par la revue adverse du
-  24/08/2026 (sur-calibrage vs Cour T5, echo Okun, sources Senat/Cour a
-  reconcilier). Les deux effets jouent en sens OPPOSES sur le solde public.
-- Sous 62,75 ans : le segment 14,2 Md EUR/an est prolonge par defaut (la Cour
-  2021 suggere ~7 Md EUR/an pour 60->62 : le surcout d'un abaissement est
-  possiblement surestime — a trancher en v0.6.1).
+**Age de depart — la reference (refonte v0.6.1) :**
+
+L'age de reference n'est plus une valeur figee : c'est **le calendrier legal**,
+annee par annee. La LFSS 2026 gele l'age d'ouverture des droits (AOD) a
+62 ans 9 mois a compter du 1er septembre 2026 et **jusqu'au 1er janvier 2028
+seulement** ; la montee en charge de la reforme 2023 (+3 mois par generation)
+**reprend ensuite** jusqu'a 64 ans.
+
+| Annee simulee | 2026 | 2027 | 2028 | 2029 | 2030 | 2031 | 2032 et apres |
+|---|---|---|---|---|---|---|---|
+| Age legal de reference | 62,75 | 62,75 | 63,00 | 63,25 | 63,50 | 63,75 | **64,0 ans en 2032** |
+
+Pourquoi c'est structurant : la baseline du simulateur est calee sur le
+tendanciel de la mission IGF de juillet 2026, dont les hypotheses retraites
+integrent explicitement la suspension jusqu'en 2028 — **la reprise vers 64 ans
+est donc DEJA dans la baseline**. Avec une reference figee a 62,75 ans, un
+programme qui dit « je maintiens 64 ans » etait credite d'une economie que la
+loi produit deja (double comptage), et un programme a 60 ans etait chiffre sur
+2,75 annees alors que l'ecart au droit en vigueur a horizon 2032 est de
+4,0 annees. La correction joue **dans les deux sens**.
+
+Consequence de lecture : un curseur laisse a 62,75 ans sur tout l'horizon ne
+decrit pas « je ne touche a rien », mais « je suspends la reforme
+definitivement » — ce qui a un cout (jusqu'a 7,5 Md EUR/an a partir de 2032).
+
+**Age de depart — le bareme (refonte v0.6.1) :**
+- **6,0 Md EUR par annee d'age** d'ecart a la reference legale de l'annee, en
+  moindres depenses de pension. Bareme **PLAT** sur tout le domaine 60-67 ans
+  et **strictement SYMETRIQUE** : une annee de report rapporte exactement ce
+  qu'une annee d'abaissement coute. Montee en charge cohortes 5 ans.
+- Deux sources primaires independantes convergent **au dixieme** sur cette
+  valeur, pour une annee d'age :
+  - **DG Tresor**, *Effets d'une mesure d'age sur le solde des APU*, document
+    n 12 de la **seance pleniere du COR du 27 janvier 2022**, diapositive 5 :
+    -0,4 pt de PIB pour un report de 2 ans, soit 0,20 pt/an x 2 991 Md EUR
+    = 5,98 Md EUR ;
+  - **Cour des comptes**, *Situation financiere et perspectives du systeme de
+    retraites*, fevrier 2025, **tableau n 6, p. 72** (variante symetrique
+    generations 1964-1968, exercice 2035, Md EUR constants 2024) : **6,0 Md EUR**
+    de moindres depenses (4,3 de base + 1,7 de complementaires).
+
+  Base de conversion validee par le COR lui-meme (*Dossier en bref* de la
+  seance du **26 mars 2026** : « 0,2 point de PIB ex ante (6 milliards
+  d'euros) »).
+- Ce que la v0.6.0 affichait (14,2 Md EUR/an sous 64 ans) etait **faux d'un
+  facteur ~2,4** : voir le piege de lecture ci-dessous. La « falaise » de -58 %
+  a 64 ans venait entierement de ce premier segment errone, pas d'un phenomene
+  source.
+- **Bande de sensibilite publiee** : une baisse d'une annee d'age coute entre
+  **4,2 et 6,0 Md EUR** selon qu'on retient ou non l'asymetrie hausse/baisse.
+
+**Choix assumes (aucune source ne les etablit — declares, jamais masques) :**
+1. **Au-dela de 65 ans**, aucune source consultee ne chiffre le passage 65->66
+   ni 66->67, alors que le curseur monte a 67 ans : prolonger le palier est une
+   **convention**, pas une estimation. Le rendement decroissant est reel mais
+   doux (0,285 -> 0,25 -> 0,20-0,25 pt sur le solde du systeme), jamais en
+   falaise. Hors de la plage 63-65 ans, le chiffrage est une extrapolation.
+2. **Symetrie stricte**. Un facteur d'asymetrie a la baisse (0,70) est publie,
+   mais il est mesure sur le seul palier 64->63 et decoule d'une hypothese
+   explicite sur les carrieres longues : **rien ne le valide de 62 vers 60**.
+   Surtout, aucune des deux options n'est neutre — un coefficient plus faible a
+   la baisse **allege** le cout affiche des programmes d'abaissement de l'age,
+   un coefficient plus eleve les **alourdit**. La symetrie est le seul choix
+   qui ne demande pas de prendre parti, et c'est deja la philosophie du
+   handler.
+
+**Perimetre du levier — ce qu'il ne contient PAS :**
+- Le canal **cotisations** (Cour, T6 : +2,4 Md EUR par annee d'age ; DG Tresor :
+  +1,5) n'a **aucun slot** dans le handler retraites : il nait du canal
+  PIB/emploi, ce qui rend le double comptage structurellement impossible.
+- Le **canal emploi** lui-meme (effet d'une mesure d'age sur l'emploi des
+  seniors, puis sur le PIB et les recettes) est **volontairement absent dans
+  les deux sens** a ce stade. C'est un ecart important a dire en clair : selon
+  le consensus des trois equipes du COR, un abaissement d'un an detruirait
+  210 000 a 240 000 emplois et couterait 0,7 a 0,9 pt de PIB, soit encore
+  ~9 Md EUR/an de recettes publiques par annee d'age.
+- La **fuite sociale** vers les autres prestations (chomage, invalidite, AAH)
+  n'est pas modelisee non plus. Le debat « 20 % ou 25 % » est clos : **les
+  deux, selon le denominateur** (20 % = hors invalidite/AAH, avec chomage,
+  rapporte au solde du systeme — Cour des comptes ; 25 % = avec invalidite/AAH,
+  hors chomage, rapporte aux depenses de retraites — DREES).
+
+**Piege de lecture a connaitre : les deux « 17,7 Md EUR » n'ont aucun rapport**
+
+C'est l'erreur qui a produit le bareme de la v0.6.0. Deux grandeurs portent le
+meme nombre et mesurent des objets differents :
+
+| | Senat, rapport n l23-498 (2023-2024) | Cour des comptes 02/2025, tableau n 6 |
+|---|---|---|
+| Ce que 17,7 Md EUR mesure | produit **BRUT** de l'age **+ acceleration Touraine** | effet **toutes APU** d'**UNE** annee d'age |
+| Perimetre | systeme de retraites | ensemble des finances publiques |
+| Annee | 2030 | 2035 |
+| Millesime | **euros courants** | **euros constants 2024** |
+| Montee en charge | **partielle** | **complete** |
+
+Table de passage fermee et verifiee cote Senat :
+17,7 + 2,0 (autres recettes) - 6,8 (accompagnement) = 12,9 ~ 13,0 Md EUR —
+confirme verbatim par le Senat (« reduire de 13 milliards d'euros son deficit
+previsionnel en 2030 ») — puis divise par un deflateur ~1,10 = 11,8 Md EUR, la
+valeur Rexecode du tableau n 5 de la Cour. Ce deflateur n'est **pas publie** :
+il est reconstitue, et presente comme tel.
+
+Deux precautions qui restent valables pour tout futur recalibrage :
+- **tension interne au rapport de la Cour** : son tableau 4 donne +0,4 pt de PIB
+  pour le systeme, son tableau 5 donne 9,7 Md EUR constants 2024 (soit 0,33 pt,
+  qui s'arrondit a 0,3). Les deux ne sont **pas reconciliables a la precision
+  publiee** : on ne fabrique pas de passerelle, on privilegie les tableaux en
+  Md EUR ;
+- le chiffre du Senat melant age et duree d'assurance sans ventilation publiee,
+  il n'est **plus utilise comme cible de calibration** du levier d'age.
+
+Enfin, l'attribution « Cour des comptes, 14 Md EUR bruts pour 60->62 » qui
+figurait dans le code a ete **retiree** : elle est introuvable dans le rapport
+cite. L'ordre de grandeur voisin qui circule (0,43 pt de PIB a horizon 2030
+pour un AOD ramene de 62 a 60 ans) provient d'une decomposition **DREES**
+relayee par l'**Institut Montaigne** (fiches presidentielle 2022 et
+legislatives 2024) ; la note DREES d'origine n'ayant pas ete retrouvee en
+ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 
 **Indexation des pensions :**
 - Base : 17 millions de retraites x pension moyenne
@@ -164,7 +265,7 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 
 ### Impacts Macroeconomiques
 
-- **Inegalites** : Hausse age 62,75->64 ans = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6).
+- **Inegalites** : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee.
 - **Pouvoir d'achat** : Gel total indexation retraites = -0,007 PA agrégé/an récurrent (OFCE Brief 124, 15/02/2024)
 - **Competitivite** : Impact neutre (pas de lien direct entreprises)
 

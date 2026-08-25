@@ -275,8 +275,9 @@ class GrowthMixin:
                 f"Y{year}: Crowding-out {crowding_effect*100:.3f}% "
                 f"(intensité {crowding_intensity:.3f}, inv={part_inv:.0%})")
 
-        # NB v0.6.1 (revue adverse 24/08) : le « volet emploi seniors » (COR
-        # 19/03/2026, +0,7-0,9 pt de PIB par année d'AOD) a été implémenté ici
+        # NB v0.6.1 (revue adverse 24/08) : le « volet emploi seniors » (COR,
+        # séance plénière du 26 mars 2026, Document n° 2 — consensus des trois
+        # équipes : +0,7-0,9 pt de PIB par année d'AOD) a été implémenté ici
         # PUIS RETIRÉ avec la fuite sociale jumelle : routé par Okun-demande il
         # créait un écho de chômage divergent, sur-calibrait le levier d'âge de
         # ~+49 % vs la contre-épreuve Cour 02/2025 T5, et double-comptait les

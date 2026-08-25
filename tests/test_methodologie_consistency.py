@@ -157,23 +157,17 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
         ),
         # Coefficients retraites nommés le 2026-08-04 après dérive ×2 constatée
         # (code 16/4 vs doc et tooltips 8/2 pendant ~10 semaines, repo public).
-        # v0.6.0 : barème d'âge à rendement décroissant (2 segments) + fuite
-        # sociale — chaque segment verrouillé séparément (audit 08/2026).
+        # v0.6.1 : les deux segments de la v0.6.0 fusionnent en UN coefficient
+        # plat et symétrique (le 14,2 venait d'une collision entre deux
+        # « 17,7 Md€ » sans rapport) — un seul verrou, plus de risque de
+        # recalibrage à moitié appliqué.
         CriticalConstant(
-            name="retraites âge avant 64 ans (Md EUR/an par année)",
-            source="constants.RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR",
-            raw_value=constants.RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR,
-            representations=("14,2", "14.2"),
+            name="retraites âge — coefficient unique (Md EUR/an par année d'âge)",
+            source="constants.RETRAITES_COEFF_AGE_MD_EUR",
+            raw_value=constants.RETRAITES_COEFF_AGE_MD_EUR,
+            representations=("6,0", "6.0"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
-            doc_patterns=("14,2 Md EUR",),
-        ),
-        CriticalConstant(
-            name="retraites âge au-delà de 64 ans (Md EUR/an par année)",
-            source="constants.RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR",
-            raw_value=constants.RETRAITES_COEFF_AGE_APRES_SEUIL_MD_EUR,
-            representations=("6",),
-            must_appear_in=(METHODO, PUBLIC_METHODO),
-            doc_patterns=("6 Md EUR par annee au-dela de 64 ans",),
+            doc_patterns=("6,0 Md EUR par annee d'age",),
         ),
         CriticalConstant(
             name="retraites durée (Md EUR/an par année)",
@@ -200,12 +194,23 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             doc_patterns=("plateau 7 ans",),
         ),
         CriticalConstant(
-            name="retraites référence âge 2025 (ans)",
+            name="retraites référence âge 2026-2027 (ans, gel LFSS 2026)",
             source="constants.RETRAITES_REF_AGE_ANS",
             raw_value=constants.RETRAITES_REF_AGE_ANS,
             representations=("62,75", "62.75"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
             doc_patterns=("62,75 ans",),
+        ),
+        # v0.6.1 : la référence d'âge est un CALENDRIER, pas une valeur — sa
+        # cible doit être lisible dans la doc, sinon le lecteur ne peut pas
+        # savoir à quoi le simulateur compare un programme après 2028.
+        CriticalConstant(
+            name="retraites cible du calendrier légal (ans, atteinte en 2032)",
+            source="constants.RETRAITES_REF_AGE_CIBLE_ANS",
+            raw_value=constants.RETRAITES_REF_AGE_CIBLE_ANS,
+            representations=("64,0", "64.0"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("64,0 ans en 2032",),
         ),
         CriticalConstant(
             name="retraites référence durée 2025 (ans)",
@@ -355,10 +360,10 @@ def test_drift_detected_when_md_eur_constant_changes(monkeypatch):
     """Même rouge automatisé pour la famille Md€ (sans %) : la revue
     2026-08-04 a montré que la faiblesse des motifs nus est invisible sur
     les constantes en %, il faut donc un cas de mutation dans CETTE famille
-    (recalibrage plausible 16 → 8, la dérive historique inversée)."""
-    monkeypatch.setattr(constants, "RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR", 8.0)
+    (recalibrage plausible 6 → 8, la dérive historique inversée)."""
+    monkeypatch.setattr(constants, "RETRAITES_COEFF_AGE_MD_EUR", 8.0)
 
-    with pytest.raises(AssertionError, match="RETRAITES_COEFF_AGE_AVANT_SEUIL_MD_EUR"):
+    with pytest.raises(AssertionError, match="RETRAITES_COEFF_AGE_MD_EUR"):
         test_critical_constants_representations_match_code()
 
 
