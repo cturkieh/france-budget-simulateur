@@ -26,7 +26,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from budget_simulator._seniors import retraites_ecart_age_ans
+from budget_simulator._seniors import (
+    retraites_annee_debut_ecart_age,
+    retraites_ecart_age_ans,
+)
 from budget_simulator.config import load_default_values
 from budget_simulator.constants import POLICY_START_YEAR, RETRAITES_REF_AGE_ANS
 from budget_simulator.simulator import BudgetSimulatorV45
@@ -118,3 +121,58 @@ def test_aucun_scenario_publie_nencode_le_gel_comme_statu_quo():
         f"{sorted(fautifs)} — depuis I3 cette valeur chiffre une suspension "
         "définitive de la réforme des retraites, pas une absence de mesure"
     )
+
+
+# ---------------------------------------------------------------------------
+# 3. Une seule horloge pour une seule montée en charge par cohortes
+# ---------------------------------------------------------------------------
+
+
+_GDP, _INFLATION, _UNEMP = 3000.0, 0.015, 0.075
+
+
+def _ligne_pension(age, year):
+    """Impact dépenses du handler retraites, âge seul (Md€, négatif = économie)."""
+    sim = BudgetSimulatorV45(mesures={})
+    delta, _, _ = sim._apply_retraites(
+        {}, {'age_depart': age}, year, _GDP, _INFLATION, _UNEMP)
+    return delta
+
+
+@pytest.mark.parametrize('age', [60.0, 61.5, 62.0, 62.75, 63.0, 64.0, 65.0, 67.0])
+def test_le_handler_date_le_choc_comme_les_canaux_macro(age):
+    """Le canal budgétaire et les canaux macro doivent dater le choc PAREIL.
+
+    Les quatre canaux d'une mesure d'âge lisent la MÊME montée en charge par
+    cohortes : `PHASING_RETRAITES_5ANS` côté handler, et le même facteur inclus
+    multiplicativement dans `PHASING_OFFRE_SENIORS` /
+    `PHASING_CHOMAGE_SENIORS` côté moteur. La clôture du lot 3 a ré-ancré les
+    seuls profils macro sur le début de l'écart et laissé le handler indexé sur
+    `year - POLICY_START_YEAR`.
+
+    Conséquence pour un programme dont l'écart s'ouvre en 2028 (âge 62,75) :
+    les mêmes générations étaient réputées entrées à 100 % pour les moindres
+    pensions et à 60 % pour l'offre de travail, la même année — soit ≈4,3 Md€
+    cumulés imputés en avance de phase sur 2028-2031.
+
+    Le test reconstruit la ligne de pension attendue à partir des constantes,
+    avec l'horloge du CHOC. Il ne fige aucun littéral : il suit un recalibrage
+    du barème, de la fuite ou du calendrier légal.
+    """
+    from budget_simulator.constants import (
+        FUITE_SOCIALE_RESIDUELLE,
+        PHASING_RETRAITES_5ANS,
+        RETRAITES_COEFF_AGE_MD_EUR,
+    )
+    from budget_simulator.handlers._phasing import _year_phasing
+
+    mesures = {'retraites': {'age_depart': age}}
+    debut = retraites_annee_debut_ecart_age(mesures)
+    for year in range(POLICY_START_YEAR, POLICY_START_YEAR + 10):
+        ecart = retraites_ecart_age_ans({'age_depart': age}, year)
+        attendu = -(RETRAITES_COEFF_AGE_MD_EUR * ecart
+                    * _year_phasing(year - debut, PHASING_RETRAITES_5ANS)
+                    * (1 - FUITE_SOCIALE_RESIDUELLE))
+        assert _ligne_pension(age, year) == pytest.approx(attendu, abs=1e-9), (
+            f"âge {age}, année {year} : le handler n'utilise pas l'horloge du "
+            f"choc (écart ouvert en {debut})")

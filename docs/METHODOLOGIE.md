@@ -326,9 +326,12 @@ des APU +17,7). Le simulateur ne cale rien sur ce total : il le retrouve.
    personne**. Sa sensibilite est testee : le bouclage a dix ans est de
    17,5 Md EUR avec la multiplication et 18,2 sans — le choix ne change pas
    la conclusion.
-3. **Les deux profils demarrent a l'annee ou l'ecart s'ouvre**, pas a l'annee
-   ou la simulation commence. Ils decrivent la reaction de l'economie a un
-   choc d'age : leur horloge part quand le choc part. La distinction n'est pas
+3. **Les QUATRE canaux demarrent a l'annee ou l'ecart s'ouvre**, pas a l'annee
+   ou la simulation commence — les deux profils macro comme la montee en charge
+   par cohortes du canal budgetaire, qui est le MEME facteur (les profils
+   macro l'incluent multiplicativement). Ils decrivent la reaction de
+   l'economie a un choc d'age : leur horloge part quand le choc part. La
+   distinction n'est pas
    theorique — la reference legale monte de 62,75 ans (2026-2027) a 64,0 ans
    (2032), donc un programme qui pose l'age a 62,75 a un ecart **rigoureusement
    nul** les deux premieres annees et ne s'ecarte du droit en vigueur qu'a

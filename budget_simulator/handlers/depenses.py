@@ -133,7 +133,10 @@ from ..constants import (
     asu_plafonnement_borne,
 )
 from .._logging import _log_debug
-from .._seniors import retraites_ecart_age_ans
+from .._seniors import (
+    retraites_annee_debut_ecart_age_handler,
+    retraites_ecart_age_ans,
+)
 from ._phasing import _year_phasing, asu_is_active, asu_phasing
 from ._types import ImpactsDict
 
@@ -181,7 +184,23 @@ class DepensesMixin(_MixinBase):
         # autour des references : hausse = economie, baisse = surcout miroir
         # (cf METHODOLOGIE.md § Retraites).
         year_idx = max(0, year - POLICY_START_YEAR)
+        # Horloge du RUN — pour les leviers dont l'ecart s'ouvre des la
+        # premiere annee simulee (duree de cotisation, indexation : leurs
+        # references sont FIXES).
         phasing = _year_phasing(year_idx, PHASING_RETRAITES_5ANS)
+        # Horloge du CHOC — pour le levier d'age, dont la reference est un
+        # CALENDRIER (I3). Meme montee en charge par cohortes, meme index que
+        # les canaux macro, qui l'incluent multiplicativement dans
+        # PHASING_OFFRE_SENIORS / PHASING_CHOMAGE_SENIORS. Sans cet alignement
+        # (revue adverse 25/08), un programme s'ecartant en 2028 avait les
+        # memes generations reputees entrees a 100 % pour les moindres pensions
+        # et a 60 % pour l'offre de travail, la meme annee. Les deux horloges
+        # COINCIDENT des que l'ecart s'ouvre en 2026, ce qui est le cas de tout
+        # age different de la valeur gelee : l'alignement ne deplace que ce
+        # seul point du domaine, mais c'est celui du curseur laisse au gel.
+        phasing_age = _year_phasing(
+            year - retraites_annee_debut_ecart_age_handler(params),
+            PHASING_RETRAITES_5ANS)
         delta_spending = 0.0
         # v0.6.1 — barème d'âge PLAT et STRICTEMENT SYMÉTRIQUE : une année
         # d'âge = RETRAITES_COEFF_AGE_MD_EUR de moindres dépenses de pension,
@@ -192,7 +211,7 @@ class DepensesMixin(_MixinBase):
         # deux « 17,7 Md€ » sans rapport ; sa falaise de −58 % à 64 ans venait
         # entièrement de ce premier segment, pas d'un phénomène sourcé.
         economie_brute_age = RETRAITES_COEFF_AGE_MD_EUR * ecart_age
-        delta_spending -= economie_brute_age * phasing
+        delta_spending -= economie_brute_age * phasing_age
         # Fuite sociale résiduelle (v0.6.1, I9) : une partie des seniors
         # décalés bascule sur d'autres prestations, ce qui ANNULE une part de
         # l'économie brute. On ne retient que 9,6 % (indemnités journalières
@@ -203,7 +222,7 @@ class DepensesMixin(_MixinBase):
         # la bosse seniors (engine/unemployment.py) fait précisément bouger.
         # SYMÉTRIQUE comme le reste du levier : un abaissement d'âge économise
         # ces mêmes prestations. Sources : constants.py § CANAL EMPLOI SENIORS.
-        delta_spending += economie_brute_age * phasing * FUITE_SOCIALE_RESIDUELLE
+        delta_spending += economie_brute_age * phasing_age * FUITE_SOCIALE_RESIDUELLE
         delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
         # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
         # par annee ecoulee et par point d'ecart a la pleine indexation,

@@ -23,10 +23,18 @@ Sources, valeurs et choix assumés : ``constants.py``, section « CANAL EMPLOI
 SENIORS ». Aucun littéral de calibration ici (verrouillé en CI par le
 test-propriété P8).
 
-ANCRAGE DES DEUX PROFILS (v0.6.1, clôture de la revue du lot 3) — les tables
-sont indexées sur le DÉBUT DE L'ÉCART du programme simulé, pas sur le début du
-run. Elles décrivent la réaction de l'économie à un choc d'âge : leur horloge
-part quand le choc part. Depuis l'item I3 la référence légale monte de 62,75 ans
+ANCRAGE — UNE SEULE HORLOGE POUR LES QUATRE CANAUX (v0.6.1, clôture de la revue
+du lot 3 puis de la revue adverse du 25/08) — les tables sont indexées sur le
+DÉBUT DE L'ÉCART du programme simulé, pas sur le début du run. Elles décrivent
+la réaction de l'économie à un choc d'âge : leur horloge part quand le choc
+part. Cela vaut aussi pour la montée en charge par cohortes
+``PHASING_RETRAITES_5ANS`` que lit le canal BUDGÉTAIRE (handler retraites) :
+c'est le même facteur que les deux profils macro incluent multiplicativement,
+donc la même horloge — ``retraites_annee_debut_ecart_age_handler``. La clôture
+du lot 3 n'avait ré-ancré que les profils macro, ce qui faisait entrer les mêmes
+générations à 100 % pour les moindres pensions et à 60 % pour l'offre de travail
+la même année (≈4,3 Md€ imputés en avance de phase sur 2028-2031 pour un écart
+s'ouvrant en 2028). Depuis l'item I3 la référence légale monte de 62,75 ans
 (2026-2027) à 64,0 ans (2032), donc un programme qui pose l'âge à 62,75 a un
 écart RIGOUREUSEMENT NUL en 2026-2027 et ne diverge du droit en vigueur qu'à
 partir de 2028. Indexer sur ``year - POLICY_START_YEAR`` lui appliquait alors
@@ -54,7 +62,7 @@ d'âge, et il faut le dire plutôt que d'extrapoler des points que le COR ne
 publie pas.
 """
 import math
-from typing import Dict
+from typing import Callable, Dict
 
 from .constants import (
     CHOMAGE_SENIORS_PIC,
@@ -73,6 +81,7 @@ from .handlers._phasing import _year_phasing
 
 __all__ = [
     'retraites_annee_debut_ecart_age',
+    'retraites_annee_debut_ecart_age_handler',
     'retraites_ecart_age_ans',
     'retraites_ecart_age_ans_moteur',
     'offre_seniors_niveau_pib',
@@ -176,13 +185,46 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     return age - retraites_ref_age_ans(year)
 
 
+def _premiere_annee_ecart_non_nul(ecart_de_lannee: Callable[[int], float]) -> int:
+    """Balayage commun aux deux lectures de l'horloge — cf. les deux fonctions
+    publiques ci-dessous. Une seule implémentation, deux lecteurs : c'est la
+    raison d'être de ce module (un recalibrage du calendrier légal doit
+    atteindre les quatre canaux, jamais deux sur quatre)."""
+    for annee in range(POLICY_START_YEAR, _ANNEE_PLATEAU_REF_AGE + 1):
+        if ecart_de_lannee(annee) != 0.0:
+            return annee
+    return POLICY_START_YEAR
+
+
+def retraites_annee_debut_ecart_age_handler(params: Dict) -> int:
+    """Même horloge, lue depuis le bloc `params` que reçoit le HANDLER.
+
+    Ajoutée par la clôture de la revue adverse (25/08) : la montée en charge
+    par cohortes `PHASING_RETRAITES_5ANS` est UNE seule montée en charge, lue
+    par le canal budgétaire directement et par les canaux macro à travers
+    ``PHASING_OFFRE_SENIORS`` / ``PHASING_CHOMAGE_SENIORS``, qui l'incluent
+    multiplicativement. Le handler l'indexait sur ``year - POLICY_START_YEAR``
+    pendant que les profils macro partaient du début de l'écart : pour un
+    programme s'écartant en 2028, les mêmes générations étaient réputées
+    entrées à 100 % pour les moindres pensions et à 60 % pour l'offre de
+    travail, la même année.
+
+    La lecture handler et la lecture moteur coïncident toujours : `params` a
+    traversé la porte unique (donc déjà borné), et c'est exactement le clamp
+    que ``retraites_ecart_age_ans_moteur`` reproduit.
+    """
+    return _premiere_annee_ecart_non_nul(
+        lambda annee: retraites_ecart_age_ans(params, annee))
+
+
 def retraites_annee_debut_ecart_age(mesures: Dict) -> int:
     """Première année civile où l'écart au droit en vigueur devient non nul.
 
-    C'est l'HORLOGE des deux profils macro (cf. l'ancrage documenté en tête
-    de module) : ils décrivent la réaction de l'économie à un choc d'âge, leur
+    C'est l'HORLOGE des profils macro (cf. l'ancrage documenté en tête de
+    module) : ils décrivent la réaction de l'économie à un choc d'âge, leur
     index doit donc partir quand le choc part, et non quand la simulation
-    part.
+    part. Depuis la clôture de la revue adverse, le canal budgétaire lit la
+    MÊME horloge, via ``retraites_annee_debut_ecart_age_handler``.
 
     Recherche bornée au plateau de la référence légale : au-delà,
     ``retraites_ref_age_ans`` est constante, donc l'écart d'un programme à âge
@@ -197,10 +239,8 @@ def retraites_annee_debut_ecart_age(mesures: Dict) -> int:
     années sur un écart de l'ordre de 1e-16, c'est-à-dire sur un canal déjà
     nul à la précision d'affichage.
     """
-    for annee in range(POLICY_START_YEAR, _ANNEE_PLATEAU_REF_AGE + 1):
-        if retraites_ecart_age_ans_moteur(mesures, annee) != 0.0:
-            return annee
-    return POLICY_START_YEAR
+    return _premiere_annee_ecart_non_nul(
+        lambda annee: retraites_ecart_age_ans_moteur(mesures, annee))
 
 
 def offre_seniors_niveau_pib(mesures: Dict, year: int) -> float:
