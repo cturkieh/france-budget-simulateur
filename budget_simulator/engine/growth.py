@@ -21,15 +21,31 @@ constantes de classe utilisées par ``calculate_growth``
 ``TRANSFER_MEASURES``) restent sur ``BudgetSimulatorV45`` (config
 niveau simulateur, résolues via ``self`` par le MRO) — non migrées.
 
+LECTEUR UNIQUE de la croissance potentielle (v0.6.1, correction I6) :
+``croissance_potentielle_totale()`` agrège les trois composantes
+(tendanciel + offre structurelle + offre de travail). Ses TROIS
+consommateurs — ``calculate_growth`` ici, ``calculate_unemployment``
+(loi d'Okun, ``engine/unemployment.py``) et la mise à jour de l'output
+gap (``engine/orchestrator.py``) — doivent passer par lui. Jusqu'en
+v0.6.0 les deux derniers lisaient la composante tendancielle NUE : tout
+bonus d'offre était alors lu comme un excès de demande et ouvrait un
+écart d'Okun permanent (amplifié ≈15,67× par la convergence NAIRU) et
+un output gap permanent. Le contrat est verrouillé en CI par
+``tests/test_okun_potentiel_v061.py``, gardes de source incluses.
+
 Paire PRODUCTEUR → CONSOMMATEUR inter-méthodes (invariant load-bearing) :
 - ``update_potential_growth`` (appelée APRÈS ``calculate_growth`` dans
   la boucle de ``simulate()``) MUTE ``self.base_params
   ['croissance_potentielle']`` EN PLACE (hystérèse) et réécrit
   ``self._potential_growth_bonus``. ``calculate_growth`` de l'année
-  N+1 consomme ces deux valeurs (``croissance = croissance_potentielle
-  + _potential_growth_bonus``). Ce sont les SEULS producteurs dans la
-  boucle ; ``simulate()`` ne fait que LIRE ``_fiscal_impulses`` /
-  ``_potential_growth_bonus`` pour le reporting (jamais réécrire).
+  N+1 consomme ces deux valeurs (via
+  ``croissance_potentielle_totale()``). Ce sont les SEULS producteurs
+  dans la boucle ; ``simulate()`` ne fait que LIRE ``_fiscal_impulses``
+  / ``_potential_growth_bonus`` pour le reporting (jamais réécrire).
+- ``_labour_supply_bonus`` (offre de TRAVAIL) est le troisième terme du
+  lecteur unique. Il n'a PAS encore de producteur : le canal emploi est
+  le lot suivant du chantier v0.6.1. Il vit hors du tendanciel à
+  dessein — voir la docstring de ``croissance_potentielle_totale``.
 - Conséquence non évidente : ``base_params['croissance_potentielle']``
   N'EST PAS immutable — il dérive année après année. L'hôte
   ``_reset_state`` DOIT le restaurer à la valeur utilisateur entre deux
@@ -83,6 +99,48 @@ logger = logging.getLogger(__name__)
 class GrowthMixin:
     """Bloc moteur — Croissance (PIB potentiel + multiplicateur keynésien)."""
 
+    def croissance_potentielle_totale(self) -> float:
+        """Croissance potentielle TOTALE — lecteur unique de la trajectoire
+        d'offre (v0.6.1, correction I6).
+
+        Trois blocs du moteur ont besoin de cette valeur : la croissance
+        (point de départ de l'année), la loi d'Okun (référence de l'écart
+        conjoncturel) et l'output gap (référence de l'écart d'activité).
+        Jusqu'en v0.6.0 seul le premier ajoutait les bonus d'offre, les deux
+        autres se contentaient de la composante tendancielle
+        ``base_params['croissance_potentielle']`` : tout choc d'OFFRE était
+        donc lu par Okun comme un excès de DEMANDE. L'écart ouvert chaque
+        année valait ``okun × bonus`` et la convergence NAIRU
+        (``u = 0,94·u + 0,06·nairu``) l'accumulait vers un état stationnaire
+        ``0,94/0,06 ≈ 15,67`` fois plus grand — soit ±1,10 pt de chômage
+        permanent au plafond de bonus ±0,20 pt, plus un output gap permanent
+        de ±0,20 pt réinjecté dans la courbe de Phillips et dans le choix du
+        multiplicateur budgétaire.
+
+        Un choc d'offre déplace le PIB potentiel : par construction il ne
+        crée ni écart d'Okun ni output gap. Les trois lectures passent donc
+        par cette méthode, et l'égalité entre elles est verrouillée en CI
+        (``tests/test_okun_potentiel_v061.py``).
+
+        Trois composantes, volontairement séparées :
+
+        - ``base_params['croissance_potentielle']`` — tendanciel, MUTÉ en
+          place par l'hystérèse de ``update_potential_growth`` puis clippé
+          dans [0,007 ; 0,012] ;
+        - ``_potential_growth_bonus`` — offre STRUCTURELLE (``SUPPLY_EFFECTS``
+          : recherche, éducation, transition, rénovation), plafonnée ±0,20 pt ;
+        - ``_labour_supply_bonus`` — offre de TRAVAIL (canal emploi, lot
+          suivant), encore nulle.
+
+        Les deux bonus vivent hors du tendanciel À DESSEIN : les reverser
+        dans ``base_params['croissance_potentielle']`` les ferait écrêter par
+        le clip ET figer par l'hystérèse, alors qu'ils sont transitoires.
+        Lecteur PUR : cette méthode ne mute rien.
+        """
+        return (self.base_params['croissance_potentielle']
+                + self._potential_growth_bonus
+                + self._labour_supply_bonus)
+
     def calculate_growth(self, year: int, economic_state: Dict) -> float:
         output_gap = economic_state['output_gap']
         unemployment_gap = economic_state['unemployment_gap']
@@ -92,7 +150,7 @@ class GrowthMixin:
         unemployment = economic_state.get('unemployment', 0.076)
         deficit_ratio = economic_state.get('deficit_ratio', -0.054)
 
-        croissance = self.base_params['croissance_potentielle'] + self._potential_growth_bonus
+        croissance = self.croissance_potentielle_totale()
         croissance += self.economic_coeffs['chomage_gap_weight'] * unemployment_gap
 
         if debt_ratio > 0.9:

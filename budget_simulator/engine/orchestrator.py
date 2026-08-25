@@ -575,7 +575,18 @@ class OrchestratorMixin:
                         )
 
                 # MISE À JOUR OUTPUT GAP - CRITIQUE !
-                output_gap = 0.8 * output_gap + 0.2 * (growth - self.base_params['croissance_potentielle'])
+                # Référence = croissance potentielle TOTALE, bonus d'offre
+                # inclus (v0.6.1, correction I6, même raison que la loi
+                # d'Okun) : l'output gap mesure un écart d'activité au
+                # potentiel, un choc d'offre déplace les deux termes ensemble
+                # et ne doit donc pas l'ouvrir. Lu contre la seule composante
+                # tendancielle, il se décalait de ±0,20 pt en permanence et
+                # contaminait la courbe de Phillips (inflation) puis le choix
+                # du multiplicateur budgétaire.
+                # Lecture AVANT update_potential_growth (ligne suivante) :
+                # comme calculate_growth et calculate_unemployment plus haut,
+                # cette ligne consomme l'état d'offre de l'année précédente.
+                output_gap = 0.8 * output_gap + 0.2 * (growth - self.croissance_potentielle_totale())
                 _log_debug(self.debug_logs, f"Y{year_idx}: Nouveau output gap = {output_gap:.3f}")
 
                 # Mise à jour croissance potentielle
@@ -752,7 +763,11 @@ class OrchestratorMixin:
                 'Output_Gap %': round(output_gap * 100, 2),
                 'Croissance_Potentielle %': round(self.base_params['croissance_potentielle'] * 100, 2),
                 'Bonus_Potentiel_Supply %': round(self._potential_growth_bonus * 100, 3),
-                'Croissance_Potentielle_Totale %': round((self.base_params['croissance_potentielle'] + self._potential_growth_bonus) * 100, 2),
+                # Somme réellement consommée par le moteur (tendanciel + offre
+                # structurelle + offre de travail) — v0.6.1 : passe par le
+                # lecteur unique pour que la colonne publiée ne puisse plus
+                # diverger de la croissance simulée.
+                'Croissance_Potentielle_Totale %': round(self.croissance_potentielle_totale() * 100, 2),
             })
 
         # Validation finale

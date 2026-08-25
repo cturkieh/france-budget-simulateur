@@ -12,12 +12,23 @@ Sources du canal micro : Lehmann et al. (2013), France Stratégie
 
 Profil de couplage : aucun état ÉCONOMIQUE d'instance écrit, aucun
 contrat producteur/consommateur d'état économique (à la différence de
-``InflationMixin``). Lecture seule de ``self.economic_coeffs['okun']``
-et ``self.base_params`` (``croissance_potentielle``, ``chomage_nairu``).
+``InflationMixin``). Lecture seule de ``self.economic_coeffs['okun']``,
+de ``self.base_params['chomage_nairu']`` et — via le lecteur unique
+``self.croissance_potentielle_totale()`` porté par ``GrowthMixin``
+(résolu par le MRO) — de la croissance potentielle TOTALE.
 Seul effet de bord : append conditionnel dans le sink de logs PARTAGÉ
 ``self.debug_logs`` via ``_log_debug`` — la méthode n'est donc pas pure
 au sens strict, et ``self.debug_logs`` doit être initialisé par
 ``BudgetSimulatorV45`` avant appel.
+
+Correction v0.6.1 (I6) : ce bloc lisait auparavant
+``base_params['croissance_potentielle']`` NUE, quand ``calculate_growth``
+partait de la potentielle bonus d'offre INCLUS. Les deux lectures
+divergeaient donc dès qu'un levier d'offre était actionné, et tout choc
+d'OFFRE était compté par Okun comme un excès de DEMANDE. La référence
+passe désormais par le même lecteur que les deux autres consommateurs
+(croissance et output gap) ; l'égalité est verrouillée en CI par
+``tests/test_okun_potentiel_v061.py``.
 
 L'agrégation des impacts chômage
 (``isinstance(impact, dict) and 'chomage' in impact``) est tolérante
@@ -48,8 +59,17 @@ class UnemploymentMixin:
         """Loi d'Okun avec ajustements structurels + impacts directs mesures"""
 
         # ===== LOI D'OKUN (effet croissance - MACRO) =====
+        # La référence est la croissance potentielle TOTALE, bonus d'offre
+        # inclus (v0.6.1, correction I6) : Okun mesure un écart de DEMANDE.
+        # Lue contre la seule composante tendancielle, elle comptait tout choc
+        # d'OFFRE comme un excès de demande et ouvrait un écart permanent,
+        # amplifié ≈15,67 fois par la convergence NAIRU ci-dessous
+        # (0,94/0,06) — jusqu'à ±1,10 pt de chômage pour un bonus de ±0,20 pt.
+        # Le lecteur unique vit dans GrowthMixin (résolu par le MRO) : les
+        # trois consommateurs de la croissance potentielle ne peuvent plus
+        # diverger.
         delta_unemployment = self.economic_coeffs['okun'] * (
-            growth - self.base_params['croissance_potentielle']
+            growth - self.croissance_potentielle_totale()
         )
 
         unemployment = unemployment_prev + delta_unemployment

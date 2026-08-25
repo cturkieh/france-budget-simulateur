@@ -615,6 +615,15 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._potential_growth_bonus = 0.0   # Bonus potentiel structurel (offre)
         self._supply_years = {}              # {measure_key: années actives}
         self._supply_bonus_by_key = {}       # {measure_key: bonus accumulé} pour dépréciation progressive
+        # Offre de TRAVAIL (v0.6.1) : état dédié, distinct du bonus d'offre
+        # structurel ci-dessus. Alimenté par personne à ce stade — le canal
+        # emploi seniors est le lot suivant. Il existe déjà parce que le
+        # lecteur unique croissance_potentielle_totale() doit l'agréger : un
+        # canal d'offre de travail NE DOIT PAS transiter par
+        # base_params['croissance_potentielle'], que update_potential_growth
+        # clippe dans [0,007 ; 0,012] et mute en place (hystérèse) — il y
+        # serait écrêté ET rendu permanent alors qu'il est transitoire.
+        self._labour_supply_bonus = 0.0
 
         # Valeur user de croissance_potentielle avant mutation par simulate()
         self._pre_simulate_croissance_potentielle = self.base_params['croissance_potentielle']
@@ -662,6 +671,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._potential_growth_bonus = 0.0
         self._supply_years = {}
         self._supply_bonus_by_key = {}
+        self._labour_supply_bonus = 0.0  # Offre de travail (v0.6.1) : transitoire, jamais reporté
 
         # --- Spending baseline et compound itératif ---
         self.spending_categories_base = dict(self._spending_categories_base_initial)

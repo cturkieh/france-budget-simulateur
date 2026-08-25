@@ -941,6 +941,37 @@ Inflation = (1 - 0,5) × 1,5% + 0,5 × Inflation precedente + 0,35 × Output gap
 
 **Cap total** : +0,20 pt maximum (et plancher symetrique -0,20 pt, v0.6.0). La croissance potentielle peut passer de 1,1% a 1,3% maximum.
 
+**Correction « un seul potentiel » (v0.6.1)** : jusqu'a la v0.6.0, trois blocs du moteur lisaient la
+croissance potentielle et deux d'entre eux ignoraient le bonus supply-side. La croissance de l'annee
+partait bien de « tendanciel + bonus », mais la **loi d'Okun** et la **mise a jour de l'output gap**
+mesuraient leur ecart contre le **tendanciel seul**. Consequence : tout choc d'**offre** etait lu comme
+un exces de **demande**. L'ecart ouvert chaque annee valait `okun x bonus`, et la convergence NAIRU
+(`u = 0,94 x u + 0,06 x nairu`) l'accumulait vers un etat stationnaire `0,94/0,06 = 15,67` fois plus
+grand — soit jusqu'a **1,10 pt de chomage permanent** pour un bonus au plafond, plus un **output gap
+permanent de 0,20 pt** reinjecte dans la courbe de Phillips et dans le choix du multiplicateur.
+Les trois lectures passent desormais par une source unique
+(`GrowthMixin.croissance_potentielle_totale()`).
+
+Ce que la correction change, et ce qu'elle ne change pas :
+
+- **inchange** : un investissement productif (recherche, education, transition) augmente toujours la
+  croissance potentielle, donc le PIB. Le canal d'offre est intact ;
+- **retire** : le gain (ou la perte) de **chomage** qui accompagnait ce bonus sans justification. Un
+  choc d'offre deplace le PIB potentiel : par construction il n'ouvre ni ecart d'Okun ni output gap.
+
+**Sens de la correction** — elle est **symetrique par construction**, mais elle ne tombe pas de la meme
+facon selon les programmes, et cela doit etre dit : les programmes qui **augmentent** les depenses
+d'offre perdaient a tort un peu de chomage (ils en regagnent ~+0,4 pt a l'horizon 2035), ceux qui les
+**coupent** en gagnaient a tort (ils en perdent ~-0,3 pt). Le sens du biais suivait le **signe** de la
+variation de depense d'offre, pas la couleur politique : la correction retire l'artefact dans les deux
+sens, avec la meme formule.
+
+**Limite connue (non corrigee en v0.6.1)** : le plancher monetaire accommodant (inflation < 0,8% tiree
+vers la tendancielle) est une regle **a seuil**. L'inflation n'est donc pas strictement monotone en
+l'output gap : deux scenarios peuvent voir leur inflation bouger dans le sens oppose a leur output gap
+selon le nombre de fois ou ce seuil est franchi. C'est un comportement pre-existant du bloc inflation,
+documente ici parce que la correction ci-dessus le rend visible.
+
 **Depreciation progressive** : Si les depenses sont reduites, le bonus acquis se deprecie graduellement (il ne disparait pas instantanement). Chaque canal a son propre taux de depreciation.
 
 **Correction bug abs() (v3.1)** : Dans les versions precedentes, les coupes budgetaires (depenses negatives) etaient incorrectement prises en valeur absolue, ce qui les traitait comme des investissements. Ce bug est corrige : seules les depenses positives au-dessus du niveau par defaut generent un bonus.
