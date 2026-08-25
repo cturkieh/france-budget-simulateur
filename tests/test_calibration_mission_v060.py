@@ -70,9 +70,33 @@ Le solde primaire est désormais borné PAR SON PROPRE TEST
 déficit tolérait implicitement : la contrainte totale sur le moteur est
 resserrée, pas relâchée.
 
-Tolérances — écarts mesurés v0.6.1 lot 8 : déflateur ≤ 0,17 pt, taux
-≤ 0,22 pt, charge ≤ 4,4 Md€, dette ≤ 1,68 pt, primaire ≤ 0,91 pt, déficit
-≤ 1,00 pt. Les bornes verrouillent la trajectoire contre toute régression
+--------------------------------------------------------------------------
+RÉSIDU (b) : RÉDUIT DE MOITIÉ AU LOT 9 — et la cause n'est pas le moteur
+--------------------------------------------------------------------------
+Le lot 9 re-source le scénario `plf_2026` lui-même. Il ne touche AUCUNE
+constante du moteur : il retire du SCÉNARIO l'effort que la loi de finances
+2026 ne chiffre pas (réforme des agences, fraude fiscale et sociale au régime,
+coupe fantôme de la recherche, économie de gestion de dette sans base) et
+encode les recettes votées qui manquaient. Or la mission décrit « la cible
+2026 atteinte par la loi, PUIS POLITIQUE INCHANGÉE » : un scénario qui
+poursuivait un ajustement non voté ne décrivait tout simplement pas le même
+objet qu'elle. Effet mesuré, sans recalibrage d'aucune sorte :
+
+    écart max à la mission          lot 8      lot 9
+    déficit                        1,00 pt    0,72 pt
+    dette                          1,68 pt    1,27 pt
+    charge d'intérêts              4,4 Md€    3,0 Md€
+    taux apparent                  0,22 pt    0,18 pt
+    solde primaire                 0,91 pt    0,65 pt
+
+Le résidu (b) était donc pour partie un écart d'OBJET, pas un écart de modèle.
+Ce qu'il en reste — le tendanciel de dépense primaire moins dynamique que celui
+de la mission, et le biais d'indexation I17 déclaré conservateur — appartient
+bien au bloc dépenses.
+
+Tolérances — écarts mesurés v0.6.1 lot 9 : déflateur ≤ 0,18 pt, taux
+≤ 0,18 pt, charge ≤ 3,0 Md€, dette ≤ 1,27 pt, primaire ≤ 0,65 pt, déficit
+≤ 0,72 pt. Les bornes verrouillent la trajectoire contre toute régression
 (revenir au taux v0.5.1 sort la charge de ~40 Md€ ; revenir au repricing
 géométrique 1/8 sort le taux apparent de ~0,3 pt ; revenir à la Phillips non
 ancrée sort le déflateur de ~0,6 pt/an).
@@ -114,15 +138,25 @@ CIBLE_PRIMAIRE = [-2.45, -3.05, -3.08, -3.19, -3.11]
 # absorber. Le budget de cette borne se lit comme la somme de ses deux
 # composantes, chacune bornée séparément : primaire ≤ 1,0 pt + charge
 # ≤ 5 Md€ (≈ 0,15 pt de PIB).
-TOL_DEFICIT = 1.1   # pt de PIB (v0.6.0 : 0,9 — cf. docstring, résidu (b) seul)
-# TOL_DETTE : RESSERRÉE (3,0 → 2,2) — mesuré 1,68 pt contre 2,41 en v0.6.0.
-# Le corridor de dette n'a plus besoin d'absorber l'erreur de dénominateur.
-TOL_DETTE = 2.2     # pt de PIB
-TOL_CHARGE = 5.0    # Md€ (mesuré 4,4)
-TOL_TAUX = 0.25     # pt (mesuré 0,22)
-TOL_DEFLATEUR = 0.2  # pt (I16 test-propriété 3 ; mesuré 0,17)
-TOL_NOMINAL = 0.2    # pt, sur la MOYENNE (cf. test dédié pour le motif)
-TOL_PRIMAIRE = 1.0   # pt de PIB (mesuré 0,91) — borne NOUVELLE en v0.6.1
+# TOUTES RESSERRÉES au lot 9 (sourcing du scénario de référence). Le motif est
+# le même pour les cinq et il est structurel, pas cosmétique : la mission décrit
+# « la cible 2026 atteinte par la loi de finances, PUIS POLITIQUE INCHANGÉE »,
+# alors que le scénario publié encodait +25,5 Md€/an d'effort en 2030 dont
+# aucune loi ne porte les neuf dixièmes. En retirant cet effort non voté, le
+# scénario se met enfin à décrire le même objet que la mission — et chaque
+# écart se referme, sans qu'aucune constante sourcée du moteur ne soit touchée.
+TOL_DEFICIT = 0.9   # pt de PIB (mesuré 0,72 ; lot 8 : 1,10 pour 1,00 mesuré)
+TOL_DETTE = 1.6     # pt de PIB (mesuré 1,27 ; lot 8 : 2,20 pour 1,68)
+TOL_CHARGE = 3.5    # Md€ (mesuré 3,00 ; lot 8 : 5,0 pour 4,4)
+TOL_TAUX = 0.22     # pt (mesuré 0,18 ; lot 8 : 0,25 pour 0,22)
+# Le déflateur est la SEULE borne non resserrée : mesuré 0,18 contre 0,17 au
+# lot 8. Un scénario moins austère désinfle un peu moins — l'effet est dans le
+# bon sens (la moyenne 2026-2030 passe de 1,400 à 1,412, elle décolle du
+# plancher de la fourchette du dossier signalé au lot 8), mais l'écart annuel
+# maximal, lui, s'ouvre de 0,01 pt. Marge restante : 0,02 pt, mince et déclarée.
+TOL_DEFLATEUR = 0.2  # pt (I16 test-propriété 3 ; mesuré 0,18)
+TOL_NOMINAL = 0.2    # pt, sur la MOYENNE (mesuré 0,106 ; cf. test dédié)
+TOL_PRIMAIRE = 0.8   # pt de PIB (mesuré 0,65 ; lot 8 : 1,0 pour 0,91)
 
 
 def _mesures_publiees():

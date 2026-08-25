@@ -331,7 +331,7 @@
       "nom": "Recherche publique",
       "description": "Budget recherche fondamentale (CNRS, CEA, universités)",
       "type": "formule",
-      "formule": "p.get('budget', 0)",
+      "formule": "p.get('budget', 10) - 10",
       "cible": "depenses",
       "parametres": {
         "budget": {
@@ -422,7 +422,7 @@
       "bloc": "efficience_depenses",
       "categorie": "depenses",
       "nom": "Optimisation dette",
-      "description": "Refinancement stratégique (1-2.5 Md€, temporaire 2026-2030)",
+      "description": "Refinancement stratégique (plafond 2,5 Md€/an, temporaire 2026-2030 — convention de modélisation du simulateur)",
       "type": "fonction",
       "cible": "depenses",
       "parametres": {
@@ -433,7 +433,7 @@
           "step": 0.1,
           "label": "Intensité refinancement (0-1)",
           "type": "number",
-          "tooltip": "Sources : Cour des comptes fév. 2025, IGF 2024. Effet temporaire si taux favorables. Neutralité : Gini=0, PA=0, Compétitivité=0."
+          "tooltip": "Le mécanisme (allonger la maturité moyenne quand les taux sont favorables) est décrit par la Cour et l'IGF, mais AUCUNE institution n'en publie le rendement : le plafond de 2,5 Md€/an est une convention de modélisation du simulateur, pas un chiffrage sourcé. Défaut 0. Neutralité : Gini=0, PA=0, Compétitivité=0."
         }
       }
     },

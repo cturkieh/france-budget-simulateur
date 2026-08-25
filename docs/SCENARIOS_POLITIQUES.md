@@ -23,6 +23,51 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 - **Source** : LF 2026 (loi 2026-103 du 19 fév 2026)
 - **Orientation** : consolidation budgétaire modérée, dans la continuité, avec préservation des acquis sociaux après amendements parlementaires. Trajectoire de réduction graduelle du déficit sans rupture fiscale ni sociale ; effort de maîtrise réparti sur les enveloppes ministérielles, hausse marquée de l'effort de défense, et fiscalité des grandes entreprises mobilisée à titre exceptionnel. C'est le scénario de référence « politique votée ».
 
+#### Périmètre couvert : ce que ce scénario n'encode pas, et pourquoi
+
+Ce scénario est **le point de départ du simulateur et le comparateur implicite de tous les
+programmes de parti**. À ce titre, ce qu'il omet compte autant que ce qu'il pose : une mesure
+votée mais non représentée déplace mécaniquement l'écart affiché de chaque programme. Le
+périmètre est donc déclaré ici, dans les deux sens.
+
+**Ne sont paramétrées que les mesures représentables par un levier existant du simulateur**, sans
+lui faire dire autre chose que ce qu'il calcule. La décomposition mesure par mesure de référence
+est le **Tableau 4 de l'OFCE, *Policy brief* n° 154 du 26 février 2026** (« Budget 2026 : un
+déficit de compromis », Madec, Plane *et al.*) — la seule décomposition chiffrée de la loi
+**votée** (et non du projet de loi) que la collecte de sources ait trouvée.
+
+Mesures votées **non encodées**, avec leur montant 2026 tel que publié par l'OFCE et le motif :
+
+| Mesure votée (LF / LFSS 2026) | Md€ 2026 | Sens sur le solde | Pourquoi elle n'est pas encodée |
+|---|---:|---|---|
+| Hausse du taux de cotisation **CNRACL** | 1,7 | recette | Le levier de cotisations du moteur porte sur la **masse salariale privée** et emporte un canal emploi et compétitivité calibré sur les entreprises. La CNRACL est le régime des agents des collectivités : l'encoder injecterait un choc d'emploi privé que la loi n'a pas voté. |
+| Sortie du **bouclier tarifaire TICFE** | 1,0 | recette | La TICFE est une **accise**, le levier disponible est un **taux de TVA** sur l'énergie, déjà à son niveau plein. |
+| **Taxe exceptionnelle sur les complémentaires santé** (2,05 %) | 1,0 | recette | Votée **pour la seule année 2026**. Tous les leviers du simulateur décrivent des flux permanents : l'encoder créerait une recette perpétuelle que la loi n'a pas votée. |
+| Prorogation de la **CDHR** (contribution différentielle sur les hauts revenus) | 0,7 | recette | Même motif : une **prorogation d'un an** encodée dans un levier permanent reproduirait, en sens inverse, le biais que cette version corrige. |
+| Renforcement du **malus écologique automobile** | 0,6 | recette | Aucun levier de fiscalité des véhicules n'existe dans le simulateur. |
+| **PSR-UE** (contribution au budget de l'Union) | 5,7 | dépense | Aucun levier de prélèvement sur recettes au profit de l'UE. **C'est la plus grosse ligne non représentée, et elle joue CONTRE le scénario de référence.** |
+| Hausse de la **prime d'activité** | 0,7 | dépense | Le levier de prestations du simulateur porte sur l'**indexation**, pas sur le barème d'une prestation isolée. |
+| **Aide publique au développement** | 0,8 | dépense | Aucun levier d'APD. |
+
+Sont en revanche **encodées** : la hausse de CSG sur les revenus financiers et la *flat tax*, et
+l'effort demandé aux collectivités locales (dont Dilico). Deux réserves d'interprétation, à dire
+plutôt qu'à taire : le levier CSG porte un **taux global**, la valeur posée est donc celle qui
+produit le rendement voté sur l'assiette du levier, et l'effet sur le pouvoir d'achat s'y répartit
+sur **tous** les ménages là où la loi ne vise que les revenus du capital — l'indicateur de pouvoir
+d'achat du scénario de référence est donc, sur ce point, **pessimiste** ; le levier
+« collectivités » est libellé en **dotations**, alors que l'effort voté transite en partie par
+d'autres canaux.
+
+Enfin, **la charge d'intérêts** (+5,8 Md€ en 2026) n'est pas un paramètre : elle est produite par
+le bloc dette du moteur, à partir du stock et du taux apparent.
+
+**Garde permanente.** Une loi de finances est annuelle. Le scénario peut porter l'effort chiffré
+pour son année et faire l'hypothèse, déclarée, que les mesures structurelles persistent ; il ne
+peut pas **accélérer**. Un test-propriété du moteur
+(`tests/test_scenario_plf2026_v061.py::test_gouvernance_effort_2030_ne_derive_pas_au_dela_de_lannee_votee`)
+borne à 0,5 point de PIB la dérive de l'effort encodé entre l'année votée et 2030 — sans quoi le
+scénario de référence voterait, silencieusement, un ajustement que le législateur n'a pas voté.
+
 ### Programme RN Le Pen 2027
 <!-- scenario:rn_2027 -->
 
@@ -86,12 +131,12 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 | chomage_alloc | degressivite | false | false | false | false | false | false | false | false | false |
 | chomage_alloc | duree | 18 | 24 | 30 | 15 | 18 | 18 | 27 | 24 | 18 |
 | chomage_alloc | taux_remplacement | 0.6 | 0.57 | 0.7 | 0.6 | 0.6 | 0.57 | 0.65 | 0.6 | 0.55 |
-| collectivites | dotation | 120 | 115 | 140 | 120 | 120 | 110 | 130 | 110 | 95 |
+| collectivites | dotation | 116.6 | 115 | 140 | 120 | 120 | 110 | 130 | 110 | 95 |
 | collectivites | investissement | 0 | 0 | 15 | 0 | 0 | 0 | 8 | 0 | 0 |
 | cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.27 | 0.27 | 0.25 | 0.28 | 0.27 | 0.26 |
 | cotisations_salariales | baisse_points | 0 | 2 | 0 | 1.5 | 0 | 0 | 0 | 0 | 0 |
 | csg | progressive | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| csg | taux | 0.097 | 0.097 | 0.105 | 0.097 | 0.097 | 0.097 | 0.1 | 0.097 | 0.097 |
+| csg | taux | 0.098039 | 0.097 | 0.105 | 0.097 | 0.097 | 0.097 | 0.1 | 0.097 | 0.097 |
 | defense | budget | 57 | 50 | 45 | 65 | 57 | 65 | 50 | 50 | 50 |
 | education | budget | 65 | 65 | 85 | 65 | 65 | 65 | 75 | 65 | 80 |
 | education | enseignants | 0 | 0 | 60000 | 0 | 0 | -20000 | 30000 | 0 | 10000 |
@@ -101,10 +146,10 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 | fiscalite_patrimoine | intensite | 0 | 0.15 | 0.3 | 0 | 0 | 0 | 0.25 | 0 | 0 |
 | fonction_publique | effectifs | -3119 | -50000 | 60000 | -100000 | -3119 | -200000 | 20000 | 0 | -120000 |
 | fonction_publique | point_indice | 0 | 0 | 10 | 0 | 0 | 0 | 3 | 0 | 0 |
-| fonction_publique_reforme | digitalisation | 20 | 30 | 10 | 50 | 20 | 50 | 15 | 0 | 50 |
-| fonction_publique_reforme | fusion_agences | 10 | 50 | 0 | 50 | 10 | 60 | 10 | 0 | 60 |
-| fraude_fiscale | effort | 0.5 | 1 | 1 | 0.5 | 0.5 | 0.8 | 0.9 | 0 | 0.8 |
-| fraude_sociale | effort | 0.3 | 1 | 0.5 | 0.3 | 0.3 | 1 | 0.6 | 0 | 0.8 |
+| fonction_publique_reforme | digitalisation | 0 | 30 | 10 | 50 | 20 | 50 | 15 | 0 | 50 |
+| fonction_publique_reforme | fusion_agences | 0 | 50 | 0 | 50 | 10 | 60 | 10 | 0 | 60 |
+| fraude_fiscale | effort | 0.2 | 1 | 1 | 0.5 | 0.5 | 0.8 | 0.9 | 0 | 0.8 |
+| fraude_sociale | effort | 0.1 | 1 | 0.5 | 0.3 | 0.3 | 1 | 0.6 | 0 | 0.8 |
 | immigration | ame | 1.2 | 0.4 | 1.5 | 1.2 | 1.2 | 0.3 | 1.4 | 1.1 | 0.8 |
 | immigration | integration | 0.8 | 0.3 | 1.2 | 0.8 | 0.8 | 0.4 | 1 | 0.7 | 0.6 |
 | impot_revenu | decote | 1 | 1.1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
@@ -114,15 +159,15 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 | impots_production | montant | 97 | 87 | 97 | 87 | 47 | 82 | 97 | 97 | 90 |
 | is_exceptionnel_tge | montant | 7.3 | 0 | 15 | 0 | 7.3 | 8 | 12 | 8 | 8 |
 | isf_climatique | intensite | 0 | 0.3 | 1 | 0 | 0 | 0 | 0.6 | 0 | 0 |
-| niches_fiscales_tge | montant | 56 | 58 | 20 | 56 | 31 | 50 | 40 | 58 | 40 |
+| niches_fiscales_tge | montant | 57 | 58 | 20 | 56 | 31 | 50 | 40 | 58 | 40 |
 | niches_sociales_tge | montant | 68 | 70 | 50 | 68 | 68 | 80 | 55 | 70 | 55 |
-| optimisation_dette | intensite | 0.3 | 0.6 | 0 | 0.3 | 0.3 | 0.6 | 0.2 | 0 | 0.5 |
+| optimisation_dette | intensite | 0 | 0.6 | 0 | 0.3 | 0.3 | 0.6 | 0.2 | 0 | 0.5 |
 | prestations_indexation | taux_indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 1 | 1 |
 | rabot_uniforme | exclure_defense | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | exclure_dette | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | 0.08 | 0 |
-| recherche_publique | budget | 8 | 8 | 15 | 8 | 8 | 3 | 12 | 0 | 15 |
+| recherche_publique | budget | 10 | 8 | 15 | 8 | 8 | 3 | 12 | 0 | 15 |
 | retraites | age_depart | — | 61.5 | 60 | — | 65 | 65 | 62 | 64 | 65 |
 | retraites | duree_cotisation | 42.5 | 41 | 40 | 42.5 | 43 | 43 | 43 | 43 | 44 |
 | retraites | indexation | 1 | 1 | 1 | 0.9 | 1 | 1 | 1 | 1 | 0.8 |

@@ -1768,22 +1768,23 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
 | Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 |
 |---|---|---|
-| `rn_2027` | +3,4 | +10,5 |
-| `lfi_2027` | +13,2 | +24,6 |
-| `renaissance_2027` | -7,1 | -5,3 |
-| `horizons_2027` | -10,8 | -7,4 |
-| `lr_2027` | -13,3 | -6,7 |
-| `ps_2027` | +0,1 | +8,1 |
-| `im_rabot_2029` | -33,6 | -27,1 |
-| `im_competitivite_2029` | -36,4 | -24,5 |
+| `rn_2027` | +3,4 | +11,1 |
+| `lfi_2027` | +13,2 | +25,2 |
+| `renaissance_2027` | -7,1 | -4,7 |
+| `horizons_2027` | -10,8 | -6,8 |
+| `lr_2027` | -13,3 | -6,1 |
+| `ps_2027` | +0,1 | +8,6 |
+| `im_rabot_2029` | -33,6 | -26,5 |
+| `im_competitivite_2029` | -36,4 | -24,0 |
 
-**Le constat, sans enrobage : les huit programmes se degradent tous PAR RAPPORT
-au scenario de reference — gauche comme droite, de +1,8 point pour Renaissance a
-+11,9 pour la variante competitivite de l'Institut Montaigne.** La cause est
-identifiable : cette version cable des canaux macroeconomiques (emploi seniors,
-Okun sur le potentiel, plafond de rendement de la prevention, cout reel de
-l'allocation sociale unique) que les programmes de parti actionnent beaucoup plus
-que la politique votee, laquelle ne bouge presque aucun de ces leviers.
+**Le constat, sans enrobage : sur cette mesure, les huit programmes se degradent
+tous PAR RAPPORT au scenario de reference — gauche comme droite, de +2,4 points
+pour Renaissance a +12,4 pour la variante competitivite de l'Institut
+Montaigne.** La cause est identifiable : cette version cable des canaux
+macroeconomiques (emploi seniors, Okun sur le potentiel, plafond de rendement de
+la prevention, cout reel de l'allocation sociale unique) que les programmes de
+parti actionnent beaucoup plus que la politique votee, laquelle ne bouge presque
+aucun de ces leviers.
 
 **Precision de lecture, ajoutee avec le recalage de la courbe de Phillips
 (lot 8)** : ce tableau publie des ECARTS RELATIFS, pas des niveaux. En NIVEAU, le
@@ -1800,14 +1801,55 @@ attendu et annonce d'un aplatissement de pente : il retire aux programmes
 d'expansion une part de leur penalite inflationniste ET aux programmes de
 consolidation leur prime desinflationniste implicite.
 
-**La moitie manquante de la correction, et elle joue dans l'autre sens.** Le
-scenario de reference encode environ +25,5 Md EUR/an d'effort en 2030 dont
-l'essentiel vient de trois leviers qu'aucune loi de finances n'a chiffres
-(reforme des agences et operateurs, fraude fiscale et sociale, efficience
-sante). Les retirer — et encoder symetriquement les recettes reellement votees
-qui manquent — est un chantier de SOURCING distinct, **qui n'est pas dans cette
-version**. Tant qu'il n'est pas fait, le comparateur reste avantage, et l'ecart
-publie ci-dessus surestime le cout relatif de chaque programme de parti.
+**La moitie compensatrice est LIVREE (lot 9) : le sourcing du scenario de
+reference lui-meme.** Elle etait annoncee ici comme manquante ; elle ne l'est
+plus. Le scenario « Budget 2026 (vote) » encodait +25,5 Md EUR/an d'effort en
+2030 dont environ 90 % venaient de trois leviers qu'aucune loi de finances n'a
+chiffres (reforme des agences et operateurs, fraude fiscale et sociale,
+efficience sante). Ils sont retires, et — c'est l'autre moitie, sans laquelle on
+remplacerait un biais par un autre — les recettes reellement votees et absentes
+sont encodees (CSG sur les revenus du capital, effort des collectivites). Effort
+encode : **+2,9 Md EUR en 2026 et +25,5 en 2030 AVANT, +3,9 et +11,8 APRES**. Le
+deficit 2026 reste sur la cible votee de -5,0 % (-5,28 avant, -5,25 apres) : la
+correction ne se paie pas d'un decrochage par rapport a la loi, elle en rapproche.
+
+**Le sens de cette moitie, mesure metrique par metrique — et il n'est pas
+uniforme.** Le scenario de reference perd l'effort qu'il n'avait pas de titre a
+porter, donc son DEFICIT se degrade chaque annee de 2027 a 2034 (jusqu'a
+-0,41 point en 2030) et sa dette NOMINALE 2035 monte de 73 Md EUR. Consequence
+sur les ecarts publies :
+
+| Mesure de l'ecart au scenario de reference | Deplacement du lot 9 | En faveur de |
+|---|---|---|
+| Deficit 2030 | -0,41 pt pour les huit | **les programmes de parti** |
+| Dette 2030 | -0,74 pt pour les huit | **les programmes de parti** |
+| Deficit 2035 | -0,07 pt pour les huit | **les programmes de parti** |
+| Dette 2035 (tableau ci-dessus) | **+0,57 pt pour les huit** | le scenario de reference |
+| Pouvoir d'achat 2029, Gini 2030 | inchanges a la precision publiee | — |
+
+Le deplacement est **identique pour les huit programmes** sur chaque ligne : seul
+le referentiel a bouge, aucun programme n'a ete retouche, et aucun rang du
+classement ne change.
+
+**Pourquoi la derniere ligne s'inverse, et pourquoi ce n'est pas une bonne
+nouvelle pour la politique votee.** Le ratio de dette 2035 du scenario de
+reference passe de 159,7 a 159,2 points ALORS QUE sa dette nominale augmente :
+l'effort retire cessait de peser sur l'activite, la croissance gagne environ
+0,2 point par an a partir de 2031 et le PIB nominal 2035 grossit de 1,6 % contre
+1,2 % pour la dette. C'est **exactement la meme classe d'effet que celle
+identifiee au lot 8 — un denominateur, pas des finances publiques
+assainies** — et c'est pour cela que les quatre autres mesures, elles, vont
+toutes dans le sens annonce.
+
+**Garde permanente pour que la derive ne revienne pas.** Une loi de finances est
+annuelle : le scenario de reference peut porter l'effort chiffre pour son annee
+et supposer, en le declarant, que les mesures structurelles persistent ; il ne
+peut pas accelerer. Un test-propriete borne desormais a 0,5 point de PIB la
+derive de l'effort encode entre l'annee votee et 2030 (mesure : 0,75 point avant
+le lot 9, 0,26 apres). Le perimetre couvert — les mesures votees que le
+simulateur ne sait pas representer, dans les deux sens, dont les 5,7 Md EUR de
+prelevement sur recettes au profit de l'UE qui jouent CONTRE le scenario de
+reference — est publie dans `SCENARIOS_POLITIQUES.md`.
 
 C'est dit ici plutot que decouvert par un lecteur : un simulateur citoyen ne se
 protege pas en evitant les corrections sensibles, il se protege en disant dans

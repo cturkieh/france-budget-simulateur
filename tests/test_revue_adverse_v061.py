@@ -309,9 +309,16 @@ def test_le_sens_agrege_de_la_version_est_publie_et_a_jour():
     Ce test verrouille DEUX choses :
     1. le tableau publié est celui des précalculs servis (pas une table figée
        qui dérive au premier recalibrage) ;
-    2. la moitié manquante de la correction — le sourcing du scénario de
-       référence, qui joue dans l'AUTRE sens — reste annoncée tant qu'elle
-       n'est pas livrée.
+    2. le sens du lot 9 — le sourcing du scénario de référence — reste publié
+       MESURE PAR MESURE. Cette seconde clause a changé d'objet au lot 9 : elle
+       exigeait auparavant que la moitié manquante reste ANNONCÉE tant qu'elle
+       n'était pas livrée ; elle l'est, et ce qu'elle a produit n'est pas
+       uniforme. Trois des quatre mesures d'écart (déficit 2030, dette 2030,
+       déficit 2035) bougent en faveur des programmes de parti, la quatrième —
+       la dette 2035, précisément celle que le tableau ci-dessus publie —
+       bouge de +0,57 pt DANS L'AUTRE SENS, par effet de dénominateur.
+       Publier le tableau sans cette ventilation le rendrait trompeur : le
+       lecteur y lirait que corriger le comparateur a pénalisé les programmes.
     """
     texte = _METHODO.read_text(encoding='utf-8')
     assert 'EN AGREGE' in texte, "la methodologie ne publie pas le sens agrege de la version"
@@ -325,6 +332,12 @@ def test_le_sens_agrege_de_la_version_est_publie_et_a_jour():
         assert float(publie) == pytest.approx(ecart, abs=0.06), (
             f"{scenario} : la methodologie publie {publie}, les precalculs "
             f"donnent {ecart:+.1f} — tableau agrege perime")
-    # La moitié non livrée doit rester dite (sinon le lecteur croit la
-    # correction complète, et le comparateur reste avantagé en silence).
-    assert 'moitie manquante' in texte.lower() or 'moitie manquante' in texte
+    # Le tableau ci-dessus ne publie QUE la dette 2035 — la seule des quatre
+    # mesures d'écart que le lot 9 déplace en faveur du scénario de référence.
+    # Sans la ventilation par mesure ni son motif (un dénominateur, comme au
+    # lot 8), le tableau seul induit le lecteur en erreur.
+    for exige in ('Deficit 2030', 'Dette 2030', 'denominateur'):
+        assert exige in texte, (
+            f"« {exige} » manque a la ventilation du sens du lot 9 : le tableau "
+            f"de dette 2035 publie la SEULE mesure qui bouge en faveur du "
+            f"scenario de reference")
