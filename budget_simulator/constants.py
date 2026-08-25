@@ -949,3 +949,150 @@ INDEXATION_BASELINE_RATIO = 0.54
 # entraîner l'autre silencieusement (revue type-design 2026-06-10).
 # Consommée par engine/expenditures.py (π_idx, refonte assemblage temporel).
 INDEXATION_DEPENSES_INFLATION_PASSEE = 0.54
+
+
+# ===========================================================================
+# CANAUX GINI — v0.6.1 lot 6 (items I27 à I30)
+# ===========================================================================
+# Rappel de périmètre, valable pour TOUT ce bloc : l'indicateur publié par le
+# simulateur est le Gini du NIVEAU DE VIE (revenu disponible par unité de
+# consommation, définition INSEE). N'y entre donc que ce qui passe par le
+# revenu disponible des ménages. Un transfert EN NATURE (école, hôpital,
+# recherche) n'y entre pas — non par oubli du modèle, mais par construction de
+# l'indicateur. C'est ce périmètre, et non un coefficient, qui explique les
+# zéros de ce bloc.
+#
+# --- I28 : taxe carbone ----------------------------------------------------
+# Le moteur v0.6.0 émettait +0,002 de Gini pour +50 €/tCO2, en s'appuyant sur
+# une note attribuée à l'OFCE que la collecte de sourcing v0.6.1 n'a pas pu
+# retrouver (§ B.4-31 : citation RETIRÉE, jamais réécrite). Ce chiffre est en
+# outre exactement le DOUBLE de ce que les deux évaluations françaises
+# réellement publiées permettent de dériver.
+#
+# SOURCES PRIMAIRES :
+#   - Douenne T. (2020), « The Vertical and Horizontal Distributive Effects of
+#     Energy Taxes: A Case Study of a French Policy », The Energy Journal,
+#     41(3), p. 231-253. Version de travail en accès libre : FAERE Working
+#     Paper 2018.10 — http://faere.fr/pub/WorkingPapers/Douenne_FAERE_WP2018.10.pdf
+#   - Institut des politiques publiques (IPP), « The redistributive effects of
+#     carbon taxation in France », Note IPP n° 34, juillet 2018 —
+#     https://www.ipp.eu/wp-content/uploads/2018/07/n34-notes-IPP-July2018.pdf
+#
+# POLITIQUE ÉVALUÉE PAR CES DEUX SOURCES : passage du prix du carbone de 22 à
+# 44,6 €/tCO2, hors électricité, 4,1 Md€/an de recettes. Taux d'effort
+# D1 = 0,55 % du revenu disponible contre D10 = 0,20-0,21 % (ratio ≈ 2,6). Le
+# chèque énergie (354 M€, soit 8,6 % des recettes) ne corrige pas cette
+# régressivité.
+# DÉRIVATION : coefficient de concentration de la taxe C ≈ +0,12 à +0,13
+# (robuste sur 4 spécifications) ⇒ +1,1 × 10⁻⁴ de Gini par Md€ de recettes ;
+# taux de conversion IPP 0,181 Md€ par €/tCO2 ⇒ +0,0010 de Gini pour
+# +50 €/tCO2 (fourchette 0,0009-0,0011). Confiance : DÉFENDABLE.
+#
+# ⚠️ CONDITION DE VALIDITÉ — LE SIGNE PEUT S'INVERSER. Le coefficient suppose
+# l'ABSENCE DE RECYCLAGE des recettes, ce qui est bien le cas dans ce moteur
+# (la taxe carbone abonde le budget général). Douenne montre qu'avec une
+# compensation forfaitaire, les déciles D1 à D5 deviennent GAGNANTS et que le
+# signe s'inverse. Écrire « la taxe carbone est régressive » sans cette
+# condition serait une demi-vérité. Le jour où un scénario encode une
+# redistribution forfaitaire des recettes, ce coefficient cesse de valoir.
+#
+# Prix de référence : 44,6 €/tCO2, valeur de la composante carbone française
+# gelée depuis 2018, et cible de la politique évaluée par la Note IPP n° 34.
+# SOURCE UNIQUE : cinq littéraux 44.6 cohabitaient dans le handler (valeur par
+# défaut, recettes, Gini, pouvoir d'achat, compétitivité) — un recalibrage de
+# la référence n'en aurait atteint qu'une partie.
+CARBONE_PRIX_REFERENCE_EUR_T = 44.6
+GINI_TAXE_CARBONE_PAR_EUR_TONNE = 0.001 / 50.0   # +0,0010 de Gini pour +50 EUR/tCO2
+#
+# --- I29 : aides à la rénovation énergétique -------------------------------
+# Le moteur v0.6.0 émettait −0,001 pour +5 Md€ (soit −2,0 × 10⁻⁴/Md€) en
+# s'appuyant sur une publication attribuée à l'agence de la transition
+# écologique que la collecte de sourcing v0.6.1 n'a pas pu retrouver
+# (§ B.4-31 : citation RETIRÉE, jamais réécrite). Bon signe, ~1,7× trop
+# faible.
+#
+# SOURCES PRIMAIRES :
+#   - ONRE/SDES, « Les rénovations énergétiques aidées du secteur résidentiel
+#     entre 2016 et 2020 », résultats provisoires, février 2023,
+#     graphiques 11 à 14 —
+#     https://www.statistiques.developpement-durable.gouv.fr/media/6235/download?inline
+#     MaPrimeRénov' concentre 60 % des économies d'énergie sur les déciles
+#     D1-D4 (« Habiter mieux Sérénité » 64 % ; CEE uniforme ; l'ancien CITE
+#     était au contraire ANTI-redistributif : D1+D2 8 %, D10 14 %). Part
+#     D1-D4 de l'ensemble des aides : 32 % en 2016 → 42 % en 2020.
+#   - Observatoire national de la précarité énergétique (ONPE), « Tableau de
+#     bord de la précarité énergétique », édition 2024 (données Anah 2023) —
+#     https://www.precarite-energie.org/wp-content/uploads/2024/06/onpe-tableau-de-bord-v3.pdf
+#     « 505 126 dossiers MaPrimeRénov' engagés en 2023. 67 % des dossiers
+#     concernent les ménages modestes et très modestes. »
+#
+# DÉRIVATION : coefficient de concentration C ≈ −0,25 [−0,24 ; −0,26]
+# (testé sur 3 profils de déciles compatibles avec la contrainte ONRE)
+# ⇒ ΔGini ≈ −3,4 × 10⁻⁴ par Md€ sur base revenu disponible.
+#
+# ⚠️ HYPOTHÈSE DÉCLARÉE — confiance DÉFENDABLE, jamais SOLIDE (§ B.4-30 du
+# dossier de sourcing) : aucune publication ne ventile les MONTANTS versés par
+# décile. L'ONRE publie des économies d'énergie, l'ONPE des nombres de
+# dossiers. On suppose donc que les euros suivent le profil des ÉCONOMIES
+# D'ÉNERGIE. Hypothèse CONSERVATRICE : les taux de prise en charge plus élevés
+# des ménages « Bleu » et « Jaune » rendraient le profil en euros PLUS
+# pro-pauvres, donc le coefficient plus fort en valeur absolue.
+#
+# Contrairement à l'éducation, l'aide à la rénovation est un transfert
+# MONÉTAIRE aux ménages : elle entre légitimement dans le revenu disponible,
+# le canal est pleinement dans le périmètre de l'indicateur affiché.
+GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
+#
+# --- I27 : éducation — zéro PAR CONSTRUCTION, et non par oubli -------------
+# AUCUNE CONSTANTE, délibérément. `_apply_education` émet `'gini': 0.0` en
+# clair, avec son motif de périmètre. L'ancien fallback de
+# `engine/micro_impacts.py` retranchait 0,04 × (dépense / PIB) — coefficient
+# sans aucune source (0 occurrence dans METHODOLOGIE.md), asymétrique (une
+# COUPE d'éducation émettait exactement 0) et récurrent (le Gini dérivait
+# linéairement avec l'horizon).
+# Aucune élasticité « +1 Md€ d'éducation → ΔGini » n'existe dans la
+# littérature (§ B.4-28), et ce n'est pas un trou de collecte : les
+# évaluations distributives françaises travaillent en microsimulation sur
+# BARÈMES (OpenFisca, TAXIPP, Ines), et une dépense d'éducation n'a pas de
+# barème. On ne fabrique donc pas le chiffre.
+# Ce que les sources donnent porte sur l'indicateur ÉLARGI (revenus élargis à
+# l'ensemble de l'économie), qui n'est PAS celui du site : André M., Barrau A.,
+# Renaud T. (Insee), « Revenus des ménages élargis à l'ensemble de l'économie
+# en 2023 », Insee Analyses n° 118, avril 2026, figures 2 et 3 —
+# https://www.insee.fr/fr/statistiques/8974371 (les transferts en nature
+# expliquent 51 % de la réduction des inégalités, indice de concentration
+# −0,115). Même sur cet indicateur, l'ordre de grandeur reste du SECOND ORDRE :
+# déplacer le Gini élargi de 0,01 demanderait ≈ 72 Md€, soit +70 % du budget
+# de l'éducation nationale.
+#
+# --- I30 : recherche publique — zéro ASSUMÉ et argumenté -------------------
+# AUCUNE CONSTANTE. Aucune étude, française ou internationale, n'estime
+# l'incidence distributive de la dépense publique de R&D sur les ménages
+# (§ B.4-29). Trou de la LITTÉRATURE, pas de la collecte : la R&D publique
+# s'évalue par ses RENDEMENTS (Guellec & van Pottelsberghe, élasticité 0,17 —
+# déjà utilisée par le canal compétitivité du même handler), pas par son
+# incidence. Ce qui existe à la place est une CONVENTION comptable : l'INSEE
+# classe la diffusion de la recherche parmi les dépenses de consommation
+# COLLECTIVE (non individualisables), aux côtés de la défense, de la police et
+# de la justice, réparties par hypothèse — avec trois variantes publiées
+# (uniforme, proportionnelle au revenu, mixte) et l'avertissement de l'INSEE
+# que ces hypothèses « sont déterminantes ».
+#
+# --- DETTE CONNUE : le seul survivant du fallback générique ----------------
+# ⚠️ COEFFICIENT NON SOURCÉ, CONSERVÉ EN L'ÉTAT ET DÉCLARÉ COMME TEL.
+# `_apply_impot_societes` n'émet volontairement pas de clé `gini` (son
+# commentaire dit « PAS D'IMPACT MICRO : répercussion prix uniforme sur tous
+# déciles »), mais le fallback générique en émettait un dans son dos, de façon
+# ASYMÉTRIQUE : `if recettes > 0`, donc une BAISSE d'impôt sur les sociétés
+# émet exactement 0. Le dossier de sourcing v0.6.1 croyait cette branche
+# inerte comme les cinq autres ; le balayage empirique du lot 6 montre
+# qu'elle est ACTIVE, y compris dans deux scénarios publiés (LFI à 30 % et PS
+# à 27 % d'IS).
+# Pourquoi elle n'est PAS corrigée ici : elle déplace des chiffres publiés, et
+# aucune source de ce lot ne dit par quoi la remplacer. La retirer, ou la
+# symétriser, sans source, remplacerait un biais par un autre. Elle est donc
+# NOMMÉE (un coefficient anonyme au milieu d'un moteur est intraçable pour un
+# auditeur externe), caractérisée par un test, et renvoyée au chantier v0.7
+# — même chantier que la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 du
+# dossier : « non calculable en l'état », « ne pas bricoler »).
+GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE = 0.03

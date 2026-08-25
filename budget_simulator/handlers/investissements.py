@@ -30,7 +30,12 @@ attribut/méthode d'instance de ``BudgetSimulatorV45``.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import POLICY_START_YEAR
+from ..constants import (
+    CARBONE_PRIX_REFERENCE_EUR_T,
+    GINI_RENOVATION_PAR_MD_EUR,
+    GINI_TAXE_CARBONE_PAR_EUR_TONNE,
+    POLICY_START_YEAR,
+)
 from .._logging import _log_debug
 from ._phasing import _year_phasing
 from ._types import ImpactsDict
@@ -118,8 +123,26 @@ class InvestissementsMixin(_MixinBase):
 
         competitivite = competitivite_budget + competitivite_teachers + competitivite_salaires
 
+        # === GINI : ZÉRO PAR CONSTRUCTION DE L'INDICATEUR (v0.6.1, item I27) ===
+        # L'indice publié est le Gini du NIVEAU DE VIE (revenu disponible par
+        # unité de consommation, définition INSEE). Une dépense d'éducation est
+        # un transfert EN NATURE : elle n'entre pas dans le revenu disponible.
+        # L'effet mécanique direct est donc exactement nul — par PÉRIMÈTRE de
+        # l'indicateur, pas par oubli du modèle.
+        #
+        # Le zéro est émis EXPLICITEMENT, et c'est le cœur de la correction :
+        # tant que la clé était absente, la mesure retombait dans un fallback
+        # générique de engine/micro_impacts.py qui retranchait 0,04 × (dépense
+        # / PIB) — coefficient sans aucune source, appliqué UNIQUEMENT aux
+        # hausses (une coupe d'éducation émettait 0, avantage silencieux aux
+        # programmes de coupe) et RÉPÉTÉ chaque année dans un agrégateur
+        # cumulatif. Cf. constants.py § CANAUX GINI pour les sources et l'ordre
+        # de grandeur sur l'indicateur ÉLARGI, qui n'est pas celui du site.
+        gini = 0.0
+
         impacts = {
             'depenses': delta_spending,
+            'gini': gini,
             'pouvoir_achat': pouvoir_achat,
             'competitivite': competitivite
         }
@@ -149,14 +172,19 @@ class InvestissementsMixin(_MixinBase):
                  Porter & van der Linde 1995, CAE 2023, France Stratégie 2023
         """
         investment = params.get('investissement', 0)
-        carbon_tax = params.get('taxe_carbone', 44.6)  # Défaut 44.6€/tCO2 (réalité 2024-2025, gelée depuis 2018)
+        # SOURCE UNIQUE du prix de référence : cinq littéraux du même prix
+        # cohabitaient ici (valeur par défaut, recettes, Gini, pouvoir d'achat,
+        # compétitivité) — un recalibrage de la référence n'en aurait atteint
+        # qu'une partie.
+        carbon_tax = params.get('taxe_carbone', CARBONE_PRIX_REFERENCE_EUR_T)
         renovation = params.get('renovation', 0)
 
         delta_spending = investment + renovation
 
         # Recettes taxe carbone : ~6 Md€ pour 100€/tCO2, proportionnel
-        # Référence : 44.6€ = statu quo, donc delta = (taxe - 44.6) * 0.06
-        delta_revenue = (carbon_tax - 44.6) * 0.06
+        # Référence : CARBONE_PRIX_REFERENCE_EUR_T = statu quo (composante
+        # carbone française gelée depuis 2018), donc delta = (taxe - réf) * 0.06
+        delta_revenue = (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) * 0.06
         if year >= 2027:
             # [FIX] Retours fiscaux de la transition — 5-8% avec phase-in.
             # L'ancien taux de 20% impliquait 16 Md€/an de retour pour 80 Md€ de dépense,
@@ -183,13 +211,31 @@ class InvestissementsMixin(_MixinBase):
             'renovation': renovation
         }
         if self._is_first_year_change('transition_ecologique', params_transition):
-            # 1) Primes rénovation = PROGRESSIF (aide D1-D3)
-            # Règle : +5 Md€ rénovation = -0.001 Gini (ADEME 2024)
-            gini_renovation = -0.001 * renovation / 5
+            # 1) Aides à la rénovation = REDISTRIBUTIF (v0.6.1, item I29)
+            # -0,00034 de Gini par Md€, soit -0,0017 pour +5 Md€.
+            # Sources : ONRE/SDES fév. 2023 (MaPrimeRénov' concentre 60 % des
+            # économies d'énergie sur D1-D4) + ONPE 2024 (67 % des dossiers
+            # engagés en 2023 = ménages modestes et très modestes).
+            # Contrairement à l'éducation, c'est un transfert MONÉTAIRE aux
+            # ménages : le canal est pleinement dans le périmètre du Gini du
+            # niveau de vie. Le coefficient de la v0.6.0 (-0,001 pour 5 Md€)
+            # avait le bon signe mais était ~1,7× trop faible, et citait une
+            # source introuvable. Détail de la dérivation et hypothèse
+            # déclarée : constants.py § CANAUX GINI.
+            gini_renovation = GINI_RENOVATION_PAR_MD_EUR * renovation
 
-            # 2) Taxe carbone = RÉGRESSIF (pénalise D1-D4, part budget énergie + élevée)
-            # Règle : +50€/tCO2 = +0.002 Gini (OFCE 2019 "taxe carbone régressive")
-            gini_carbon = 0.002 * (carbon_tax - 44.6) / 50
+            # 2) Taxe carbone = RÉGRESSIF (v0.6.1, item I28)
+            # +0,0010 de Gini pour +50 €/tCO2. Sources : Douenne (2020),
+            # The Energy Journal 41(3) + Note IPP n° 34 (juillet 2018) :
+            # taux d'effort D1 = 0,55 % du revenu disponible contre
+            # D10 = 0,20-0,21 %. La v0.6.0 était exactement au DOUBLE, sur
+            # une source introuvable.
+            # ⚠️ Valable SOUS CONDITION D'ABSENCE DE RECYCLAGE des recettes
+            # — ce qui est bien le cas ici (la taxe abonde le budget
+            # général). Avec une compensation forfaitaire, Douenne montre que
+            # D1-D5 deviennent gagnants et que le SIGNE S'INVERSE.
+            gini_carbon = GINI_TAXE_CARBONE_PAR_EUR_TONNE * (
+                carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T)
 
             gini = gini_renovation + gini_carbon
         else:
@@ -200,7 +246,8 @@ class InvestissementsMixin(_MixinBase):
         # Taxe carbone = ONE-TIME (changement de niveau de prix relatif, comme tva_energie déjà gated)
         pouvoir_achat_renovation = 0.001 * renovation / 5
         if self._is_first_year_change('transition_carbone_pa', {'carbon_tax': carbon_tax}):
-            pouvoir_achat_carbone = -0.0005 * (carbon_tax - 44.6) / 50
+            pouvoir_achat_carbone = -0.0005 * (
+                carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) / 50
         else:
             pouvoir_achat_carbone = 0.0
         pouvoir_achat = pouvoir_achat_renovation + pouvoir_achat_carbone
@@ -229,7 +276,8 @@ class InvestissementsMixin(_MixinBase):
         params_carbon = {'carbon_tax': carbon_tax}
         if self._is_first_year_change('taxe_carbone', params_carbon):
             # Coefficient réduit car CBAM atténue l'effet (protège industrie UE)
-            competitivite_carbon = -0.002 * (carbon_tax - 44.6) / 50  # Réduit de -0.003 à -0.002
+            competitivite_carbon = -0.002 * (
+                carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) / 50  # Réduit de -0.003 à -0.002
         else:
             competitivite_carbon = 0.0
 
@@ -306,9 +354,23 @@ class InvestissementsMixin(_MixinBase):
         else:
             pouvoir_achat = 0.0
 
-        # === GINI : QUASI-NEUTRE ===
-        # R&D = emplois qualifiés (favorise classes moyennes supérieures)
-        # Effet très limité sur distribution revenus
+        # === GINI : ZÉRO ASSUMÉ ET ARGUMENTÉ (v0.6.1, item I30) ===
+        # Aucune étude, française ou internationale, n'estime l'incidence
+        # distributive de la dépense publique de R&D sur les ménages. Ce n'est
+        # pas un trou de la collecte, c'est un trou de la LITTÉRATURE : la R&D
+        # publique s'évalue par ses RENDEMENTS (Guellec & van Pottelsberghe,
+        # élasticité 0,17 — celle qu'utilise le canal compétitivité
+        # ci-dessus), pas par son incidence sur la distribution des revenus.
+        # Ce qui existe à la place est une CONVENTION comptable : l'INSEE
+        # classe la diffusion de la recherche parmi les dépenses de
+        # consommation COLLECTIVE (non individualisables), aux côtés de la
+        # défense, de la police et de la justice — réparties par hypothèse,
+        # avec trois variantes publiées (uniforme, proportionnelle au revenu,
+        # mixte) et l'avertissement de l'INSEE que ces hypothèses « sont
+        # déterminantes ».
+        # Le motif affiché par la v0.6.0 était tout autre : il AFFIRMAIT une
+        # incidence distributive — non sourcée, et de signe opposé au zéro
+        # qu'elle prétendait justifier.
         gini = 0.0
 
         impacts = {

@@ -893,6 +893,29 @@ Les homogeneiser suppose de re-deriver le facteur d'echelle global
 - 100-200 EUR/t : -0,1 pt competitivite par 10 EUR
 - > 200 EUR/t : -0,2 pt par 10 EUR (penalite forte)
 
+**Impact Gini (recalibre v0.6.1, item I28)** : **+0,0010 de Gini pour
++50 EUR/tCO2** (fourchette 0,0009-0,0011), soit exactement la MOITIE du
+coefficient de la v0.6.0. Sources : Douenne T. (2020), « The Vertical and
+Horizontal Distributive Effects of Energy Taxes: A Case Study of a French
+Policy », *The Energy Journal* 41(3), p. 231-253 ; Institut des politiques
+publiques, « The redistributive effects of carbon taxation in France »,
+*Note IPP* n° 34, juillet 2018. Ces deux evaluations portent sur le passage
+de 22 a 44,6 EUR/tCO2 (4,1 Md EUR/an de recettes, hors electricite) : taux
+d'effort D1 = 0,55 % du revenu disponible contre D10 = 0,20-0,21 %. Le
+coefficient de la v0.6.0 (+0,002) s'appuyait sur une note attribuee a l'OFCE
+que la collecte de sourcing n'a pas pu retrouver ; la citation a ete retiree,
+pas reecrite.
+
+> **CONDITION DE VALIDITE — le signe peut s'inverser.** Ce coefficient suppose
+> l'ABSENCE DE RECYCLAGE des recettes, ce qui est bien le cas dans le moteur :
+> la taxe carbone y abonde le budget general. Douenne montre qu'avec une
+> **compensation forfaitaire**, les deciles D1 a D5 deviennent GAGNANTS et que
+> le signe de l'effet s'inverse. Dire « la taxe carbone est regressive » sans
+> cette condition serait une demi-verite. Rapporte aux DEPENSES totales plutot
+> qu'au revenu, l'effort est d'ailleurs quasi plat (0,37 % contre 0,32 %). Le
+> cheque energie (354 M EUR, 8,6 % des recettes) ne corrige pas la
+> regressivite mesuree sur le revenu.
+
 **Redistribution possible** : Cheque energie pour menages modestes
 
 ### Investissements Verts
@@ -910,15 +933,45 @@ Les homogeneiser suppose de re-deriver le facteur d'echelle global
 **Mesures d'investissement productif (pour multiplicateur)** : education, transition_eco, recherche (PAS defense)
 
 **Impacts :**
-- Gini : +5 Md EUR renovation = -0,001 (redistributif)
+- Gini : +5 Md EUR renovation = **-0,0017** (redistributif ; recalibre v0.6.1,
+  cf. § Aides Renovation Energetique)
 - PA : +5 Md EUR = +0,001 (economies energie)
 - Competitivite : +10 Md EUR = +0,002 (competitivite verte LT)
+- L'investissement vert lui-meme n'a **aucun** canal Gini : aucune source ne
+  donne l'incidence distributive d'un euro d'investissement (a la difference
+  des aides a la renovation, qui sont un transfert monetaire aux menages). Le
+  chiffre n'est pas fabrique.
 
 ### Aides Renovation Energetique
 
 - MaPrimeRenov', eco-PTZ
 - Effet levier : 1 EUR public = 3 EUR prive
 - Reduction facture energetique menages
+
+**Impact Gini (recalibre v0.6.1, item I29)** : **-0,00034 de Gini par Md EUR**,
+soit -0,0017 pour +5 Md EUR — meme signe que la v0.6.0, mais 1,7 fois plus
+fort. Sources : ONRE/SDES, « Les renovations energetiques aidees du secteur
+residentiel entre 2016 et 2020 », resultats provisoires, fevrier 2023,
+graphiques 11 a 14 (MaPrimeRenov' concentre 60 % des economies d'energie sur
+les deciles D1-D4 ; l'ancien CITE etait au contraire ANTI-redistributif) ;
+Observatoire national de la precarite energetique, « Tableau de bord de la
+precarite energetique », edition 2024, donnees Anah 2023 (« 505 126 dossiers
+MaPrimeRenov' engages en 2023, 67 % concernent les menages modestes et tres
+modestes »). Le coefficient de la v0.6.0 s'appuyait sur une publication
+attribuee a l'agence de la transition ecologique que la collecte de sourcing
+n'a pas pu retrouver ; la citation a ete retiree, pas reecrite.
+
+> **HYPOTHESE DECLAREE** : aucune publication ne ventile les MONTANTS verses
+> par decile — l'ONRE publie des economies d'energie, l'ONPE des nombres de
+> dossiers. Le coefficient suppose donc que les euros suivent le profil des
+> ECONOMIES D'ENERGIE. C'est une hypothese CONSERVATRICE : les taux de prise
+> en charge plus eleves des menages « Bleu » et « Jaune » rendraient le profil
+> en euros plus pro-pauvres, donc le coefficient plus fort. Confiance :
+> DEFENDABLE, jamais SOLIDE.
+
+Contrairement a l'education, l'aide a la renovation est un transfert
+**monetaire** aux menages : elle entre legitimement dans le revenu disponible,
+le canal est pleinement dans le perimetre de l'indicateur affiche.
 
 ---
 
@@ -1350,6 +1403,19 @@ Liste exhaustive PA one-time :
 - Depenses courantes : Budget annuel
 - Sante (efforts ONDAM) : Effort annuel reconductible
 
+> **MAJ v0.6.1 lot 6 — l'education quitte les emetteurs de flux.** La meme
+> distinction vaut pour le Gini, dont l'agregateur `gini_cible_cumul` ACCUMULE
+> l'emission annuelle : un effet de NIVEAU emis chaque annee y est compose a
+> l'infini. Apres le retrait du fallback (item I27), il reste **trois**
+> handlers dont l'emission Gini annuelle ne converge pas vers zero a politique
+> constante, tous documentes et verrouilles par un test dedie :
+> `impot_societes` (via la regle survivante, dette connue ci-dessus),
+> `retraites` (residu delibere de 10 %/an, cf. « flux annuel des nouvelles
+> cohortes de retraites impactees ») et `rabot_uniforme` (emission croissante,
+> la plus lourde des trois, jamais auditee). Leur traitement releve du
+> chantier v0.7 : la valeur de `GINI_IMPACT_SCALE` n'est pas re-derivable tant
+> que les coefficients ne sont pas tous sources.
+
 **Asymetrie volontaire** : `_apply_fonction_publique` n'applique pas d'effet PA negatif sur
 les SUPPRESSIONS de postes — en France elles se font par non-remplacement de departs en
 retraite (attrition naturelle), pas par licenciements creant du chomage direct. Seules les
@@ -1396,6 +1462,49 @@ Le modele applique des plafonds pour eviter resultats irrealistes :
 - Baseline 2025 : ~0,290
 - Negatif = Mesure progressive (reduit inegalites)
 - Positif = Mesure regressive (augmente inegalites)
+
+**Perimetre de l'indicateur — ce qui explique les zeros (v0.6.1, items I27 et
+I30).** L'indice publie est le Gini du **niveau de vie** : revenu disponible
+par unite de consommation, definition INSEE. N'y entre donc que ce qui passe
+par le revenu disponible des menages. Deux consequences, ecrites ici parce
+qu'elles se lisent sinon comme des oublis :
+
+- **Les depenses d'education n'ont aucun effet Gini direct**, parce que ce sont
+  des transferts EN NATURE. Zero **par construction de l'indicateur**, pas par
+  omission. Sur l'indicateur ELARGI (revenus elargis a l'ensemble de
+  l'economie, Insee Analyses n° 118, avril 2026), l'effet existe mais reste du
+  **second ordre** : deplacer le Gini elargi de 0,01 demanderait environ
+  72 Md EUR, soit +70 % du budget de l'education nationale. Aucune elasticite
+  « +1 Md EUR d'education → ΔGini » n'existe dans la litterature, pour une
+  raison methodologique : les evaluations distributives francaises travaillent
+  en microsimulation sur BAREMES (OpenFisca, TAXIPP, Ines), et une depense
+  d'education n'a pas de bareme. Le chiffre n'est donc pas fabrique.
+- **La recherche publique reste a zero**, et c'est un trou de la LITTERATURE,
+  pas de la collecte : aucune etude n'estime l'incidence distributive de la R&D
+  publique sur les menages, qui s'evalue par ses RENDEMENTS. L'INSEE classe la
+  diffusion de la recherche parmi les depenses de consommation COLLECTIVE (non
+  individualisables), reparties par hypothese, avec trois variantes publiees
+  et l'avertissement que ces hypotheses « sont determinantes ».
+
+**Ce qui a ete supprime en v0.6.1 (item I27).** Un « fallback generique »
+heritait de la v4.5 : six regles par mesure appliquees aux handlers qui
+n'emettaient pas eux-memes d'impact Gini (retraites 0,10 / chomage 0,15 /
+sante 0,08 / TVA 0,05 / transition et education 0,04). **Aucune n'avait de
+source**, et cinq etaient inatteignables (leurs handlers emettent tous leur
+Gini). La sixieme, l'education, etait active et **asymetrique** : une HAUSSE
+de depense reduisait le Gini, une COUPE n'emettait rien — un avantage
+silencieux aux programmes de coupe. Elle etait de surcroit reemise chaque
+annee dans un agregateur cumulatif, faisant deriver l'indice avec l'horizon.
+
+**Dette connue, declaree.** Une seule regle survit, celle de l'impot sur les
+societes (0,03 par point de recettes rapporte au PIB). Elle est **non sourcee**
+et **asymetrique** (une baisse d'IS n'emet rien), et elle est ACTIVE, y compris
+dans des scenarios publies. Elle n'est pas corrigee en v0.6.1 parce qu'elle
+deplace des chiffres publies et qu'aucune source ne dit par quoi la
+remplacer : la retirer ou la symetriser sans source remplacerait un biais par
+un autre. Elle est nommee en constante, verrouillee par un test de
+caracterisation, et renvoyee au chantier v0.7 avec la re-derivation de
+`GINI_IMPACT_SCALE`.
 
 **Assemblage Gini (v0.4.0 — realisme empirique).** Les sensibilites par mesure
 (sections par levier ci-dessus) ne sont plus sommees telles quelles : leur somme

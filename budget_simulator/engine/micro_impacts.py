@@ -1,10 +1,13 @@
 """Bloc moteur — Impacts micro agrégés (Gini + compétitivité).
 
 Méthodes couvertes :
-- ``calculate_gini_impact`` : agrège la variation d'indice de Gini.
-  Priorité à l'impact ``gini`` calculé directement par chaque handler ;
-  fallback générique (règles par ``measure_id``) pour les mesures sans
-  impact Gini explicite.
+- ``calculate_gini_impact`` : agrège la variation d'indice de Gini à partir
+  de l'impact ``gini`` calculé par chaque handler. Le fallback générique
+  par ``measure_id`` de la v4.5 comptait SEPT règles, toutes sans source :
+  six sont SUPPRIMÉES (v0.6.1 lot 6, item I27) — cinq inatteignables, la
+  sixième active et asymétrique. La septième, celle d'``impot_societes``,
+  est conservée en l'état, déclarée non sourcée et documentée comme dette
+  (cf. docstring de la méthode).
 - ``calculate_competitivite`` : COLLECTE (ne calcule pas) les impacts
   ``competitivite`` produits par chaque handler ``_apply_*``.
   Méthodologie CUT OCDE / DG Trésor (cf METHODOLOGIE.md § Compétitivité).
@@ -16,8 +19,9 @@ Profil de couplage : **purement collectrices**. Lecture seule du dict
 
 Filtre tolérant : les deux méthodes sautent tout ``impact`` non-dict.
 ``calculate_competitivite`` n'agrège que la clé ``'competitivite'``
-(aucun fallback) ; ``calculate_gini_impact`` privilégie ``'gini'`` puis
-applique un fallback générique par ``measure_id``. La re-analyse adverse
+(aucun fallback) ; ``calculate_gini_impact`` agrège ``'gini'`` et ne
+conserve qu'une seule règle par ``measure_id``, déclarée non sourcée
+(``impot_societes``). La re-analyse adverse
 (2026-05-16) a RÉFUTÉ le « masquage silencieux » comme risque actuel :
 ``apply_measures`` garantit toujours un dict (un non-dict crashe
 bruyamment en amont avec ``logger.error`` + ``HANDLER_FAILED_KEY``), et
@@ -37,17 +41,51 @@ Tous attributs d'instance de ``BudgetSimulatorV45``.
 from typing import Dict
 
 from .._logging import _log_debug
+from ..constants import GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE
 
 
 class MicroImpactsMixin:
     """Bloc moteur — Impacts micro agrégés (Gini + compétitivité)."""
 
     def calculate_gini_impact(self, impacts: Dict, gdp: float) -> float:
-        """
-        Calcul de l'impact des mesures sur les inégalités
+        """Agrège les impacts Gini émis par les handlers ``_apply_*``.
 
-        CORRECTION V4.5 : Utilise directement les impacts 'gini' calculés par chaque fonction
-        au lieu de recalculer avec des règles génériques (qui ignoraient les nouvelles mesures)
+        COLLECTEUR, comme ``calculate_competitivite`` : chaque handler est
+        responsable de son propre canal redistributif et l'émet sous la clé
+        ``'gini'``. Un handler qui ne l'émet pas déclare, par ce silence,
+        qu'il n'a pas d'effet direct sur le Gini du NIVEAU DE VIE (revenu
+        disponible par unité de consommation, définition INSEE).
+
+        v0.6.1 lot 6 — SUPPRESSION DU FALLBACK GÉNÉRIQUE (item I27). Six
+        règles par ``measure_id`` survivaient ici depuis la v4.5 :
+        ``retraites`` 0,10 / ``chomage_alloc`` 0,15 / ``sante`` 0,08 /
+        ``tva_rate`` 0,05 / ``transition_ecologique`` et ``education`` 0,04.
+        Aucune n'avait de source (0 occurrence dans METHODOLOGIE.md), et
+        cinq d'entre elles étaient MORTES — leurs handlers émettent tous
+        ``'gini'``, la branche ne pouvait jamais s'exécuter. Du code mort
+        non traçable dans un dépôt public.
+
+        La sixième, ``education``, était VIVANTE et portait trois défauts
+        cumulés : coefficient non sourcé, règle ASYMÉTRIQUE (``if > 0`` :
+        une COUPE d'éducation émettait exactement 0, ce qui avantageait
+        silencieusement les programmes de coupe) et émission RÉCURRENTE
+        alors que ``gini_cible_cumul`` accumule. ``_apply_education`` émet
+        désormais ``'gini': 0.0`` explicitement, avec son motif de
+        PÉRIMÈTRE : une dépense d'éducation est un transfert EN NATURE,
+        elle n'entre pas dans le revenu disponible — zéro par construction
+        de l'indicateur, pas par oubli du modèle.
+
+        ⚠️ IL RESTE UN CAS PARTICULIER, ET IL EST DÉCLARÉ : ``impot_societes``
+        (cf. ``GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE`` dans constants.py).
+        Son handler n'émet volontairement pas de clé ``'gini'``, mais cette
+        règle en produit un dans son dos, de façon asymétrique. Elle est
+        ACTIVE — y compris dans deux scénarios publiés (``lfi_2027``, IS à
+        30 %, et ``ps_2027``, IS à 27 %). Elle n'est pas
+        corrigée ici parce qu'elle déplace des chiffres publiés et qu'aucune
+        source de ce lot ne dit par quoi la remplacer : la retirer ou la
+        symétriser sans source remplacerait un biais par un autre. Dette
+        renvoyée au chantier v0.7 avec la re-dérivation de
+        ``GINI_IMPACT_SCALE``.
         """
         gini_change = 0
 
@@ -55,35 +93,17 @@ class MicroImpactsMixin:
             if not isinstance(impact, dict):
                 continue
 
-            # NOUVEAU : Prioriser l'impact Gini calculé directement par la fonction de mesure
+            # Cas normal : le handler a calculé son propre impact.
             if 'gini' in impact:
                 gini_change += impact['gini']
                 continue
 
-            # ANCIEN : Fallback pour les mesures sans impact Gini explicite
-            spending_impact = impact.get('depenses', 0)
-            revenue_impact = impact.get('recettes', 0)
-
-            if measure_id in ['retraites', 'sante', 'chomage_alloc']:
-                if spending_impact < 0:
-                    if measure_id == 'retraites':
-                        gini_change += 0.10 * abs(spending_impact / gdp)
-                    elif measure_id == 'chomage_alloc':
-                        gini_change += 0.15 * abs(spending_impact / gdp)
-                    else:
-                        gini_change += 0.08 * abs(spending_impact / gdp)
-
-            elif measure_id in ['education', 'transition_ecologique']:
-                if spending_impact > 0:
-                    gini_change -= 0.04 * (spending_impact / gdp)
-
-            if measure_id == 'impot_societes' and revenue_impact > 0:
-                gini_change -= 0.03 * (revenue_impact / gdp)
-            if measure_id == 'tva_rate' and revenue_impact > 0:
-                gini_change += 0.05 * (revenue_impact / gdp)
-
-            # ===== CORRECTION V4.5 : Mesures ASTEVAL fiscales redistributives =====
-            # CSG : Désormais géré directement dans _apply_csg() avec paramètres taux + progressive
+            # DETTE CONNUE, seul survivant du fallback v4.5 (cf. docstring).
+            if measure_id == 'impot_societes':
+                revenue_impact = impact.get('recettes', 0)
+                if revenue_impact > 0:
+                    gini_change -= GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE * (
+                        revenue_impact / gdp)
 
         return gini_change
 

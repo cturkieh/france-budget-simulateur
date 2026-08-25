@@ -307,6 +307,28 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             must_appear_in=(METHODO, PUBLIC_METHODO),
             doc_patterns=("0,3 Md EUR par an",),
         ),
+        # v0.6.1 lot 6 — canaux Gini de la transition écologique. Les deux
+        # valeurs sont verrouillées sous la forme que le lecteur voit (l'effet
+        # d'un pas de +50 EUR/tCO2 et d'un pas de +5 Md EUR), et non sous la
+        # forme du coefficient unitaire : c'est cette forme-là qu'un
+        # contradicteur ira comparer à Douenne 2020 / à l'ONRE, et le parseur
+        # du verrou ne discrimine pas les valeurs à 1e-5 près.
+        CriticalConstant(
+            name="Gini — taxe carbone, effet d'un pas de +50 EUR/tCO2",
+            source="constants.GINI_TAXE_CARBONE_PAR_EUR_TONNE × 50 EUR/t",
+            raw_value=constants.GINI_TAXE_CARBONE_PAR_EUR_TONNE * 50,
+            representations=("0,0010", "0.0010"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("+0,0010 de Gini pour",),
+        ),
+        CriticalConstant(
+            name="Gini — rénovation énergétique, effet de +5 Md EUR",
+            source="constants.GINI_RENOVATION_PAR_MD_EUR × 5 Md EUR",
+            raw_value=constants.GINI_RENOVATION_PAR_MD_EUR * 5,
+            representations=("-0,0017", "-0.0017"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("-0,0017",),
+        ),
     )
 
 

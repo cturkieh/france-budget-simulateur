@@ -30,9 +30,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from budget_simulator.simulator import BudgetSimulatorV45  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
+# v0.6.1 lot 6 : même correction que dans `run_scenarios_full.py`, qui n'avait
+# été appliquée qu'au fichier jumeau. 'Inegalites' ne correspondait à AUCUNE
+# colonne du DataFrame (la colonne publiée par orchestrator.py s'appelle
+# 'Gini') → elle était filtrée SILENCIEUSEMENT, et les 33 mini-scénarios
+# standalone ne verrouillaient donc rien du canal redistributif. 'Gini' est
+# placé EN DERNIER → ajout PUR : l'ordre des colonnes existantes est préservé,
+# le snapshot reste additif (0 drift sur les séries déjà suivies).
 TRACKED_COLUMNS = [
     'Dette/PIB %', 'Déficit/PIB %', 'Chômage %', 'Croissance %',
-    'Inflation %', "Pouvoir d'Achat", 'Inegalites', 'Competitivite',
+    'Inflation %', "Pouvoir d'Achat", 'Competitivite', 'Gini',
 ]
 
 
@@ -141,7 +148,19 @@ def build_snapshot() -> dict:
     snapshot = {}
     for name, mesures in build_standalone_scenarios().items():
         df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
-        cols = [c for c in TRACKED_COLUMNS if c in df.columns]
+        # Échec BRUYANT plutôt que filtrage silencieux : une colonne suivie qui
+        # n'existe pas est une couverture FICTIVE, et c'est précisément ce qui
+        # a masqué l'absence totale d'inégalités dans ce snapshot (cf. le
+        # commentaire de TRACKED_COLUMNS). Renommer une colonne du moteur doit
+        # casser ici, pas s'effacer.
+        absentes = [c for c in TRACKED_COLUMNS if c not in df.columns]
+        if absentes:
+            raise RuntimeError(
+                f"colonnes suivies absentes du DataFrame pour '{name}' : "
+                f"{absentes} — la couverture qu'elles promettent est fictive. "
+                "Mettre TRACKED_COLUMNS à jour sur les vrais noms de colonnes."
+            )
+        cols = list(TRACKED_COLUMNS)
         snapshot[name] = {
             'columns': cols,
             'years': list(df.index),
