@@ -275,3 +275,56 @@ def test_lasymetrie_duree_vs_age_est_declaree_dans_la_methodologie():
     texte = _METHODO.read_text(encoding='utf-8')
     assert 'duree de cotisation' in texte and 'Canal emploi' in texte, \
         "METHODOLOGIE.md ne declare pas l'asymetrie duree <-> age du canal emploi"
+
+
+# ---------------------------------------------------------------------------
+# 6. Le sens AGRÉGÉ de la version — déclaré, et vérifié contre les précalculs
+# ---------------------------------------------------------------------------
+
+
+_PRECALCULS = _RACINE / '..' / '..' / 'frontend-react' / 'src' / 'data' / 'scenariosResults.json'
+
+
+def _ecarts_publies_au_referentiel():
+    """Écart de dette 2035 de chaque programme au scénario de référence, LU
+    dans les précalculs réellement servis aux visiteurs."""
+    res = json.loads(_PRECALCULS.read_text(encoding='utf-8'))
+    dette = {k: v['data']['Dette/PIB %'][-1] for k, v in res.items()}
+    ref = dette.pop('plf_2026')
+    return {k: v - ref for k, v in dette.items()}
+
+
+@pytest.mark.skipif(not _PRECALCULS.exists(),
+                    reason="frontend-react/ hors périmètre fork moteur seul")
+def test_le_sens_agrege_de_la_version_est_publie_et_a_jour():
+    """La méthodologie doit publier le sens AGRÉGÉ, avec les bons chiffres.
+
+    Chaque commit de la branche déclare consciencieusement le sens de SON lot,
+    comme la règle du projet l'exige. Aucun artefact ne disait ce que la SOMME
+    produit : le scénario de référence est le seul à s'améliorer, et les huit
+    programmes se dégradent tous par rapport à lui, gauche comme droite. Sur un
+    outil dont la neutralité est le contrat, ce constat ne peut pas rester
+    seulement dans la tête de celui qui a lu les huit trajectoires.
+
+    Ce test verrouille DEUX choses :
+    1. le tableau publié est celui des précalculs servis (pas une table figée
+       qui dérive au premier recalibrage) ;
+    2. la moitié manquante de la correction — le sourcing du scénario de
+       référence, qui joue dans l'AUTRE sens — reste annoncée tant qu'elle
+       n'est pas livrée.
+    """
+    texte = _METHODO.read_text(encoding='utf-8')
+    assert 'EN AGREGE' in texte, "la methodologie ne publie pas le sens agrege de la version"
+    for scenario, ecart in _ecarts_publies_au_referentiel().items():
+        attendu = f"| `{scenario}` |"
+        ligne = next((l for l in texte.splitlines() if l.startswith(attendu)), None)
+        assert ligne, f"{scenario} absent du tableau agrégé de METHODOLOGIE.md"
+        publie = ligne.rstrip('| ').rsplit('|', 1)[-1].strip().replace(',', '.')
+        # Tolérance = un demi-dixième (le tableau publie au dixième) plus la
+        # marge d'arrondi au pair de la mise en forme.
+        assert float(publie) == pytest.approx(ecart, abs=0.06), (
+            f"{scenario} : la methodologie publie {publie}, les precalculs "
+            f"donnent {ecart:+.1f} — tableau agrege perime")
+    # La moitié non livrée doit rester dite (sinon le lecteur croit la
+    # correction complète, et le comparateur reste avantagé en silence).
+    assert 'moitie manquante' in texte.lower() or 'moitie manquante' in texte

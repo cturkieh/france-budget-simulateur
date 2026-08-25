@@ -1732,6 +1732,51 @@ inchangee », la trajectoire est insoutenable.
 
 ---
 
+## Neutralite : ce que la version v0.6.1 du moteur deplace, EN AGREGE
+
+Chaque correction de cette version porte, dans son commit, le sens dans lequel
+elle joue. **Ce paragraphe dit ce que la SOMME produit** — parce qu'une suite de
+corrections individuellement justifiees peut avoir un sens agrege qu'aucune
+d'elles n'annonce, et parce que le scenario de reference « Budget 2026 (vote) »
+est le comparateur implicite de tous les programmes de parti.
+
+Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
+PIB (un ecart plus grand = programme plus couteux que la politique votee) :
+
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 |
+|---|---|---|
+| `rn_2027` | +3,4 | +11,2 |
+| `lfi_2027` | +13,2 | +24,9 |
+| `renaissance_2027` | -7,1 | -5,7 |
+| `horizons_2027` | -10,8 | -8,8 |
+| `lr_2027` | -13,3 | -7,4 |
+| `ps_2027` | +0,1 | +8,1 |
+| `im_rabot_2029` | -33,6 | -31,4 |
+| `im_competitivite_2029` | -36,4 | -28,6 |
+
+**Le constat, sans enrobage : le scenario de reference est le seul a s'ameliorer
+(170,1 -> 169,6), et les huit programmes se degradent tous par rapport a lui —
+gauche comme droite, de +1,4 point pour Renaissance a +11,7 pour LFI.** La cause
+est identifiable : cette version cable des canaux macroeconomiques (emploi
+seniors, Okun sur le potentiel, plafond de rendement de la prevention, cout reel
+de l'allocation sociale unique) que les programmes de parti actionnent beaucoup
+plus que la politique votee, laquelle ne bouge presque aucun de ces leviers.
+
+**La moitie manquante de la correction, et elle joue dans l'autre sens.** Le
+scenario de reference encode environ +25,5 Md EUR/an d'effort en 2030 dont
+l'essentiel vient de trois leviers qu'aucune loi de finances n'a chiffres
+(reforme des agences et operateurs, fraude fiscale et sociale, efficience
+sante). Les retirer — et encoder symetriquement les recettes reellement votees
+qui manquent — est un chantier de SOURCING distinct, **qui n'est pas dans cette
+version**. Tant qu'il n'est pas fait, le comparateur reste avantage, et l'ecart
+publie ci-dessus surestime le cout relatif de chaque programme de parti.
+
+C'est dit ici plutot que decouvert par un lecteur : un simulateur citoyen ne se
+protege pas en evitant les corrections sensibles, il se protege en disant dans
+quel sens joue chacune — **et ce que leur somme produit**.
+
+---
+
 ## Choix de design assumes (vs modeles academiques)
 
 Cette section documente les choix methodologiques deliberes qui pourraient etre vus comme des limitations par rapport aux modeles academiques (MESANGE, e-mod, OFCE iAGS, IPP TAXIPP). Ces choix sont assumes pour preserver la lisibilite et l'accessibilite citoyenne du simulateur.
