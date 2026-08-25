@@ -657,6 +657,279 @@ _valider_domaine_prevention(
     PREVENTION_OFFSET_LAG_YEARS,
 )
 
+# === CALIBRATION ALLOCATION SOCIALE UNIQUE (v0.6.1, I22-I26) ===
+# Handler `asu` (handlers/depenses.py, `_apply_asu`). La v0.5.1 en faisait une
+# machine à économies (−11,5 Md€/an à plein régime) ; la SEULE évaluation
+# administrative de la réforme chiffre un effet budgétaire pérenne compris
+# entre 0 et +2 Md€/an de COÛT. Ce bloc remplace six coefficients dont trois
+# portaient une source introuvable ou réfutée.
+#
+# --- SOURCE PIVOT ---------------------------------------------------------
+# Assemblée nationale, commission des affaires sociales, « Mission "flash" sur
+# l'opportunité et les modalités de la création d'une allocation sociale
+# unique », rapporteures N. Colin-Oesterlé et S. Runel, JUILLET 2025 —
+# restitue les chiffrages DREES + Igas (modèle Ines) de JUIN 2024.
+# https://www.assemblee-nationale.fr/dyn/17/documents/mf%20alloc/l17n781706050_document.pdf
+#
+# Fait n° 1 — le périmètre. « Le contenu de cette réforme s'est clarifié et
+# l'objectif s'est révélé être davantage une harmonisation des bases de
+# ressources et une évolution des barèmes qu'une création d'allocation unique
+# […] créer une allocation unique pour tous stricto sensu n'est pas
+# souhaitable. » Périmètre effectif = RSA + prime d'activité + APL, via un
+# « revenu social de référence ». Les prestations familiales N'Y SONT PAS
+# (position identique de F. Lenglart : « unifier […] et non pas les
+# fusionner »). Montants publiés (2022) : RSA 11,97 Md€, prime d'activité
+# 10 Md€ (10,6 Md€ en 2024, Cour des comptes 2026), APL 15,4 Md€ ; les
+# « allocations familiales » que le moteur chiffrait 52 Md€ valent en réalité
+# 32,3 Md€ de prestations familiales, ET sont hors réforme.
+#
+# Fait n° 2 — les seuls scénarios chiffrés COÛTENT :
+#   référence à coût constant  : 0 Md€/an, −0,3 à −0,4 pt de pauvreté,
+#                                3,9 M de gagnants pour 4,0 M de PERDANTS ;
+#   référence +2 Md€ pérennes  : +2 Md€/an, −0,6 pt ;
+#   scénario bis +2 Md€        : +2 Md€/an, −1,1 pt, 4,6 M de gagnants
+#                                (+110 €/mois) et 2,9 M de perdants.
+#
+# Fait n° 3 — les économies de gestion ne sont PAS chiffrées, et la mission le
+# dit : « les moyens à la disposition des rapporteurs durant cette mission
+# n'ont pas permis d'en estimer précisément le montant ».
+ASU_PERIMETRE_MD_EUR = 39.0   # périmètre de la réforme : RSA + prime d'activité + APL
+# NB de sourcing (§ B) — écart SIGNALÉ, PAS COMBLÉ : la somme des trois lignes
+# citées vaut 37,4 Md€ (11,97 + 10 + 15,4) là où le récapitulatif du dossier de
+# sourcing v0.6.1 retient 39 Md€ pour ce même périmètre. AUCUNE des sources
+# consultées n'écrit la réconciliation de ces 1,6 Md€ : on ne l'invente pas, et
+# on ne bricole pas non plus la somme pour qu'elle tombe juste.
+# Ce qui rend l'écart SANS ENJEU de chiffrage — et il faut le dire, sinon un
+# lecteur croira que 39 Md€ multiplie quelque chose : cette constante n'entre
+# dans AUCUN calcul du handler. C'est un LIBELLÉ, pas un coefficient (verrouillé
+# par `test_perimetre_est_un_libelle_pas_un_coefficient`). Elle existe pour que
+# le périmètre officiel soit lisible là où le moteur affichait « 90 Md€ dont
+# 52 d'allocations familiales » — deux erreurs en une, le montant ET le champ.
+ASU_PLAFONNEMENT_MIN = 0.50      # 50 % du SMIC net — borne basse du curseur
+ASU_PLAFONNEMENT_MAX = 0.70      # 70 % du SMIC net — borne haute du curseur
+ASU_PLAFONNEMENT_DEFAUT = 0.65   # défaut moteur (config.py)
+#
+# --- I23 : l'économie de gestion, arithmétiquement bornée -----------------
+# Cour des comptes, « La prime d'activité », communication au Sénat (art. 58-2°
+# LOLF), janvier 2026 — annexe au rapport d'information Sénat n° 728
+# (2025-2026), MM. Bazin et Barros, déposé le 10/06/2026, chapitre « Le coût de
+# la gestion par la CNAF », p. 101-102.
+# https://www.senat.fr/rap/r25-728/r25-728-annexe.pdf
+#   coûts de gestion TOTAUX de la CNAF (2023)          ≈ 3 Md€
+#   gestion de la prime d'activité (coût complet)      360 M€ (79 €/dossier/an)
+#   gestion du RSA                                     282 M€ (2018), 265 (2019)
+#   plafond quinquennal de gestion (COG)               9,5 Md€ (2018-2022)
+#                                                      → 12,7 Md€ (2023-2027), +34 %
+# ⇒ `ECO_SIMPLIFICATION = 6,0 Md€/an` représentait le DOUBLE de la gestion de
+# TOUTE la branche famille : même en supprimant intégralement la CNAF on
+# n'économise que 3 Md€. Sur le périmètre réel de l'ASU la masse mobilisable
+# est de 0,8 à 1,0 Md€/an. Et le sens de court terme est NÉGATIF : la COG
+# 2023-2027 augmente les moyens de gestion de 34 %, notamment pour absorber
+# « le pic d'activité en relation de service lié à la "solidarité à la
+# source" » (≈ 700 ETPMA en CDD) — la réforme coûte de la gestion avant d'en
+# économiser.
+# ⚠️ Ce que la valeur retenue N'EST PAS (§ B.3-26) : une estimation officielle.
+# La mission parlementaire DÉCLARE ne pas avoir pu chiffrer ces économies. Le
+# 0,3 Md€/an est une DÉRIVATION (part de la gestion CNAF mobilisable), à
+# présenter comme telle. La source retirée — « médiane IFRAP » — est une note
+# de think tank auditionnée au titre de la société civile au même rang que le
+# collectif Alerte : faire porter le coefficient le plus lourd de l'ASU par une
+# note de plaidoyer était un risque de neutralité direct (§ C.2), indépendamment
+# de la justesse du chiffre.
+ASU_GESTION_CNAF_TOTALE_MD_EUR = 3.0    # gestion de TOUTE la branche famille (Cour/Sénat n° 728)
+ASU_GESTION_MOBILISABLE_MD_EUR = 1.0    # borne haute de la masse mobilisable sur RSA + PA + APL
+ASU_ECO_SIMPLIFICATION_MD_EUR = 0.3     # central retenu (dérivation, fourchette 0,2-0,5)
+#
+# --- I24 : la fraude structurelle sort de l'ASU ---------------------------
+# Cour des comptes, « Certification des comptes du régime général de sécurité
+# sociale et du CPSTI — exercice 2024 », mai 2025.
+# https://www.ccomptes.fr/sites/default/files/2025-05/20250516-certification-comptes-securite-sociale-2024.pdf
+# L'indicateur de risque financier résiduel à 24 mois vaut 8,0 % ⇒ 6,3 Md€ en
+# 2024. Ce n'est PAS un gisement : « Les indus non détectés représentent 64 %
+# des anomalies estimées au titre de ces trois prestations (36 % pour les
+# rappels) » — 30 à 36 % de ce montant est de l'argent DÛ aux allocataires, que
+# détecter AUGMENTE la dépense. Le résidu de fraude qualifiée est par ailleurs
+# déjà porté par le curseur « Fraude sociale », dont l'ASU réduit le potentiel
+# de 30 % (contrat anti-double-comptage `_phasing.asu_phasing`, option A).
+# ⇒ aucune constante : la composante est SUPPRIMÉE du handler.
+#
+# --- I22/I26 : l'effort pérenne remplace l'« économie de plafonnement » ----
+# Le curseur `asu_plafonnement` pilotait une économie de 4 à 8 Md€/an qu'AUCUNE
+# source ne porte. Il pilote désormais l'effort budgétaire pérenne, dont
+# l'amplitude est exactement celle des scénarios DREES/Igas : de la variante
+# « à coût constant » (0) à la variante « +2 Md€ pérennes ».
+# CONVENTION DÉCLARÉE (§ B) : la DREES/Igas ne publie pas de correspondance
+# entre un niveau de plafond et un montant d'effort. L'interpolation linéaire
+# entre les deux bornes est un CHOIX DE MODÉLISATION, retenu parce qu'il garde
+# le sens économique du curseur (un plafond plus généreux coûte plus cher) sans
+# ajouter aucune valeur hors de l'amplitude chiffrée.
+ASU_EFFORT_PERENNE_MAX_MD_EUR = 2.0     # variante « +2 Md€ pérennes » (DREES/Igas juin 2024)
+#
+# --- I22 : le coût de transition, absent du moteur ------------------------
+# AN, mission flash juillet 2025 : « un coût cumulé de 2 à 13,4 milliards
+# d'euros [sur quatre ans] — hors hausse du taux de recours (2,4 milliards
+# d'euros d'après DGALN) ». Rapport Lenglart 2024 : surcoût de transition avec
+# compensation 5 à 5,8 Md€ (3,9 à 4,7 Md€ relativement à l'effort pérenne de
+# 2 Md€). La v0.5.1 ne portait que 0,5 Md€, en 2026, et rien ensuite.
+# ⚠️ Réduire le non-recours AUGMENTE la dépense : le moteur traitait la baisse
+# du non-recours comme un pur gain redistributif gratuit.
+# CHOIX ASSUMÉS, tous deux déclarés plutôt que comblés :
+#  (a) valeur retenue = le PLANCHER de la fourchette officielle. C'est le choix
+#      le moins pénalisant pour les programmes qui portent l'ASU — la
+#      correction joue déjà contre eux, elle ne doit pas surcharger ;
+#  (b) profil UNIFORME sur les quatre années : la source publie une enveloppe
+#      cumulée, jamais un profil annuel. Répartir uniformément n'ajoute aucune
+#      hypothèse ;
+#  (c) la source ne dit pas si les 2,4 Md€ de hausse du recours sont ponctuels
+#      ou pérennes. Le moteur les rattache à la montée en charge — choix
+#      CONSERVATEUR (il ne les rend pas permanents), et signalé comme tel.
+ASU_COUT_TRANSITION_PLANCHER_MD_EUR = 2.0    # borne basse publiée (4 ans, cumulé)
+ASU_COUT_TRANSITION_PLAFOND_MD_EUR = 13.4    # borne haute publiée (4 ans, cumulé)
+ASU_COUT_TRANSITION_RETENU_MD_EUR = ASU_COUT_TRANSITION_PLANCHER_MD_EUR
+ASU_COUT_RECOURS_MD_EUR = 2.4                # hausse du taux de recours (DGALN, volet logement)
+ASU_TRANSITION_ANNEES = 4                    # durée de la montée en charge (ASU_PHASING_SCHEDULE)
+#
+# --- I25 : aucun effet emploi, aucune compétitivité ------------------------
+# Cour des comptes 2026, rapport prime d'activité, CHAPITRE 3, dont le titre
+# est : « Des effets significatifs sur les revenus des ménages modestes mais
+# pas d'effets observables sur l'emploi ». « L'étude conduite par l'Institut
+# des politiques publiques à la demande de la Cour montre que la réforme de la
+# prime d'activité de 2019 n'a pas eu d'effets observables sur l'emploi […] et
+# ce dans les différentes sous-populations analysées. » « Près de 80 % des
+# personnes interrogées affirment ne pas tenir compte de la prime d'activité
+# dans leur comportement d'emploi » (189 577 allocataires tirés au sort,
+# 6 519 répondants, redressé). Étude sous-jacente : IPP, « La réforme de 2019
+# de la prime d'activité », octobre 2023, co-financement Cour des comptes /
+# DGCS, publiée par France Stratégie.
+# https://www.strategie-plan.gouv.fr/files/files/Actualites/2023-10-30%20-%20Rapport%20IPP%20-%20La%20r%C3%A9forme%20de%202019%20de%20la%20prime%20d%E2%80%99activit%C3%A9/ipp_-_reforme_2019_prime_dactivite_-_octobre_2023_v3.pdf
+# Un dispositif de 10,6 Md€ et 4,81 M de bénéficiaires ne produit aucun effet
+# emploi mesurable ⇒ il est exclu qu'une refonte de barèmes en produise un.
+# ⇒ aucune constante : les canaux `chomage` et `competitivite` sont SUPPRIMÉS.
+#
+# --- I26 : pouvoir d'achat et Gini ----------------------------------------
+# POUVOIR D'ACHAT — dérivable, et beaucoup plus petit que les +0,3 % du code.
+# Reconstruction depuis le scénario bis DREES/Igas : 4,6 M × 110 €/mois × 12 =
+# +6,1 Md€ de gains, 2,9 M × 110 €/mois × 12 = −3,8 Md€ de pertes, soit un
+# transfert net de ≈ +2,3 Md€/an — c'est-à-dire, par construction, l'effort
+# budgétaire lui-même. L'effet sur le revenu disponible agrégé vaut donc
+# l'effort rapporté au RDB, et il est NUL à coût constant (pur transfert entre
+# ménages).
+# Assiette : le dossier v0.6.1 cite « environ 1 700 Md€ » comme ORDRE DE
+# GRANDEUR non sourcé et renvoie explicitement à l'assiette du moteur. On
+# retient donc les 1 380 Md€ déjà utilisés dans ce fichier pour dériver
+# INDEXATION_BASELINE_RATIO (INSEE 2024, revenu disponible brut). L'écart entre
+# les deux assiettes n'est pas arbitré : avec 1 700 Md€ l'effet PA serait 19 %
+# plus faible. Sensibilité à publier, pas à masquer.
+RDB_MENAGES_MD_EUR = 1380.0   # assiette « revenus des ménages » du moteur (cf. INDEXATION_BASELINE_RATIO)
+#
+# GINI — ⚠️ AUCUNE SOURCE NE PUBLIE L'EFFET GINI DE L'ASU (§ B.3-25). Les
+# scénarios officiels donnent un TAUX DE PAUVRETÉ ; convertir −1,1 pt de
+# pauvreté en points de Gini serait une dérivation non sourcée. Le moteur ne
+# la fabrique pas. Ce qu'il retient à la place est une BORNE THÉORIQUE
+# entièrement explicite, présentée comme telle :
+#   un transfert net de E Md€ vers le bas de la distribution déplace l'indice
+#   de Gini de ΔG = (E / RDB) × (C − G), où C est le coefficient de
+#   concentration du transfert. En posant C = −1 — le cas LIMITE où la totalité
+#   du transfert est reçue par le tout premier centile — on obtient la plus
+#   grande amélioration arithmétiquement possible : ΔG = −(E / RDB) × (1 + G).
+# Toute concentration réelle est moins extrême, donc l'effet réel est PLUS
+# PETIT : le moteur MAJORE délibérément le bénéfice redistributif, pour qu'on
+# ne puisse pas lui reprocher de minorer l'apport des programmes généreux.
+# Ordre de grandeur : à +2 Md€/an, l'indice bouge de 0,002 point AVANT
+# rescale — l'ASU n'est une machine à redistribuer dans aucun sens.
+# NB de cohérence interne, signalé et non corrigé ici : les coefficients Gini
+# hérités des autres leviers sociaux sont d'un ordre de grandeur supérieur par
+# euro transféré. Les homogénéiser suppose de re-dériver GINI_IMPACT_SCALE,
+# chantier v0.7 explicitement différé (§ B.4-33 : « ne pas bricoler »).
+ASU_GINI_BORNE_PAR_MD_EUR = (1.0 + GINI_BASE) / RDB_MENAGES_MD_EUR
+
+
+def _valider_domaine_asu(eco_simplification, mobilisable, gestion_totale,
+                         effort_max, perimetre, transition, plancher, plafond):
+    """Garde de domaine des constantes ASU.
+
+    Deux impossibilités doivent rester INATTEIGNABLES par recalibrage, parce
+    qu'elles sont exactement les défauts que le lot 5 corrige :
+    1. une économie de gestion supérieure à la masse mobilisable, elle-même
+       supérieure à la gestion de toute la branche famille (le 6,0 Md€/an de
+       la v0.5.1 valait le double des 3 Md€ de la CNAF) ;
+    2. un coût de transition hors de la fourchette officiellement publiée.
+    ``raise`` et non ``assert`` : ``python -O`` strip les asserts, la garde
+    doit survivre en prod.
+    """
+    if not 0 <= eco_simplification <= mobilisable <= gestion_totale:
+        raise ValueError(
+            "ASU : 0 <= ECO_SIMPLIFICATION <= MOBILISABLE <= gestion CNAF "
+            f"totale requis (reçu {eco_simplification} / {mobilisable} / "
+            f"{gestion_totale}) — au-delà, l'ASU économiserait plus que ne "
+            "coûte la gestion de toute la branche famille (Cour des comptes, "
+            "Sénat n° 728, p. 101-102)."
+        )
+    if not plancher <= transition <= plafond:
+        raise ValueError(
+            f"ASU : coût de transition {transition} hors de la fourchette "
+            f"publiée [{plancher} ; {plafond}] Md€ cumulés sur quatre ans "
+            "(AN, mission flash juillet 2025)."
+        )
+    if not 0 < effort_max <= perimetre:
+        raise ValueError(
+            f"ASU : effort pérenne maximal {effort_max} incohérent avec le "
+            f"périmètre {perimetre} Md€."
+        )
+
+
+_valider_domaine_asu(
+    ASU_ECO_SIMPLIFICATION_MD_EUR,
+    ASU_GESTION_MOBILISABLE_MD_EUR,
+    ASU_GESTION_CNAF_TOTALE_MD_EUR,
+    ASU_EFFORT_PERENNE_MAX_MD_EUR,
+    ASU_PERIMETRE_MD_EUR,
+    ASU_COUT_TRANSITION_RETENU_MD_EUR,
+    ASU_COUT_TRANSITION_PLANCHER_MD_EUR,
+    ASU_COUT_TRANSITION_PLAFOND_MD_EUR,
+)
+
+
+def asu_plafonnement_borne(plafonnement: float) -> float:
+    """Plafond ASU ramené dans le domaine publié [50 % ; 70 %] du SMIC net.
+
+    SOURCE UNIQUE du bornage, consommée par ``asu_effort_perenne_md_eur`` ET
+    par le libellé publié du handler : une valeur hors domaine (API, scénario
+    mal encodé) ne doit jamais être ni chiffrée ni AFFICHÉE, sinon le lecteur
+    voit un plafond que la DREES/Igas n'a pas simulé.
+    """
+    return min(max(plafonnement, ASU_PLAFONNEMENT_MIN), ASU_PLAFONNEMENT_MAX)
+
+
+def asu_effort_perenne_md_eur(plafonnement: float) -> float:
+    """Effort budgétaire pérenne (Md€/an) pour un plafond donné, en régime.
+
+    Interpolation linéaire DÉCLARÉE (cf. bloc ci-dessus) entre les deux seules
+    variantes chiffrées par la DREES/Igas : « à coût constant » (0 Md€/an) au
+    plafond le plus bas, « +2 Md€ pérennes » au plafond le plus haut. Bornée
+    des deux côtés : une entrée hors domaine est ramenée dans l'amplitude
+    publiée, jamais extrapolée.
+    """
+    borne = asu_plafonnement_borne(plafonnement)
+    part = (borne - ASU_PLAFONNEMENT_MIN) / (ASU_PLAFONNEMENT_MAX - ASU_PLAFONNEMENT_MIN)
+    return ASU_EFFORT_PERENNE_MAX_MD_EUR * part
+
+
+def asu_cout_transition_md_eur(year: int) -> float:
+    """Coût de transition de l'année ``year`` (Md€, >0 = surcoût).
+
+    Enveloppe = plancher officiel (2 Md€ cumulés sur quatre ans) + hausse du
+    taux de recours (2,4 Md€), répartie uniformément sur les quatre années de
+    montée en charge (``ASU_PHASING_SCHEDULE``). Zéro avant l'entrée en
+    vigueur comme après : c'est un coût de bascule, pas une charge pérenne.
+    """
+    ecoule = year - POLICY_START_YEAR
+    if not 0 <= ecoule < ASU_TRANSITION_ANNEES:
+        return 0.0
+    return (ASU_COUT_TRANSITION_RETENU_MD_EUR + ASU_COUT_RECOURS_MD_EUR) \
+        / ASU_TRANSITION_ANNEES
+
+
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré
 # (INSEE 2024 - Revenus disponibles bruts) :

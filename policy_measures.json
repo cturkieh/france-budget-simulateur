@@ -481,7 +481,7 @@
       "id": "asu",
       "categorie": "social",
       "nom": "Allocation Sociale Unique (ASU)",
-      "description": "Fusion des minima sociaux (RSA, Prime activité, APL, Allocations familiales)",
+      "description": "Unification des bases de ressources et des barèmes du RSA, de la prime d'activité et des APL (périmètre officiel 39 Md€). Les prestations familiales sont HORS réforme.",
       "type": "fonction",
       "cible": "depenses",
       "parametres": {
@@ -492,7 +492,7 @@
           "step": 1,
           "label": "Activer l'ASU",
           "type": "number",
-          "tooltip": "Fusion RSA (13 Md€) + Prime activité (10 Md€) + APL (15 Md€) + Allocations familiales (52 Md€) = 90 Md€. Économies: simplification 6 Md€ + doublons 1.5 Md€ + fraude structurelle 2 Md€ + plafonnement variable 4-8 Md€. Phasing 4 ans. Sources: IFRAP 2025, HCFPS 2024."
+          "tooltip": "Coût, et non économie : la seule évaluation administrative (DREES/Igas juin 2024, via la mission flash de l'Assemblée nationale de juillet 2025) chiffre un effet budgétaire pérenne de 0 à +2 Md€/an. Périmètre 39 Md€ (RSA + prime d'activité + APL ; les prestations familiales sont hors réforme). Seule économie retenue : 0,3 Md€/an de gestion (dérivation encadrée par la Cour des comptes, la gestion de toute la branche famille valant ~3 Md€). Transition : ~1,1 Md€/an sur 4 ans. Aucun effet emploi (Cour des comptes 2026 ch. 3 / IPP oct. 2023). Montée en charge 4 ans."
         },
         "asu_plafonnement": {
           "valeur_defaut": 0.65,
@@ -501,7 +501,7 @@
           "step": 0.05,
           "label": "Plafonnement ASU (% SMIC)",
           "type": "number",
-          "tooltip": "Niveau de plafonnement. 50% = strict (max économies 8 Md€), 60% = équilibré (6 Md€), 70% = souple (4 Md€). Bonus emploi jusqu'à 1 Md€ si ≤60%."
+          "tooltip": "Le curseur pilote l'EFFORT budgétaire de la réforme, entre les deux seules variantes chiffrées par la DREES et l'Igas : 50% = variante « à coût constant » (0 Md€/an, 3,9 M de gagnants pour 4,0 M de perdants — pur transfert), 70% = variante « +2 Md€ pérennes » (4,6 M de gagnants). Interpolation linéaire entre ces deux bornes : convention déclarée, aucune source ne publie la correspondance plafond ↔ montant."
         }
       }
     },

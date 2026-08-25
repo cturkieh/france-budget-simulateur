@@ -278,6 +278,35 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             must_appear_in=(METHODO, PUBLIC_METHODO),
             doc_patterns=("plafonne a **0,50**",),
         ),
+        # v0.6.1 lot 5 — ASU. Les trois valeurs qu'un contradicteur ira
+        # verifier : le PERIMETRE (parce que la v0.5.1 en annonçait 90 dont
+        # 52 de prestations familiales hors reforme), le SIGNE de l'effort
+        # (une reforme qui coute, non qui rapporte) et la seule economie
+        # maintenue. Le verrou impose qu'un recalibrage passe par la doc.
+        CriticalConstant(
+            name="ASU — périmètre de la réforme (Md EUR, RSA + PA + APL)",
+            source="constants.ASU_PERIMETRE_MD_EUR",
+            raw_value=constants.ASU_PERIMETRE_MD_EUR,
+            representations=("39",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("39 Md EUR",),
+        ),
+        CriticalConstant(
+            name="ASU — effort budgétaire pérenne maximal (Md EUR/an)",
+            source="constants.ASU_EFFORT_PERENNE_MAX_MD_EUR",
+            raw_value=constants.ASU_EFFORT_PERENNE_MAX_MD_EUR,
+            representations=("2,0", "2.0"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("+2,0 Md EUR par an",),
+        ),
+        CriticalConstant(
+            name="ASU — économie de gestion retenue (Md EUR/an, dérivation)",
+            source="constants.ASU_ECO_SIMPLIFICATION_MD_EUR",
+            raw_value=constants.ASU_ECO_SIMPLIFICATION_MD_EUR,
+            representations=("0,3", "0.3"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("0,3 Md EUR par an",),
+        ),
     )
 
 

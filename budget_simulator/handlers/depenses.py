@@ -22,18 +22,31 @@ Mesures couvertes (6 handlers) :
 - ``chomage_alloc`` : assurance chômage Unédic. Taux de remplacement %
   (mode v4.5) ou montant Md€ (mode legacy) × durée, dégressivité
   optionnelle. Impacts Gini/PA/chômage one-time sur changement effectif.
-- ``asu`` : Allocation Sociale Unique (fusion RSA/Prime activité/APL/
-  allocations familiales). Phasing 4 ans, plafonnement 50-70 % SMIC,
-  override transition 2026, double effet temporel CT/LT (PA et Gini).
+- ``asu`` : Allocation Sociale Unique. Périmètre officiel = RSA + prime
+  d'activité + APL (39 Md€) ; les prestations familiales sont HORS
+  réforme. Phasing 4 ans, curseur 50-70 % du SMIC pilotant l'EFFORT
+  budgétaire pérenne (0 à +2 Md€/an, les deux variantes chiffrées par la
+  DREES/Igas), net de la seule économie de gestion défendable
+  (0,3 Md€/an), plus un coût de transition sur les 4 premières années.
+  Le modèle de la v0.5.1 — une machine à économies de 11,5 Md€/an, un
+  bonus emploi et un Gini amélioré à coût nul — est RETIRÉ : la seule
+  évaluation administrative de la réforme chiffre un effet pérenne de 0
+  à +2 Md€/an de COÛT (cf. constants.py § ASU).
 - ``abattement_retraites`` : réforme de l'abattement fiscal sur pensions
   (PLF 2026, forfait 2000 €). Effet ``recettes`` (+4 Md€ régime permanent,
   phasing 2 ans), Gini légèrement progressif one-time.
 - ``prestations_indexation`` : indexation des prestations sociales hors
   pensions (RSA/APL/allocations familiales, base 90 Md€). Érosion composée
-  si sous-indexation. Neutralisé (anti-double-comptage) quand l'ASU est
-  active dans le scénario — prédicat SOURCE UNIQUE
-  ``_phasing.asu_is_active(self.mesures)``, l'ASU absorbant exactement
-  cette base 90 Md€ et suivant alors le SMIC.
+  si sous-indexation. Neutralisé EN TOTALITÉ (anti-double-comptage) quand
+  l'ASU est active dans le scénario — prédicat SOURCE UNIQUE
+  ``_phasing.asu_is_active(self.mesures)``.
+  Précision v0.6.1 : le périmètre de l'ASU est un SOUS-ENSEMBLE de cette
+  base (39 contre 90), et non son égal comme l'écrivaient la v0.5.1 et
+  la v0.6.0. Neutraliser en totalité reste le choix retenu, et c'est un
+  choix CONSERVATEUR assumé : il ne peut qu'ÔTER des économies à un
+  programme qui cumule les deux leviers, jamais lui en offrir. Re-baser
+  le levier d'indexation (dont l'assiette n'est PAS auditée par le lot
+  ASU) est un chantier distinct.
 
 Convention d'application :
 - Effets ``gini`` / ``competitivite`` (et parfois ``pouvoir_achat`` /
@@ -58,7 +71,12 @@ Sources principales :
   sociale résiduelle (détail et URL : constants.py).
 - PLFSS 2026, IGAS 2024, CCSS 2024 — santé.
 - Unédic 2025, OFCE 2023, INSEE 2024, France Stratégie 2019 — chômage.
-- IFRAP 2025, HCFPS 2024, DREES, France Stratégie 2024, IPP Bozio 2023 — ASU.
+- AN mission flash 07/2025 (chiffrages DREES/Igas 06/2024), Cour des comptes
+  (prime d'activité, communication au Sénat 01/2026 ; certification des
+  comptes de la sécurité sociale 05/2025), IPP octobre 2023 — ASU. Les
+  quatre attributions de la v0.5.1 sont RETIRÉES et non réécrites : deux
+  étaient introuvables, une nommait un organisme inexistant, une était une
+  note de plaidoyer réfutée au fond (motifs détaillés : constants.py § ASU).
 - PLF 2026, DGFiP, France Stratégie 2025 — abattement retraites.
 - PLFSS 2026, OFCE 2024, IPP 2023, DREES — prestations indexation.
 
@@ -93,6 +111,10 @@ reproduire le pattern.
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    ASU_ECO_SIMPLIFICATION_MD_EUR,
+    ASU_GINI_BORNE_PAR_MD_EUR,
+    ASU_PERIMETRE_MD_EUR,
+    ASU_PLAFONNEMENT_DEFAUT,
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
@@ -100,11 +122,15 @@ from ..constants import (
     PREVENTION_OFFSET_CENTRAL_CAP,
     PREVENTION_OFFSET_LAG_YEARS,
     PREVENTION_OFFSET_RAMP_PER_YEAR,
+    RDB_MENAGES_MD_EUR,
     RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
     RETRAITES_REF_DUREE_ANS,
+    asu_cout_transition_md_eur,
+    asu_effort_perenne_md_eur,
+    asu_plafonnement_borne,
 )
 from .._logging import _log_debug
 from .._seniors import retraites_ecart_age_ans
@@ -545,243 +571,154 @@ class DepensesMixin(_MixinBase):
 
     def _apply_asu(self, measure: Dict, params: Dict, year: int, gdp: float,
                    inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
-        """
-        Allocation Sociale Unique (ASU) - Fusion RSA/Prime activité/APL/Allocations familiales
-        Plafond variable: 50-70% SMIC net (~700-1000€ pour personne seule)
+        """Allocation sociale unique (ASU) — v0.6.1, items I22 à I26.
 
-        Paramètres:
-        - asu_activation (0/1): Activation de l'ASU (0=système actuel, 1=ASU activée)
-        - asu_plafonnement (0.5-0.7): Niveau de plafonnement (50-70% du SMIC)
+        CE QUE LA RÉFORME EST, d'après la seule évaluation administrative
+        publiée : Assemblée nationale, commission des affaires sociales,
+        mission « flash » sur l'opportunité et les modalités de la création
+        d'une allocation sociale unique, rapporteures N. Colin-Oesterlé et
+        S. Runel, juillet 2025, restituant les chiffrages DREES + Igas
+        (modèle Ines) de juin 2024. Trois faits en découlent, et ils
+        contredisent point par point le modèle de la v0.5.1 :
 
-        Budget absorbé (90 Md€): RSA (13) + Prime activité (10) + APL (15) + Allocations familiales (52)
+        1. PÉRIMÈTRE — « une harmonisation des bases de ressources et une
+           évolution des barèmes » plutôt qu'« une création d'allocation
+           unique » ; en clair : RSA + prime d'activité + APL, via un revenu
+           social de référence. Les prestations familiales n'y sont pas
+           (même position chez F. Lenglart : « unifier […] et non pas les
+           fusionner »). Le handler les fusionnait, et les chiffrait à un
+           montant supérieur de 60 % à leur valeur réelle (32,3 Md€ de
+           prestations familiales) : deux erreurs en une, le champ ET le
+           montant. Chiffres exacts : constants.py § ASU.
+        2. SIGNE — les scénarios chiffrés valent 0 (variante à coût
+           constant) ou +2 Md€/an de COÛT (variantes +2 Md€ pérennes).
+           Aucun ne produit d'économie. Le curseur de plafonnement pilote
+           donc désormais cet EFFORT, entre les deux seules valeurs que la
+           source publie.
+        3. TRANSITION — « un coût cumulé de 2 à 13,4 milliards d'euros »
+           sur quatre ans, « hors hausse du taux de recours (2,4 milliards
+           d'euros d'après DGALN) ». Réduire le non-recours AUGMENTE la
+           dépense : le moteur en faisait un gain redistributif gratuit.
 
-        Économies totales (HORS fraude - déjà comptée dans fraude_sociale):
-        Composantes fixes:
-        - Simplification gestion CAF/MSA/France Travail: +6.0 Md€ (médiane IFRAP)
-        - Doublons CAF/régions/urbanisme: +1.5 Md€ (HCFPS 2024)
-        - Fraude structurelle (contrôles automatisés): +2.0 Md€ (30% des 6.3 Md€ erreurs CAF)
-        - Protection vulnérables (majorations + complément): -2.0 Md€ (DREES)
+        CE QUI RESTE UNE ÉCONOMIE, ET LA SEULE : la gestion. Elle est bornée
+        par l'arithmétique (Cour des comptes, communication au Sénat de
+        janvier 2026 : la gestion de TOUTE la branche famille vaut environ
+        3 Md€ ; sur RSA + prime d'activité + APL la masse mobilisable est de
+        0,8 à 1,0 Md€/an). La valeur retenue, 0,3 Md€/an, est une DÉRIVATION
+        assumée : la mission parlementaire déclare explicitement que « les
+        moyens à la disposition des rapporteurs durant cette mission n'ont
+        pas permis d'en estimer précisément le montant ».
 
-        Composante variable (plafonnement):
-        - Plafonnement 50%: +8.0 Md€ (effet maximum sur hauts RSA + APL)
-        - Plafonnement 60%: +6.0 Md€ (médian, équilibre)
-        - Plafonnement 70%: +4.0 Md€ (conservateur, transitions douces)
+        CE QUI EST SUPPRIMÉ, ET POURQUOI — aucune valeur n'est remplacée par
+        une autre valeur : les canaux sont RETIRÉS.
+        - Effet emploi et bonus d'incitation au travail. Cour des comptes
+          2026, chapitre 3, dont le titre est « Des effets significatifs sur
+          les revenus des ménages modestes mais pas d'effets observables sur
+          l'emploi » ; l'étude sous-jacente est celle de l'Institut des
+          politiques publiques d'octobre 2023, commandée par la Cour. Un
+          dispositif de 10,6 Md€ et 4,81 millions de bénéficiaires ne produit
+          aucun effet emploi mesurable : il est exclu qu'une refonte de
+          barèmes en produise un.
+        - Effet de compétitivité : aucune source ne le chiffre.
+        - Économie de fraude structurelle : le résiduel de fraude qualifiée
+          est déjà porté par le curseur « Fraude sociale » (contrat
+          anti-double-comptage `_phasing.asu_phasing`), et la masse
+          d'anomalies CAF invoquée mélange des indus ET des rappels dus aux
+          allocataires, dont la détection AUGMENTE la dépense (Cour des
+          comptes, certification des comptes de la sécurité sociale 2024).
+        - Économie de « doublons » : sa source ne désignait aucun organisme
+          existant.
 
-        Bonus emploi (si plafonnement ≤ 60%):
-        - Incitation travail (prime reprise emploi intégrée): jusqu'à +1.0 Md€ économies chômage
+        Détail complet des sources, URL comprises, et motif de chaque
+        retrait : constants.py, section « CALIBRATION ALLOCATION SOCIALE
+        UNIQUE ».
 
-        ATTENTION: Gains fraude IA (+3-6 Md€) EXCLUS pour éviter double-comptage
-        avec le slider "Fraude sociale" qui réduit son potentiel de 30% si ASU active.
+        Paramètres
+        ----------
+        asu_activation : 0/1 — 0 = système actuel, tout impact nul.
+        asu_plafonnement : 0,50 à 0,70 — niveau du plafond en part du SMIC
+            net. Borné (jamais extrapolé) par `asu_plafonnement_borne`.
 
-        MODÉLISATION TEMPORALITÉ CT/LT :
-        Court terme (2026-2027) :
-        - PA : Négatif (plafonnement réduit prestations pour certains allocataires)
-        - Gini : Mixte (perte concentrée sur hauts RSA si plafond strict)
-
-        Long terme (2028+) :
-        - PA : Positif (incitation emploi → 200k retours emploi estimés)
-        - Gini : Amélioration (réduction pauvreté via emploi compense pertes initiales)
-
-        Sources: IFRAP 2025, HCFPS 2024, Cour des comptes, DREES, AN Rapport n°692, CAF,
-                 France Stratégie 2024, IPP 2023
+        Conventions du moteur respectées ici
+        ------------------------------------
+        - `delta_spending` POSITIF = surcoût (le handler en produit
+          désormais, c'est tout l'objet du lot) ;
+        - `gini` et `pouvoir_achat` sont des effets de NIVEAU : le moteur
+          les CUMULE (`gini_cible_cumul += …`) et les COMPOSE
+          (`purchasing_power *= …`). Émettre le même delta chaque année en
+          ferait un flux perpétuel — une réforme de barème déplace le niveau
+          des transferts UNE FOIS. Les deux canaux émettent donc l'INCRÉMENT
+          de montée en charge, dont la somme vaut exactement le niveau
+          atteint, et zéro une fois le régime permanent atteint.
         """
         # CONTRAT (cf. docs/MEASURE_REGISTRY.md) : asu_activation /
         # asu_plafonnement sont lus ici depuis `params` = mesures['asu']
         # (source canonique, IDENTIQUE à celle lue par
         # _phasing.asu_is_active — le prédicat booléen anti-double-comptage
         # consommé par _apply_prestations_indexation et, via asu_phasing,
-        # par la fraude sociale). Pas d'accesseur partagé volontairement :
-        # _apply_asu a besoin des VALEURS, asu_is_active ne renvoie qu'un
-        # bool — les router ensemble exigerait une régén golden auditée
-        # pour ~zéro gain (dette Item 2 Niveau 2 : documentée, non
-        # refactorée).
-        activation = params.get('asu_activation', 0)  # 0 ou 1
-        plafonnement = params.get('asu_plafonnement', 0.65)  # 0.5-0.7
-
-        # Clamp plafonnement dans la plage valide
-        plafonnement = max(0.5, min(0.7, plafonnement))
+        # par la fraude sociale).
+        activation = params.get('asu_activation', 0)
+        plafonnement = asu_plafonnement_borne(
+            params.get('asu_plafonnement', ASU_PLAFONNEMENT_DEFAUT))
 
         if activation == 0:
             return 0.0, 0.0, {}
 
-        # === CONSTANTES ÉCONOMIQUES (chiffres conservateurs validés) ===
-        ECO_SIMPLIFICATION = 6.0  # Md€/an (médiane IFRAP: fusion CAF/MSA/FT)
-        ECO_DOUBLONS = 1.5        # Md€/an (HCFPS 2024: CAF/régions/urbanisme)
-        ECO_FRAUDE_STRUCT = 2.0   # Md€/an (30% des 6.3 Md€ erreurs CAF détectables par IA)
-        COUT_PROTECTION = 2.0     # Md€/an (majorations handicap/isolement + complément transition)
-
-        # Économies plafonnement (dépend du niveau choisi, non-linéaire)
-        # Formule calibrée sur budget réel: RSA 13 + Prime 10 + APL 15 + Famille 52 = 90 Md€
-        if plafonnement <= 0.55:
-            eco_plafonnement = 8.0  # Plafonnement strict (50-55%)
-        elif plafonnement <= 0.65:
-            # Interpolation linéaire: 55% → 8 Md€, 60% → 6 Md€, 65% → 5 Md€
-            eco_plafonnement = 8.0 - (plafonnement - 0.50) * 20.0
-        else:
-            # Plafonnement souple (65-70%)
-            eco_plafonnement = 4.0
-
-        # Bonus emploi: si plafonnement ≤ 60%, gain net travail > allocation incite reprise emploi
-        # Prime reprise emploi intégrée → réduction dépenses chômage
-        if plafonnement <= 0.60:
-            bonus_emploi = (0.60 - plafonnement) * 10.0  # Max 1.0 Md€ à 50%
-        else:
-            bonus_emploi = 0.0
-
-        # === PHASING PROGRESSIF (4 ans) — source unique partagée ===
-        # 2026 pilote → 2029+ généralisé. Même calendrier que
-        # l'anti-double-comptage côté fraude_sociale (cf asu_phasing).
+        # === MONTÉE EN CHARGE (4 ans) — source unique partagée ===
+        # Même calendrier que l'anti-double-comptage côté fraude_sociale
+        # (cf asu_phasing). L'INCRÉMENT sert aux effets de NIVEAU.
         phasing = asu_phasing(self.mesures, year)
+        increment = phasing - asu_phasing(self.mesures, year - 1)
 
-        # === CALCUL ÉCONOMIES ===
-        # Convention: delta_spending NÉGATIF = économies (réduction dépenses)
-        # OVERRIDE_2026 : surcoût net de transition pilote (10 départements, IA en
-        # déploiement). Choix conservateur (cf. IGF 2024) : écrase le calcul ramping 25%
-        # car les économies théoriques Y1 sont jugées trop optimistes. En contrepartie,
-        # Y1 devient insensible au paramètre `plafonnement` — seuls Y2+ y répondent.
-        OVERRIDE_2026_TRANSITION = 0.5  # Md€, coût net temporaire conservateur
-        if year == 2026:
-            delta_spending = OVERRIDE_2026_TRANSITION
-        else:  # 2027+
-            # Économies récurrentes progressives (phasing 50% → 75% → 100%)
-            eco_totale = (ECO_SIMPLIFICATION + ECO_DOUBLONS + ECO_FRAUDE_STRUCT +
-                         eco_plafonnement + bonus_emploi - COUT_PROTECTION)
-            eco_nette = eco_totale * phasing
-            delta_spending = -eco_nette  # Signe négatif = économies
-            # Exemple plafonnement 60%:
-            # 2027 (50%): -(6+1.5+2+6+0.4-2)×0.5 = -6.95 Md€
-            # 2028 (75%): -(13.9)×0.75 = -10.4 Md€
-            # 2029+ (100%): -(13.9)×1.0 = -13.9 Md€
+        effort = asu_effort_perenne_md_eur(plafonnement)
 
-        # Pas d'impact recettes direct (neutre fiscalement)
+        # === BUDGET ===
+        # Pérenne : l'effort de la réforme, NET de l'économie de gestion,
+        # tous deux montant en charge sur le même calendrier.
+        # Transition : enveloppe des quatre premières années, indépendante
+        # du plafond (aucune source ne les lie).
+        transition = asu_cout_transition_md_eur(year)
+        delta_spending = transition + phasing * (
+            effort - ASU_ECO_SIMPLIFICATION_MD_EUR)
         delta_revenue = 0.0
 
-        # === IMPACTS MACROÉCONOMIQUES ===
         impacts = {
             'depenses': delta_spending,
             'recettes': delta_revenue,
-            'description': f'ASU plafond {plafonnement*100:.0f}% SMIC - Simpl.+doublons+plafonnement',
+            'description': (
+                f"ASU plafond {plafonnement:.0%} SMIC — périmètre "
+                f"{ASU_PERIMETRE_MD_EUR:.0f} Md€ (RSA + prime d'activité "
+                f"+ APL), effort pérenne {effort:.1f} Md€/an"
+            ),
         }
 
-        # === POUVOIR D'ACHAT : DOUBLE EFFET TEMPOREL ===
-        # 1) EFFET DIRECT (immédiat) : Plafonnement réduit prestations
-        # Impact sur 3.5M allocataires RSA/APL (8% population)
-        # Plafond 50% = -200€/mois pour hauts RSA → -0.06% PA agrégé (vs 0.70 baseline)
-        # Plafond 70% = impact nul (statu quo)
-        pa_direct = -0.003 * (0.70 - plafonnement)  # coefficient appliqué à (0.70 - plafond)
+        # === POUVOIR D'ACHAT ===
+        # Reconstitution depuis le scénario bis DREES/Igas : 4,6 millions de
+        # gagnants à +110 €/mois moins 2,9 millions de perdants à
+        # -110 €/mois font un transfert net d'environ +2,3 Md€/an,
+        # c'est-à-dire, par construction, l'effort budgétaire lui-même.
+        # L'effet sur le revenu disponible agrégé vaut donc l'effort
+        # rapporté au RDB — et il est NUL à coût constant, où la réforme
+        # compte 4,0 millions de perdants pour 3,9 millions de gagnants.
+        impacts['pouvoir_achat'] = (effort / RDB_MENAGES_MD_EUR) * increment
 
-        # 2) EFFET EMPLOI (différé, année 3+) : Incitation travail → hausse revenus
-        # Hypothèse réaliste IPP Bozio 2023 : 50k retours emploi (vs 200k optimiste France
-        # Stratégie 2024). 50k × 1400€ × 12 = 0.85 Md€ ≈ 0.04% RDB → +0.04% PA à plafond 50%.
-        # Cohérent avec l'hypothèse 50k retours du bloc Gini LT ci-dessous.
-        if year >= 2028:  # Délai comportemental 2-3 ans
-            pa_emploi = 0.0015 * (0.70 - plafonnement)  # +0.03% à 50%, 0% à 70%
-        else:
-            pa_emploi = 0.0
-
-        # TOTAL PA : Négatif CT, positif LT si plafond bas
-        impacts['pouvoir_achat'] = (pa_direct + pa_emploi) * phasing
-
-        # === GINI : VISION RÉALISTE - ASU N'EST PAS MIRACLE REDISTRIBUTIF ===
-        # IMPORTANT : ASU = simplification administrative avec effets redistributifs AMBIGUS
-        #
-        # RÉALITÉ EMPIRIQUE (France Stratégie 2019, OFCE 2024, IPP 2023) :
-        # - Élasticité emploi faible (0.1-0.3) : incitations financières créent PEU d'emplois
-        # - Plafond 50% = RÉGRESSIF : Perdants (1.5M cumulards -150€/mois) > Gagnants (600k non-recours +120€/mois)
-        # - Retours emploi réalistes = 50k (et non 200k optimiste) car chômage = problème STRUCTUREL
-        # - ASU redistributif SEULEMENT SI : plancher ≥ RSA ET plafond ≥ 70%
-
-        if year <= 2027:  # COURT TERME (avant effets emploi hypothétiques)
-            # 1) EFFET DOMINANT : Plafonnement frappe les plus pauvres (RÉGRESSIF)
-            # 1.5M ménages cumulards (familles monoparentales, handicap) perdent -50 à -200€/mois
-            if plafonnement <= 0.55:
-                # Plafond 50% = perte moyenne -150€/mois pour 1.5M ménages
-                gini_plafonnement = +0.003 * (0.55 - plafonnement) / 0.05  # +0.003 à 50%
-            elif plafonnement <= 0.65:
-                # Plafond 65% = perte moyenne -50€/mois
-                gini_plafonnement = +0.001  # Léger régressif
-            elif plafonnement <= 0.75:
-                # Plafond 75% = pertes marginales
-                gini_plafonnement = +0.0003
-            else:
-                gini_plafonnement = 0.0  # Neutre au-dessus de 75%
-
-            # 2) EFFET COMPENSATEUR PARTIEL : Réduction non-recours (600k ménages)
-            # Gain +100-150€/mois mais pour ménages MOINS pauvres que cumulards
-            gini_non_recours = -0.001  # OFCE 2019 : non-recours 34%→10% = -0.001 Gini
-
-            # TOTAL CT : RÉGRESSIF à 50%, neutre à 65%, léger progressif à 75%
-            gini = gini_plafonnement + gini_non_recours
-
-        else:  # LONG TERME (2028+, effets emploi HYPOTHÉTIQUES)
-            # 3) EFFET EMPLOI RÉALISTE (divisé par 4 vs hypothèse optimiste)
-            # Retours emploi = 50k personnes (et non 200k) car :
-            # - Chômage RSA = majoritairement STRUCTUREL (qualif, santé, garde enfants, discrimination)
-            # - Élasticité emploi faible (0.1-0.3) : incitations $ créent peu d'emplois
-            if plafonnement <= 0.55:
-                # 50k retours emploi × 1400€/mois × 12 = 0.84 Md€
-                gini_emploi = -0.0005  # Divisé par 4 vs ancien -0.002
-            elif plafonnement <= 0.65:
-                # 25k retours emploi
-                gini_emploi = -0.00025  # Divisé par 4 vs ancien -0.001
-            else:
-                # Effet emploi négligeable si plafond élevé
-                gini_emploi = 0.0
-
-            # Plafonnement + non-recours (effets permanents)
-            if plafonnement <= 0.55:
-                # Pertes permanentes 1.5M ménages > gains emploi 50k
-                gini_plafonnement = +0.0025  # Légèrement augmenté (emploi compense moins)
-            elif plafonnement <= 0.65:
-                # Pertes modérées, emploi compense partiellement
-                gini_plafonnement = +0.0008
-            elif plafonnement <= 0.75:
-                # Quasi neutre
-                gini_plafonnement = +0.0002
-            else:
-                gini_plafonnement = 0.0
-
-            gini_non_recours = -0.001
-
-            # TOTAL LT : Neutre à légèrement régressif (50%), neutre (65%), légèrement progressif (75%)
-            gini = gini_plafonnement + gini_non_recours + gini_emploi
-
-        impacts['gini'] = gini * phasing
-
-        # === COMPÉTITIVITÉ : SIMPLIFICATION ADMIN vs RISQUE SOCIAL ===
-        # ASU = simplification majeure (fusion CAF/MSA/France Travail)
-        if year <= 2027:  # COURT TERME : Simplification domine
-            # Effet positif : Gain temps administratif entreprises, climat affaires
-            competitivite_asu = 0.001 * phasing  # +0.001 (effet admin)
-        else:  # LONG TERME : Dépend du plafonnement
-            if plafonnement <= 0.55:
-                # Plafond très bas → risque social compense partiellement simplification
-                competitivite_asu = 0.0005
-            elif plafonnement <= 0.65:
-                # Plafond modéré → effet positif net
-                competitivite_asu = 0.001
-            else:
-                # Plafond élevé → effet positif maximal
-                competitivite_asu = 0.0015
-
-        impacts['competitivite'] = competitivite_asu
-
-        # Chômage: incitation emploi via gain net travail (ONE-TIME)
-        # Effet structurel sur NAIRU, pas flux annuel récurrent
-        # Coefficient 3.0 (médian entre 2 et 5)
-        # Source: France Stratégie 2024, études prime activité
-        # Effet dès 2028 (montée en charge nécessaire)
-        if year >= 2028 and plafonnement <= 0.65:
-            # ONE-TIME: Impact appliqué UNIQUEMENT en 2028 (année activation effet emploi)
-            # Années suivantes: niveau maintenu via convergence NAIRU, pas d'impact additionnel
-            if year == 2028:
-                effet_chomage = -0.002 * (0.70 - plafonnement) * 10.0  # Max -0.1 point à 50%
-                impacts['chomage'] = effet_chomage * phasing * 3.0  # ONE-TIME en 2028
+        # === GINI ===
+        # AUCUNE source ne publie l'effet Gini de l'ASU (les scénarios
+        # officiels donnent un taux de pauvreté). Le moteur ne fabrique pas
+        # la conversion : il retient une BORNE THÉORIQUE déclarée — un
+        # transfert net entièrement reçu par le tout premier centile, cas
+        # limite où l'amélioration est arithmétiquement maximale. Toute
+        # concentration réelle est moins extrême, donc l'effet réel est plus
+        # PETIT : le moteur MAJORE délibérément le bénéfice redistributif,
+        # pour qu'on ne puisse pas lui reprocher de minorer l'apport des
+        # programmes généreux. Conditionné à l'effort par construction : à
+        # coût nul, l'ASU est un pur transfert entre ménages.
+        impacts['gini'] = -ASU_GINI_BORNE_PAR_MD_EUR * effort * increment
 
         _log_debug(self.debug_logs,
-                   f"Y{year}: ASU plaf={plafonnement*100:.0f}% - phasing={phasing*100:.0f}%, "
-                   f"éco_plaf={eco_plafonnement:.1f}Md€, bonus_emploi={bonus_emploi:.1f}Md€, "
-                   f"total={delta_spending:.1f}Md€")
+                   f"Y{year}: ASU plaf={plafonnement:.0%} - phasing={phasing:.0%}, "
+                   f"effort={effort:.2f}Md€, transition={transition:.2f}Md€, "
+                   f"total={delta_spending:+.2f}Md€")
 
         return delta_spending, delta_revenue, impacts
 
@@ -890,7 +827,13 @@ class DepensesMixin(_MixinBase):
         # PAS un taux d'inflation cible (0.02, 0.025...).
         indexation = params.get('taux_indexation', 1.0)
 
-        # Anti-double-comptage : l'ASU absorbe exactement cette base 90 Md€.
+        # Anti-double-comptage : le périmètre de l'ASU (39 Md€ : RSA + prime
+        # d'activité + APL) est un SOUS-ENSEMBLE de cette base de 90 Md€ —
+        # et non son égal, comme l'écrivaient la v0.5.1 et la v0.6.0. On
+        # neutralise quand même EN TOTALITÉ : c'est le choix CONSERVATEUR
+        # (il ne peut qu'ôter des économies à un scénario qui cumule les deux
+        # leviers, jamais lui en offrir), et re-baser le levier d'indexation
+        # est un chantier distinct que le lot ASU v0.6.1 n'a pas audité.
         # Prédicat = SOURCE UNIQUE `mesures['asu']`, PAS `params['asu_active']`
         # (jamais propagé → garde inerte ex. lr_2027). Cf. `asu_is_active`.
         if asu_is_active(self.mesures):

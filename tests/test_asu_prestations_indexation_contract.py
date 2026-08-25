@@ -1,12 +1,20 @@
 """Contrat anti-double-comptage ASU ↔ prestations_indexation.
 
-L'ASU (Allocation Sociale Unique) fusionne et absorbe RSA / Prime
-activité / APL / allocations familiales — exactement la base 90 Md€ du
-levier ``prestations_indexation`` (cf. docstrings ``_apply_asu`` et
-``_apply_prestations_indexation``). Si l'ASU est dans le scénario, une
-désindexation séparée de ces mêmes 90 Md€ est un DOUBLE-COMPTAGE :
-``_apply_prestations_indexation`` doit donc se neutraliser quand l'ASU
-est active.
+L'ASU (Allocation Sociale Unique) unifie RSA / prime d'activité / APL.
+Si l'ASU est dans le scénario, une désindexation séparée de ces mêmes
+prestations est un DOUBLE-COMPTAGE : ``_apply_prestations_indexation``
+doit donc se neutraliser quand l'ASU est active.
+
+CORRECTION v0.6.1 (lot 5) — le COMPORTEMENT testé ici est inchangé, la
+JUSTIFICATION l'est : jusqu'à la v0.6.0, ce fichier et les docstrings du
+handler écrivaient que l'ASU absorbe « exactement » la base 90 Md€ du
+levier d'indexation. C'est faux. Le périmètre officiel de la réforme est
+de 39 Md€ (RSA + prime d'activité + APL ; les prestations familiales sont
+HORS réforme). La neutralisation reste TOTALE, comme choix
+CONSERVATEUR assumé : elle ne peut qu'ÔTER des économies à un scénario
+qui cumule les deux leviers, jamais lui en offrir. Re-baser le levier
+d'indexation, dont l'assiette n'a pas été auditée par le lot ASU, est un
+chantier distinct.
 
 La neutralisation doit dériver de la MÊME source unique que le reste de
 l'anti-double-comptage ASU (``mesures['asu']`` via le prédicat de
@@ -49,7 +57,8 @@ def test_neutralized_when_asu_active_via_mesures_without_asu_active_param():
     })
     assert ds == 0, (
         f"prestations_indexation doit être neutralisé quand l'ASU est active "
-        f"via mesures['asu'] (double-comptage des 90 Md€ sinon) ; ds={ds}"
+        f"via mesures['asu'] (double-comptage des prestations unifiées "
+        f"sinon) ; ds={ds}"
     )
 
 

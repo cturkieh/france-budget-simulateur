@@ -658,30 +658,116 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
 
 ### Allocation Sociale Unique (ASU)
 
-**Principe** : Fusion RSA + Prime d'activite + APL
+> **Refonte v0.6.1 (items I22 a I26).** Jusqu'a la v0.5.1 le moteur faisait de
+> l'ASU une machine a economies (-11,5 Md EUR/an a plein regime), avec un bonus
+> emploi et une amelioration du Gini servie a cout nul. La **seule evaluation
+> administrative publiee** de la reforme chiffre au contraire un effet
+> budgetaire perenne compris **entre 0 et +2,0 Md EUR par an de COUT**. Quatre
+> des sources citees par le code ont ete **retirees, pas reecrites** : deux
+> etaient introuvables, une nommait un organisme inexistant, une etait une note
+> de plaidoyer refutee au fond par la Cour des comptes.
 
-**Objectifs :**
-1. Simplification administrative (7,5 Md EUR economies)
-2. Incitation au travail (gain net +500 EUR au SMIC)
-3. Lutte contre non-recours (34% -> 10%)
-4. Protection ciblee (majorations vulnerables)
+**Perimetre** : **39 Md EUR** — RSA + prime d'activite + APL, via un « revenu
+social de reference ». Les **prestations familiales n'en font pas partie** : la
+mission parlementaire conclut a « une harmonisation des bases de ressources et
+une evolution des baremes » plutot qu'a « une creation d'allocation unique », et
+F. Lenglart ecrit « unifier […] et non pas les fusionner ». Le moteur les
+fusionnait, et les chiffrait a **52 Md EUR** la ou les prestations familiales
+valent **32,3 Md EUR** : il se trompait a la fois de champ et de montant.
+Le perimetre de 39 Md EUR est un **libelle** : il n'entre dans aucun calcul du
+moteur, et la somme des trois lignes citees vaut 37,4 Md EUR — un ecart de
+1,6 Md EUR que le dossier de sourcing ne reconcilie pas, signale ici plutot que
+comble.
 
-**Economies nettes :**
-- Investissement 2026 : -1,4 Md EUR
-- Economies recurrentes 2027+ : +11,5 Md EUR/an
-- Protection vulnerables : -2,0 Md EUR/an
+**Plafond** : curseur 50 %-70 % du SMIC net (defaut moteur **65 %**). Il ne
+pilote plus une economie de baremes, mais l'**effort budgetaire perenne** de la
+reforme, entre les deux seules variantes chiffrees par la DREES et l'Igas :
+« a cout constant » (0) et « +2 Md EUR perennes ». Interpolation lineaire entre
+ces deux bornes : **convention declaree**, aucune source ne publie la
+correspondance entre un niveau de plafond et un montant.
 
-**Plafond** : range slider 50%-70% du SMIC net (defaut moteur **65%** ≈ 910 EUR personne seule, max range 70% ≈ 1 000 EUR — position NFP). Constante : `'asu_plafonnement': 0.65` dans `budget_simulator/config.py`.
+**Ce que la reforme coute et rapporte, dans le moteur :**
 
-**Mecanismes de protection :**
-- Parent isole + 2 enfants : Minimum 1 250 EUR
-- Handicape (AAH) : Minimum 1 200 EUR
-- Complement de transition sur 3 ans
+| Composante | Valeur | Statut |
+|---|---|---|
+| Effort perenne (curseur) | 0 a **+2,0 Md EUR par an** | scenarios DREES/Igas juin 2024 |
+| Economie de gestion | **-0,3 Md EUR par an** | DERIVATION (voir ci-dessous) |
+| Cout de transition | +1,1 Md EUR par an sur 4 ans | fourchette officielle 2 a 13,4 Md EUR cumules, **plancher retenu**, + 2,4 Md EUR de hausse du recours |
+| Effet emploi | **0** | aucun effet observable (Cour des comptes / IPP) |
+| Competitivite | **0** | aucune source |
+| Pouvoir d'achat | effort / revenu disponible brut | nul a cout constant |
+| Gini | borne theorique proportionnelle a l'effort | nul a cout constant |
 
-**Impacts :**
-- Pouvoir d'achat : +0,3% (incitation travail)
-- Gini : -0,005 (reduction pauvrete)
-- Chomage : -0,1 point (incitation emploi)
+**Pourquoi l'economie de gestion ne peut pas depasser un ordre de grandeur.**
+La gestion de **toute** la branche famille vaut environ **3 Md EUR** par an
+(Cour des comptes, communication au Senat de janvier 2026, chapitre « Le cout de
+la gestion par la CNAF ») : la prime d'activite y pese 360 M EUR en cout complet,
+le RSA environ 280 M EUR. Un coefficient de 6 Md EUR par an en representait donc
+le **double** — supprimer integralement la CNAF n'economiserait que 3 Md EUR. Sur
+le perimetre reel de l'ASU la masse mobilisable est de 0,8 a 1,0 Md EUR/an ; le
+moteur retient **0,3 Md EUR par an**. Ce chiffre est une **derivation assumee**,
+jamais une estimation officielle : la mission parlementaire declare
+explicitement que ses moyens « n'ont pas permis d'en estimer precisement le
+montant ». Le sens de court terme est d'ailleurs **inverse** — la convention
+d'objectifs et de gestion 2023-2027 augmente les moyens de gestion de 34 %,
+notamment pour absorber le pic d'activite lie a la « solidarite a la source » :
+la reforme coute de la gestion avant d'en economiser.
+
+**Pourquoi il n'y a plus d'effet emploi.** Le chapitre 3 du rapport de la Cour
+des comptes sur la prime d'activite a pour titre « Des effets significatifs sur
+les revenus des menages modestes **mais pas d'effets observables sur l'emploi** ».
+L'etude sous-jacente, conduite par l'Institut des politiques publiques a la
+demande de la Cour (octobre 2023), ne trouve aucun effet « dans les differentes
+sous-populations analysees », et pres de 80 % des allocataires interroges
+declarent ne pas tenir compte de la prime d'activite dans leur comportement
+d'emploi. Un dispositif de 10,6 Md EUR et 4,81 millions de beneficiaires ne
+produit aucun effet emploi mesurable : il est exclu qu'une refonte de baremes en
+produise un.
+
+**Pourquoi reduire le non-recours COUTE.** Le cout de transition publie
+(2 a 13,4 Md EUR cumules sur quatre ans) est explicitement donne « hors hausse du
+taux de recours (2,4 milliards d'euros d'apres la DGALN) » pour le seul volet
+logement. Le moteur traitait la baisse du non-recours comme un gain
+redistributif gratuit ; elle est desormais **facturee**.
+
+**Pourquoi le Gini est une borne, pas une estimation.** Aucune source ne publie
+l'effet de l'ASU sur l'indice de Gini : les scenarios officiels donnent un
+**taux de pauvrete**. Le moteur ne fabrique pas la conversion. Il retient une
+borne theorique entierement explicite — un transfert net integralement recu par
+le tout premier centile, cas limite ou l'amelioration est arithmetiquement
+maximale. Toute concentration reelle etant moins extreme, l'effet reel est plus
+**petit** : le moteur **majore** deliberement le benefice redistributif des
+programmes genereux plutot que de le minorer. Et il le **conditionne a
+l'effort** : dans la variante a cout constant, la reforme compte **4,0 millions
+de perdants pour 3,9 millions de gagnants** — c'est un pur transfert entre
+menages, dont l'effet agrege est nul par construction.
+
+**Effets de NIVEAU, pas de flux.** Le Gini et le pouvoir d'achat de l'ASU sont
+emis sous forme d'**increment de montee en charge** : leur somme sur les quatre
+annees vaut exactement le niveau atteint, et ils valent zero une fois le regime
+permanent installe. Une reforme de baremes deplace le niveau des transferts une
+fois ; elle ne reduit pas les inegalites un peu plus chaque annee pour toujours,
+ce que la v0.5.1 faisait en emettant le meme delta chaque annee dans un
+agregateur cumulatif.
+
+**Sources primaires** (URL completes dans `budget_simulator/constants.py`,
+section « CALIBRATION ALLOCATION SOCIALE UNIQUE ») :
+- Assemblee nationale, commission des affaires sociales, mission « flash » sur
+  l'opportunite et les modalites de la creation d'une allocation sociale unique,
+  rapporteures N. Colin-Oesterle et S. Runel, **juillet 2025** (chiffrages DREES
+  et Igas, modele Ines, juin 2024) ;
+- Cour des comptes, *La prime d'activite*, communication au Senat (art. 58-2°
+  LOLF), **janvier 2026**, annexe au rapport d'information Senat n° 728
+  (2025-2026), p. 101-102 ;
+- Cour des comptes, *Certification des comptes du regime general de securite
+  sociale — exercice 2024*, **mai 2025** ;
+- Institut des politiques publiques, *La reforme de 2019 de la prime
+  d'activite*, **octobre 2023**, publiee par France Strategie.
+
+**Limite connue et non corrigee ici** : les coefficients Gini herites des autres
+leviers sociaux sont d'un ordre de grandeur superieur **par euro transfere**.
+Les homogeneiser suppose de re-deriver le facteur d'echelle global
+`GINI_IMPACT_SCALE`, chantier explicitement differe (v0.7).
 
 ---
 
@@ -891,10 +977,15 @@ applique APRES le cap IGAS (jusqu'a -30% a plein regime ASU, soit un
 plafond effectif d'environ **5,6 Md EUR/an** quand l'ASU est pleinement
 deployee — hypothese conservatrice assumee).
 - Le coefficient **0,30** est l'overlap estime entre les controles
-  automatises integres a l'ASU et le potentiel de fraude sociale
-  HCFPS. **Distinct** du « 30% des 6,3 Md€ erreurs CAF » de la
-  composante `ECO_FRAUDE_STRUCT` de l'ASU (cf section ASU) : ce sont
-  deux usages differents du chiffre 30%.
+  automatises integres a l'ASU et le potentiel de fraude sociale.
+  MAJ v0.6.1 : la composante symetrique cote ASU (`ECO_FRAUDE_STRUCT`,
+  « 30% des 6,3 Md EUR d'erreurs CAF ») est **SUPPRIMEE**. La Cour des
+  comptes (certification 2024) etablit que ce montant est une somme
+  algebrique dont **30 a 36 % sont des rappels dus aux allocataires** :
+  les detecter AUGMENTE la depense. Le residuel de fraude qualifiee est
+  desormais porte par le seul curseur « Fraude sociale ». La reduction
+  de -30 % ci-dessus est CONSERVEE : elle ne dependait pas de cette
+  composante, seulement du fait que l'ASU integre des controles.
 - **Contrepartie obligatoire** de l'exclusion symetrique des gains
   fraude IA (+3-6 Md€) cote ASU : sans cette reduction, ces montants
   ne seraient comptes ni cote ASU ni cote fraude_sociale (double-
@@ -1240,11 +1331,18 @@ Liste exhaustive PA one-time :
 - Chomage allocations : Niveau allocation versee
 - Fonction publique (point indice + creations postes) : Niveau salaire FP
 
+> **MAJ v0.6.1 — l'ASU change de famille.** Ses effets Gini et pouvoir d'achat
+> etaient classes FLUX et emis a l'identique chaque annee dans des agregateurs
+> cumulatif (`gini_cible_cumul += …`) et multiplicatif (`purchasing_power *= …`),
+> ce qui en faisait une redistribution composee a l'infini. Ils sont desormais des
+> effets de NIVEAU emis par **increment de montee en charge** : somme egale au
+> niveau atteint, zero en regime permanent. Son effet `depenses` reste un flux
+> (l'effort budgetaire perenne est bien une charge annuelle recurrente).
+
 **Effets FLUX (RECURRENT)** — Appliques CHAQUE ANNEE legitimement :
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
   taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires) ;
   SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir
-- ASU : Allocataires plafonnes (50-70% SMIC) perdent une fraction d'allocation chaque annee tant que le plafonnement est actif (phasing pluriannuel)
 - Transition ecologique COMPOSANTE renovation : Primes versees chaque annee a de nouveaux beneficiaires
 - Retraites (indexation) : Erosion annuelle similaire prestations
 - Fraude fiscale/sociale : Recettes recuperees annuellement
