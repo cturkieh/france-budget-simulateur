@@ -3,10 +3,8 @@ import logging
 
 from .constants import (
     POLICY_MEASURES_PATH,
-    POLICY_START_YEAR,
     PREVENTION_BASE_MD_EUR,
     RETRAITES_REF_DUREE_ANS,
-    retraites_ref_age_ans,
 )
 
 logger = logging.getLogger(__name__)
@@ -22,13 +20,21 @@ def load_default_values():
     """
     return {
         'tva_rate': {'taux': 0.20},
-        # Âge de départ : le droit en vigueur l'année où les politiques
-        # démarrent (62,75 ans, gel LFSS 2026). Le handler, lui, compare à
-        # l'âge légal de CHAQUE année simulée — un curseur laissé sur ce
-        # défaut décrit donc « je suspends la réforme définitivement », pas
-        # « je ne touche à rien » (cf. constants.retraites_ref_age_ans).
-        'retraites': {'age_depart': retraites_ref_age_ans(POLICY_START_YEAR),
-                      'indexation': 1.0,
+        # Âge de départ : AUCUNE clé — et c'est le seul encodage neutre.
+        # Le handler compare l'âge posé à l'âge légal de CHAQUE année simulée
+        # (calendrier post-LFSS 2026 : 62,75 ans gelés jusqu'en 2027, puis
+        # +3 mois par génération jusqu'à 64,0 ans en 2032, cf.
+        # constants.retraites_ref_age_ans). Aucun SCALAIRE ne peut donc décrire
+        # « je ne touche à rien » sur tout l'horizon : 62,75 figé devient une
+        # mesure dès 2028 — la suspension définitive de la réforme, mesurée à
+        # +3,65 pt de dette 2035 — et 64,0 figé chiffre son accélération. Le
+        # statu quo, c'est l'ABSENCE de curseur : `retraites_ecart_age_ans`
+        # rend alors un écart rigoureusement nul chaque année (garde permanente
+        # dans tests/test_revue_adverse_v061.py).
+        # Conséquence pour les consommateurs : `/scenarios → status_quo` ne
+        # publie pas d'`age_depart`, et une UI qui affiche un curseur doit
+        # traiter son absence comme « calendrier légal en vigueur ».
+        'retraites': {'indexation': 1.0,
                       'duree_cotisation': RETRAITES_REF_DUREE_ANS},
         'fonction_publique': {'effectifs': 0, 'point_indice': 0},
         'fonction_publique_reforme': {'fusion_agences': 0, 'digitalisation': 0},

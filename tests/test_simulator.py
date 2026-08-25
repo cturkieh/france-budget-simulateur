@@ -498,7 +498,13 @@ def test_load_default_values():
     assert 'tva_rate' in defaults, "tva_rate manquant"
     assert defaults['tva_rate']['taux'] == 0.20, "Taux TVA par défaut incorrect"
     assert 'retraites' in defaults, "retraites manquant"
-    assert defaults['retraites']['age_depart'] == 62.75, "Âge départ par défaut incorrect (COR 2024: 62 ans 9 mois)"
+    # Recalibré par la revue adverse du 25/08 : le défaut ne pose PLUS d'âge.
+    # Depuis l'item I3 la référence est le calendrier légal (62,75 ans en
+    # 2026-2027 → 64,0 en 2032), donc figer 62,75 chiffrait la suspension
+    # définitive de la réforme. Le statu quo, c'est l'absence de la clé.
+    assert 'age_depart' not in defaults['retraites'], \
+        "le défaut ne doit poser aucun âge (statu quo = calendrier légal, cf. test_revue_adverse_v061)"
+    assert defaults['retraites']['duree_cotisation'] == 42.5, "Durée cotisation par défaut incorrecte"
 
 def test_load_measure_config(simulator):
     registry = simulator._load_measure_config()

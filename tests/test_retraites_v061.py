@@ -194,13 +194,22 @@ def test_maintien_a_64_ans_ne_rapporte_plus_rien_une_fois_le_calendrier_atteint(
         assert _delta_age(RETRAITES_REF_AGE_CIBLE_ANS, year) == pytest.approx(0.0, abs=1e-9)
 
 
-def test_defaut_de_config_aligne_sur_le_calendrier_de_lannee_de_depart():
-    """Le défaut affiché (curseur UI, `/scenarios` de l'API) est l'âge légal
-    de l'année où les politiques démarrent — sinon le « statu quo » de
-    l'interface ne serait pas le statu quo du moteur."""
-    assert load_default_values()['retraites']['age_depart'] == pytest.approx(
-        retraites_ref_age_ans(POLICY_START_YEAR)
-    )
+def test_defaut_de_config_ne_pose_aucun_age():
+    """Le défaut du moteur (`/scenarios → status_quo`, point de départ de
+    l'UI) ne pose AUCUN âge — recalibré par la revue adverse du 25/08.
+
+    La version initiale de ce test verrouillait le défaut sur
+    `retraites_ref_age_ans(POLICY_START_YEAR)` (62,75) au motif que « sinon le
+    statu quo de l'interface ne serait pas le statu quo du moteur ». C'est
+    l'inverse qui est vrai depuis I3 : le handler compare à la référence de
+    CHAQUE année, donc un scalaire figé à 62,75 devient une mesure dès 2028 —
+    la suspension définitive de la réforme, mesurée à +3,65 pt de dette 2035.
+    Le seul encodage rigoureusement neutre sur tout l'horizon est l'ABSENCE de
+    la clé (`retraites_ecart_age_ans` rend alors 0,0 chaque année).
+
+    Invariant de fond en trajectoire : tests/test_revue_adverse_v061.py.
+    """
+    assert 'age_depart' not in load_default_values()['retraites']
 
 
 # --- Méta-gardes : aucun coefficient d'âge en dur, aucune citation fausse --

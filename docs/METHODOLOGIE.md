@@ -148,7 +148,19 @@ loi produit deja (double comptage), et un programme a 60 ans etait chiffre sur
 
 Consequence de lecture : un curseur laisse a 62,75 ans sur tout l'horizon ne
 decrit pas « je ne touche a rien », mais « je suspends la reforme
-definitivement » — ce qui a un cout (jusqu'a 7,5 Md EUR/an a partir de 2032).
+definitivement » — ce qui a un cout (jusqu'a 7,5 Md EUR/an de pensions brutes
+a partir de 2032, 6,8 Md EUR net de la fuite sociale).
+
+**Corollaire : le statu quo n'est pas un nombre.** Puisque la reference bouge
+de 62,75 a 64,0 ans entre 2026 et 2032, AUCUN age fixe ne decrit « je ne touche
+a rien » sur tout l'horizon. Le statu quo est donc encode par l'**absence** de
+curseur d'age : ni les valeurs par defaut du moteur (`/scenarios` →
+`status_quo`), ni le point de depart du simulateur, ni le scenario de reference
+« Budget 2026 (vote) » ne posent d'`age_depart`, et l'ecart au droit en vigueur
+y est rigoureusement nul chaque annee. Toute valeur posee — 62,75 comprise —
+est une MESURE, et elle est chiffree comme telle. Dans l'interface, la position
+neutre du curseur s'affiche « calendrier legal » ; on y revient par le bouton
+« Reinitialiser ».
 
 **Age de depart — le bareme (refonte v0.6.1) :**
 - **6,0 Md EUR par annee d'age** d'ecart a la reference legale de l'annee, en
