@@ -1587,6 +1587,52 @@ qu'elles se lisent sinon comme des oublis :
   individualisables), reparties par hypothese, avec trois variantes publiees
   et l'avertissement que ces hypotheses « sont determinantes ».
 
+**Le choix de la BASE inverse les signes — a lire avant de comparer nos chiffres
+a une autre etude (v0.6.1, item I32).** Un meme prelevement indirect est
+**regressif** rapporte au revenu disponible et **progressif** rapporte au revenu
+elargi. Ce n'est pas un desaccord entre auteurs : c'est le meme fait mesure sur
+deux denominateurs, dont les Gini eux-memes different fortement (**0,297** pour
+le niveau de vie, **0,188** pour le niveau de vie elargi — Insee Analyses n 118,
+avril 2026). Exemple : les prelevements sur les produits et la production (TVA,
+TICPE) portent un coefficient de concentration de **+0,230**, ce qui leur donne
+un signe POSITIF (regressif) sur la base disponible et NEGATIF (progressif) sur
+la base elargie. Le sens s'inverse sans qu'aucun chiffre ne change.
+
+Le simulateur n'a qu'UNE base — le Gini du niveau de vie — et tous ses
+coefficients sont calibres sur celle-la. Deux consequences :
+
+- un coefficient importe d'une publication qui utilise l'autre base doit etre
+  **re-derive**, jamais recopie ;
+- un lecteur qui compare nos signes a une etude construite sur le revenu elargi
+  trouvera des desaccords qui **ne sont pas des erreurs**.
+
+C'est aussi la reponse a l'accusation de calibration orientee : une calibration
+orientee se reconnaitrait a une base **variable selon la mesure**, choisie a
+chaque fois pour obtenir le signe voulu. Ici elle est unique, declaree, et la
+meme pour tous les programmes.
+
+**L'education joue dans les DEUX SENS, et le moteur ne peut pas les distinguer
+(v0.6.1).** Le parametre d'education est un budget GLOBAL, alors que l'incidence
+distributive de la depense educative change de signe selon la filiere et selon
+la facon de classer les menages :
+
+- l'enseignement **superieur n'est pas redistributif** — coefficient de
+  concentration **-0,032**, et **+0,211** pour les etudiants decohabitants ;
+  l'INSEE (*France, portrait social*, ed. 2021) mesure que les 10 % les plus
+  aises percoivent **12 %** des depenses du superieur, contre 7 % de celles du
+  primaire-secondaire ;
+- en **cycle de vie**, les depenses au-dela de l'age de l'enseignement
+  obligatoire « aggravent legerement les inegalites » entre menages classes par
+  ORIGINE SOCIALE — et le resultat **s'inverse** si on les classe par revenu
+  FUTUR (Allegre, Melonio & Timbeau, OFCE, 2012) ;
+- la valorisation INSEE se fait **au cout de production** : une depense
+  inefficace y apparait exactement aussi redistributive qu'une depense efficace.
+
+Un curseur unique en euros ne peut trancher aucun de ces cas. C'est une **limite
+explicite de l'outil**, pas un arbitrage en faveur d'un bord — et elle vaut dans
+les deux sens : ni les programmes qui augmentent le budget de l'education, ni
+ceux qui le reduisent, ne recoivent de bonus ou de malus distributif a ce titre.
+
 **Ce qui a ete supprime en v0.6.1 (item I27).** Un « fallback generique »
 heritait de la v4.5 : six regles par mesure appliquees aux handlers qui
 n'emettaient pas eux-memes d'impact Gini (retraites 0,10 / chomage 0,15 /
