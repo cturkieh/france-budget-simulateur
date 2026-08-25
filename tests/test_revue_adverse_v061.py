@@ -20,6 +20,7 @@ surface qu'il protège : ce sont toutes des surfaces PUBLIÉES.
 import json
 import os
 import pathlib
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -176,3 +177,58 @@ def test_le_handler_date_le_choc_comme_les_canaux_macro(age):
         assert _ligne_pension(age, year) == pytest.approx(attendu, abs=1e-9), (
             f"âge {age}, année {year} : le handler n'utilise pas l'horloge du "
             f"choc (écart ouvert en {debut})")
+
+
+# ---------------------------------------------------------------------------
+# 4. Le tooltip public du levier d'âge — verrou CODE → DOC sur leverMeta.js
+# ---------------------------------------------------------------------------
+
+
+_LEVER_META_JS = _RACINE / '..' / '..' / 'frontend-react' / 'src' / 'data' / 'leverMeta.js'
+
+
+def _bloc_lever_meta(nom):
+    texte = _LEVER_META_JS.read_text(encoding='utf-8')
+    bloc = re.search(rf"\n    {nom}: \{{(.*?)\n    \}}", texte, re.S)
+    assert bloc, f"bloc `{nom}` introuvable dans leverMeta.js"
+    return bloc.group(1)
+
+
+@pytest.mark.skipif(not _LEVER_META_JS.exists(),
+                    reason="frontend-react/ hors périmètre fork moteur seul")
+def test_le_tooltip_public_du_levier_dage_suit_les_constantes():
+    """Verrou CODE → DOC sur le fichier que le CURSEUR consomme.
+
+    Le tooltip du levier le plus regardé du site publiait encore le
+    coefficient de la v0.5.1 (« ±16 Md€/an par année d'âge »), soit 2,7 fois
+    le barème que le lot 1 a établi, une « référence 2025 : 62,75 ans » que
+    l'item I3 rend fausse, et une attribution « COR 2024 » là où la valeur est
+    portée par la DG Trésor et la Cour des comptes. La cascade de tooltips
+    avait été faite pour la prévention, l'ASU et la fraude sociale — pas pour
+    le seul levier dont la branche corrige le coefficient d'un facteur 2,4.
+
+    L'attendu est CONSTRUIT à partir des constantes : un recalibrage du barème
+    ou de la fuite fait rougir ce test, il ne le contourne pas.
+    """
+    from budget_simulator.constants import (
+        FUITE_SOCIALE_RESIDUELLE,
+        RETRAITES_COEFF_AGE_MD_EUR,
+        RETRAITES_REF_AGE_CIBLE_ANS,
+    )
+
+    corps = _bloc_lever_meta('retraites_age')
+    brut = f"{RETRAITES_COEFF_AGE_MD_EUR:.1f}".replace('.', ',')
+    net = f"{RETRAITES_COEFF_AGE_MD_EUR * (1 - FUITE_SOCIALE_RESIDUELLE):.1f}".replace('.', ',')
+    cible = f"{RETRAITES_REF_AGE_CIBLE_ANS:g}".replace('.', ',')
+
+    assert f"±{brut} Md€/an" in corps, (
+        f"le tooltip ne publie pas le barème brut {brut} Md€/an : {corps[-400:]}")
+    assert f"{net} Md€/an" in corps, (
+        f"le tooltip ne publie pas le barème net de la fuite sociale ({net}) : {corps[-400:]}")
+    assert f"{cible} ans en 2032" in corps, "le tooltip ne publie pas la cible du calendrier légal"
+    # Sources primaires du barème (dossier §A) — jamais « COR 2024 », qui ne
+    # porte pas cette valeur.
+    assert 'DG Trésor' in corps and 'Cour des comptes' in corps, \
+        "le tooltip n'attribue pas le barème à ses deux sources primaires"
+    for perime in ('±16 Md€', 'référence 2025', 'Source : COR 2024'):
+        assert perime not in corps, f"formulation périmée encore publiée : « {perime} »"
