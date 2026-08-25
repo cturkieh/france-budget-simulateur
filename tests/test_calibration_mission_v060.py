@@ -156,6 +156,17 @@ TOL_TAUX = 0.22     # pt (mesuré 0,18 ; lot 8 : 0,25 pour 0,22)
 # maximal, lui, s'ouvre de 0,01 pt. Marge restante : 0,02 pt, mince et déclarée.
 TOL_DEFLATEUR = 0.2  # pt (I16 test-propriété 3 ; mesuré 0,18)
 TOL_NOMINAL = 0.2    # pt, sur la MOYENNE (mesuré 0,106 ; cf. test dédié)
+# ÉCART AU BRIEF, borné au lieu d'être seulement déclaré (clôture de la revue
+# adverse, 2026-08-26). Le brief I16, test-propriété 4, spécifie la croissance
+# nominale ANNÉE PAR ANNÉE à ±0,2 pt. Le lot 8 a substitué la MOYENNE et l'a
+# déclaré — mais une moyenne bornée laisse l'oscillation annuelle libre, et
+# c'est le PIB nominal de CHAQUE année qui est le dénominateur du ratio de
+# dette publié cette année-là. Les deux bornes ci-dessous ferment ce trou. La
+# seconde est la plus exigeante économiquement, et c'est elle qu'il faut
+# regarder : un écart de TAUX se compense d'une année sur l'autre, un écart de
+# NIVEAU se cumule et ne se rattrape pas.
+TOL_NOMINAL_ANNUEL = 0.55   # pt, écart annuel (mesuré 0,50 en 2028)
+TOL_NOMINAL_NIVEAU = 0.60   # %, écart du NIVEAU cumulé (mesuré 0,52 % en 2030)
 TOL_PRIMAIRE = 0.8   # pt de PIB (mesuré 0,65 ; lot 8 : 1,0 pour 0,91)
 
 
@@ -289,7 +300,17 @@ def test_corridor_croissance_nominale(trajectoire):
     pas (I18) — et elle se compense d'une année sur l'autre : c'est le
     CUMUL nominal qui porte le dénominateur du ratio de dette, donc le
     cumul qui doit tenir. Un test annuel à ±0,2 pt ici ne mesurerait pas
-    Phillips, il mesurerait le bloc croissance sous un faux nom."""
+    Phillips, il mesurerait le bloc croissance sous un faux nom.
+
+    CE QUE CE TEST NE DIT PAS, et que les deux suivants disent (clôture de la
+    revue adverse, 2026-08-26) : une moyenne bornée n'est pas une trajectoire
+    bornée. Sur l'état livré, trois années sur cinq sortent de la borne ±0,2
+    du brief (+0,14 / −0,14 / −0,50 / +0,28 / −0,31) pendant que la moyenne
+    passe avec 0,094 pt de marge. Substituer la moyenne à l'annuel n'est pas
+    un élargissement de tolérance — 0,2 est conservé — mais un changement de
+    STATISTIQUE, et il est plus permissif. Tant que rien ne bornait
+    l'oscillation, l'affirmation « c'est le cumul qui porte le dénominateur »
+    n'était pas vérifiée, seulement invoquée."""
     df, _ = trajectoire
     nominal = [df['Croissance %'].iloc[i] + df['Inflation %'].iloc[i] for i in range(1, 6)]
     moyenne = sum(nominal) / 5
@@ -297,6 +318,55 @@ def test_corridor_croissance_nominale(trajectoire):
     assert abs(moyenne - cible) <= TOL_NOMINAL, (
         f"croissance nominale moyenne {moyenne:.2f} % vs mission {cible:.2f} % "
         f"(sentier mesuré : {[round(x, 2) for x in nominal]})")
+
+
+def test_corridor_croissance_nominale_annuelle(trajectoire):
+    """L'OSCILLATION annuelle est bornée — écart au brief, mesuré et déclaré.
+
+    Le brief I16 (test-propriété 4) demandait ±0,2 pt chaque année. Le moteur
+    livré en fait 0,50 pt (2028), et la cause est identifiée et hors du
+    périmètre du lot : la croissance RÉELLE du moteur oscille là où le sentier
+    de la mission est lisse. Borner à 0,55 pt n'est donc PAS « la garde du
+    brief » et ce test ne prétend pas le contraire — c'est la borne que le
+    moteur tient réellement, posée pour que l'oscillation cesse d'être libre.
+    Elle rougira si le bloc croissance dérive davantage, ce qui est exactement
+    ce qu'on veut savoir avant de recalibrer quoi que ce soit.
+
+    Marge : 0,05 pt sur 0,50 mesuré — la plus mince du fichier, délibérément,
+    parce que cette borne est une DETTE, pas un acquis."""
+    df, _ = trajectoire
+    for i in range(1, 6):
+        nominal = df['Croissance %'].iloc[i] + df['Inflation %'].iloc[i]
+        ecart = nominal - CIBLE_NOMINAL[i - 1]
+        assert abs(ecart) <= TOL_NOMINAL_ANNUEL, (
+            f"{int(df['Année'].iloc[i])} : croissance nominale {nominal:.2f} % "
+            f"vs mission {CIBLE_NOMINAL[i-1]} (Δ{ecart:+.2f})")
+
+
+def test_corridor_niveau_nominal_cumule(trajectoire):
+    """Le NIVEAU du PIB nominal — le dénominateur réel du ratio de dette.
+
+    C'est la borne qui manquait vraiment. Le ratio de dette publié pour 2028
+    divise par le PIB nominal DE 2028 : ce qui doit rester proche de la
+    mission, ce n'est pas le taux de croissance de l'année, c'est le niveau
+    atteint. Un écart de taux se compense d'une année sur l'autre ; un écart
+    de niveau se cumule et ne se rattrape jamais.
+
+    Et c'est la garde la plus favorable au moteur, ce qui la rend d'autant
+    plus honnête à publier : malgré 0,50 pt d'écart de taux en 2028, le niveau
+    ne s'écarte jamais de plus de 0,52 % (2030) — le sentier oscille autour du
+    bon, il ne dérive pas. Ordre de grandeur de l'enjeu : 0,5 % de PIB nominal
+    ≈ 0,65 pt de ratio de dette en 2030, à comparer aux 1,27 pt que
+    ``test_corridor_dette`` tolère."""
+    df, _ = trajectoire
+    niveau_moteur = niveau_mission = 1.0
+    for i in range(1, 6):
+        niveau_moteur *= 1 + (df['Croissance %'].iloc[i] + df['Inflation %'].iloc[i]) / 100
+        niveau_mission *= 1 + CIBLE_NOMINAL[i - 1] / 100
+        ecart = 100 * (niveau_moteur / niveau_mission - 1)
+        assert abs(ecart) <= TOL_NOMINAL_NIVEAU, (
+            f"{int(df['Année'].iloc[i])} : niveau de PIB nominal cumulé "
+            f"{ecart:+.3f} % vs mission (plafond ±{TOL_NOMINAL_NIVEAU} %)")
 
 
 def test_corridor_taux_apparent(trajectoire):
