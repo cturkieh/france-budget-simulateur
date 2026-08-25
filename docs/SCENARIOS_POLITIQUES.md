@@ -123,7 +123,7 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | 0.08 | 0 |
 | recherche_publique | budget | 8 | 8 | 15 | 8 | 8 | 3 | 12 | 0 | 15 |
-| retraites | age_depart | — | 61.5 | 60 | 62.75 | 65 | 65 | 62 | 64 | 65 |
+| retraites | age_depart | — | 61.5 | 60 | — | 65 | 65 | 62 | 64 | 65 |
 | retraites | duree_cotisation | 42.5 | 41 | 40 | 42.5 | 43 | 43 | 43 | 43 | 44 |
 | retraites | indexation | 1 | 1 | 1 | 0.9 | 1 | 1 | 1 | 1 | 0.8 |
 | sante | effort_ambu | 20 | 5 | 0 | 20 | 20 | 15 | 0 | 0 | 25 |
