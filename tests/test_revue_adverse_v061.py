@@ -232,3 +232,46 @@ def test_le_tooltip_public_du_levier_dage_suit_les_constantes():
         "le tooltip n'attribue pas le barème à ses deux sources primaires"
     for perime in ('±16 Md€', 'référence 2025', 'Source : COR 2024'):
         assert perime not in corps, f"formulation périmée encore publiée : « {perime} »"
+
+
+# ---------------------------------------------------------------------------
+# 5. L'asymétrie durée ↔ âge : non corrigée, mais DITE
+# ---------------------------------------------------------------------------
+
+
+_METHODO = _RACINE / 'docs' / 'METHODOLOGIE.md'
+
+
+@pytest.mark.parametrize('year', _MILLESIMES[:10])
+def test_le_canal_emploi_seniors_ignore_la_duree_de_cotisation(year):
+    """Le canal emploi n'est câblé que sur `age_depart` — verrouillé EXPLICITE.
+
+    Ce n'est pas un test de non-régression décoratif : le levier
+    `duree_cotisation` déplace le MÊME âge effectif de départ (40 annuités au
+    lieu de 42,5, c'est partir plus tôt) et n'ouvre pourtant ni offre de
+    travail → PIB, ni bosse de chômage, ni fuite sociale. Deux leviers de la
+    même réforme, décrivant le même choc d'offre, sont chiffrés selon deux
+    physiques différentes.
+
+    Le calibrage du levier de durée est un chantier distinct (dossier §A.1
+    rang 4, items 19-20) : on ne le corrige pas ici. Mais §C.4 exige que les
+    asymétries silencieuses soient supprimées ou DÉCLARÉES — ce test rend
+    celle-ci visible en CI, et le test suivant la rend visible au lecteur.
+    """
+    from budget_simulator._seniors import chomage_seniors_ecart, offre_seniors_niveau_pib
+    mesures = {'retraites': {'duree_cotisation': 40.0}}
+    assert offre_seniors_niveau_pib(mesures, year) == 0.0
+    assert chomage_seniors_ecart(mesures, year) == 0.0
+
+
+def test_lasymetrie_duree_vs_age_est_declaree_dans_la_methodologie():
+    """…et elle est écrite là où un lecteur la cherchera.
+
+    Le tableau « Ce qui n'est délibérément PAS modélisé » listait quatre
+    tentations écartées (éviction des jeunes, productivité, épargne,
+    élasticité OFCE) et pas ce trou-là, qui est pourtant le seul à créer un
+    écart de traitement entre deux leviers du même levier de réforme.
+    """
+    texte = _METHODO.read_text(encoding='utf-8')
+    assert 'duree de cotisation' in texte and 'Canal emploi' in texte, \
+        "METHODOLOGIE.md ne declare pas l'asymetrie duree <-> age du canal emploi"
