@@ -249,6 +249,35 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             must_appear_in=(METHODO, PUBLIC_METHODO),
             doc_patterns=("9,6% des economies brutes",),
         ),
+        # v0.6.1 lot 4 — prévention. Les trois valeurs qu'un lecteur voit :
+        # l'assiette du curseur, sa borne haute (dérivée de l'écart OCDE) et le
+        # plafond de compensation — ce dernier étant le seul CHOIX DE
+        # MODÉLISATION du lot, donc celui qu'un contradicteur ira vérifier en
+        # premier. Le verrou impose qu'un recalibrage passe par la doc.
+        CriticalConstant(
+            name="prévention — base du curseur (Md EUR, DREES fiche 21)",
+            source="constants.PREVENTION_BASE_MD_EUR",
+            raw_value=constants.PREVENTION_BASE_MD_EUR,
+            representations=("7,5", "7.5"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("7,5 Md EUR",),
+        ),
+        CriticalConstant(
+            name="prévention — borne haute du curseur (Md EUR, convergence OCDE)",
+            source="constants.PREVENTION_PLAFOND_MD_EUR",
+            raw_value=constants.PREVENTION_PLAFOND_MD_EUR,
+            representations=("11,2", "11.2"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("11,2 Md EUR",),
+        ),
+        CriticalConstant(
+            name="prévention — plafond du taux de compensation (choix assumé)",
+            source="constants.PREVENTION_OFFSET_CENTRAL_CAP",
+            raw_value=constants.PREVENTION_OFFSET_CENTRAL_CAP,
+            representations=("0,50", "0.50"),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("plafonne a **0,50**",),
+        ),
     )
 
 

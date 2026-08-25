@@ -517,6 +517,146 @@ FUITE_SOCIALE_RESIDUELLE = 0.096
 # l'accélération de la durée d'assurance). Fourchette de contrôle 20-33 %.
 RETRAITES_PART_COTISATIONS_PO = 0.205
 
+# === CALIBRATION PRÉVENTION SANTÉ (v0.6.1, I19-I20) ===
+# Curseur `sante.prevention_budget` (handlers/depenses.py, « MESURE 2 :
+# PRÉVENTION ») : budget ABSOLU de prévention institutionnelle, dont le
+# handler ne consomme que l'écart à la base.
+#
+# --- I19 : l'assiette et l'amplitude du curseur ---------------------------
+# Deux sources indépendantes, MÊME nomenclature (System of Health Accounts) :
+# - DREES, « Les dépenses de santé en 2023 — Résultats des comptes de la
+#   santé », Panoramas édition 2024, FICHE 21, TABLEAU 1 (et série longue) :
+#   prévention institutionnelle 7 516 M€ en 2023 ; édition 2025 (30/09/2025) :
+#   +0,9 % en 2024, soit ≈ 7,6 Md€, sur une dépense courante de santé au sens
+#   international (DCSi) de 333 Md€.
+#   https://drees.solidarites-sante.gouv.fr/sites/default/files/2025-02/Les%20d%C3%A9penses%20de%20sant%C3%A9%20en%202023_MEL2ok.pdf
+# - OCDE, « Health at a Glance 2025 — Country note : France », novembre 2025 :
+#   « France spends 2.3 % of total health spending on prevention […] less than
+#   the OECD average of 3.4 % ».
+#   https://www.oecd.org/en/publications/2025/11/health-at-a-glance-2025-country-notes_2f94481e/france_fc92ff53.html
+#   ⇒ 2,3 % × 333 = 7,66 Md€ : les deux chemins coïncident à 1 % près.
+#
+# DEUX PIÈGES DE LECTURE, tous deux documentés dans METHODOLOGIE.md :
+# (a) la bosse 2020-2022 (9 272 → 16 515 → 12 175 M€) est du COVID (tests,
+#     vaccins, masques) et ne doit JAMAIS servir de base — l'OCDE note le
+#     retour « to historical levels of 3 % in 2023 » ;
+# (b) le périmètre SHA EXCLUT la prévention en consultation ordinaire, les
+#     dépistages hors dépistage organisé, une grande partie de la vaccination
+#     et la prise en charge des facteurs de risque (toutes en CSBM). En
+#     périmètre large la Cour des comptes chiffre l'effort français à
+#     ≈ 15 Md€/an : le curseur pilote l'agrégat SHA, PAS les 15.
+DEPENSE_COURANTE_SANTE_MD_EUR = 333.0  # DCSi 2024 (DREES, comptes de la santé éd. 2025)
+PREVENTION_PART_FRANCE = 0.023         # OCDE, Health at a Glance 2025, country note France
+PREVENTION_PART_OCDE = 0.034           # idem, moyenne OCDE
+PREVENTION_BASE_MD_EUR = 7.5           # DREES fiche 21 T1 (7 516 M€ en 2023) ≈ 2,3 % × DCSi
+# Borne haute du curseur = convergence vers la moyenne OCDE. DÉRIVÉE, pas
+# saisie : l'amplitude (0 → +3,7 Md€/an) est ainsi sourcée, alors que
+# l'amplitude de la v0.5.1 (0 → +3,0) l'était par accident.
+PREVENTION_PLAFOND_MD_EUR = round(
+    PREVENTION_BASE_MD_EUR
+    + (PREVENTION_PART_OCDE - PREVENTION_PART_FRANCE) * DEPENSE_COURANTE_SANTE_MD_EUR,
+    1,
+)  # = 11,2 Md€
+#
+# --- I20 : le taux de compensation (le dernier « repas gratuit ») ---------
+# La v0.5.1 écrivait `roi_cumul = min(annees_roi * 0.25, 2.0)`, et son
+# commentaire assumait le résultat : à partir de 2034, la mesure ne coûtait
+# plus rien. Sémantique réelle : à 1,00 l'euro dépensé est intégralement
+# gagé ; à 2,00 la mesure RAPPORTE autant qu'elle coûte, chaque année, pour
+# toujours (+10 Md€/an de prévention réduisaient la dette 2035 d'environ
+# 42 Md€). Trois sources primaires l'interdisent :
+# - Cohen J.T., Neumann P.J., Weinstein M.C., « Does Preventive Care Save
+#   Money? Health Economics and the Presidential Candidates », New England
+#   Journal of Medicine 358(7):661-663, 14/02/2008, DOI 10.1056/NEJMp0708558
+#   — 19 % seulement des interventions préventives sont cost-saving (599
+#   études, ~1 500 ratios dont 279 préventifs), contre 18 % des traitements
+#   curatifs : l'espérance du retour est très inférieure à 1.
+#   https://www.nejm.org/doi/full/10.1056/NEJMp0708558
+# - van Baal P.H.M. et al., « Lifetime Medical Costs of Obesity : Prevention
+#   No Cure for Increasing Health Expenditure », PLoS Medicine 5(2):e29,
+#   05/02/2008 — « lifetime health expenditure was highest among
+#   healthy-living people » : les années de vie gagnées coûtent, contre-effet
+#   entièrement absent du moteur.
+#   https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.0050029
+# - Vos T. et al., « ACE-Prevention Final Report », University of Queensland /
+#   Deakin University, septembre 2010 — 21 mesures DOMINANTES sur 150 : 4,6
+#   Md AU$ investis ⇒ 11 Md AU$ d'économies de santé, ratio 2,4. C'est la
+#   BORNE HAUTE ABSOLUE (sélection optimale, vie entière), pas une moyenne.
+#   https://public-health.uq.edu.au/files/571/ACE-Prevention_final_report.pdf
+# - OCDE, « The Heavy Burden of Obesity — The Economics of Prevention », 2019,
+#   CHAPITRE 6 (Goryakin et al.) — la meilleure intervention y vaut 13 Md USD
+#   PPA cumulés 2020-2050 sur 36 pays, soit ≈ 0,012 Md€ par pays et par an.
+#   Le « six-fold economic return » du résumé exécutif du MÊME rapport est un
+#   retour PIB/emploi, pas budgétaire : hors périmètre d'un solde public.
+#   https://www.oecd.org/en/publications/the-heavy-burden-of-obesity_67450d67-en/full-report/component-11.html
+#
+# ⚠️ CE QUI N'EXISTE PAS, et ne doit jamais être fabriqué (§ B.3-22 du dossier
+# de sourcing v0.6.1) : l'effet budgétaire net d'un euro SUPPLÉMENTAIRE de
+# prévention EN FRANCE n'est publié par aucune institution. L'IGAS 2024
+# (Bras & Monasse) dit pourquoi : « en l'absence d'une évaluation structurée
+# en France de l'efficacité et de l'efficience des actions de PPS ».
+# PREVENTION_OFFSET_CENTRAL_CAP est donc — et restera — un CHOIX DE
+# MODÉLISATION ASSUMÉ, borné par la littérature internationale ci-dessus,
+# JAMAIS présenté comme sourcé. Ce que les sources établissent, c'est
+# seulement qu'il est < 1 (d'où le plafond dur) et qu'il est différé.
+#
+# Ancrage français des ordres de grandeur — Cour des comptes, note sur
+# l'Ondam du 14/04/2025 (https://www.ccomptes.fr/fr/documents/74821) :
+# 1 an d'espérance de vie sans incapacité ≈ 1,5 Md€ économisés ; prévention
+# des maladies chroniques 400 M€ ; prévention de la perte d'autonomie jusqu'à
+# 1,2 Md€ ⇒ ≈ 1,6 Md€ à horizon 2029, et par un MEILLEUR CIBLAGE, pas par une
+# dépense additionnelle. C'est la borne haute crédible pour la France.
+#
+# Le délai de 4 ans (contre 2) : Cash & Fourcade 2023 § 45 (« les bénéfices
+# économiques de la prévention sont souvent postérieurs aux dépenses
+# engagées ») et ACE-Prevention (14 % de la dépense décaissée en année 1).
+# La forme de la rampe est une CONVENTION : aucune courbe de rendement
+# décroissant n'est publiée (§ B.3-24), mais deux éléments convergents
+# interdisent un rendement constant et non borné — Cohen 2008 (« des
+# dépistages fréquents sont plus efficaces mais moins efficients ») et
+# l'IGAS 2024 (aucune évaluation d'efficience disponible en France).
+# NB de sourcing : le dossier v0.6.1 proposait un troisième appui, un constat
+# de la Cour des comptes daté de 2021 sur le rendement de la prévention
+# française. Il n'est PAS repris : la seule attribution « Cour des comptes
+# 2021 » déjà rencontrée dans ce moteur s'est révélée introuvable (§ B.1-5,
+# retirée au lot 1), et une garde de citation la bloque désormais. On ne
+# re-source pas par approximation — les deux appuis restants suffisent.
+PREVENTION_OFFSET_HARD_CEILING = 1.00   # plafond DUR : au-delà, la mesure se paierait elle-même
+PREVENTION_OFFSET_CENTRAL_CAP = 0.50    # plafond central — CHOIX DE MODÉLISATION ASSUMÉ
+PREVENTION_OFFSET_RAMP_PER_YEAR = 0.10  # montée en charge annuelle du taux (convention)
+PREVENTION_OFFSET_LAG_YEARS = 4         # années pleines sans aucun retour
+
+
+def _valider_domaine_prevention(cap_central, plafond_dur, rampe, delai):
+    """Garde de domaine des constantes de prévention.
+
+    Même philosophie que ``GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING`` :
+    un recalibrage qui inverserait les bornes rendrait la prévention gratuite
+    sans qu'aucun test de trajectoire ne le voie sur l'horizon publié.
+    ``raise`` et non ``assert`` : ``python -O`` strip les asserts, la garde
+    doit survivre en prod.
+    """
+    if not 0 < cap_central <= plafond_dur <= 1:
+        raise ValueError(
+            "Prevention : 0 < CENTRAL_CAP <= HARD_CEILING <= 1 requis "
+            f"(reçu cap={cap_central}, plafond={plafond_dur}) — au-delà de 1 "
+            "la mesure rapporterait plus qu'elle ne coûte, ce qu'aucune source "
+            "n'autorise."
+        )
+    if rampe <= 0 or delai < 0:
+        raise ValueError(
+            f"Prevention : rampe > 0 et délai >= 0 requis (reçu rampe={rampe}, "
+            f"délai={delai})"
+        )
+
+
+_valider_domaine_prevention(
+    PREVENTION_OFFSET_CENTRAL_CAP,
+    PREVENTION_OFFSET_HARD_CEILING,
+    PREVENTION_OFFSET_RAMP_PER_YEAR,
+    PREVENTION_OFFSET_LAG_YEARS,
+)
+
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré
 # (INSEE 2024 - Revenus disponibles bruts) :

@@ -13,7 +13,12 @@ Mesures couvertes (6 handlers) :
 - ``sante`` : réforme structurelle 3 leviers (hôpital, ambulatoire,
   prévention/organisation, potentiel -30 Md€ en 2030, phasing admin vs
   structurel distinct) + franchise/participation forfaitaire + budget
-  prévention absolu (ROI différé 2 ans, plafonné 200 %).
+  prévention absolu (base 7,5 Md€ = prévention institutionnelle DREES,
+  borne haute 11,2 Md€ = convergence OCDE ; taux de compensation différé de
+  4 ans, +10 pts/an, plafonné à 50 % et SYMÉTRIQUE). Le rendement de la
+  v0.5.1 — 25 points par an, plafond à 200 % après 8 ans — est RETIRÉ :
+  au-delà de 100 % la mesure rapportait plus qu'elle ne coûtait, ce
+  qu'aucune source n'autorise (cf. constants.py § prévention).
 - ``chomage_alloc`` : assurance chômage Unédic. Taux de remplacement %
   (mode v4.5) ou montant Md€ (mode legacy) × durée, dégressivité
   optionnelle. Impacts Gini/PA/chômage one-time sur changement effectif.
@@ -91,6 +96,10 @@ from ..constants import (
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
+    PREVENTION_BASE_MD_EUR,
+    PREVENTION_OFFSET_CENTRAL_CAP,
+    PREVENTION_OFFSET_LAG_YEARS,
+    PREVENTION_OFFSET_RAMP_PER_YEAR,
     RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_INDEXATION_MD_EUR,
@@ -320,29 +329,50 @@ class DepensesMixin(_MixinBase):
             gain_net = gain_brut * (1 - RENONCEMENT_IMPACT) * RECOUVREMENT_RATE
             delta_franchise = -gain_net  # Négatif car économies
 
-        # MESURE 2: PRÉVENTION (budget absolu 5-8 Md€)
-        # Paramètre distinct du levier "effort_prev_org" (qui optimise la prévention existante)
-        # Ici: investissement additionnel pour AUGMENTER le volume prévention
-        # Base France 2025: 5 Md€ (~2% dépenses santé) vs OCDE: 8 Md€ (~2.8%)
-        prevention_budget_montant = params.get('prevention_budget', 5.0)  # Md€ absolus
-        prevention_var = prevention_budget_montant - 5.0  # Différentiel par rapport à la base
-        delta_prevention = prevention_var  # Surcoût immédiat
+        # MESURE 2 : PRÉVENTION (budget ABSOLU de prévention institutionnelle)
+        # Paramètre distinct du levier "effort_prev_org" (qui optimise la
+        # prévention existante) : ici, investissement additionnel pour
+        # AUGMENTER le volume de prévention. Le handler ne consomme que
+        # l'ÉCART à la base — la base elle-même ne fait que positionner le
+        # curseur, et vaut la prévention institutionnelle réellement observée
+        # (DREES, comptes de la santé, fiche 21 ; corroborée par l'OCDE).
+        # Base, plafond, périmètre SHA et pièges de lecture : constants.py
+        # § CALIBRATION PRÉVENTION SANTÉ.
+        prevention_budget_montant = params.get('prevention_budget', PREVENTION_BASE_MD_EUR)
+        prevention_var = prevention_budget_montant - PREVENTION_BASE_MD_EUR
 
-        # ROI après 2 ans : 25% par an, plafonné à 200% après 8 ans
-        # Littérature empirique (IGAS 2023, OMS 2018, Lancet 2019):
-        # - Dépistages cancers : ROI 1:3 immédiat (détection précoce évite chimio lourde)
-        # - Vaccins grippe : ROI 1:4 même année (évite hospitalisations hiver)
-        # - Contrôles diabète/HTA : ROI 1:2-3 en 6-12 mois (évite complications)
-        # → Hypothèse conservatrice : délai 2 ans, 25%/an cumulatif, plafond 200%
-        if year >= 2027 and prevention_var > 0:  # DÉLAI RÉDUIT : 2 ans au lieu de 3
-            annees_roi = year - POLICY_START_YEAR  # Années depuis début ROI (2027 = année 1)
-            roi_cumul = min(annees_roi * 0.25, 2.0)  # 25%/an, max 200% après 8 ans
-            economie_roi = prevention_var * roi_cumul
-            delta_prevention = prevention_var - economie_roi
-            # Exemples avec +3 Md€:
-            # 2027 (an 1): +3 - (3 × 0.25) = +2.25 Md€
-            # 2030 (an 4): +3 - (3 × 1.00) = 0 Md€ (break-even en 4 ans)
-            # 2034 (an 8): +3 - (3 × 2.00) = -3 Md€ (investissement gratuit!)
+        # Taux de compensation = part de l'euro investi que la moindre dépense
+        # de santé future rembourse.
+        # v0.6.1 (I20) — LE DERNIER « REPAS GRATUIT » DU MOTEUR EST RETIRÉ. La
+        # v0.5.1 faisait monter ce taux à 2,00 : au-delà de 1,00 la mesure
+        # RAPPORTE autant qu'elle coûte, chaque année et pour toujours
+        # (+10 Md€/an de prévention réduisaient la dette 2035 d'environ
+        # 42 Md€). Cohen 2008 (NEJM), van Baal 2008 (PLoS Med), ACE-Prevention
+        # 2010 et OCDE 2019 ch. 6 bornent le retour très en dessous de 1 ;
+        # le plafond central retenu est un CHOIX DE MODÉLISATION ASSUMÉ,
+        # jamais présenté comme sourcé (aucune institution française ne publie
+        # cet effet — IGAS 2024). Sources exactes : constants.py.
+        # Décompte : PREVENTION_OFFSET_LAG_YEARS années pleines sans aucun
+        # retour, puis la rampe démarre à sa valeur d'UN an (le « +1 ») — la
+        # première année de rampe porte déjà un pas complet, elle n'est pas une
+        # année de délai supplémentaire déguisée.
+        annees_de_rampe = (year - POLICY_START_YEAR) - PREVENTION_OFFSET_LAG_YEARS + 1
+        taux_compensation = min(
+            max(annees_de_rampe, 0) * PREVENTION_OFFSET_RAMP_PER_YEAR,
+            PREVENTION_OFFSET_CENTRAL_CAP,
+        )
+        # SYMÉTRIQUE, et c'est une correction de neutralité à part entière :
+        # la v0.5.1 gatait le retour sur `prevention_var > 0`, si bien qu'une
+        # COUPE de prévention rendait 100 % de son montant en économie, pour
+        # toujours, sans aucun retour de dépense de santé. Même classe de
+        # défaut que le fallback Gini `if spending_impact > 0` : une asymétrie
+        # silencieuse au bénéfice d'un seul bord. La même convention appliquée
+        # dans les deux sens ne prend pas parti. Effet numérique sur les
+        # scénarios publiés : nul (la borne basse du curseur EST la base).
+        delta_prevention = prevention_var * (1.0 - taux_compensation)
+        # Trajectoire pour +3 Md€/an (cf. METHODOLOGIE.md § Investissement
+        # prevention) : 2027 +3,00 → 2031 +2,40 → 2035 +1,50 Md€. La
+        # prévention coûte toujours, mais coûte de moins en moins.
 
         # === TOTAL (réformes structurelles + mesures additionnelles) ===
         delta_spending = econ_hopital + econ_ambu + econ_prev_org + delta_franchise + delta_prevention

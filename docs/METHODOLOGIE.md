@@ -405,7 +405,7 @@ La fonction sante utilise une approche structuree en 3 leviers UX distincts :
 |--------|-----------|-------------|
 | **Hopital** | 13 Md EUR | Convergence tarifs + GHT + Achats groupes + Ambulatoire |
 | **Ambulatoire** | 10 Md EUR | Gatekeeping + CPTS/telemedecine + Pertinence soins |
-| **Prevention/Org** | 7 Md EUR | Generiques + Controles IJ + Regulation urgences + ROI prevention |
+| **Prevention/Org** | 7 Md EUR | Generiques + Controles IJ + Regulation urgences + ciblage prevention |
 | **TOTAL** | **30 Md EUR** | +50% vs Cour des Comptes (20 Md EUR) |
 
 ### Levier 1 : Hopital (13 Md EUR)
@@ -460,9 +460,113 @@ La fonction sante utilise une approche structuree en 3 leviers UX distincts :
 - Cout urgences : 5,6 Md EUR (2023)
 - Reorientation vers medecine de ville
 
-**Prevention ROI (1,7 Md EUR)**
-- ROI 25%/an apres 2 ans
-- Depistages, vaccins, maladies chroniques
+**Prevention — meilleur ciblage (1,7 Md EUR)**
+- Depistages, vaccins, maladies chroniques : gain d'EFFICIENCE a depense
+  constante, pas rendement d'une depense additionnelle
+- Ordre de grandeur ancre sur la Cour des comptes (note Ondam du 14/04/2025) :
+  prevention des maladies chroniques 400 M EUR + prevention de la perte
+  d'autonomie jusqu'a 1,2 Md EUR, soit ~1,6 Md EUR a horizon 2029, obtenus par
+  un MEILLEUR CIBLAGE et non par une depense supplementaire
+- Le rendement « 25 % par an apres 2 ans » affiche jusqu'a la v0.6.0 est
+  RETIRE : il ne renvoyait a aucune publication (cf. section
+  « Investissement prevention » ci-dessous)
+
+### Investissement prevention (refonte v0.6.1)
+
+Curseur `sante.prevention_budget`. A ne pas confondre avec le levier
+`effort_prev_org` ci-dessus : celui-la optimise la prevention EXISTANTE,
+celui-ci finance un volume ADDITIONNEL. Le moteur ne consomme que l'ecart a la
+base ; la base ne fait que positionner le curseur.
+
+**L'assiette (v0.6.1) : 7,5 Md EUR, et non 5,0**
+
+Deux sources independantes, meme nomenclature internationale (System of Health
+Accounts, SHA), convergent a 1 % pres :
+
+| Source | Ce qu'elle publie | Conversion |
+|---|---|---|
+| DREES, *Les depenses de sante en 2023*, Panoramas ed. 2024, fiche 21 tableau 1 | prevention institutionnelle **7 516 M EUR en 2023** ; ed. 2025 : +0,9 % en 2024 | **7,5 Md EUR** |
+| OCDE, *Health at a Glance 2025*, note pays France (nov. 2025) | « France spends **2,3 %** of total health spending on prevention […] less than the OECD average of **3,4 %** » | 2,3 % x 333 Md EUR (DCSi) = **7,66 Md EUR** |
+
+**La borne haute : 11,2 Md EUR, et elle est DERIVEE, pas choisie.** C'est la
+convergence vers la moyenne OCDE : 7,5 + (3,4 % − 2,3 %) x 333 = 11,2 Md EUR.
+L'amplitude du curseur (0 a +3,7 Md EUR/an) devient ainsi sourcee, alors que
+l'amplitude de la v0.5.1 (0 a +3,0) l'etait par accident.
+
+**Deux pieges de lecture, tous deux corriges ici :**
+
+1. **La bosse 2020-2022 n'est pas une base.** La serie DREES fait 5 665 (2019)
+   → 9 272 (2020) → **16 515 (2021)** → 12 175 (2022) → 7 516 (2023) M EUR :
+   c'est du Covid (tests, vaccins, masques). L'OCDE note elle-meme le retour
+   « to historical levels of 3 % in 2023 ». Retenir un point de la bosse
+   ferait croire a un effondrement de la prevention francaise.
+2. **Perimetre SHA, pas perimetre large.** La « prevention institutionnelle »
+   SHA EXCLUT la prevention en consultation ordinaire, les depistages hors
+   depistage organise, une grande partie de la vaccination et la prise en
+   charge des facteurs de risque — toutes comptees en CSBM. En perimetre
+   large, la Cour des comptes chiffre l'effort francais a environ
+   **15 Md EUR/an**. Le curseur pilote l'agregat SHA (7,5), **pas les 15**.
+   Melanger les deux perimetres est l'erreur la plus frequente sur ce sujet.
+
+Les mentions « France 2 % / OCDE 2,8 % » qui figuraient dans le code et les
+infobulles jusqu'a la v0.6.0 relevaient d'un millesime OCDE 2020 : elles sont
+retirees.
+
+**Le taux de compensation (I20) : le dernier « repas gratuit » du moteur**
+
+Jusqu'a la v0.6.0, le moteur appliquait `min(annees x 25 % ; 200 %)` a partir
+de la 2e annee. A 100 %, l'euro depense est integralement gage ; **a 200 %, la
+mesure RAPPORTE autant qu'elle coute, chaque annee et pour toujours** —
++10 Md EUR/an de prevention reduisaient la dette 2035 d'environ 42 Md EUR.
+La litterature dit l'inverse :
+
+| Source | Ce qu'elle etablit | Portee |
+|---|---|---|
+| Cohen, Neumann & Weinstein, *NEJM* 358(7):661-663, 2008 (DOI 10.1056/NEJMp0708558) | **19 %** des interventions preventives sont cost-saving, contre 18 % des traitements curatifs (599 etudes) | depenses de sante — l'esperance du retour est tres inferieure a 1 |
+| van Baal et al., *PLoS Medicine* 5(2):e29, 2008 | « lifetime health expenditure was highest among healthy-living people » | vie entiere — contre-effet des annees de vie gagnees |
+| Vos et al., *ACE-Prevention Final Report*, 2010 | 21 mesures **dominantes** sur 150 : 4,6 Md AU$ → 11 Md AU$, ratio **2,4** | **borne haute absolue** (selection optimale, vie entiere) |
+| OCDE, *The Heavy Burden of Obesity*, 2019, ch. 6 | meilleure intervention : 13 Md USD PPA cumules 2020-2050 sur 36 pays ≈ **0,012 Md EUR/pays/an** | trois ordres de grandeur sous la v0.5.1 |
+
+Le « six-fold economic return » du resume executif du meme rapport OCDE 2019
+et le « 7 US$ pour 1 » de l'OMS (*Saving lives, spending less*, 2021, champ :
+76 pays a revenu faible ou intermediaire) sont des retours **PIB/emploi**, pas
+budgetaires : ils n'ont pas leur place dans un solde public francais.
+
+Regle retenue en v0.6.1 : **4 annees pleines sans aucun retour, puis +10
+points par an, plafonnes a 50 %**, applique **symetriquement** (une coupe de
+prevention rend moins que son montant, exactement comme un investissement
+coute moins que le sien). Trajectoire pour +3 Md EUR/an :
+
+| Annee | 2027 | 2029 | 2031 | 2033 | 2035 |
+|---|---|---|---|---|---|
+| Moteur v0.5.1 | +2,25 | 0,00 | −1,50 | −3,00 | **−3,00** |
+| Moteur v0.6.1 | +3,00 | +3,00 | +2,40 | +1,80 | **+1,50** |
+
+Lecture : la prevention **coute toujours** de l'argent public, mais coute
+**de moins en moins**. C'est le maximum que la litterature autorise.
+
+**Limite connue, dite ici plutot que decouverte par un contradicteur** : le
+moteur ne cree une impulsion budgetaire que si l'effort depasse 0,1 % du PIB
+(`engine/growth.py`) — une regle A SEUIL. Un budget de prevention qui fait
+franchir ce seuil declenche d'un coup le multiplicateur, donc un peu de PIB,
+donc un ratio de dette legerement plus bas. Consequence mesuree : pousser le
+curseur au plafond fait MONTER la dette 2035 dans 7 des 9 scenarios publies
+(jusqu'a +2,57 pt) et la fait baisser de 0,02 et 0,23 pt dans les deux autres.
+Ces deux baisses sont un **artefact de seuil du bloc macro**, pas un rendement
+de la prevention ; elles sont bornees par un test-propriete. Meme famille que
+la non-linearite du plancher monetaire accommodant documentee en v0.6.1
+(lot I6). Traitement du seuil : item v0.6.2.
+
+**Sens de la correction** : elle joue dans un seul sens, **contre les
+programmes qui investissent dans la prevention**. Ecrit ici parce que c'est la
+regle du projet — un simulateur citoyen ne se protege pas en evitant les
+corrections sensibles, il se protege en disant dans quel sens joue chacune.
+
+**Ancrage francais des ordres de grandeur** — Cour des comptes, note sur
+l'Ondam du 14/04/2025 : 1 an d'esperance de vie sans incapacite ≈ 1,5 Md EUR
+economises ; prevention des maladies chroniques 400 M EUR ; prevention de la
+perte d'autonomie jusqu'a 1,2 Md EUR, soit environ 1,6 Md EUR a horizon 2029 —
+et par un meilleur ciblage, pas par une depense additionnelle.
 
 ### Phasing Differencie (2026-2030)
 
@@ -1315,6 +1419,13 @@ inchangee », la trajectoire est insoutenable.
 - **Ramey 2019** : Profils temporels differencies des multiplicateurs par type de depense
 - **FMI 2015** : Investissement public et croissance dans les economies avancees (Fiscal Monitor)
 - **FMI 2020** : Politiques publiques pour la reprise post-COVID (retours investissement vert)
+- **Cohen, Neumann & Weinstein 2008** : « Does Preventive Care Save Money? Health Economics and the Presidential Candidates », *New England Journal of Medicine* 358(7):661-663, DOI 10.1056/NEJMp0708558 — borne le taux de compensation de la prevention (v0.6.1)
+- **van Baal et al. 2008** : « Lifetime Medical Costs of Obesity : Prevention No Cure for Increasing Health Expenditure », *PLoS Medicine* 5(2):e29 — cout des annees de vie gagnees
+- **Vos et al. 2010** : *ACE-Prevention Final Report*, University of Queensland / Deakin University — borne haute absolue du retour de la prevention (ratio 2,4, mesures dominantes)
+- **OCDE 2019** : *The Heavy Burden of Obesity — The Economics of Prevention*, chapitre 6 (Goryakin et al.) — effet budgetaire chiffre de la meilleure intervention
+- **DREES 2024/2025** : *Les depenses de sante en 2023* (Panoramas, fiche 21) et edition 2025 — prevention institutionnelle, perimetre SHA
+- **OCDE 2025** : *Health at a Glance 2025*, note pays France — part de la prevention dans la depense de sante (2,3 % France / 3,4 % OCDE)
+- **IGAS 2024** (Bras & Monasse) : absence d'evaluation structuree de l'efficience des actions de prevention et promotion de la sante en France
 
 ### Programmes Politiques
 
@@ -1376,6 +1487,33 @@ Pour les mesures qui modifient les recettes fiscales (suppression de niches, hau
 **Lecon de calibration (mai 2026)** : un coefficient direct `0.008 × montant_supprime` avait ete introduit pour les niches sociales TGE en se basant sur Bozio-Wasmer 2024 (138k emplois pour suppression 60 Md€). Test runtime a revele un **double-comptage** : le multiplicateur fiscal atteint deja la cible Bozio-Wasmer (-140 630 emplois mesures sans signal direct), et le signal direct amplifiait l'effet ×9 a ×95.
 
 **Regle generale** : exporter `impacts['chomage']` direct uniquement pour les mesures qui modifient le **cout du travail** (cotisations patronales, SMIC) ou la **structure du marche du travail** (assurance chomage, ASU). Pour les mesures fiscales pures (niches, IS, IR), laisser le multiplicateur faire le travail.
+
+### L9. Plafond de compensation de la prevention : 0,50, choix de modelisation assume
+
+Le taux de compensation d'un euro supplementaire de prevention
+plafonne a **0,50** (`PREVENTION_OFFSET_CENTRAL_CAP`), atteint apres un delai
+de 4 ans et une rampe de 10 points par an. **Justification, et surtout statut** : l'effet
+budgetaire net d'un euro SUPPLEMENTAIRE de prevention en France **n'est publie
+par aucune institution**. L'IGAS 2024 (Bras & Monasse) dit pourquoi :
+« en l'absence d'une evaluation structuree en France de l'efficacite et de
+l'efficience des actions de PPS ». Ce 0,50 est donc **un choix de
+modelisation**, borne par la litterature internationale (Cohen 2008 : 19 % des
+interventions preventives sont cost-saving ; ACE-Prevention 2010 : ratio 2,4
+pour les 21 mesures **dominantes** sur 150, vie entiere, selection optimale ;
+OCDE 2019 ch. 6 : 0,012 Md EUR/pays/an pour la meilleure intervention), **et
+il ne sera jamais presente comme source**. Ce que les sources etablissent, et
+que le moteur respecte, c'est seulement que le taux est **inferieur a 1** et
+qu'il est **differe**.
+
+Deux corollaires assumes de la meme facon :
+- **la forme de la rampe** (lineaire, plafonnee) est une convention : aucune
+  courbe de rendement decroissant n'est publiee. Deux elements convergents
+  interdisent seulement un rendement constant et non borne — Cohen 2008 (« des
+  depistages frequents sont plus efficaces mais moins efficients ») et
+  l'IGAS 2024 (aucune evaluation d'efficience disponible en France) ;
+- **le cout des annees de vie gagnees** (pensions, autonomie) est un mecanisme
+  certain (van Baal 2008 ; arithmetique des retraites) dont le quantum n'est
+  pas publie : il est signale ici et **n'est affecte d'aucun coefficient**.
 
 ---
 

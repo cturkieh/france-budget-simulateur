@@ -130,7 +130,7 @@ Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouverneme
 | sante | effort_hopital | 15 | 5 | 0 | 15 | 15 | 20 | 0 | 0 | 30 |
 | sante | effort_prev_org | 10 | 5 | 0 | 20 | 10 | 10 | 0 | 0 | 15 |
 | sante | franchise_participation_taux | 100 | 100 | 0 | 100 | 100 | 120 | 50 | 100 | 110 |
-| sante | prevention_budget | 5 | 5 | 8 | 5 | 5 | 5 | 7 | 5 | 6 |
+| sante | prevention_budget | 7.5 | 7.5 | 10.5 | 7.5 | 7.5 | 7.5 | 9.5 | 7.5 | 8.5 |
 | smic | montant_brut | 1800 | 1800 | 2050 | 1800 | 1800 | 1800 | 2150 | 1800 | 1800 |
 | subventions_tge | montant | 33 | 35 | 20 | 33 | 8 | 45 | 25 | 32 | 25 |
 | taxe_superprofits | intensite | 0 | 0.5 | 1 | 0 | 0 | 0 | 0.5 | 0 | 0 |

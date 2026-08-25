@@ -118,13 +118,13 @@
           "tooltip": "0% = suppression totale (-2.52 Md€), 100% = maintien 2025 (neutre), 200% = doublement Bayrou 2026 (+2 Md€ d'économies). Franchise médicale : transports sanitaires (4€), médicaments (1€/boîte), actes paramédicaux (1€/acte). Forfait participation : consultations médecin (2€), examens biologie/radiologie (2€). Plafond annuel actuel : 50€ max/personne. Personnes exemptées : mineurs, femmes enceintes, CMU-C/CSS, ALD à 100%."
         },
         "prevention_budget": {
-          "valeur_defaut": 5,
-          "min": 5,
-          "max": 8,
-          "step": 0.5,
+          "valeur_defaut": 7.5,
+          "min": 7.5,
+          "max": 11.2,
+          "step": 0.1,
           "label": "Budget prévention (Md€)",
           "type": "number",
-          "tooltip": "Base France 2025 : 5 Md€ (~2% dépenses santé). Moyenne OCDE : 9.2 Md€ (~2.8% dépenses santé). ROI 25%/an après 2 ans, plafond 200% après 8 ans. Exemples : dépistages cancers, vaccins, éducation santé, contrôles diabète/HTA."
+          "tooltip": "Base France : 7,5 Md€ de prévention institutionnelle (DREES, comptes de la santé, fiche 21 — 7 516 M€ en 2023), soit 2,3 % de la dépense de santé contre 3,4 % en moyenne OCDE (Health at a Glance 2025). La borne haute (11,2 Md€) est la convergence vers cette moyenne. Un euro investi n'est jamais intégralement remboursé : le retour est différé de 4 ans, monte de 10 points par an et plafonne à 50 % — plafond assumé, borné par la littérature internationale, qu'aucune évaluation française ne permet de chiffrer précisément (IGAS 2024). Périmètre : agrégat SHA (dépistage organisé, vaccination collective, santé publique), hors prévention en consultation ordinaire."
         }
       }
     },

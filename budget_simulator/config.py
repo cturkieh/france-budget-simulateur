@@ -4,6 +4,7 @@ import logging
 from .constants import (
     POLICY_MEASURES_PATH,
     POLICY_START_YEAR,
+    PREVENTION_BASE_MD_EUR,
     RETRAITES_REF_DUREE_ANS,
     retraites_ref_age_ans,
 )
@@ -37,7 +38,11 @@ def load_default_values():
             'effort_ambu': 0,         # 0-100 : Reforme ambulatoire (gatekeeping + CPTS/telemedecine + pertinence) - Max -10 Md euros
             'effort_prev_org': 0,     # 0-100 : Prevention & organisation (generiques + IJ + urgences + prevention ROI) - Max -7 Md euros
             'franchise_participation_taux': 100,  # 0-200% : Franchises médicales et forfaits (100% = maintien, 0% = suppression, 200% = doublement)
-            'prevention_budget': 5.0  # 5-8 Md€ : Investissement prévention (budget additionnel, ROI 25%/an après 2 ans)
+            # Base = prévention institutionnelle observée (DREES fiche 21 :
+            # 7 516 M€ en 2023), borne haute = convergence OCDE. Le défaut EST
+            # la base : un utilisateur qui ne touche à rien ne décrit ni un
+            # investissement ni une coupe de prévention.
+            'prevention_budget': PREVENTION_BASE_MD_EUR
         },
         'chomage_alloc': {'montant': 40, 'duree': 18, 'degressivite': False},  # Réforme avril 2025 : durée 24→18 mois, montant 45→40
         'asu': {'asu_activation': 0, 'asu_plafonnement': 0.65},  # activation: 0/1, plafonnement: 0.5-0.7 (50-70% SMIC)
