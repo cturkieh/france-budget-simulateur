@@ -71,6 +71,7 @@ from budget_simulator.constants import (
     CHOMAGE_SENIORS_PIC,
     FUITE_SOCIALE_RESIDUELLE,
     OFFRE_SENIORS_PIB_NIVEAU_LT,
+    PARAM_DOMAINS,
     PHASING_CHOMAGE_SENIORS,
     PHASING_OFFRE_SENIORS,
     PHASING_RETRAITES_5ANS,
@@ -78,6 +79,7 @@ from budget_simulator.constants import (
     RESORPTION_CHOMAGE_SENIORS,
     RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_PART_COTISATIONS_PO,
+    RETRAITES_REF_AGE_ANS,
     retraites_ref_age_ans,
 )
 from budget_simulator.simulator import BudgetSimulatorV45
@@ -201,12 +203,20 @@ def test_pic_de_chomage_reste_entre_dg_tresor_et_ofce():
 # ---------------------------------------------------------------------------
 
 def test_p7_increment_de_croissance_jamais_au_dessus_de_015_pt():
-    """P7 — pour UNE année d'AOD, l'incrément annuel de croissance imputable
-    au canal ne dépasse JAMAIS +0,15 pt.
+    """P7 — forme ÉCHELON : pour un écart MAINTENU à une année d'AOD,
+    l'incrément annuel de croissance imputable au canal ne dépasse JAMAIS
+    +0,15 pt.
 
     C'est le garde-fou contre l'erreur retirée de la v0.6.0 : un « +0,8 pt »
     appliqué au TAUX de croissance chaque année compose à ~+8 % de PIB en dix
     ans, soit quatorze fois l'effet publié.
+
+    PORTÉE, à ne pas surinterpréter (revue adverse 25/08) : ``_mesures_ecart``
+    reconstruit l'âge année par année pour maintenir l'écart à exactement 1,0.
+    C'est l'objet du dossier de sourcing — les profils publiés sont tous
+    définis « par année d'AOD » — mais AUCUN scénario ni curseur ne produit
+    cette trajectoire : un programme pose un âge FIXE et son écart bouge avec
+    le calendrier légal. La forme RAMPE est couverte par le test suivant.
     """
     sim = BudgetSimulatorV45(periods=10)
     increments = []
@@ -220,6 +230,71 @@ def test_p7_increment_de_croissance_jamais_au_dessus_de_015_pt():
     # L'incrément maximal publié est de +0,120 pt, atteint une seule année (Y5).
     assert max(increments) * 100 == pytest.approx(0.120, abs=5e-3)
     assert increments.index(max(increments)) == 4
+
+
+#: Borne P7 sur la forme RAMPE — l'objet que le produit réalise réellement.
+#: DÉRIVÉE, pas saisie : c'est la conséquence chiffrée de la convention
+#: « un écart qui s'ouvre progressivement est daté une seule fois » (cf.
+#: docstring de ``_seniors``). Sur un âge FIXE, l'écart au droit en vigueur
+#: s'élargit jusqu'en 2032 pendant que la montée en charge court déjà : les
+#: deux rampes se multiplient, donc l'incrément par année d'AOD dépasse
+#: mécaniquement celui d'un échelon (0,120 pt). Maximum mesuré sur TOUT le
+#: domaine UI [60 ; 67] au pas de 0,25 : 0,177 pt, atteint pour l'âge dont
+#: l'écart s'ouvre le plus tard (62,75, ouverture en 2028). La borne est posée
+#: à 0,20 pt = 0,177 arrondi au dixième supérieur — assez serrée pour mordre
+#: si la superposition s'aggravait, assez large pour ne pas figer un chiffre
+#: d'arrondi. Elle NE dit PAS que 0,20 pt est plausible en soi : elle dit que
+#: le canal ne peut pas produire davantage sous la convention déclarée.
+P7_RAMPE_BORNE_PT = 0.20
+P7_RAMPE_MESURE_PT = 0.177
+
+
+def test_p7_forme_scenario_increment_borne_sur_tout_le_domaine():
+    """P7 — forme RAMPE : la borne tient AUSSI sur ce que le produit réalise.
+
+    Constat de la revue adverse (25/08) : P7 n'était vérifié que sur une
+    entrée synthétique (écart figé à 1,0 par reconstruction de l'âge année
+    après année) qu'aucun scénario ne produit. Sur une entrée de forme
+    scénario — âge FIXE, écart mobile parce que la référence légale monte
+    jusqu'en 2032 — le profil de phasing est ancré sur la première année non
+    nulle pendant que l'écart continue de s'élargir : les deux rampes se
+    multiplient.
+
+    UNITÉ — la normalisation « par année d'AOD » se fait ici sur l'AMPLITUDE
+    d'écart du programme (max |écart| sur l'horizon), et non sur l'écart de
+    l'ANNÉE. Diviser par l'écart de l'année est DÉGÉNÉRÉ sur cette forme :
+    l'écart d'un programme à 64 ans traverse zéro en 2032 (le calendrier légal
+    le rattrape), donc le quotient diverge — il monte à 0,378 pt sans qu'aucune
+    grandeur économique n'ait bougé. L'amplitude, elle, est définie pour tout
+    programme et redonne exactement la lecture de l'échelon quand l'écart est
+    constant.
+
+    Le test balaye TOUT le domaine du curseur, au pas du curseur.
+    """
+    pire = (0.0, None, None)
+    for cran in range(int((PARAM_DOMAINS['retraites']['age_depart'][1]
+                           - PARAM_DOMAINS['retraites']['age_depart'][0]) / 0.25) + 1):
+        age = PARAM_DOMAINS['retraites']['age_depart'][0] + 0.25 * cran
+        mesures = {'retraites': {'age_depart': age}}
+        niveaux = [_seniors.offre_seniors_niveau_pib(mesures, y) for y in ANNEES]
+        amplitude = max(abs(_seniors.retraites_ecart_age_ans_moteur(mesures, y))
+                        for y in ANNEES)
+        if amplitude == 0.0:
+            assert all(n == 0.0 for n in niveaux), f"âge {age} : canal non nul à écart nul"
+            continue
+        increments = [niveaux[0]] + [niveaux[k] - niveaux[k - 1]
+                                     for k in range(1, len(niveaux))]
+        pic = max(abs(i) for i in increments) / amplitude
+        if pic > pire[0]:
+            pire = (pic, age, increments)
+
+    assert pire[0] * 100 < P7_RAMPE_BORNE_PT, (
+        f"âge {pire[1]} : incrément {pire[0] * 100:.3f} pt par année d'AOD "
+        f"> borne {P7_RAMPE_BORNE_PT} pt")
+    # Le pire cas est structurel : c'est l'âge dont l'écart s'ouvre le PLUS
+    # TARD (superposition maximale des deux rampes), donc la valeur gelée.
+    assert pire[1] == pytest.approx(RETRAITES_REF_AGE_ANS)
+    assert pire[0] * 100 == pytest.approx(P7_RAMPE_MESURE_PT, abs=5e-3)
 
 
 def test_increment_est_la_difference_du_niveau():

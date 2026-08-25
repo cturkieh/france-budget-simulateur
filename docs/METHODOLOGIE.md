@@ -343,6 +343,15 @@ des APU +17,7). Le simulateur ne cale rien sur ce total : il le retrouve.
    sa premiere annee non nulle et applique une seule montee en charge. Une
    convolution exigerait de decomposer un profil publie en reponses
    impulsionnelles, ce que le COR ne publie pas.
+   **Consequence chiffree, a dire plutot qu'a decouvrir** : sur un programme a
+   age FIXE, l'ecart au droit en vigueur continue de s'elargir jusqu'en 2032
+   pendant que la montee en charge court deja. Les deux rampes se multiplient,
+   donc l'increment annuel de niveau de PIB par annee d'age depasse celui d'un
+   ecart maintenu constant : **0,177 point au maximum contre 0,120**, sur tout
+   le domaine du curseur (60 a 67 ans). Le maximum est atteint pour l'age dont
+   l'ecart s'ouvre le plus tard — la valeur gelee, 62,75 ans. C'est une
+   propriete de la convention, pas une estimation ; elle est bornee et testee
+   (test-propriete P7, forme rampe).
 
 **Ce qui n'est deliberement PAS modelise** (et pourquoi — c'est de la sobriete,
 pas un oubli) :
