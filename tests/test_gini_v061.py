@@ -56,7 +56,6 @@ import pytest
 from budget_simulator import constants
 from budget_simulator.constants import (
     CARBONE_PRIX_REFERENCE_EUR_T,
-    GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE,
     GINI_RENOVATION_PAR_MD_EUR,
     GINI_TAXE_CARBONE_PAR_EUR_TONNE,
     POLICY_START_YEAR,
@@ -450,8 +449,13 @@ _BRANCHES_V060 = {
     'chomage_alloc': True,
     'tva_rate': True,
     'transition_ecologique': True,
-    'education': True,          # rendue morte PAR ce lot (gini explicite)
-    'impot_societes': False,    # VIVANTE — dette connue, cf. ci-dessous
+    'education': True,          # rendue morte PAR le lot 6 (gini explicite)
+    # `impot_societes` était la seule branche VIVANTE. Elle est SUPPRIMÉE au
+    # lot 7, sans valeur de remplacement — cf. § 4 bis ci-dessous. Elle reste
+    # inscrite ici avec `False` : ce n'est PAS une branche morte, et la
+    # contre-épreuve comportementale des branches mortes ne doit pas la
+    # balayer (son handler n'émet toujours aucune clé `gini`, et c'est voulu).
+    'impot_societes': False,
 }
 _MORTES = sorted(k for k, v in _BRANCHES_V060.items() if v)
 
@@ -499,46 +503,103 @@ def test_les_handlers_des_branches_mortes_emettent_bien_gini(measure_id):
                     "déplacerait des chiffres publiés")
 
 
-def test_impot_societes_est_la_seule_branche_survivante():
-    """La seule branche VIVANTE est conservée et NOMMÉE — elle n'est pas corrigée ici.
+# ===========================================================================
+# 4 bis. Lot 7 — la dernière branche du fallback est SUPPRIMÉE, sans
+#        valeur de remplacement (règle du § I27)
+# ===========================================================================
+#
+# CE QUE LE LOT 6 AVAIT ÉCRIT, ET POURQUOI C'ÉTAIT FAUX. La branche
+# `impot_societes` avait été conservée au motif qu'« elle déplace des chiffres
+# publiés, et aucune source ne dit par quoi la remplacer ». La seconde moitié
+# du motif est juste — c'est même la raison pour laquelle on SUPPRIME plutôt
+# que de recalibrer. La première est MESURABLEMENT FAUSSE, et le lot 7 l'a
+# mesurée : à la précision réellement publiée (`scenariosResults.json` arrondit
+# le Gini à trois décimales, comme les fiches et le comparateur), la
+# suppression ne déplace AUCUN chiffre publié.
+#
+#   lfi_2027  Gini 2035 : 0,264738 → 0,264852  (+0,000114) → 0,265 dans les deux cas
+#   ps_2027   Gini 2035 : 0,272415 → 0,272489  (+0,000074) → 0,272 dans les deux cas
+#   les sept autres scénarios : bit-identiques (aucun ne bouge l'IS)
+#
+# SENS DE LA CORRECTION (§ C.4/C.5 du dossier) : la branche émettait
+# `gini_change -= 0,03 × recettes/PIB` pour une HAUSSE d'IS et exactement zéro
+# pour une baisse. Elle créditait donc les programmes qui augmentent l'impôt
+# sur les sociétés d'une amélioration des inégalités que personne n'a chiffrée,
+# et n'imputait rien à ceux qui le baissent. La retirer joue CONTRE `lfi_2027`
+# et `ps_2027` — de +0,000114 et +0,000074 de Gini, soit deux ordres de
+# grandeur sous la précision d'affichage. Ce que le lot achète n'est pas un
+# chiffre : c'est la symétrie, et le fait qu'aucun coefficient sans source ne
+# subsiste dans le collecteur d'un dépôt public.
 
-    DETTE CONNUE, documentée plutôt que bricolée. `_apply_impot_societes`
-    n'émet délibérément pas de clé `gini` (son commentaire dit « PAS
-    D'IMPACT MICRO : répercussion prix uniforme sur tous déciles »), mais le
-    fallback en émettait un dans son dos — et de façon ASYMÉTRIQUE
-    (`if recettes > 0` : une BAISSE d'IS émet 0). Le dossier de sourcing la
-    croyait inerte comme les cinq autres ; le balayage empirique de ce lot
-    montre qu'elle est ACTIVE, y compris dans deux scénarios publiés (LFI à
-    30 % et PS à 27 % d'IS).
 
-    Pourquoi ne pas la retirer dans le même geste : elle DÉPLACE des
-    chiffres publiés, et aucune source de ce lot ne dit par quoi la
-    remplacer. La retirer ou la symétriser sans source, c'est remplacer un
-    biais par un autre. Elle est donc nommée en constante, déclarée NON
-    SOURCÉE, et renvoyée au chantier v0.7 (§ B.4-33 : « ne pas bricoler »)."""
+def test_le_fallback_generique_n_a_plus_aucune_branche():
+    """Zéro coefficient non sourcé dans le collecteur Gini.
+
+    Le lot 6 avait retiré les six branches MORTES et nommé la septième,
+    vivante, en dette déclarée. Le lot 7 retire la septième. Le collecteur
+    est désormais ce que son nom annonce : il collecte ce que les handlers
+    émettent, il ne fabrique plus rien."""
     cites = _chaines_du_fallback()
-    assert 'impot_societes' in cites
-    assert cites & set(_BRANCHES_V060) == {'impot_societes'}
+    assert not (cites & set(_BRANCHES_V060)), (
+        f"branches du fallback v4.5 encore citées : "
+        f"{sorted(cites & set(_BRANCHES_V060))}")
 
 
-def test_dette_fallback_impot_societes_caracterisee():
-    """Caractérisation chiffrée de la dette : elle ne peut plus bouger en silence.
+def test_impot_societes_n_emet_plus_rien_et_symetriquement():
+    """La suppression est SYMÉTRIQUE par construction : plus rien des deux côtés.
 
-    Verrouille À LA FOIS la valeur (0,03 × recettes/PIB) et l'asymétrie
-    (une baisse d'IS émet 0). Le jour où quelqu'un corrige l'un ou l'autre,
-    ce test rougit et l'oblige à l'écrire — ce qui est exactement le but."""
+    C'était le défaut de fond — même classe que l'asymétrie des
+    multiplicateurs corrigée en v0.6.0 : une HAUSSE d'IS émettait
+    `-0,03 × recettes/PIB`, une BAISSE émettait exactement zéro. Aucune source
+    ne chiffrant l'incidence distributive de l'IS (le handler dit lui-même
+    « PAS D'IMPACT MICRO : répercussion prix uniforme sur tous déciles »), la
+    règle du § I27 s'applique telle quelle : non sourcé ⇒ on retire, on ne
+    remplace pas."""
     sim = _sim()
-    impacts = {'impot_societes': {'recettes': 30.0}}
-    assert 'gini' not in impacts['impot_societes'], (
-        "prémisse du test : le handler IS n'émet pas de clé 'gini'")
-    obtenu = sim.calculate_gini_impact(impacts, PIB)
-    assert obtenu == pytest.approx(
-        -GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE * 30.0 / PIB, abs=1e-15)
-    miroir = sim.calculate_gini_impact({'impot_societes': {'recettes': -30.0}}, PIB)
-    assert miroir == 0.0, (
-        "asymétrie connue : une BAISSE d'IS n'émet rien. Si ce test rougit, "
-        "c'est que la dette a été traitée — mettre à jour la doc et le "
-        "changelog, la correction n'est pas neutre")
+    for recettes in (30.0, -30.0, 0.0):
+        impacts = {'impot_societes': {'recettes': recettes}}
+        assert 'gini' not in impacts['impot_societes'], (
+            "prémisse du test : le handler IS n'émet pas de clé 'gini'")
+        assert sim.calculate_gini_impact(impacts, PIB) == 0.0, (
+            f"le collecteur fabrique encore un Gini pour l'IS "
+            f"(recettes={recettes})")
+
+
+def test_la_constante_non_sourcee_a_disparu_du_moteur():
+    """Retirer la branche sans retirer sa constante laisserait, sur un dépôt
+    AGPL public, un coefficient orphelin que personne ne peut relier à un
+    document — exactement ce que le lot 6 reprochait aux six branches mortes.
+
+    Balayage sur l'ARBRE SYNTAXIQUE, pas sur le texte : `constants.py` garde
+    délibérément une trace COMMENTÉE de ce qui a été retiré et pourquoi (avec
+    le chiffrage de l'écart), et cette trace est ce qui rend la suppression
+    auditable. Ce qui est banni, c'est le SYMBOLE — une constante déclarée,
+    lue ou importée."""
+    porteurs = []
+    for f in sorted((ROOT / 'budget_simulator').rglob('*.py')):
+        arbre = ast.parse(f.read_text(encoding='utf-8'))
+        symboles = {n.id for n in ast.walk(arbre) if isinstance(n, ast.Name)}
+        symboles |= {n.attr for n in ast.walk(arbre) if isinstance(n, ast.Attribute)}
+        symboles |= {a.name for n in ast.walk(arbre)
+                     if isinstance(n, ast.ImportFrom) for a in n.names}
+        if any('GINI_FALLBACK' in nom for nom in symboles):
+            porteurs.append(str(f.relative_to(ROOT)))
+    assert not porteurs, f"constante non sourcée encore présente : {porteurs}"
+
+
+def test_l_is_conserve_tous_ses_autres_canaux():
+    """Contre-épreuve : la suppression ne débranche QUE le Gini.
+
+    Sans elle, mettre le handler IS à zéro ferait passer les tests ci-dessus
+    tout en supprimant l'effet réel de la mesure — 30 % d'IS au lieu de 25 %
+    doit toujours rapporter des recettes et coûter de la compétitivité."""
+    sim = _sim()
+    _, recettes, impacts = sim.measure_handlers['impot_societes'](
+        {'id': 'impot_societes'}, {'taux': 0.30, 'niches': 0},
+        POLICY_START_YEAR, PIB, 0.01, 0.076)
+    assert recettes > 0
+    assert impacts['competitivite'] < 0
+    assert 'gini' not in impacts
 
 
 def test_fallback_ne_contient_plus_de_litteral_de_calibration():
@@ -559,17 +620,21 @@ def test_fallback_ne_contient_plus_de_litteral_de_calibration():
 
 
 def test_le_collecteur_gini_a_le_meme_profil_que_le_collecteur_competitivite():
-    """Après I27, `calculate_gini_impact` est (presque) un pur collecteur.
+    """Depuis le lot 7, `calculate_gini_impact` est un pur collecteur — plus
+    « presque ».
 
-    Il ne reste qu'un seul cas particulier, celui de la dette ci-dessus.
-    Cette garde borne la dérive : si un deuxième cas particulier apparaît,
-    elle rougit et impose de le justifier."""
+    RECALIBRAGE ASSUMÉ : la borne était de 3 comparaisons tant que la branche
+    `impot_societes` survivait (le `measure_id ==` et le `recettes > 0`). Elle
+    descend à 1 — la seule appartenance `'gini' in impact`, qui EST la
+    collecte. Toute comparaison supplémentaire signifierait qu'un cas
+    particulier a été réintroduit ici plutôt que dans le handler concerné,
+    c'est-à-dire hors de portée des gardes de sourcing par mesure."""
     arbre = ast.parse(_source(
         micro_impacts.MicroImpactsMixin.calculate_gini_impact).lstrip())
     comparaisons = [n for n in ast.walk(arbre) if isinstance(n, ast.Compare)]
-    assert len(comparaisons) <= 3, (
-        f"{len(comparaisons)} comparaisons dans le collecteur Gini — un "
-        "deuxième cas particulier a été ajouté sans passer par un handler")
+    assert len(comparaisons) <= 1, (
+        f"{len(comparaisons)} comparaisons dans le collecteur Gini — un cas "
+        "particulier a été ajouté sans passer par un handler")
 
 
 # ===========================================================================
@@ -791,7 +856,6 @@ def test_prix_de_reference_du_carbone_a_une_source_unique():
 # était non sourcé et asymétrique ; il ne touche pas aux trois autres, qui
 # demandent chacun une décision de modélisation propre :
 #
-#   * `impot_societes` — via le fallback, dette connue (cf. § 4 ci-dessus) ;
 #   * `retraites`      — résidu de 10 %/an, DÉLIBÉRÉ et documenté dans le
 #                        handler (« flux annuel des nouvelles cohortes de
 #                        retraités impactées ») ; c'est un choix de
@@ -799,10 +863,13 @@ def test_prix_de_reference_du_carbone_a_une_source_unique():
 #   * `rabot_uniforme` — émission croissante, la plus grosse des trois
 #                        (cumul ≈ +0,09 sur 25 ans) ; jamais auditée.
 #
+# Le lot 7 en retire un DEUXIÈME : `impot_societes` n'émettait de flux annuel
+# que par le fallback générique, désormais supprimé (cf. § 4 bis).
+#
 # Chantier v0.7 (§ B.4-33 du dossier : la valeur de GINI_IMPACT_SCALE n'est
 # « pas calculable en l'état » tant que les coefficients ne sont pas tous
 # sourcés — « ne pas bricoler »).
-_EMETTEURS_RECURRENTS_CONNUS = {'impot_societes', 'retraites', 'rabot_uniforme'}
+_EMETTEURS_RECURRENTS_CONNUS = {'retraites', 'rabot_uniforme'}
 
 
 def test_carte_des_emissions_gini_recurrentes():
@@ -827,6 +894,9 @@ def test_carte_des_emissions_gini_recurrentes():
         "gini_cible_cumul")
     assert 'education' not in recurrents, (
         "l'éducation émet encore un flux annuel : I27 n'est pas appliqué")
+    assert 'impot_societes' not in recurrents, (
+        "l'impôt sur les sociétés émet encore un flux annuel : le fallback "
+        "générique n'a pas été retiré")
 
 
 def test_le_golden_master_standalone_couvre_bien_le_gini():

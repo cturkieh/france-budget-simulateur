@@ -9,16 +9,10 @@ import sys
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
-# Niveau "sliders" du registre = parse de `frontend-react/src/components/
-# ExploreCreateSection.jsx`. Pour un fork moteur seul (frontend absent),
-# build_registry() lèverait RuntimeError. On skip toute la suite gracieusement.
-_FRONT_JSX = REPO_ROOT / "frontend-react" / "src" / "components" / "ExploreCreateSection.jsx"
-pytestmark = pytest.mark.skipif(
-    not _FRONT_JSX.exists(),
-    reason="frontend-react/ hors périmètre fork moteur seul",
-)
+# `.absolute()` et PAS `.resolve()` — cf. le commentaire détaillé de
+# `test_measure_registry_sync.py` : le parent monte `tests/` comme symlink, et
+# `resolve()` rendait ce skipif PERMANENT (garde morte, jamais exécutée).
+REPO_ROOT = Path(__file__).absolute().parents[1]
 
 # Insertion pour importer le package `scripts/` (pas de __init__.py, non
 # couvert par conftest.py qui ne met que la racine pour `budget_simulator`).
@@ -32,7 +26,22 @@ from scripts.generate_measure_registry import (  # noqa: E402
     assert_contract_complete,
     build_registry,
     extract_params_from_source,
+    front_disponible,
     render_markdown,
+)
+
+# Niveau "sliders" du registre = parse des TROIS sources front actuelles
+# (ALL_VARIABLES dans simulatorConfig.js, LEVER_META dans leverMeta.js,
+# convertToAPIFormat dans utils/apiFormat.js — elles vivaient toutes dans
+# `ExploreCreateSection.jsx` avant le découpage du composant). Pour un fork
+# moteur seul (frontend absent), build_registry() lèverait RuntimeError : on
+# skip gracieusement.
+# La condition vient du SCRIPT (`front_disponible`), pas d'une recopie des
+# chemins : c'est en dupliquant cette condition qu'on obtient une garde qui
+# skippe pour une raison qui n'est plus vraie — le défaut même de ce lot.
+pytestmark = pytest.mark.skipif(
+    not front_disponible(),
+    reason="frontend-react/ hors périmètre fork moteur seul",
 )
 
 
@@ -223,8 +232,9 @@ def test_registry_documents_slider_to_measure_mapping():
 
     Structure réelle du snapshot : ``{"mesures": {mid: {...}}}`` (dict indexé
     par id, PAS une liste avec ``measure_id``). Le mapping slider->mesure->param
-    est dérivé de ``convertToAPIFormat`` (autoritatif, non inventé) et les
-    bornes de ``variablesConfig`` — tous deux dans ``ExploreCreateSection.jsx``.
+    est dérivé de ``convertToAPIFormat`` (``src/utils/apiFormat.js``,
+    autoritatif, non inventé) et les bornes de ``LEVER_META``
+    (``src/data/leverMeta.js``).
     Les sliders ``effort_hopital``/``effort_ambu`` alimentent la mesure
     ``sante`` (cf. payload ``sante: { effort_hopital: measures.effort_hopital,
     effort_ambu: measures.effort_ambu, ... }``).
@@ -470,3 +480,128 @@ def test_markdown_places_each_formule_slider_in_aseval_section(registry):
                 f"{sid} (formule, effet réel) listé à tort en 'non "
                 "rattaché' — mensonge par omission dans la doc publique"
             )
+
+
+# ===========================================================================
+# Lot 7 — réparation de l'extracteur front + suivi des helpers de lecture
+# ===========================================================================
+#
+# CE QUI ÉTAIT CASSÉ, ET POURQUOI PERSONNE NE LE VOYAIT. Le découpage de
+# `ExploreCreateSection.jsx` a déplacé les trois blocs dont l'extracteur dérive
+# le niveau « sliders » : `variablesConfig` → `LEVER_META` (src/data/
+# leverMeta.js), `allVariables` → `ALL_VARIABLES` (src/data/simulatorConfig.js),
+# `convertToAPIFormat` → src/utils/apiFormat.js. L'extracteur a continué de les
+# chercher dans l'ancien fichier et levait RuntimeError à chaque exécution.
+# Deux garde-fous auraient dû rougir ; aucun n'a rougi :
+#   - `test_measure_registry_sync.py` skippait EN PERMANENCE (piège
+#     resolve/symlink, cf. son en-tête) ;
+#   - `make check-docs-sync` n'appelait pas ce générateur (les six autres, oui).
+# Les deux sont réparés dans le même lot — une garde qui ne tourne nulle part
+# est pire qu'une garde absente : elle donne la couleur verte sans la mesure.
+
+
+def test_les_trois_ancres_front_sont_bien_celles_du_code_actuel():
+    """Les blocs dont dérive le niveau « sliders » existent, là où on les lit.
+
+    Contre-épreuve du mode de défaillance : si un futur découpage du front
+    déplace ou renomme l'un des trois, ce test nomme lequel — au lieu de
+    laisser le générateur lever une RuntimeError générique dans un job que
+    personne ne regarde."""
+    from scripts.generate_measure_registry import _sources_front  # noqa: PLC0415
+
+    chemins = _sources_front()
+    ancres = {
+        chemins["sim_config"]: "export const ALL_VARIABLES = [",
+        chemins["lever_meta"]: "export const LEVER_META = {",
+        chemins["api_format"]: "export function convertToAPIFormat(measures) {",
+    }
+    for chemin, ancre in ancres.items():
+        assert chemin.exists(), f"source front absente : {chemin}"
+        assert ancre in chemin.read_text("utf-8"), (
+            f"ancre {ancre!r} absente de {chemin.name} — l'extracteur du "
+            "registre la cherche : le déplacement doit être répercuté dans "
+            "generate_measure_registry.py, pas subi")
+
+
+def test_un_bloc_front_introuvable_leve_au_lieu_de_deviner():
+    """Rouge automatisé de l'échec dur : sans lui, on ne saurait pas que
+    l'extracteur refuse VRAIMENT de deviner."""
+    from scripts.generate_measure_registry import _bloc_js  # noqa: PLC0415
+
+    with pytest.raises(RuntimeError, match="MACHIN"):
+        _bloc_js("const autre = {}\n", "export const MACHIN = {", "}", "MACHIN")
+
+
+def test_les_bornes_multi_lignes_sont_extraites():
+    """`min`/`max`/`step` écrits UN PAR LIGNE doivent être lus.
+
+    L'ancienne regex exigeait les trois sur une seule ligne. Les entrées
+    récentes de `LEVER_META` (`asu_activation`, `asu_plafonnement`) les
+    écrivent séparément : elles auraient été silencieusement classées
+    « bornes absentes », c'est-à-dire perdues du registre public sans que
+    le compte total ne bouge assez pour faire rougir la garde de cohérence.
+    """
+    import json  # noqa: PLC0415
+
+    snap = json.loads(
+        (REPO_ROOT / "tests" / "snapshots" / "measure_registry.json")
+        .read_text("utf-8"))
+    sliders = {s["id"]: s for s in snap["mesures"]["asu"]["sliders"]}
+    assert set(sliders) == {"asu_activation", "asu_plafonnement"}
+    assert sliders["asu_plafonnement"]["min"] == 0.5
+    assert sliders["asu_plafonnement"]["max"] == 0.7
+
+
+def test_le_contrat_retraites_conserve_age_depart(registry):
+    """Le suivi des helpers de lecture, et pourquoi il n'est pas optionnel.
+
+    `age_depart` n'est plus lu nulle part dans le corps de `_apply_retraites` :
+    les cinq canaux d'une mesure d'âge passent par la source unique
+    `budget_simulator/_seniors`. Un simple whitelistage de ces helpers aurait
+    fait taire le signal `<UNMODELED>` tout en PERDANT la clé — remplaçant un
+    registre bruyamment incomplet par un registre silencieusement faux, ce qui
+    est strictement pire sur un dépôt public.
+    """
+    params = registry["mesures"]["retraites"]["params"]
+    assert "age_depart" in params, (
+        "le paramètre le plus visible du simulateur a disparu du registre : "
+        "les helpers de _seniors ne sont plus suivis")
+    assert "indexation" in params and "duree_cotisation" in params
+
+
+def test_le_bloc_retraites_ne_suspend_plus_la_detection_de_cles_mortes(registry):
+    """`UNMODELED_PARAM_ACCESS` est dans `_JUSTIFY_NO_PARAM` : tant qu'il est
+    posé sur une mesure, celle-ci est dispensée d'exposer des clés littérales,
+    donc la détection des clés mortes ne mord plus sur elle. Le laisser sur les
+    retraites revenait à débrancher la garde sur le levier le plus utilisé."""
+    flags = registry["mesures"]["retraites"]["flags"]
+    assert "UNMODELED_PARAM_ACCESS" not in flags, flags
+    assert "<UNMODELED>" not in registry["mesures"]["retraites"]["params"]
+
+
+def test_un_defaut_non_litteral_publie_son_expression(registry):
+    """Un défaut qui migre vers une constante nommée ne doit pas se lire
+    « aucun défaut » dans la doc publique.
+
+    Les défauts du moteur migrent justement vers des constantes nommées (c'est
+    la traçabilité qu'on cherche) : publier `None` ferait régresser le registre
+    à mesure que le code s'améliore. L'expression est DÉRIVÉE du code
+    (`ast.unparse`), jamais ré-énoncée à la main."""
+    asu = registry["mesures"]["asu"]["params"]["asu_plafonnement"]
+    assert asu["default"] is None
+    assert asu["default_expr"] == "ASU_PLAFONNEMENT_DEFAUT"
+
+
+def test_le_suivi_des_helpers_est_borne_en_profondeur():
+    """Garde anti-cycle : deux helpers qui se renverraient `params` l'un à
+    l'autre boucleraient à l'infini. Le contrat est un échec DUR et
+    actionnable, jamais une récursion silencieuse."""
+    from scripts import generate_measure_registry as gen  # noqa: PLC0415
+
+    assert gen._PROFONDEUR_MAX_HELPERS >= 2, (
+        "handler → retraites_annee_debut_ecart_age_handler → lambda → "
+        "retraites_ecart_age_ans fait déjà deux niveaux")
+    with pytest.raises(RuntimeError, match="cycle probable"):
+        extract_params_from_source(
+            "def f(params):\n    return retraites_ecart_age_ans(params, 2026)\n",
+            _profondeur=gen._PROFONDEUR_MAX_HELPERS)

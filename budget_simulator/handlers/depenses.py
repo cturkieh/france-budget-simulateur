@@ -27,7 +27,9 @@ Mesures couvertes (6 handlers) :
   réforme. Phasing 4 ans, curseur 50-70 % du SMIC pilotant l'EFFORT
   budgétaire pérenne (0 à +2 Md€/an, les deux variantes chiffrées par la
   DREES/Igas), net de la seule économie de gestion défendable
-  (0,3 Md€/an), plus un coût de transition sur les 4 premières années.
+  (0,3 Md€/an) et PLANCHÉ à zéro — la source ne chiffre aucun scénario où
+  la réforme rapporte —, plus un coût de transition sur les 4 premières
+  années.
   Le modèle de la v0.5.1 — une machine à économies de 11,5 Md€/an, un
   bonus emploi et un Gini amélioré à coût nul — est RETIRÉ : la seule
   évaluation administrative de la réforme chiffre un effet pérenne de 0
@@ -53,9 +55,15 @@ Convention d'application :
   ``chomage``) en mode NIVEAU one-time, gated par
   ``self._is_first_year_change(<clé>, params)`` (méthode de l'hôte) ou par
   un suivi cross-année dédié (cf ``chomage_alloc`` ci-dessous). Chaque
-  sous-effet a sa propre clé de gating (``retraites_gini``, ``sante``,
-  ``chomage_alloc_competitivite``, ``abattement_retraites``,
+  sous-effet a sa propre clé de gating (``retraites_gini_indexation``,
+  ``sante``, ``chomage_alloc_competitivite``, ``abattement_retraites``,
   ``prestations_indexation``).
+  EXCEPTION, et elle est structurelle : le canal d'ÂGE des retraites ne
+  passe pas par ``_is_first_year_change`` mais par l'horloge du CHOC
+  (``_seniors.retraites_annee_debut_ecart_age_handler``). Sa référence est
+  le CALENDRIER LÉGAL, mobile jusqu'en 2032 : l'horloge du run y plaçait
+  l'effet plein sur un écart encore nul pour tout programme s'écartant
+  après 2026 (cf. le détail dans ``_apply_retraites``).
 - Effet ``pouvoir_achat`` de ``retraites`` et ``prestations_indexation``
   est au contraire RÉCURRENT (suit la désindexation chaque année) —
   PRÉSERVÉ tel quel du monolithe.
@@ -111,7 +119,6 @@ reproduire le pattern.
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
-    ASU_ECO_SIMPLIFICATION_MD_EUR,
     ASU_GINI_BORNE_PAR_MD_EUR,
     ASU_PERIMETRE_MD_EUR,
     ASU_PLAFONNEMENT_DEFAUT,
@@ -127,10 +134,15 @@ from ..constants import (
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
+    RETRAITES_GINI_PAR_ANNEE_ECART,
+    RETRAITES_GINI_PAR_POINT_DESINDEXATION,
+    RETRAITES_GINI_RESIDU_FLUX,
+    RETRAITES_PA_GEL_TOTAL,
     RETRAITES_REF_DUREE_ANS,
     asu_cout_transition_md_eur,
     asu_effort_perenne_md_eur,
     asu_plafonnement_borne,
+    asu_solde_perenne_md_eur,
 )
 from .._logging import _log_debug
 from .._seniors import (
@@ -171,13 +183,12 @@ class DepensesMixin(_MixinBase):
         # bosse de chômage) doivent partir du MÊME écart, sans quoi un
         # recalibrage du calendrier légal n'en atteindrait qu'une partie.
         ecart_age = retraites_ecart_age_ans(params, year)
-        # `age_ref_gating` n'entre dans AUCUN calcul économique : c'est la clé
-        # d'identité de paramètre du gating one-time du Gini ci-dessous
-        # (_is_first_year_change). Elle doit rester la valeur BRUTE du
-        # curseur, invariante d'une année sur l'autre — la remplacer par
-        # l'écart la ferait bouger avec le calendrier légal 2028-2032 et
-        # re-déclencherait l'effet Gini plein chaque année.
-        age_ref_gating = params.get('age_depart')
+        # NOTE (lot 7) : il n'y a plus de clé d'identité `age` dans le gating
+        # one-time du Gini ci-dessous. Elle n'y a plus sa place depuis que le
+        # canal d'âge lit l'horloge du CHOC, qui est déjà stable d'une année
+        # sur l'autre par construction — l'ancienne clé ne servait qu'à
+        # empêcher `_is_first_year_change` de re-déclencher chaque année sous
+        # l'effet du calendrier légal 2028-2032.
         indexation = params.get('indexation', 1.0)
         duration = params.get('duree_cotisation', RETRAITES_REF_DUREE_ANS)
         # Montee en charge cohortes 5 ans (COR 2024). Formules SYMETRIQUES
@@ -241,27 +252,51 @@ class DepensesMixin(_MixinBase):
         # budgétaire, pour que le statu quo reste neutre sur les inégalités.
         # Le coefficient lui-même est INCHANGÉ : l'effet distributif du canal
         # emploi n'est pas établi (hétérogénéité forte documentée), il ne sera
-        # pas ajusté hors d'une passe dédiée.
-        gini_age = 0.001 * ecart_age / 1.25
+        # pas ajusté hors d'une passe dédiée (constants.py, § B.1-13).
+        gini_age = RETRAITES_GINI_PAR_ANNEE_ECART * ecart_age
 
         # Gini : Indexation ↓ = paupérisation retraités (régressif)
-        # Règle : Indexation 100%→90% = +0.005 Gini (OFCE Brief 124, 15/02/2024)
-        gini_indexation = 0.005 * (1.0 - indexation)
+        # Règle : Indexation 100%→90% = +0.005 Gini (OFCE Brief 124, 15/02/2024
+        # — valeur et source dans constants.py)
+        gini_indexation = RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1.0 - indexation)
 
-        # Guard Gini: plein effet année 1, 10% résiduel les années suivantes
-        # (flux annuel des nouvelles cohortes de retraités impactées)
-        gini_params = {'age': age_ref_gating, 'indexation': indexation}
-        if self._is_first_year_change('retraites_gini', gini_params):
-            gini = gini_age + gini_indexation
+        # Guard Gini — plein effet l'année où la mesure OUVRE SON ÉCART, puis
+        # RETRAITES_GINI_RESIDU_FLUX (flux annuel des nouvelles cohortes de
+        # retraités impactées). DEUX HORLOGES, exactement comme le canal
+        # budgétaire ci-dessus (`phasing` vs `phasing_age`), et pour la même
+        # raison — les deux composantes n'ont pas la même référence :
+        #
+        # - INDEXATION : sa référence est FIXE (la pleine indexation). Son
+        #   écart s'ouvre donc dès la première année simulée → horloge du RUN,
+        #   celle de `_is_first_year_change`, inchangée.
+        # - ÂGE : sa référence est le CALENDRIER LÉGAL, mobile jusqu'en 2032
+        #   (I3). `gini_age` dérive de l'écart de l'ANNÉE, donc un programme
+        #   figeant l'âge à 62,75 a un `gini_age` RIGOUREUSEMENT NUL en
+        #   2026-2027. L'horloge du run y servait les 100 % sur zéro, et
+        #   l'horizon entier ne recevait plus que le résidu : la mortalité
+        #   différentielle d'un gel de la réforme était chiffrée au dixième de
+        #   sa valeur (clôture de la revue adverse, lot 7). → horloge du CHOC,
+        #   `retraites_annee_debut_ecart_age_handler`, la même que les quatre
+        #   autres canaux d'une mesure d'âge. Elle vaut POLICY_START_YEAR quand
+        #   l'écart est nul partout, donc les scénarios sans curseur d'âge et
+        #   tout âge ≠ 62,75 restent bit-identiques.
+        if self._is_first_year_change('retraites_gini_indexation',
+                                      {'indexation': indexation}):
+            gini = gini_indexation
         else:
-            gini = (gini_age + gini_indexation) * 0.10
+            gini = gini_indexation * RETRAITES_GINI_RESIDU_FLUX
+        if year == retraites_annee_debut_ecart_age_handler(params):
+            gini += gini_age
+        else:
+            gini += gini_age * RETRAITES_GINI_RESIDU_FLUX
 
         # Pouvoir d'achat : Impact agrégé via retraités (~26% RDB).
-        # Formule : -0.007 × (1 - indexation), appliquée chaque année (effet récurrent).
-        # Calibration OFCE Brief 124 (15/02/2024) : élasticité PA-retraités/désindexation
-        # ≈ -0.7%/an PA agrégé pour gel TOTAL (indexation=0), proportionnelle au ratio
-        # d'écart à la pleine indexation. Cumulé sur 5 ans = -3.5%.
-        pouvoir_achat = -0.007 * (1.0 - indexation)
+        # Formule : -RETRAITES_PA_GEL_TOTAL × (1 - indexation), appliquée chaque
+        # année (effet récurrent). Calibration OFCE Brief 124 (15/02/2024) :
+        # élasticité PA-retraités/désindexation ≈ -0.7%/an PA agrégé pour gel
+        # TOTAL (indexation=0), proportionnelle au ratio d'écart à la pleine
+        # indexation. Cumulé sur 5 ans = -3.5%. Valeur et source : constants.py.
+        pouvoir_achat = -RETRAITES_PA_GEL_TOTAL * (1.0 - indexation)
 
         # Compétitivité : Pas d'impact direct
         competitivite = 0
@@ -693,12 +728,17 @@ class DepensesMixin(_MixinBase):
 
         # === BUDGET ===
         # Pérenne : l'effort de la réforme, NET de l'économie de gestion,
-        # tous deux montant en charge sur le même calendrier.
+        # tous deux montant en charge sur le même calendrier — et PLANCHÉ à
+        # zéro par la source unique `asu_solde_perenne_md_eur` (v0.6.1, lot 7).
+        # Sans ce plancher, tout plafond sous 53 % du SMIC — dont le premier
+        # cran du curseur — dégageait un gain net PERMANENT de 0,3 Md€/an :
+        # l'économie de gestion dérivée y dépassait l'effort interpolé, alors
+        # que la variante officielle la moins coûteuse (« à coût constant »)
+        # a un solde pérenne EXACTEMENT nul. Motif complet : constants.py.
         # Transition : enveloppe des quatre premières années, indépendante
         # du plafond (aucune source ne les lie).
         transition = asu_cout_transition_md_eur(year)
-        delta_spending = transition + phasing * (
-            effort - ASU_ECO_SIMPLIFICATION_MD_EUR)
+        delta_spending = transition + phasing * asu_solde_perenne_md_eur(plafonnement)
         delta_revenue = 0.0
 
         impacts = {

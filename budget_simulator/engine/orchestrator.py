@@ -603,9 +603,18 @@ class OrchestratorMixin:
                 # tendancielle, il se décalait de ±0,20 pt en permanence et
                 # contaminait la courbe de Phillips (inflation) puis le choix
                 # du multiplicateur budgétaire.
-                # Lecture AVANT update_potential_growth (ligne suivante) :
-                # comme calculate_growth et calculate_unemployment plus haut,
-                # cette ligne consomme l'état d'offre de l'année précédente.
+                # ORDRE PRODUCTEUR → CONSOMMATEURS, sans aucun lag :
+                # `update_labour_supply` est le PRODUCTEUR du bonus d'offre de
+                # travail, et il tourne en TÊTE de CETTE itération d'année,
+                # avant `calculate_growth`. Les trois consommateurs de
+                # `croissance_potentielle_totale()` — la croissance, la loi
+                # d'Okun (`calculate_unemployment`) et cette récurrence — lisent
+                # donc TOUS l'état d'offre de l'année COURANTE. C'est l'objet
+                # même de la correction I6 : lu contre un potentiel différent
+                # du leur, l'output gap se décalait en permanence de ±0,20 pt.
+                # Le seul appel qui vient APRÈS est `update_potential_growth`
+                # (ligne suivante), qui clôt l'année : il mute le tendanciel
+                # pour l'année d'après, et ne doit donc pas être lu ici.
                 output_gap = 0.8 * output_gap + 0.2 * (growth - self.croissance_potentielle_totale())
                 _log_debug(self.debug_logs, f"Y{year_idx}: Nouveau output gap = {output_gap:.3f}")
 

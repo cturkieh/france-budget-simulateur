@@ -148,6 +148,15 @@ _LOCATORS_NON_ETABLIS = {
                           "que pour ses notes 121 et 125",
     r"cohorte annuelle": "aucune base « cohorte annuelle » n'est établie par la "
                          "collecte, et elle ne reconstitue pas le +0,13 pt publié",
+    # Lot 7 — un locator PRÉCIS mais FAUX est pire qu'un locator absent : il
+    # se vérifie, et il ne se vérifie pas. Le dossier (§ I8) place le verbatim
+    # sur les recherches micro-économétriques au CORPS de la page 67 ; la
+    # note 121 porte les chiffres des deux modèles désavoués (+0,7 pt Mésange,
+    # +0,5 pt e-mod.fr). Le motif attrape la seule construction fautive :
+    # « note 121 » suivie, avant la fin de la phrase, du verbatim.
+    r"note\s*n?°?\s*121\s*:\s*«?\s*(?:les|Les)\s+recherches":
+        "le verbatim sur les recherches micro-économétriques est au corps de "
+        "la p. 67 ; la note 121 porte les chiffres Mésange / e-mod.fr",
 }
 
 
@@ -167,3 +176,39 @@ def test_aucun_locator_ajoute_au_dela_de_la_collecte(motif):
     assert not fautifs, (
         f"locator non établi « {motif} » ({_LOCATORS_NON_ETABLIS[motif]}) : "
         f"{fautifs}")
+
+
+#: Lignes EXACTES d'avant le lot 7, recopiées telles quelles (même raison qu'au
+#: § 1 : après le commit, `git show HEAD` porterait le texte corrigé et la
+#: contre-épreuve serait vacuelle). Une garde de citation peut être verte
+#: parce qu'elle cherche mal — c'est le mode de défaillance le plus courant
+#: de ce fichier, et il se ferme motif par motif.
+_TEXTE_FAUTIF_NOTE_121 = (
+    "# explicitement (février 2025, p. 67, note 121 : « les recherches\n"
+    "(fevrier 2025, p. 67, note 121 : « les recherches micro-econometriques menees\n"
+)
+
+
+def test_contre_epreuve_le_motif_note_121_attrape_bien_le_texte_d_avant():
+    """Le motif du lot 7 attrape les DEUX rédactions d'avant (code et doc)."""
+    regex = re.compile(
+        next(m for m in _LOCATORS_NON_ETABLIS if '121' in m))
+    attrapees = [l for l in _TEXTE_FAUTIF_NOTE_121.splitlines() if regex.search(l)]
+    assert len(attrapees) == 2, (
+        f"le motif n'attrape que {len(attrapees)} des deux lignes fautives")
+
+
+def test_le_desaveu_et_ses_chiffres_restent_cites_apres_recalage():
+    """Recaler n'est pas retirer : les deux localisations restent PUBLIÉES.
+
+    Le § B du dossier impose de retirer ce qui est introuvable ; ici rien
+    n'est introuvable — la note 121 existe et le verbatim aussi, ils ne sont
+    simplement pas au même endroit. Supprimer l'un des deux « pour être sûr »
+    appauvrirait la traçabilité sans rien corriger."""
+    textes = {f: f.read_text(encoding='utf-8') for f in _fichiers_publies()}
+    porteurs = [str(f.relative_to(ROOT)) for f, t in textes.items()
+                if 'note 121' in t]
+    assert porteurs, "la note 121 (chiffres Mésange / e-mod.fr) a disparu"
+    verbatim = [str(f.relative_to(ROOT)) for f, t in textes.items()
+                if re.search(r'recherches micro-[ée]conom[ée]triques', t)]
+    assert verbatim, "le verbatim du désaveu de la Cour a disparu"

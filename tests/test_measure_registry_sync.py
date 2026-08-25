@@ -11,14 +11,26 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+# `.absolute()` et PAS `.resolve()` : le repo parent (budgetlab-france) monte
+# tests/ comme SYMLINK vers ce dossier — resolve() le suivrait et retomberait
+# TOUJOURS sur la racine du submodule (où frontend-react/ n'existe pas),
+# rendant le skipif ci-dessous PERMANENT. C'est exactement ce qui s'est passé :
+# la garde n'a jamais tourné, nulle part, et le générateur a pu casser au
+# découpage du composant front sans que rien ne rougisse (constaté au lot 7 ;
+# même piège, même fix que `test_scenario_params_sync.py`, corrigé lui en
+# 2026-07-07). absolute() préserve le chemin d'invocation → depuis le parent la
+# garde s'exécute ; depuis un fork moteur seul elle skippe, comme prévu.
+ROOT = Path(__file__).absolute().parent.parent
 JSON_ARTIFACT = ROOT / "tests" / "snapshots" / "measure_registry.json"
 
-# `generate_measure_registry.py --check` parse `frontend-react/.../ExploreCreateSection.jsx`
-# pour le niveau "sliders" du registre. Skipif fork moteur seul.
-_FRONT_JSX = ROOT / "frontend-react" / "src" / "components" / "ExploreCreateSection.jsx"
+# `generate_measure_registry.py --check` parse les TROIS sources front du
+# niveau « sliders » (ALL_VARIABLES / LEVER_META / convertToAPIFormat).
+# Skipif fork moteur seul — condition SOURCÉE DU SCRIPT, jamais recopiée.
+sys.path.insert(0, str(ROOT))
+from scripts.generate_measure_registry import front_disponible  # noqa: E402
+
 pytestmark = pytest.mark.skipif(
-    not _FRONT_JSX.exists(),
+    not front_disponible(),
     reason="frontend-react/ hors périmètre fork moteur seul",
 )
 

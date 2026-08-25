@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib
 import inspect
 import json
 import re
@@ -30,19 +31,92 @@ import sys
 import textwrap
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+# `.absolute()` et PAS `.resolve()` — MÊME PIÈGE que dans
+# `tests/test_scenario_params_sync.py`, et il a coûté aussi cher ici : le repo
+# parent (budgetlab-france) monte `tests/` comme SYMLINK vers ce submodule.
+# `resolve()` suit le lien et retombe TOUJOURS sur la racine du submodule, où
+# `frontend-react/` n'existe pas — ce qui rendait le skipif de
+# `test_measure_registry_sync.py` permanent : la garde ne tournait nulle part,
+# et le générateur a pu pourrir sans que rien ne rougisse (constaté au lot 7).
+# `absolute()` préserve le chemin d'invocation : lancé depuis le parent, le
+# script voit le frontend ; lancé depuis un fork moteur seul, il ne le voit pas
+# et le dit.
+ROOT = Path(__file__).absolute().parents[1]
 
 # Chemins canoniques des artefacts générés (source unique — utilisés par la
 # génération ET par --check ET dans le message d'erreur : pas de dérive).
 DEFAULT_MD = ROOT / "docs" / "MEASURE_REGISTRY.md"
 DEFAULT_JSON = ROOT / "tests" / "snapshots" / "measure_registry.json"
 
-# Source UI canonique des sliders (niveau 3 du registre : sliders -> mesures
+# Sources UI canoniques des sliders (niveau 3 du registre : sliders -> mesures
 # -> handlers). Le mapping slider->mesure->param est DÉRIVÉ de l'existant,
-# jamais inventé : `convertToAPIFormat` est le builder réel du payload envoyé
-# au moteur, `variablesConfig` porte les bornes min/max/step, `allVariables`
-# est la whitelist des sliders réellement exposés à l'utilisateur.
-_FRONT_JSX = ROOT / "frontend-react" / "src" / "components" / "ExploreCreateSection.jsx"
+# jamais inventé :
+#   - `ALL_VARIABLES` (simulatorConfig.js) = whitelist des sliders réellement
+#     exposés à l'utilisateur ;
+#   - `LEVER_META` (leverMeta.js)          = bornes min/max/step ;
+#   - `convertToAPIFormat` (apiFormat.js)  = builder RÉEL du payload envoyé au
+#     moteur, donc le seul lien slider->mesure->param qui fasse foi.
+#
+# LES TROIS VIVAIENT DANS `ExploreCreateSection.jsx` jusqu'au découpage du
+# composant : `variablesConfig` y est devenu `LEVER_META`, `allVariables` y est
+# devenu `ALL_VARIABLES`, et `convertToAPIFormat` a migré dans `utils/`.
+# L'extracteur, lui, a continué de chercher les anciens blocs dans l'ancien
+# fichier : il levait RuntimeError à chaque exécution — sans que personne le
+# voie, la garde CI étant neutralisée par le piège de symlink ci-dessus.
+# C'est le mode de défaillance que ce lot ferme des DEUX côtés (extraction
+# réparée ET garde remise en service, cf. `make check-docs-sync`).
+#: Chemins RELATIFS des trois sources, sous la racine du frontend.
+_FRONT_RELATIFS = (
+    ("sim_config", Path("src") / "data" / "simulatorConfig.js"),
+    ("lever_meta", Path("src") / "data" / "leverMeta.js"),
+    ("api_format", Path("src") / "utils" / "apiFormat.js"),
+)
+
+
+def _racines_frontend_candidates() -> tuple[Path, ...]:
+    """Où chercher `frontend-react/`, dans l'ordre.
+
+    DEUX candidates, parce que ce script vit dans un submodule PUBLIC intégré
+    par un repo privé — et que `resolve()` sur un symlink fait basculer d'une
+    racine à l'autre sans prévenir (le piège documenté sur ROOT). Plutôt que
+    d'exiger de chaque appelant qu'il évite le piège, on rend la résolution
+    robuste aux deux :
+
+    1. ``<ROOT>/frontend-react``            — invocation depuis le repo parent ;
+    2. ``<ROOT>/../../frontend-react``      — ROOT tombé sur la racine du
+       submodule (``<parent>/vendor/france-budget-simulateur``), cas d'un
+       import du module par un test qui a `resolve()` un chemin symlinké.
+
+    Aucune des deux n'existe sur un fork moteur seul : le niveau « sliders »
+    est alors déclaré indisponible, bruyamment (jamais silencieusement vide).
+    """
+    candidates = [ROOT / "frontend-react"]
+    if len(ROOT.parents) >= 2:
+        candidates.append(ROOT.parents[1] / "frontend-react")
+    return tuple(candidates)
+
+
+def _sources_front() -> dict[str, Path]:
+    """``{clé: chemin}`` sous la première racine candidate complète.
+
+    Retourne les chemins sous la PREMIÈRE candidate si aucune n'est complète :
+    le message d'erreur de ``_read_front_sources`` reste ainsi actionnable
+    (il nomme un chemin réel, pas un dict vide)."""
+    for racine in _racines_frontend_candidates():
+        chemins = {cle: racine / rel for cle, rel in _FRONT_RELATIFS}
+        if all(p.exists() for p in chemins.values()):
+            return chemins
+    racine = _racines_frontend_candidates()[0]
+    return {cle: racine / rel for cle, rel in _FRONT_RELATIFS}
+
+
+def front_disponible() -> bool:
+    """Le niveau « sliders » est-il constructible ici ?
+
+    SOURCE UNIQUE de la condition de skip des tests du registre : dupliquer
+    les chemins côté tests, c'est exactement ainsi qu'on se retrouve avec une
+    garde qui skippe pour une raison qui n'est plus vraie."""
+    return all(p.exists() for p in _sources_front().values())
 
 # Exécuté en script (`python scripts/...`) la racine projet n'est pas sur
 # sys.path : on l'ajoute pour importer budget_simulator (idempotent).
@@ -77,6 +151,30 @@ def _const(node: ast.AST):
 # AUTRE appel recevant `params` nu = accès non modélisé → signalé bruyant.
 _PARAMS_FORWARDING_WHITELIST = {"_resolve_intensite_or_legacy"}
 
+# Helpers de LECTURE : ils reçoivent `params` nu et lisent eux-mêmes des clés
+# littérales, hors du corps du handler. Les whitelister ne suffit PAS — cela
+# ferait taire le signal `<UNMODELED>` tout en perdant les clés qu'ils lisent,
+# c'est-à-dire en remplaçant un registre bruyamment incomplet par un registre
+# silencieusement faux. L'extracteur SUIT donc leur source avec les mêmes
+# règles, et fusionne le résultat : le contrat reste DÉRIVÉ du code, jamais
+# ré-énoncé à la main.
+#
+# Pourquoi ils existent : le canal d'âge des retraites a une source unique
+# (`budget_simulator/_seniors`) que consomment les quatre canaux d'une mesure
+# d'âge PLUS le garde Gini. `age_depart` n'est donc plus lu nulle part dans le
+# corps du handler — sans ce suivi, la clé la plus visible du simulateur
+# disparaîtrait du registre public.
+_PARAMS_READING_HELPERS = {
+    "retraites_ecart_age_ans": "budget_simulator._seniors",
+    "retraites_annee_debut_ecart_age_handler": "budget_simulator._seniors",
+}
+
+#: Profondeur maximale de suivi (garde anti-cycle ET anti-explosion : au-delà,
+#: un contrat devient illisible pour un auditeur, ce qui est le contraire du
+#: but). `retraites_annee_debut_ecart_age_handler` → lambda →
+#: `retraites_ecart_age_ans` fait deux niveaux.
+_PROFONDEUR_MAX_HELPERS = 4
+
 
 def _lambda_arg_names(node: ast.Lambda) -> set[str]:
     """Tous les noms de paramètres d'UNE lambda (positionnels, pos-only,
@@ -96,7 +194,44 @@ def _lambda_arg_names(node: ast.Lambda) -> set[str]:
     return names
 
 
-def extract_params_from_source(src: str, func_name: str | None = None) -> dict:
+def _helper_source(nom: str) -> str:
+    """Source d'un helper de lecture whitelisté, ou **lève**.
+
+    Même contrat anti-silence que ``_handler_source`` : si la source d'un
+    helper suivi devient inaccessible, le registre perdrait ses clés sans
+    prévenir — exactement le « doc qui ment » que cet outil combat."""
+    module_name = _PARAMS_READING_HELPERS[nom]
+    try:
+        module = importlib.import_module(module_name)
+        return inspect.getsource(getattr(module, nom))
+    except (ImportError, AttributeError, OSError, TypeError) as e:
+        raise RuntimeError(
+            f"source du helper de lecture '{nom}' ({module_name}) "
+            f"introuvable ({type(e).__name__}: {e}) — le registre ne peut pas "
+            "être silencieusement incomplet : corriger le helper, ou le "
+            "retirer de _PARAMS_READING_HELPERS"
+        ) from e
+
+
+def _fusionner_contrats(out: dict, sous_contrat: dict) -> None:
+    """Fusionne le contrat d'un helper suivi dans celui de son appelant.
+
+    CONSERVATRICE : ce que l'appelant a déjà établi prime (il est plus proche
+    du contrat réel), et les listes d'accès non modélisés se CONCATÈNENT —
+    perdre un signal `<DYNAMIC>`/`<UNMODELED>` en fusionnant serait la
+    dernière chose à faire dans un outil dont tout l'intérêt est de ne rien
+    taire."""
+    for cle, valeur in sous_contrat.items():
+        if cle in (_DYNAMIC, _UNMODELED):
+            out.setdefault(cle, {"raw": []})["raw"].extend(valeur["raw"])
+            continue
+        slot = out.setdefault(cle, {})
+        for attribut, v in valeur.items():
+            slot.setdefault(attribut, v)
+
+
+def extract_params_from_source(src: str, func_name: str | None = None,
+                               _profondeur: int = 0) -> dict:
     """Extrait le contrat de paramètres lu dans ``src``.
 
     Retour : ``{clé: {...}}`` où la valeur porte ``default`` (lecture
@@ -165,6 +300,17 @@ def extract_params_from_source(src: str, func_name: str | None = None) -> dict:
                             _slot(key)["default"] = (
                                 None if dft is _NON_LITERAL else dft
                             )
+                            # Défaut NON littéral mais bien présent (une
+                            # constante nommée, un appel) : on publie son
+                            # EXPRESSION. Rendre `None` laisserait croire
+                            # qu'il n'y a pas de défaut du tout, alors que
+                            # les défauts du moteur migrent justement vers
+                            # des constantes nommées — un registre public ne
+                            # doit pas régresser en lisibilité à mesure que
+                            # le code gagne en traçabilité.
+                            if dft is _NON_LITERAL and len(node.args) > 1:
+                                _slot(key)["default_expr"] = ast.unparse(
+                                    node.args[1])
                     elif f.attr in ("items", "keys", "values"):
                         # Itération générique : clés non énumérables.
                         _add_dynamic(_UNMODELED, node)
@@ -177,11 +323,29 @@ def extract_params_from_source(src: str, func_name: str | None = None) -> dict:
                         else f.attr if isinstance(f, ast.Attribute)
                         else None
                     )
-                    if fname not in _PARAMS_FORWARDING_WHITELIST:
-                        for arg in (*node.args, *(k.value for k in node.keywords)):
-                            if self._is_param_name(arg):
-                                _add_dynamic(_UNMODELED, node)
-                                break
+                    recoit_params = any(
+                        self._is_param_name(arg)
+                        for arg in (*node.args,
+                                    *(k.value for k in node.keywords))
+                    )
+                    if not recoit_params:
+                        pass
+                    elif fname in _PARAMS_READING_HELPERS:
+                        # Helper de LECTURE : on suit sa source plutôt que de
+                        # se taire (cf. _PARAMS_READING_HELPERS).
+                        if _profondeur >= _PROFONDEUR_MAX_HELPERS:
+                            raise RuntimeError(
+                                f"suivi des helpers de lecture au-delà de "
+                                f"{_PROFONDEUR_MAX_HELPERS} niveaux sur "
+                                f"'{fname}' : cycle probable, ou contrat "
+                                "devenu illisible — à plat plutôt qu'à "
+                                "profondeur"
+                            )
+                        _fusionner_contrats(out, extract_params_from_source(
+                            _helper_source(fname),
+                            _profondeur=_profondeur + 1))
+                    elif fname not in _PARAMS_FORWARDING_WHITELIST:
+                        _add_dynamic(_UNMODELED, node)
             self.generic_visit(node)
 
         def visit_Subscript(self, node):
@@ -315,87 +479,120 @@ def _num(s: str):
     return int(f) if f.is_integer() else f
 
 
-def _read_front_jsx() -> str:
-    """Source du composant front, ou erreur ACTIONNABLE (jamais une
-    stacktrace brute) — même philosophie anti-silence que ``_handler_source``.
-    """
-    try:
-        return _FRONT_JSX.read_text("utf-8")
-    except OSError as e:
+def _read_front_sources() -> dict[str, str]:
+    """Les trois sources UI, ou erreur ACTIONNABLE (jamais une stacktrace
+    brute) — même philosophie anti-silence que ``_handler_source``."""
+    sources = {}
+    for cle, chemin in _sources_front().items():
+        try:
+            sources[cle] = chemin.read_text("utf-8")
+        except OSError as e:
+            raise RuntimeError(
+                f"source front introuvable ({type(e).__name__}: {e}) : "
+                f"{chemin} — le niveau 'sliders' du registre ne peut pas être "
+                f"silencieusement vide. Racines cherchées : "
+                f"{[str(r) for r in _racines_frontend_candidates()]}"
+            ) from e
+    return sources
+
+
+#: Commentaires de ligne JS. Retirés AVANT toute extraction de chaînes : les
+#: listes de sliders sont ponctuées de `// === SECTION … ===`, et un jour l'un
+#: d'eux portera une apostrophe qui casserait le comptage des quotes.
+_COMMENTAIRE_JS = re.compile(r"//[^\n]*")
+
+
+def _bloc_js(src: str, entete: str, fermeture: str, quoi: str) -> str:
+    """Corps d'un bloc JS délimité par son en-tête et sa ligne de fermeture.
+
+    Refuse de deviner : un bloc introuvable LÈVE. C'est précisément ce que
+    faisait l'ancienne version — et ce qui, en soi, était juste : le défaut
+    n'était pas l'échec, c'était que personne ne le voyait (garde CI
+    neutralisée par le piège de symlink)."""
+    m = re.search(re.escape(entete) + r"(.*?)\n" + re.escape(fermeture),
+                  src, re.S)
+    if not m:
         raise RuntimeError(
-            f"source front introuvable ({type(e).__name__}: {e}) : "
-            f"{_FRONT_JSX.relative_to(ROOT)} — le niveau 'sliders' du registre "
-            "ne peut pas être silencieusement vide"
-        ) from e
+            f"bloc `{quoi}` introuvable dans le front (en-tête attendu : "
+            f"{entete!r}) : structure inattendue — refuser de deviner "
+            "(le registre est une source de vérité publique)"
+        )
+    return m.group(1)
 
 
-def extract_slider_contract(src: str) -> tuple[dict, list[dict]]:
+def _entrees_indentees(bloc: str, indentation: int) -> dict[str, str]:
+    """``{clé: corps}`` des entrées d'objet JS à une indentation donnée.
+
+    Découpage par ACCOLADE FERMANTE À LA MÊME INDENTATION, seul délimiteur
+    fiable ici : les corps contiennent des accolades (littéraux de gabarit
+    ``${…}``, fonctions fléchées ``format``) qui interdisent un comptage naïf.
+    """
+    marge = " " * indentation
+    motif = re.compile(
+        rf"^{marge}([A-Za-z0-9_]+):\s*\{{(.*?)^{marge}\}}",
+        re.S | re.M,
+    )
+    return {m.group(1): m.group(2) for m in motif.finditer(bloc)}
+
+
+def extract_slider_contract(sources: dict) -> tuple[dict, list[dict]]:
     """Niveau 3 du registre : sliders UI -> (mesure, param) + bornes.
 
-    DÉRIVE le mapping de l'existant (aucune invention) :
+    DÉRIVE le mapping de l'existant (aucune invention), depuis les TROIS
+    fichiers front qui portent aujourd'hui la configuration du simulateur :
 
-    - ``allVariables`` : whitelist des sliders réellement exposés à l'UI.
-    - ``variablesConfig`` : ``{slider_id: {min, max, step, ...}}`` (bornes).
-    - ``convertToAPIFormat`` : builder AUTORITATIF du payload moteur, de
-      forme ``payload[<mesure>][<param>] = measures.<slider_id>`` — c'est
-      LE lien slider->mesure->param réellement consommé par les handlers.
+    - ``ALL_VARIABLES`` (``src/data/simulatorConfig.js``) : whitelist des
+      sliders réellement exposés à l'utilisateur ;
+    - ``LEVER_META`` (``src/data/leverMeta.js``) : ``{slider_id: {min, max,
+      step, …}}``, les bornes ;
+    - ``convertToAPIFormat`` (``src/utils/apiFormat.js``) : builder
+      AUTORITATIF du payload moteur, de forme ``payload[<mesure>][<param>] =
+      measures.<slider_id>`` — c'est LE lien slider->mesure->param réellement
+      consommé par les handlers.
+
+    Les trois vivaient dans ``ExploreCreateSection.jsx`` avant le découpage du
+    composant ; l'extracteur les y cherchait encore. Cf. le commentaire des
+    constantes ``_FRONT_*`` pour le mode de défaillance complet.
 
     Retour ``(by_measure, orphans)`` où ``by_measure[mid]`` est la liste
     triée des sliders ``{id, min, max, step, param}`` alimentant la mesure
     ``mid``, et ``orphans`` la liste des sliders dont la mesure-cible n'a
     PAS de handler câblé (signalé, jamais omis silencieusement).
 
-    Parsing par regex ciblée sur des structures régulières (id/min/max/step
-    sur une ligne, ``param: measures.slider_id``) : déterministe, aucune
-    exécution JS (convention test projet, cf. docstring module).
+    Parsing par regex ciblée sur des structures régulières : déterministe,
+    aucune exécution JS (convention test projet, cf. docstring module).
     """
-    m = re.search(r"const allVariables = \[(.*?)\n  \]", src, re.S)
-    if not m:
-        raise RuntimeError(
-            "bloc `allVariables` introuvable dans le front : structure "
-            "inattendue — refuser de deviner (registre source de vérité)"
-        )
-    whitelist = re.findall(r"'([A-Za-z0-9_]+)'", m.group(1))
+    # --- 1. Whitelist des sliders exposés (simulatorConfig.js) -------------
+    liste = _bloc_js(sources["sim_config"], "export const ALL_VARIABLES = [",
+                     "]", "ALL_VARIABLES")
+    whitelist = re.findall(r"'([A-Za-z0-9_]+)'",
+                           _COMMENTAIRE_JS.sub("", liste))
 
-    # Capture bornée : on s'arrête au délimiteur de fin de l'objet
-    # `variablesConfig` — la ligne `\n  }\n` (accolade indentée 2 espaces qui
-    # clôt l'objet ; les entrées sont indentées 4 espaces). Empêche le débord
-    # sur le reste du fichier (visibleVars, categories, JSX…).
-    cfg = re.search(r"const variablesConfig = \{(.*?)\n  \}\n", src, re.S)
-    if not cfg:
-        raise RuntimeError("bloc `variablesConfig` introuvable dans le front")
+    # --- 2. Bornes (leverMeta.js) -----------------------------------------
+    # `min`/`max`/`step` sont cherchés SÉPARÉMENT, et non sur une ligne
+    # unique : les entrées récentes (asu_activation, asu_plafonnement) les
+    # écrivent une par ligne. L'ancienne regex « les trois sur une ligne »
+    # les aurait silencieusement rangés en orphelins « bornes absentes ».
     bounds: dict[str, dict] = {}
-    for e in re.finditer(
-        r"(?:^|\n)\s{4}([A-Za-z0-9_]+):\s*\{(.*?)\n\s{4}\}", cfg.group(1), re.S
-    ):
-        bm = re.search(
-            r"min:\s*(-?[\d.]+),\s*max:\s*(-?[\d.]+),\s*step:\s*(-?[\d.]+)",
-            e.group(2),
-        )
-        if bm:
-            bounds[e.group(1)] = {
-                "min": _num(bm.group(1)),
-                "max": _num(bm.group(2)),
-                "step": _num(bm.group(3)),
-            }
+    meta = _bloc_js(sources["lever_meta"], "export const LEVER_META = {",
+                    "  }", "LEVER_META")
+    for sid, corps in _entrees_indentees(meta, 4).items():
+        valeurs = {}
+        for borne in ("min", "max", "step"):
+            m = re.search(rf"(?:^|[\s,{{]){borne}:\s*(-?[\d.]+)", corps)
+            if m:
+                valeurs[borne] = _num(m.group(1))
+        if len(valeurs) == 3:
+            bounds[sid] = valeurs
 
-    api = re.search(
-        r"function convertToAPIFormat\(measures\)\s*\{(.*?)\n    return payload",
-        src,
-        re.S,
-    )
-    if not api:
-        raise RuntimeError(
-            "fonction `convertToAPIFormat` introuvable : mapping "
-            "slider->mesure indérivable — refuser de deviner"
-        )
+    # --- 3. Mapping slider -> (mesure, param) (apiFormat.js) --------------
+    api = _bloc_js(sources["api_format"],
+                   "export function convertToAPIFormat(measures) {",
+                   "  return payload", "convertToAPIFormat")
     slider_map: dict[str, tuple[str, str]] = {}
-    for blk in re.finditer(
-        r"(?:^|\n)      ([A-Za-z0-9_]+):\s*\{(.*?)\n      \}", api.group(1), re.S
-    ):
-        mid = blk.group(1)
+    for mid, corps in _entrees_indentees(api, 4).items():
         for pm in re.finditer(
-            r"([A-Za-z0-9_]+):\s*measures\.([A-Za-z0-9_]+)", blk.group(2)
+            r"([A-Za-z0-9_]+):\s*measures\.([A-Za-z0-9_]+)", corps
         ):
             slider_map[pm.group(2)] = (mid, pm.group(1))
 
@@ -417,13 +614,13 @@ def extract_slider_contract(src: str) -> tuple[dict, list[dict]]:
             # potentielle si on n'émet aucun signal à la génération.
             print(
                 f"[generate_measure_registry] WARNING: bornes introuvables "
-                f"pour slider '{sid}' (whitelisté mais variablesConfig non parsé)",
+                f"pour slider '{sid}' (whitelisté mais LEVER_META non parsé)",
                 file=sys.stderr,
             )
             orphans.append(
                 {"id": sid, "measure": mid, "param": param,
                  "kind": _KIND_UNWIRED,
-                 "reason": "bornes absentes de variablesConfig"}
+                 "reason": "bornes absentes de LEVER_META"}
             )
             continue
         by_measure.setdefault(mid, []).append(
@@ -484,7 +681,7 @@ def build_registry() -> dict:
     json_meta = _load_json_meta()
     domains = _intensite_domains()
     sliders_by_measure, slider_orphans = extract_slider_contract(
-        _read_front_jsx()
+        _read_front_sources()
     )
     mesures: dict = {}
     for mid, src in _iter_handler_funcs():
@@ -668,7 +865,9 @@ def render_markdown(reg: dict) -> str:
                 attrs.append(f"domaine : `{v['domain']}`")
             if v.get("required"):
                 attrs.append("**requis** (KeyError si absent)")
-            if "default" in v:
+            if "default_expr" in v:
+                attrs.append(f"défaut : `{v['default_expr']}` (non littéral)")
+            elif "default" in v:
                 attrs.append(f"défaut : `{v['default']}`")
             suffix = f" ({', '.join(attrs)})" if attrs else ""
             lines.append(f"  - `{k}`{suffix}")
@@ -685,7 +884,8 @@ def render_markdown(reg: dict) -> str:
         if m["sliders"]:
             lines.append(
                 "- sliders UI (front → moteur, dérivé de "
-                "`convertToAPIFormat`/`variablesConfig`) :"
+                "`convertToAPIFormat` (apiFormat.js) / `LEVER_META` "
+                "(leverMeta.js)) :"
             )
             for s in m["sliders"]:
                 lines.append(
@@ -759,7 +959,7 @@ def render_markdown(reg: dict) -> str:
             lines.append("")
             lines.append(
                 "Sliders exposés à l'UI mais absents de "
-                "`convertToAPIFormat`/`variablesConfig`, ou sans mesure-cible "
+                "`convertToAPIFormat`, ou sans mesure-cible "
                 "câblée. Listés pour ne pas mentir par omission."
             )
             lines.append("")

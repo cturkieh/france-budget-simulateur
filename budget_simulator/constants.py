@@ -368,6 +368,42 @@ RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 
 RETRAITES_EROSION_INDEXATION_MD_EUR = 1.5  # Md€/an par année écoulée pour un gel total (proportionnel à l'écart)
 RETRAITES_EROSION_PLATEAU_ANS = 7        # renouvellement des cohortes : l'écart au statu quo cesse de croître
 
+# --- Canal redistributif du levier d'âge -----------------------------------
+# Reculer l'âge de départ pénalise davantage les catégories à faible espérance
+# de vie (COR 2024, « effet hétérogène espérance de vie » : ouvriers −6 ans
+# d'espérance de vie vs cadres, taux d'emploi des 55-64 ans 52 % vs 71 %).
+# Règle du moteur : +1,25 année d'écart au droit en vigueur = +0,001 de Gini.
+# VALEUR INCHANGÉE depuis la v0.5.1 et elle doit le rester hors passe dédiée
+# (§ B.1-13 du dossier de sourcing v0.6.1 : l'effet distributif du CANAL
+# EMPLOI n'est pas établi — hétérogénéité forte documentée, les carrières à
+# capital humain élevé se prolongent quand les carrières discontinues
+# basculent en chômage ou en invalidité). Nommée ici, et non écrite en clair
+# dans le handler, pour qu'un auditeur externe puisse la retrouver.
+RETRAITES_GINI_PAR_ANNEE_ECART = 0.001 / 1.25
+
+# Part de l'effet redistributif ré-émise les années SUIVANT celle où la mesure
+# ouvre son écart. CONVENTION DE MODÉLISATION ASSUMÉE, pas une valeur sourcée :
+# une réforme d'âge déplace le niveau des inégalités UNE FOIS (les 100 %), puis
+# ne laisse qu'un flux — les nouvelles cohortes de retraités qui entrent chaque
+# année dans le régime modifié. L'émission annuelle est CUMULÉE par
+# ``gini_cible_cumul`` : sans ce résidu la trajectoire serait plate, avec un
+# résidu de 1,0 elle dériverait linéairement avec l'horizon.
+RETRAITES_GINI_RESIDU_FLUX = 0.10
+
+# --- Canal indexation : effets redistributif et pouvoir d'achat ------------
+# Désindexer les pensions paupérise les retraités, dont le revenu est
+# concentré dans les déciles médians : l'effet est RÉGRESSIF.
+# Règle : indexation 100 % → 90 % = +0,005 de Gini.
+# Effet pouvoir d'achat agrégé : −0,7 %/an pour un gel TOTAL (indexation = 0),
+# proportionnel à l'écart à la pleine indexation ; les retraités pèsent ~26 %
+# du revenu disponible brut des ménages.
+# Source des deux : OFCE, *Policy Brief* n° 124, 15/02/2024.
+# Valeurs INCHANGÉES depuis la v0.5.1 ; nommées ici au lot 7 pour la même
+# raison que les deux constantes ci-dessus — un coefficient anonyme au milieu
+# d'un handler est intraçable pour un auditeur externe.
+RETRAITES_GINI_PAR_POINT_DESINDEXATION = 0.005
+RETRAITES_PA_GEL_TOTAL = 0.007
+
 # === PROFILS DE PHASING (montée en charge progressive) ===
 # Format : tableau indexé par year_idx (0=Y1=2026, 1=Y2=2027, ...), borné à la dernière valeur.
 # Retraites — COR 2024 : montée en charge cohortes 5 ans (linéaire 0.2 → 1.0).
@@ -459,11 +495,14 @@ PHASING_OFFRE_SENIORS = (0.025, 0.139, 0.236, 0.357, 0.507,
 #  - base démographique : population active 31 802 milliers, chômage 7,3 %
 #    (COR 26/03/2026, Doc n° 4, note 7).
 # Position dans le débat : entre DG Trésor 0,0 et OFCE +0,55, très loin de
-# Mésange +0,7 / e-mod.fr +0,5, que la Cour des comptes désavoue
-# explicitement (février 2025, p. 67, note 121 : « les recherches
-# micro-économétriques menées sur la réforme de 2010 ont montré que
-# l'évolution du chômage observée ne correspondait pas à celle prédite par
-# les modèles »).
+# Mésange +0,7 / e-mod.fr +0,5 — ces deux chiffres sont ceux de la note 121
+# de la Cour des comptes (février 2025, p. 67 : « le chômage augmente à
+# horizon de 10 ans de 0,7 point dans Mesange et de 0,5 point dans e-mod.fr »)
+# et le désaveu, lui, est au CORPS de cette même page 67, pas dans la note :
+# « les recherches micro-économétriques menées sur la réforme de 2010 ont
+# montré que l'évolution du chômage observée ne correspondait pas à celle
+# prédite par les modèles ». (Localisation recalée au lot 7 : le verbatim
+# était attribué à la note 121, qui porte les chiffres et non le désaveu.)
 CHOMAGE_SENIORS_PIC = 0.0018
 
 # Profil de RÉSORPTION — seule série publiée présentant une résorption
@@ -776,6 +815,20 @@ ASU_ECO_SIMPLIFICATION_MD_EUR = 0.3     # central retenu (dérivation, fourchett
 # ajouter aucune valeur hors de l'amplitude chiffrée.
 ASU_EFFORT_PERENNE_MAX_MD_EUR = 2.0     # variante « +2 Md€ pérennes » (DREES/Igas juin 2024)
 #
+# Plancher du SOLDE pérenne (effort net de l'économie de gestion), en Md€/an.
+# La variante la MOINS coûteuse que la DREES/Igas ait chiffrée est celle
+# « à coût constant » : effet budgétaire pérenne EXACTEMENT NUL, pour 3,9 M de
+# gagnants et 4,0 M de perdants. Aucun des scénarios publiés ne dégage
+# d'économie nette (fait n° 2 du § I22). L'économie de gestion, elle, est une
+# DÉRIVATION (§ B.3-26) : elle peut au mieux COMPENSER l'effort qu'elle
+# accompagne, jamais retourner le signe de la réforme.
+# Sans ce plancher, l'interpolation linéaire de l'effort (0 → 2,0 Md€ sur
+# [50 % ; 70 %]) passait sous les 0,3 Md€/an de gestion pour tout plafond
+# inférieur à 53 % — dont le premier cran du curseur — et la réforme dégageait
+# un gain net permanent de 0,3 Md€/an que la source ne documente nulle part
+# (défaut relevé par la revue adverse de phase 1, corrigé au lot 7).
+ASU_SOLDE_PERENNE_PLANCHER_MD_EUR = 0.0
+#
 # --- I22 : le coût de transition, absent du moteur ------------------------
 # AN, mission flash juillet 2025 : « un coût cumulé de 2 à 13,4 milliards
 # d'euros [sur quatre ans] — hors hausse du taux de recours (2,4 milliards
@@ -908,7 +961,20 @@ def asu_plafonnement_borne(plafonnement: float) -> float:
     par le libellé publié du handler : une valeur hors domaine (API, scénario
     mal encodé) ne doit jamais être ni chiffrée ni AFFICHÉE, sinon le lecteur
     voit un plafond que la DREES/Igas n'a pas simulé.
+
+    NaN → la borne HAUTE, comportement rétabli au lot 7. ``min(max(…))``
+    PROPAGE NaN (``0,50 > nan`` est faux, donc ``max`` retient ``nan`` ; idem
+    pour ``min``) : le NaN traversait le bornage, contaminait l'effort, le
+    solde et toute la trajectoire de dette, et le libellé publié affichait
+    « plafond nan% ». Rendre la borne haute est le seul choix conservateur
+    disponible — c'est la lecture la plus COÛTEUSE du domaine, donc une valeur
+    illisible ne peut jamais acheter une économie. Ce chemin n'est pas
+    théorique : la porte unique ``validate_param_domains`` CLAMPE un NaN au
+    lieu de lever en mode tolérant, le handler chiffre donc bien ce que ce
+    bornage lui rend (même raisonnement que ``_seniors``).
     """
+    if plafonnement != plafonnement:      # NaN, seul réel non égal à lui-même
+        return ASU_PLAFONNEMENT_MAX
     return min(max(plafonnement, ASU_PLAFONNEMENT_MIN), ASU_PLAFONNEMENT_MAX)
 
 
@@ -924,6 +990,38 @@ def asu_effort_perenne_md_eur(plafonnement: float) -> float:
     borne = asu_plafonnement_borne(plafonnement)
     part = (borne - ASU_PLAFONNEMENT_MIN) / (ASU_PLAFONNEMENT_MAX - ASU_PLAFONNEMENT_MIN)
     return ASU_EFFORT_PERENNE_MAX_MD_EUR * part
+
+
+def asu_solde_perenne_md_eur(plafonnement: float) -> float:
+    """Solde budgétaire pérenne de l'ASU en régime (Md€/an, > 0 = coût).
+
+    SOURCE UNIQUE de ce que la réforme coûte une fois montée en charge :
+    l'effort de barème, NET de la seule économie défendable (la gestion), et
+    PLANCHÉ à ``ASU_SOLDE_PERENNE_PLANCHER_MD_EUR``.
+
+    Le plancher n'est pas une précaution numérique, c'est le contenu de la
+    source : la variante la moins coûteuse chiffrée par la DREES/Igas est
+    « à coût constant » — solde EXACTEMENT nul. Une économie de gestion
+    dérivée ne peut pas faire mieux que la variante officielle la plus
+    favorable ; elle compense l'effort, elle ne le retourne pas.
+
+    Le handler ne fait que consommer cette fonction et lui appliquer la montée
+    en charge : le plancher n'est donc re-dérivable nulle part ailleurs — même
+    contrat que ``asu_plafonnement_borne`` pour le domaine du curseur.
+
+    LECTURE ÉQUIVALENTE, et c'est celle qui explique le reste du handler :
+    ``max(effort − gestion, 0)`` vaut exactement ``effort − min(gestion,
+    effort)``. Le plancher revient donc à dire que **l'économie de gestion ne
+    peut pas dépasser l'effort qu'elle compense**. C'est pourquoi les canaux
+    Gini et pouvoir d'achat restent indexés sur l'EFFORT et non sur ce solde :
+    ce qui arrive aux ménages, c'est le transfert (l'effort), pas le solde du
+    Trésor. Le plancher ne retire rien aux ménages — il refuse seulement
+    d'inscrire au budget un gain net que la source ne documente pas.
+    """
+    return max(
+        asu_effort_perenne_md_eur(plafonnement) - ASU_ECO_SIMPLIFICATION_MD_EUR,
+        ASU_SOLDE_PERENNE_PLANCHER_MD_EUR,
+    )
 
 
 def asu_cout_transition_md_eur(year: int) -> float:
@@ -1089,21 +1187,24 @@ GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
 # (uniforme, proportionnelle au revenu, mixte) et l'avertissement de l'INSEE
 # que ces hypothèses « sont déterminantes ».
 #
-# --- DETTE CONNUE : le seul survivant du fallback générique ----------------
-# ⚠️ COEFFICIENT NON SOURCÉ, CONSERVÉ EN L'ÉTAT ET DÉCLARÉ COMME TEL.
-# `_apply_impot_societes` n'émet volontairement pas de clé `gini` (son
-# commentaire dit « PAS D'IMPACT MICRO : répercussion prix uniforme sur tous
-# déciles »), mais le fallback générique en émettait un dans son dos, de façon
-# ASYMÉTRIQUE : `if recettes > 0`, donc une BAISSE d'impôt sur les sociétés
-# émet exactement 0. Le dossier de sourcing v0.6.1 croyait cette branche
-# inerte comme les cinq autres ; le balayage empirique du lot 6 montre
-# qu'elle est ACTIVE, y compris dans deux scénarios publiés (LFI à 30 % et PS
-# à 27 % d'IS).
-# Pourquoi elle n'est PAS corrigée ici : elle déplace des chiffres publiés, et
-# aucune source de ce lot ne dit par quoi la remplacer. La retirer, ou la
-# symétriser, sans source, remplacerait un biais par un autre. Elle est donc
-# NOMMÉE (un coefficient anonyme au milieu d'un moteur est intraçable pour un
-# auditeur externe), caractérisée par un test, et renvoyée au chantier v0.7
-# — même chantier que la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 du
-# dossier : « non calculable en l'état », « ne pas bricoler »).
-GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE = 0.03
+# --- FIN DU FALLBACK GÉNÉRIQUE (lot 7) ------------------------------------
+# `GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE = 0.03` vivait ici. C'était la
+# dernière règle par `measure_id` du collecteur Gini, héritée de la v4.5, et
+# la seule encore VIVANTE après le lot 6. Elle est RETIRÉE, sans valeur de
+# remplacement — règle du § I27 du dossier de sourcing : non sourcé ⇒ on
+# supprime, on ne recalibre pas.
+# Trois raisons, dans l'ordre de gravité :
+#  (a) AUCUNE SOURCE. Le handler `_apply_impot_societes` dit lui-même « PAS
+#      D'IMPACT MICRO : répercussion prix uniforme sur tous déciles » ; le
+#      coefficient contredisait le handler qu'il complétait.
+#  (b) ASYMÉTRIE. `if recettes > 0` : une HAUSSE d'IS émettait
+#      `-0,03 × recettes/PIB`, une BAISSE exactement zéro. Même classe de
+#      défaut que l'asymétrie des multiplicateurs corrigée en v0.6.0 (§ C.4).
+#  (c) LE MOTIF DE CONSERVATION DU LOT 6 ÉTAIT FAUX, et il a été mesuré :
+#      la suppression déplace le Gini 2035 de +0,000114 sur `lfi_2027` et de
+#      +0,000074 sur `ps_2027`, soit deux ordres de grandeur SOUS la précision
+#      publiée (trois décimales). Les sept autres scénarios sont
+#      bit-identiques. Aucun chiffre publié ne bouge.
+# Reste au chantier v0.7 la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 :
+# « non calculable en l'état », « ne pas bricoler ») — elle n'a jamais dépendu
+# de ce fallback.

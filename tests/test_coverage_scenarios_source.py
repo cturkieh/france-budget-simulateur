@@ -12,7 +12,13 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+# `.absolute()` et PAS `.resolve()` : 3e occurrence du piège de symlink du
+# repo parent (cf. test_measure_registry_sync.py). Ici il ne faisait pas
+# skipper un test, il faisait importer `scripts.generate_measure_registry`
+# depuis la racine du SUBMODULE — donc une copie différente de celle que
+# lance `make check-docs-sync`, et un `frontend-react/` introuvable pour
+# tous les tests du registre collectés après celui-ci.
+ROOT = Path(__file__).absolute().parent.parent
 SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
 sys.path.insert(0, str(SNAPSHOTS_DIR))
 from coverage_scenarios import _assert_param_in_contract  # noqa: E402

@@ -100,20 +100,21 @@ def test_apply_defense(simulator):
     assert any("Mesure defense" in s for s in simulator.debug_logs), "Log defense manquant"
 
 def test_calculate_gini_impact(simulator):
-    """v0.6.1 lot 6 (I27) : `calculate_gini_impact` est un COLLECTEUR.
+    """v0.6.1 : `calculate_gini_impact` est un COLLECTEUR PUR.
 
-    RECALIBRAGE ASSUMÉ. L'ancienne version de ce test mesurait trois branches
-    du « fallback générique » hérité de la v4.5 (retraites 0,10 / tva_rate
-    0,05 / education 0,04). Ces trois coefficients n'avaient AUCUNE source, et
-    les trois entrées du test étaient SYNTHÉTIQUES : dans le moteur réel,
-    `_apply_retraites` et `_apply_tva_rate` émettent toujours leur propre clé
-    `gini`, la branche ne pouvait donc jamais s'exécuter pour eux. Le test
-    validait un chemin de code que le moteur n'empruntait pas.
+    RECALIBRAGE ASSUMÉ, EN DEUX TEMPS. L'ancienne version de ce test mesurait
+    trois branches du « fallback générique » hérité de la v4.5 (retraites 0,10
+    / tva_rate 0,05 / education 0,04). Ces trois coefficients n'avaient AUCUNE
+    source, et les trois entrées du test étaient SYNTHÉTIQUES : dans le moteur
+    réel, `_apply_retraites` et `_apply_tva_rate` émettent toujours leur propre
+    clé `gini`, la branche ne pouvait donc jamais s'exécuter pour eux. Le test
+    validait un chemin de code que le moteur n'empruntait pas. Le lot 6 a
+    retiré ces six branches mortes ; le lot 7 retire la septième et dernière,
+    `impot_societes`, qui était la seule VIVANTE — non sourcée et asymétrique
+    (une hausse d'IS émettait, une baisse non).
 
-    Ce qui est mesuré désormais est le contrat réel : la somme des impacts
-    émis par les handlers, plus la seule règle survivante (`impot_societes`,
-    non sourcée, documentée comme dette dans `constants.py` et couverte par
-    `tests/test_gini_v061.py`).
+    Ce qui est mesuré désormais est le contrat réel, et il tient en une phrase :
+    la somme des impacts `gini` émis par les handlers, rien d'autre.
     """
     gdp = 2994
 
@@ -125,12 +126,13 @@ def test_calculate_gini_impact(simulator):
     }
     assert simulator.calculate_gini_impact(emis, gdp) == pytest.approx(0.00195)
 
-    # 2) Une mesure SANS clé `gini` ne contribue plus rien — sauf l'impôt sur
-    #    les sociétés, seule règle conservée (cf. test_gini_v061.py).
+    # 2) Une mesure SANS clé `gini` ne contribue plus rien — l'impôt sur les
+    #    sociétés compris, et symétriquement (cf. test_gini_v061.py § 4 bis).
     muet = {'education': {'depenses': 5}, 'tva_rate': {'recettes': 15}}
     assert simulator.calculate_gini_impact(muet, gdp) == 0.0
-    dette = {'impot_societes': {'recettes': 30}}
-    assert simulator.calculate_gini_impact(dette, gdp) == pytest.approx(-0.03 * 30 / gdp)
+    for recettes in (30, -30):
+        assert simulator.calculate_gini_impact(
+            {'impot_societes': {'recettes': recettes}}, gdp) == 0.0
 
 def test_apply_collectivites(simulator):
     params = {'dotation': 125, 'investissement': 5}

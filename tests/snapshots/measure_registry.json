@@ -32,7 +32,8 @@
           "default": 0
         },
         "asu_plafonnement": {
-          "default": 0.65
+          "default": null,
+          "default_expr": "ASU_PLAFONNEMENT_DEFAUT"
         }
       },
       "sliders": [
@@ -62,10 +63,12 @@
           "default": false
         },
         "duree": {
-          "default": null
+          "default": null,
+          "default_expr": "DUREE_REF"
         },
         "montant": {
-          "default": null
+          "default": null,
+          "default_expr": "MONTANT_REF"
         },
         "taux_remplacement": {
           "default": 0.6,
@@ -579,7 +582,7 @@
       "sliders": [
         {
           "id": "prestations_indexation",
-          "max": 100,
+          "max": 120,
           "min": 0,
           "param": "taux_indexation",
           "step": 5
@@ -634,10 +637,12 @@
       "nom": "Réforme des retraites",
       "params": {
         "age_depart": {
-          "default": 62.75
+          "default": null,
+          "default_expr": "ref_age"
         },
         "duree_cotisation": {
-          "default": 42.5
+          "default": null,
+          "default_expr": "RETRAITES_REF_DUREE_ANS"
         },
         "indexation": {
           "default": 1.0
@@ -649,7 +654,7 @@
           "max": 67,
           "min": 60,
           "param": "age_depart",
-          "step": 0.5
+          "step": 0.25
         },
         {
           "id": "retraites_duree",
@@ -661,7 +666,7 @@
         {
           "id": "retraites_indexation",
           "max": 1.2,
-          "min": 0.5,
+          "min": 0,
           "param": "indexation",
           "step": 0.05
         }
@@ -686,7 +691,8 @@
           "default": 100
         },
         "prevention_budget": {
-          "default": 5.0
+          "default": null,
+          "default_expr": "PREVENTION_BASE_MD_EUR"
         }
       },
       "sliders": [
@@ -720,10 +726,10 @@
         },
         {
           "id": "prevention_budget",
-          "max": 8,
-          "min": 5,
+          "max": 11.2,
+          "min": 7.5,
           "param": "prevention_budget",
-          "step": 0.5
+          "step": 0.1
         }
       ],
       "type": "fonction"
@@ -815,7 +821,8 @@
           "default": 0
         },
         "taxe_carbone": {
-          "default": 44.6
+          "default": null,
+          "default_expr": "CARBONE_PRIX_REFERENCE_EUR_T"
         }
       },
       "sliders": [

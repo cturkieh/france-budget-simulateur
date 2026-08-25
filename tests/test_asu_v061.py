@@ -404,7 +404,10 @@ def test_asu_ne_produit_jamais_plus_que_l_economie_de_gestion(plafonnement):
     ne peut pas économiser plus que la seule économie défendable — celle de
     gestion (0,3 Md€/an à plein régime).
 
-    C'est la contre-épreuve directe des −11,5 Md€/an de la v0.5.1.
+    C'est la contre-épreuve directe des −11,5 Md€/an de la v0.5.1. Depuis le
+    lot 7, la borne qui MORD est plus stricte encore (zéro, cf. § 12) ;
+    celle-ci reste comme mesure de la distance parcourue depuis la v0.5.1, et
+    parce qu'elle balaie toutes les années, pas seulement le régime permanent.
     """
     for year in _ANNEES_HORIZON:
         delta = _delta(plafonnement, year)
@@ -414,13 +417,22 @@ def test_asu_ne_produit_jamais_plus_que_l_economie_de_gestion(plafonnement):
             f"({ASU_ECO_SIMPLIFICATION_MD_EUR} Md€/an de gestion)")
 
 
-def test_asu_a_plein_regime_reste_sous_le_demi_milliard_d_economies():
+def test_asu_a_plein_regime_ne_produit_aucune_economie_nette():
     """Chiffrage explicite de l'écart au modèle v0.5.1 (−11,5 Md€/an) : à
-    l'année de plein régime la plus favorable du domaine, l'économie nette
-    reste inférieure à 0,5 Md€/an."""
+    l'année de plein régime, aucune position du curseur ne dégage la moindre
+    économie nette.
+
+    RECALIBRAGE ASSUMÉ (lot 7). Ce test bornait l'économie à 0,5 Md€/an, et
+    c'était la bonne borne tant que le premier tiers du curseur en dégageait
+    0,3 — un reliquat de « repas gratuit » que le lot 5 avait laissé passer
+    parce qu'il était vingt fois plus petit que celui qu'il corrigeait. La
+    borne est désormais ZÉRO, et elle est la traduction littérale de la
+    source : la variante la moins coûteuse chiffrée par la DREES/Igas est « à
+    coût constant ».
+    """
     economies = [-_delta(p, 2032) for p in _GRILLE_FINE]
-    assert max(economies) < 0.5, (
-        f"économie maximale {max(economies):.2f} Md€/an — la réforme est "
+    assert max(economies) <= 1e-12, (
+        f"économie maximale {max(economies):.3f} Md€/an — la réforme est "
         f"redevenue un gage d'économies")
 
 
@@ -1001,3 +1013,162 @@ def test_asu_la_moins_genereuse_reste_quasi_neutre():
     assert abs(avec - sans) < 1.0, (
         f"écart de dette 2035 {avec - sans:+.2f} pt pour une réforme à coût "
         f"constant — l'ASU ne doit plus déplacer la trajectoire")
+
+
+# ===========================================================================
+# 12. CLÔTURE DES MINEURS DE LA REVUE ADVERSE (lot 7) — hygiène
+# ===========================================================================
+#
+# Deux défauts que la revue de phase 1 avait relevés sans les traiter. Aucun
+# ne déplace un chiffre publié — les deux scénarios qui activent l'ASU
+# (`lr_2027`, `im_competitivite_2029`) sont tous deux au plafond de 70 % —
+# mais tous deux contredisent, sur une position atteignable du curseur, la
+# propriété fondatrice du lot 5 : la réforme COÛTE, elle ne rapporte pas.
+
+def test_le_bornage_du_plafond_reste_defini_sur_nan():
+    """Une entrée NaN ne doit pas empoisonner toute la trajectoire.
+
+    ``min(max(x, MIN), MAX)`` PROPAGE NaN : les deux fonctions le retiennent
+    (``0,50 > nan`` est faux, donc ``max`` garde ``nan`` ; idem pour ``min``).
+    Le NaN traversait alors le bornage, contaminait l'effort pérenne, puis
+    ``delta_spending``, puis le solde, puis la dette — et le libellé publié du
+    handler affichait « plafond nan% ». Le comportement rétabli est celui
+    d'avant la refonte : la borne HAUTE, c'est-à-dire la lecture la plus
+    COÛTEUSE du domaine. Une valeur illisible ne peut ainsi jamais acheter une
+    économie, ce qui est la seule direction conservatrice ici.
+
+    Ce n'est pas un chemin théorique : la porte unique ``validate_param_domains``
+    CLAMPE un NaN au lieu de lever (mode tolérant), le handler chiffre donc
+    bien ce que le bornage lui rend — exactement le même raisonnement que
+    ``_seniors.retraites_ecart_age_ans_moteur``.
+    """
+    borne = constants.asu_plafonnement_borne(float('nan'))
+    assert borne == borne, "le bornage propage encore NaN"
+    assert borne == ASU_PLAFONNEMENT_MAX
+
+    effort = asu_effort_perenne_md_eur(float('nan'))
+    assert effort == effort and effort == ASU_EFFORT_PERENNE_MAX_MD_EUR
+
+    delta, _, impacts = _impacts(float('nan'), 2032)
+    assert delta == delta, f"delta_spending NaN : {delta!r}"
+    assert 'nan' not in impacts['description'].lower(), (
+        f"libellé publié empoisonné : {impacts['description']!r}")
+
+
+@pytest.mark.parametrize("plafonnement", _POSITIONS_UI)
+def test_aucun_repas_gratuit_au_pas_du_curseur(plafonnement):
+    """Le solde pérenne de l'ASU est ≥ 0 sur TOUT le domaine du curseur.
+
+    LE DÉFAUT : l'effort pérenne est interpolé de 0 à +2 Md€/an entre 50 % et
+    70 % du SMIC, tandis que l'économie de gestion vaut 0,3 Md€/an, constante.
+    En dessous de 53 % — c'est-à-dire au premier cran du curseur, 50 %, et sur
+    tout l'intervalle qui le suit — l'économie de gestion dépassait l'effort :
+    le régime permanent dégageait un GAIN NET de 0,3 Md€/an, à perpétuité.
+
+    POURQUOI C'EST FAUX, et pas seulement discutable : la variante la moins
+    coûteuse que la DREES/Igas ait chiffrée est celle « à coût constant »,
+    dont l'effet budgétaire pérenne est EXACTEMENT NUL. Aucun des scénarios
+    publiés ne dégage d'économie nette — c'est le fait n° 2 du § I22, et c'est
+    précisément ce que le lot 5 avait entrepris de corriger. Une économie de
+    gestion défendable ne suffit pas à retourner ce signe : elle peut au mieux
+    COMPENSER l'effort qu'elle accompagne (§ B.3-26 : la fourchette 0,2-0,5 est
+    une DÉRIVATION, la mission parlementaire déclare n'avoir pas pu l'estimer).
+
+    Balayage au pas réel du curseur (0,05), le seul qu'un utilisateur puisse
+    poser depuis l'interface.
+    """
+    for year in _ANNEES_HORIZON:
+        assert _delta(plafonnement, year) >= -1e-12, (
+            f"Y{year} à {plafonnement:.0%} : l'ASU dégage "
+            f"{-_delta(plafonnement, year):.2f} Md€ de gain net — aucun "
+            f"scénario de la source ne fait rapporter la réforme")
+
+
+@pytest.mark.parametrize("plafonnement", _GRILLE_FINE)
+def test_aucun_repas_gratuit_entre_les_crans_du_curseur(plafonnement):
+    """Même propriété sur la grille fine : l'API accepte n'importe quel réel
+    du domaine, et un scénario encodé à la main n'est pas tenu par le pas de
+    l'interface. La fenêtre fautive ]0,50 ; 0,53[ vivait entièrement entre
+    deux crans."""
+    for year in _ANNEES_HORIZON:
+        assert _delta(plafonnement, year) >= -1e-12, (
+            f"Y{year} à {plafonnement}: gain net de "
+            f"{-_delta(plafonnement, year):.3f} Md€")
+
+
+@pytest.mark.parametrize("plafonnement", _GRILLE_FINE)
+def test_le_solde_perenne_est_la_source_unique_du_plancher(plafonnement):
+    """Le plancher vit dans ``constants.py``, pas dans le handler.
+
+    Même contrat que ``asu_effort_perenne_md_eur`` : une seule fonction dit ce
+    que la réforme coûte en régime, et le handler ne fait que la consommer et
+    la faire monter en charge. Sans cela, le plancher serait re-dérivable
+    ailleurs — c'est le mode de défaillance que le lot 5 a fermé pour le
+    bornage du plafond."""
+    solde = constants.asu_solde_perenne_md_eur(plafonnement)
+    effort = asu_effort_perenne_md_eur(plafonnement)
+    assert solde >= 0.0
+    assert solde == pytest.approx(max(effort - ASU_ECO_SIMPLIFICATION_MD_EUR, 0.0))
+    # En régime permanent (phasing = 1, transition terminée), le handler rend
+    # exactement ce que la source unique annonce.
+    assert _delta(plafonnement, 2032) == pytest.approx(solde, abs=1e-12)
+
+
+def test_l_economie_de_gestion_reste_effective_la_ou_elle_a_de_la_place():
+    """Contre-épreuve : le plancher n'a pas ANNULÉ l'économie de gestion.
+
+    Sans elle, on pourrait satisfaire la propriété ci-dessus en supprimant
+    purement et simplement les 0,3 Md€/an — ce qui serait une correction
+    différente, non demandée, et contraire au § I23 (la masse mobilisable sur
+    RSA + prime d'activité + APL est de 0,8 à 1,0 Md€/an, la retenir est
+    défendable). Partout où l'effort dépasse l'économie de gestion, celle-ci
+    continue de s'en déduire intégralement.
+    """
+    for plafonnement in (0.60, 0.65, ASU_PLAFONNEMENT_MAX):
+        effort = asu_effort_perenne_md_eur(plafonnement)
+        assert effort > ASU_ECO_SIMPLIFICATION_MD_EUR, "prémisse du cas testé"
+        assert constants.asu_solde_perenne_md_eur(plafonnement) == pytest.approx(
+            effort - ASU_ECO_SIMPLIFICATION_MD_EUR)
+
+
+def test_le_plancher_ne_deplace_pas_les_scenarios_publies():
+    """Sens du lot, vérifié : hygiène, pas recalibrage.
+
+    Les deux seuls scénarios publiés qui activent l'ASU (`lr_2027` et
+    `im_competitivite_2029`) sont au plafond de 70 % du SMIC, où l'effort
+    (2,0 Md€/an) dépasse largement l'économie de gestion : le plancher n'y
+    mord pas et leurs trajectoires restent bit-identiques."""
+    assert constants.asu_solde_perenne_md_eur(ASU_PLAFONNEMENT_MAX) == pytest.approx(
+        ASU_EFFORT_PERENNE_MAX_MD_EUR - ASU_ECO_SIMPLIFICATION_MD_EUR)
+    # À partir de l'entrée en vigueur seulement : avant POLICY_START_YEAR le
+    # phasing vaut 0 et le handler est inerte par construction.
+    for year in range(POLICY_START_YEAR, ANNEE_HORIZON + 1):
+        assert _delta(ASU_PLAFONNEMENT_MAX, year) > 0
+
+
+@pytest.mark.parametrize("plafonnement", _GRILLE_FINE)
+def test_le_plancher_est_un_plafond_sur_l_economie_de_gestion(plafonnement):
+    """L'équivalence qui explique pourquoi Gini et PA restent indexés sur
+    l'EFFORT, et non sur le solde.
+
+    ``max(effort − gestion, 0) == effort − min(gestion, effort)`` : plancher le
+    solde, c'est PLAFONNER l'économie de gestion à l'effort qu'elle compense.
+    Le plancher ne retire donc rien aux ménages — le transfert reste celui que
+    la DREES/Igas chiffre — il refuse seulement d'inscrire au budget un gain
+    net qu'aucun scénario officiel ne produit.
+
+    Sans cette lecture explicite, la question évidente reste ouverte : « à 52 %
+    du SMIC, le solde est nul et le Gini s'améliore, n'est-ce pas un repas
+    gratuit ? » Non : l'amélioration est financée par les 0,2 Md€ réellement
+    transférés ; c'est le reliquat d'économie de gestion (0,1 Md€) qui n'est
+    pas encaissé.
+    """
+    effort = asu_effort_perenne_md_eur(plafonnement)
+    gestion_effective = min(ASU_ECO_SIMPLIFICATION_MD_EUR, effort)
+    assert constants.asu_solde_perenne_md_eur(plafonnement) == pytest.approx(
+        effort - gestion_effective, abs=1e-12)
+    # Et le canal redistributif suit le transfert, pas le solde.
+    gini = _impacts(plafonnement, 2027)[2].get('gini', 0.0)
+    assert (gini < 0) == (effort > 0), (
+        f"à {plafonnement}: Gini {gini:+.8f} pour un effort de {effort} Md€ — "
+        "l'amélioration doit suivre le transfert réel vers les ménages")

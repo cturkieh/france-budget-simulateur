@@ -18,10 +18,11 @@ Profil de couplage : **purement collectrices**. Lecture seule du dict
 ``RevenuesMixin`` / ``DebtMixin`` / ``ExpendituresMixin``).
 
 Filtre tolérant : les deux méthodes sautent tout ``impact`` non-dict.
-``calculate_competitivite`` n'agrège que la clé ``'competitivite'``
-(aucun fallback) ; ``calculate_gini_impact`` agrège ``'gini'`` et ne
-conserve qu'une seule règle par ``measure_id``, déclarée non sourcée
-(``impot_societes``). La re-analyse adverse
+Depuis le lot 7 de la v0.6.1, elles ont EXACTEMENT le même profil : chacune
+n'agrège que sa propre clé (``'competitivite'``, ``'gini'``) et aucune ne
+porte plus de règle par ``measure_id`` — le fallback générique hérité de la
+v4.5 a été retiré branche par branche (six mortes au lot 6, la septième,
+``impot_societes``, au lot 7). La re-analyse adverse
 (2026-05-16) a RÉFUTÉ le « masquage silencieux » comme risque actuel :
 ``apply_measures`` garantit toujours un dict (un non-dict crashe
 bruyamment en amont avec ``logger.error`` + ``HANDLER_FAILED_KEY``), et
@@ -41,7 +42,6 @@ Tous attributs d'instance de ``BudgetSimulatorV45``.
 from typing import Dict
 
 from .._logging import _log_debug
-from ..constants import GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE
 
 
 class MicroImpactsMixin:
@@ -49,6 +49,12 @@ class MicroImpactsMixin:
 
     def calculate_gini_impact(self, impacts: Dict, gdp: float) -> float:
         """Agrège les impacts Gini émis par les handlers ``_apply_*``.
+
+        ``gdp`` n'est plus LU depuis le lot 7 (la dernière règle qui en
+        dérivait un ratio a été retirée). Le paramètre est CONSERVÉ, et c'est
+        délibéré : les deux collecteurs de ce mixin ont la même signature —
+        c'est ce qui rend leur symétrie vérifiable — et le seul appelant du
+        moteur la passe positionnellement.
 
         COLLECTEUR, comme ``calculate_competitivite`` : chaque handler est
         responsable de son propre canal redistributif et l'émet sous la clé
@@ -75,35 +81,48 @@ class MicroImpactsMixin:
         elle n'entre pas dans le revenu disponible — zéro par construction
         de l'indicateur, pas par oubli du modèle.
 
-        ⚠️ IL RESTE UN CAS PARTICULIER, ET IL EST DÉCLARÉ : ``impot_societes``
-        (cf. ``GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE`` dans constants.py).
-        Son handler n'émet volontairement pas de clé ``'gini'``, mais cette
-        règle en produit un dans son dos, de façon asymétrique. Elle est
-        ACTIVE — y compris dans deux scénarios publiés (``lfi_2027``, IS à
-        30 %, et ``ps_2027``, IS à 27 %). Elle n'est pas
-        corrigée ici parce qu'elle déplace des chiffres publiés et qu'aucune
-        source de ce lot ne dit par quoi la remplacer : la retirer ou la
-        symétriser sans source remplacerait un biais par un autre. Dette
-        renvoyée au chantier v0.7 avec la re-dérivation de
-        ``GINI_IMPACT_SCALE``.
+        v0.6.1 lot 7 — LA SEPTIÈME ET DERNIÈRE RÈGLE EST RETIRÉE. Le lot 6
+        avait conservé ``impot_societes``, seule branche encore VIVANTE, en
+        dette déclarée, au motif qu'« elle déplace des chiffres publiés ».
+        La seconde moitié de ce motif — aucune source ne dit par quoi la
+        remplacer — est exacte, et c'est précisément pourquoi la règle du
+        § I27 s'applique : non sourcé ⇒ on RETIRE, on ne recalibre pas. La
+        première moitié a été mesurée, et elle est fausse : à la précision
+        publiée (Gini arrondi à trois décimales dans les précalculs, les
+        fiches et le comparateur), la suppression ne déplace aucun chiffre.
+        L'écart brut est de +0,000114 de Gini 2035 sur ``lfi_2027`` et
+        +0,000074 sur ``ps_2027``, les sept autres scénarios restant
+        bit-identiques.
+
+        Ce que la branche faisait, et pourquoi c'est un défaut de neutralité
+        et non de calibration : elle émettait ``-0,03 × recettes/PIB`` pour
+        une HAUSSE d'impôt sur les sociétés et exactement ZÉRO pour une
+        baisse (``if recettes > 0``). Elle créditait donc d'une amélioration
+        des inégalités que personne n'a chiffrée les seuls programmes qui
+        augmentent l'IS — même classe de défaut que l'asymétrie des
+        multiplicateurs corrigée en v0.6.0. ``_apply_impot_societes`` n'émet
+        volontairement aucune clé ``'gini'`` (« PAS D'IMPACT MICRO :
+        répercussion prix uniforme sur tous déciles ») : ce silence est
+        désormais respecté.
+
+        Reste au chantier v0.7 la re-dérivation de ``GINI_IMPACT_SCALE``
+        (§ B.4-33 du dossier : « non calculable en l'état », « ne pas
+        bricoler »), qui n'a jamais dépendu de ce fallback.
         """
         gini_change = 0
 
-        for measure_id, impact in impacts.items():
+        # `.values()` et non `.items()` : l'identifiant de mesure n'est plus
+        # lu depuis le retrait de la dernière règle par `measure_id`. Le
+        # garder en variable inutilisée laisserait croire qu'un aiguillage
+        # par mesure subsiste quelque part.
+        for impact in impacts.values():
             if not isinstance(impact, dict):
                 continue
-
-            # Cas normal : le handler a calculé son propre impact.
+            # Collecte PURE : ce que le handler a émis, rien d'autre. Un
+            # handler qui n'émet pas `gini` déclare, par ce silence, qu'il
+            # n'a pas d'effet direct sur le Gini du niveau de vie.
             if 'gini' in impact:
                 gini_change += impact['gini']
-                continue
-
-            # DETTE CONNUE, seul survivant du fallback v4.5 (cf. docstring).
-            if measure_id == 'impot_societes':
-                revenue_impact = impact.get('recettes', 0)
-                if revenue_impact > 0:
-                    gini_change -= GINI_FALLBACK_IMPOT_SOCIETES_NON_SOURCE * (
-                        revenue_impact / gdp)
 
         return gini_change
 

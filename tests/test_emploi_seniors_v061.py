@@ -192,9 +192,9 @@ def test_valeur_de_long_terme_est_le_consensus_cor():
 def test_pic_de_chomage_reste_entre_dg_tresor_et_ofce():
     """+0,18 pt est une DÉRIVATION MAISON, à situer dans le débat, jamais à
     présenter comme publiée : DG Trésor 0,00 / OFCE +0,55 à 1 an
-    (COR 26/03/2026 Doc n° 2 T4), Mésange +0,7 que la Cour désavoue
-    explicitement (fév. 2025, p. 67, note 121). Les trois routes de la
-    dérivation donnent 0,13 / 0,19 / 0,21."""
+    (COR 26/03/2026 Doc n° 2 T4), Mésange +0,7 (Cour fév. 2025, p. 67,
+    note 121) que la Cour désavoue explicitement au corps de la même page 67.
+    Les trois routes de la dérivation donnent 0,13 / 0,19 / 0,21."""
     assert 0.0013 < CHOMAGE_SENIORS_PIC < 0.0021
 
 
@@ -626,9 +626,36 @@ def test_p3_bouclage_budgetaire_cour_t6(monkeypatch, avec_multiplication):
     ∈ [14 ; 19] Md€, cible 17,7 (Cour des comptes fév. 2025, T6 p. 72 :
     dépenses +6,0 / cotisations retraite +2,4 / autres recettes +9,3).
 
-    Le scénario « 65 ans » vaut exactement UNE année au-dessus du droit en
-    vigueur à 2035 (la référence légale ayant atteint 64,0 ans en 2032) : la
-    comparaison porte donc bien sur le même objet que la Cour.
+    CE QUI EST EXACTEMENT COMPARÉ, unités comprises (rédaction corrigée au
+    lot 7 : la précédente affirmait une identité d'objet avec la Cour, ce qui
+    est vrai du périmètre et FAUX du millésime) :
+
+    - PÉRIMÈTRE : identique. Le scénario « 65 ans » vaut exactement UNE année
+      au-dessus du droit en vigueur en 2035 (la référence légale ayant atteint
+      64,0 ans en 2032), et le bouclage additionne, comme le T6, l'effet
+      toutes APU — recettes engendrées par le canal + moindres dépenses.
+    - MILLÉSIME : DIFFÉRENT, et c'est irréductible. Le moteur rend des
+      recettes 2035 en euros COURANTS ; le T6 de la Cour est publié en Md€
+      CONSTANTS 2024. Le déflateur qui relierait les deux n'est publié par
+      personne au-delà de 2029-2030 (§ B.2-17 et § B.1-7 du dossier de
+      sourcing : toute valeur 2030+ est DÉFENDABLE au mieux, le ≈1,10 de 2030
+      est lui-même reconstitué).
+
+    POURQUOI LA FENÊTRE [14 ; 19] RESTE VALIDE, chiffres à l'appui : le moteur
+    rend 17,5 Md€ courants 2035 ; déflatés vers les euros constants 2024 de la
+    Cour, cela fait 14,6 à 15,9 Md€ selon le déflateur retenu (1,20 à 1,10).
+    Les DEUX lectures du résultat du moteur tiennent dans la fenêtre : le
+    verdict du test ne dépend donc PAS de la convention de millésime, qui est
+    précisément ce que les sources ne permettent pas de trancher. C'est tout
+    ce que la fenêtre établit — l'ordre de grandeur du canal.
+
+    CE QU'ELLE N'ÉTABLIT PAS, et il faut le dire : une égalité au millésime
+    près. Lue dans l'unité du moteur, la cible de la Cour vaudrait 19 à
+    21 Md€ courants 2035, au-dessus de la borne haute. Le canal est donc
+    plutôt CONSERVATEUR par rapport au T6 une fois les unités alignées —
+    conservateur CONTRE les programmes de report d'âge (§ C.5). Rétrécir la
+    fenêtre reviendrait à publier un déflateur qu'aucune institution ne
+    publie au-delà de 2029-2030 (§ B.2-17 et § B.1-7).
 
     Le test tourne AVEC et SANS la multiplication du profil d'absorption par
     la montée en charge par cohortes — c'est le test de sensibilité exigé par

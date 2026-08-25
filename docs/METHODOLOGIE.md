@@ -289,10 +289,13 @@ demographique : population active 31 802 milliers, chomage 7,3 % (COR
 26/03/2026, Document n 4, note 7).
 
 Position dans le debat : entre DG Tresor 0,0 et OFCE +0,55, tres loin de
-Mesange +0,7 / e-mod.fr +0,5 — que la Cour des comptes desavoue explicitement
-(fevrier 2025, p. 67, note 121 : « les recherches micro-econometriques menees
-sur la reforme de 2010 ont montre que l'evolution du chomage observee ne
-correspondait pas a celle predite par les modeles »).
+Mesange +0,7 / e-mod.fr +0,5 — que la Cour des comptes desavoue explicitement.
+Les deux chiffres sont ceux de sa **note 121** (fevrier 2025, p. 67 : « le
+chomage augmente a horizon de 10 ans de 0,7 point dans Mesange et de 0,5 point
+dans e-mod.fr ») ; le desaveu, lui, est au **corps de cette meme page 67** :
+« les recherches micro-econometriques menees sur la reforme de 2010 ont montre
+que l'evolution du chomage observee ne correspondait pas a celle predite par
+les modeles ».
 
 La bosse se **resorbe** (profil OFCE, seule serie publiee allant jusqu'a
 l'extinction) : pic **+0,10 point** en annees 4-5 par annee d'age, +0,064 a
@@ -439,7 +442,7 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 
 ### Impacts Macroeconomiques
 
-- **Inegalites** : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee.
+- **Inegalites** : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee. L'effet plein est servi l'annee ou la mesure OUVRE son ecart au calendrier legal (et non l'annee ou elle apparait), puis 10 % de residu annuel : cf. § « Effets NIVEAU vs FLUX », 4e pattern.
 - **Pouvoir d'achat** : Gel total indexation retraites = -0,007 PA agrégé/an récurrent (OFCE Brief 124, 15/02/2024)
 - **Competitivite** : Impact neutre (pas de lien direct entreprises)
 - **Croissance et chomage** : depuis la v0.6.1, le levier d'age agit aussi par
@@ -1518,6 +1521,21 @@ Le code utilise 3 patterns equivalents pour gater un effet PA one-time :
 Les 12 mesures listees ci-dessus utilisent l'un des 3 patterns. Le test de garde-fou
 `tests/test_political_scenarios_2027.py::test_pa_2029_garde_fou_gating_one_time` verifie
 le comportement integre (8 scenarios, tolerance ±1.5 pt sur PA 2029).
+
+**4e pattern, une seule mesure — l'horloge du CHOC (v0.6.1, lot 7)**. Les trois
+patterns ci-dessus partent tous de l'annee ou la MESURE apparait, ce qui suppose
+une reference FIXE. Le canal d'age des retraites n'en a pas : sa reference est le
+calendrier legal, qui monte de 62,75 ans (2026-2027) a 64,0 ans (2032). Un
+programme qui figerait l'age a 62,75 a donc un ecart RIGOUREUSEMENT NUL en
+2026-2027 : servir l'effet plein en 2026 revenait a le servir sur zero, puis a ne
+laisser que le residu de flux (10 %) pour tout l'horizon — la mortalite
+differentielle d'un gel de la reforme etait chiffree au dixieme de sa valeur.
+L'effet Gini d'age se declenche donc a la **premiere annee d'ecart non nul**
+(`_seniors.retraites_annee_debut_ecart_age_handler`), la MEME horloge que les
+quatre autres canaux d'une mesure d'age (moindres pensions, fuite sociale, offre
+de travail, bosse de chomage). Le canal INDEXATION du meme handler garde l'horloge
+du run : sa reference (la pleine indexation) ne bouge pas. Les deux horloges
+coincident pour tout age different de 62,75, donc pour les neuf scenarios publies.
 
 ### Phasing (Montee en Puissance)
 
