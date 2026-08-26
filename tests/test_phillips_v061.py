@@ -456,6 +456,139 @@ def test_le_role_de_la_variable_inflation_est_declare():
             f"variable et son biais résiduel — « {attendu} » absent")
 
 
+# --- I17 — LE SENS du biais résiduel, mesuré et non plus affirmé ----------
+# Clôture de la revue adverse (2026-08-26). Le biais d'indexation était publié
+# comme « CONSERVATEUR » dans QUATRE artefacts, dont deux servis au public,
+# avec pour justification qu'il « minore la dépense indexée ET la perte de
+# pouvoir d'achat ». Les deux effets nommés à l'appui du mot vont pourtant
+# DANS LE MÊME SENS, et c'est le sens flatteur : une dépense minorée améliore
+# le déficit et la dette — la sortie titre du site — et une perte de pouvoir
+# d'achat minorée est un indicateur embelli. Sur un simulateur budgétaire,
+# « conservateur » désigne l'erreur qui va contre soi. Celle-ci va pour soi.
+#
+# Le coin vit ICI et pas dans constants.py : la scission déflateur/IPC n'est
+# pas instruite (cf. test_pas_de_scission_prematuree_en_trois_variables, qui
+# interdit l'apparition de la constante). Ce n'est pas une calibration du
+# moteur, c'est l'instrument de mesure d'une contre-épreuve.
+_COIN_IPC_DEFLATEUR = 0.0015  # +0,15 pt/an — écart déflateur − prix conso
+# Sources du quantum : INSEE, blog « Inflation : les déflateurs en
+# comptabilité nationale », sept. 2022 (−0,1 à −0,2 pt en régime normal) ;
+# décomposition officielle 2026 du RAA p. 12 (−0,4 pt de prix de la demande
+# intérieure, −0,2 pt de termes de l'échange). DÉFENDABLE, pas SOLIDE (§B).
+
+
+def _dette_2035_si_indexation_sur_ipc(mesures):
+    """Contre-épreuve : la dépense primaire indexée sur l'IPC (= le déflateur
+    du moteur + le coin), tout le reste identique.
+
+    C'est ce que l'indexation LÉGALE des pensions suit réellement (IPC hors
+    tabac). On enveloppe ``calculate_expenditures`` plutôt que de toucher au
+    moteur : la mesure doit être reproductible sans rien livrer."""
+    from budget_simulator.engine import expenditures as expenditures_mod
+
+    originale = expenditures_mod.ExpendituresMixin.calculate_expenditures
+
+    def indexee_sur_ipc(self, gdp, inflation, inflation_prev, unemployment,
+                        year, output_gap):
+        return originale(self, gdp, inflation + _COIN_IPC_DEFLATEUR,
+                         inflation_prev + _COIN_IPC_DEFLATEUR, unemployment,
+                         year, output_gap)
+
+    expenditures_mod.ExpendituresMixin.calculate_expenditures = indexee_sur_ipc
+    try:
+        sim = BudgetSimulatorV45(periods=10, mesures=mesures) if mesures \
+            else BudgetSimulatorV45(periods=10)
+        df, _, _ = sim.simulate()
+    finally:
+        expenditures_mod.ExpendituresMixin.calculate_expenditures = originale
+    return df
+
+
+def test_le_biais_d_indexation_flatte_la_sortie_titre_du_site():
+    """MESURE du sens : indexer sur l'IPC DÉGRADE la dette et le déficit.
+
+    Donc l'arbitrage livré — indexer sur le déflateur — les AMÉLIORE. Ce
+    n'est pas une opinion sur le mot « conservateur », c'est une contre-
+    épreuve : on refait tourner le moteur avec la dépense primaire indexée
+    sur l'indice que la loi suit, et on lit l'écart.
+
+    Mesuré (scénario publié) : déficit 2030 −6,40 → −6,86 (+0,46 pt), déficit
+    2035 −10,70 → −11,95 (+1,25 pt) ; dette 2030 129,65 → 130,93 (+1,28 pt),
+    dette 2035 159,35 → 164,85 (+5,50 pt). L'ordre de grandeur est cohérent
+    avec le chiffrage du projet lui-même : ~1 800 Md€ de dépense primaire ×
+    0,15 pt ≈ 2,5 Md€/an, cumulés et capitalisés."""
+    for mesures in (None, _mesures_publiees()):
+        if mesures is None:
+            reference, _, _ = BudgetSimulatorV45(periods=10).simulate()
+        else:
+            reference, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+        contre = _dette_2035_si_indexation_sur_ipc(mesures)
+        ecart_dette = contre['Dette/PIB %'].iloc[10] - reference['Dette/PIB %'].iloc[10]
+        ecart_deficit = (reference['Déficit/PIB %'].iloc[10]
+                         - contre['Déficit/PIB %'].iloc[10])
+        assert ecart_dette > 0, (
+            f"la contre-épreuve DOIT dégrader la dette ({ecart_dette:+.2f} pt) : "
+            f"si elle l'améliorait, le biais serait bien conservateur et toute "
+            f"la déclaration du § I17 serait à réécrire dans l'autre sens")
+        assert ecart_deficit > 0, (
+            f"la contre-épreuve doit dégrader le déficit ({ecart_deficit:+.2f} pt)")
+        assert 5.0 <= ecart_dette <= 6.0, (
+            f"écart de dette 2035 {ecart_dette:+.2f} pt — mesuré 5,50 au "
+            f"2026-08-26 ; encadré des deux côtés pour que sa dérive soit un "
+            f"acte et non un effet de bord")
+
+
+def test_le_sens_du_biais_d_indexation_est_publie_sans_euphemisme():
+    """Le mot « conservateur » est INTERDIT sur ce biais, partout.
+
+    Il l'était dans quatre artefacts, dont deux servis au public
+    (METHODOLOGIE.md et EXPLICATION_MODELE_ECONOMIQUE.md). Un simulateur
+    citoyen n'a pas le droit de qualifier de prudente une approximation qui
+    embellit son chiffre-titre : c'est la seule erreur de sens qu'un lecteur
+    ne peut pas rattraper lui-même. La règle du projet (§C) est de dire dans
+    quel sens joue chaque choix — la dire à l'envers est pire que se taire.
+
+    Le test exige aussi que la MAGNITUDE soit publiée : un sens sans ordre de
+    grandeur laisse croire à un détail, et 5,5 points de dette 2035 n'en est
+    pas un."""
+    import re
+
+    racine = pathlib.Path(__file__).resolve().parent.parent
+    artefacts = {
+        'engine/inflation.py (docstring)': inflation_mod.__doc__ or '',
+        'docs/METHODOLOGIE.md': (racine / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8'),
+        'docs/EXPLICATION_MODELE_ECONOMIQUE.md': (
+            racine / 'docs' / 'EXPLICATION_MODELE_ECONOMIQUE.md').read_text(encoding='utf-8'),
+        'tests/test_calibration_mission_v060.py': (
+            racine / 'tests' / 'test_calibration_mission_v060.py').read_text(encoding='utf-8'),
+    }
+    # Les quatre formulations AFFIRMATIVES exactes qui existaient, telles
+    # qu'elles existaient. Bannir le mot « conservateur » tout court
+    # interdirait de citer l'erreur pour l'expliquer — or c'est précisément
+    # ce que la correction fait, et ce qu'elle doit pouvoir continuer de faire.
+    interdits = (
+        'Ce biais est CONSERVATEUR',
+        'Ce biais est **conservateur**',
+        'il est conservateur (il minore',
+        "biais d'indexation I17 déclaré conservateur",
+    )
+    for nom, brut in artefacts.items():
+        texte = re.sub(r'\s+', ' ', brut)
+        for phrase in interdits:
+            assert phrase not in texte, (
+                f"{nom} qualifie encore le biais d'indexation de "
+                f"« conservateur » — il FLATTE la dette et le déficit publiés")
+        assert 'flatte' in texte.lower(), (
+            f"{nom} doit dire dans quel sens joue le biais d'indexation : il "
+            f"FLATTE les chiffres publiés. Le taire est moins grave que "
+            f"l'écrire à l'envers, mais la règle du projet est de le dire.")
+    # Et la magnitude, dans les deux documents publics.
+    for nom in ('docs/METHODOLOGIE.md', 'docs/EXPLICATION_MODELE_ECONOMIQUE.md'):
+        assert '5,5' in artefacts[nom], (
+            f"{nom} doit publier l'ordre de grandeur du biais (5,5 pt de dette "
+            f"2035) : un sens sans magnitude se lit comme un detail")
+
+
 def test_pas_de_scission_prematuree_en_trois_variables():
     """Garde inverse : personne n'a introduit le coin IPC/déflateur en douce.
 

@@ -59,11 +59,21 @@ RÉSIDU (b) SENTIER PRIMAIRE — les deux composantes, mesurées
    est calée sur le DÉFLATEUR du PIB (INSEE tranche : c'est lui qui importe
    pour le taux d'emprunt réel des APU), alors que l'indexation LÉGALE des
    pensions suit l'IPC hors tabac. Le biais résiduel déclaré, −0,15 pt/an,
-   est CONSERVATEUR : il minore la dépense indexée. Sa taille attendue sur
-   ~1 800 Md€ de dépense primaire, ~2,5 Md€/an, cumulée sur quatre ans,
-   ≈ 0,3 pt de PIB — soit exactement le déplacement mesuré du déficit 2029
-   (+0,71 → +1,00 pt). Le résidu du corridor de déficit n'est donc pas un
-   inconnu : c'est le prix, chiffré, d'un arbitrage écrit.
+   minore la dépense indexée. Sa taille attendue sur ~1 800 Md€ de dépense
+   primaire, ~2,5 Md€/an, cumulée sur quatre ans, ≈ 0,3 pt de PIB — soit
+   exactement le déplacement mesuré du déficit 2029 (+0,71 → +1,00 pt). Le
+   résidu du corridor de déficit n'est donc pas un inconnu : c'est le prix,
+   chiffré, d'un arbitrage écrit.
+
+   SENS DE CE BIAIS — CORRIGÉ LE 2026-08-26. Cette docstring le qualifiait de
+   « CONSERVATEUR », et le contredisait dans la même phrase quelques lignes
+   plus bas (« le moteur est plus favorable que la mission … + biais
+   d'indexation I17 »). Minorer la dépense indexée AMÉLIORE le déficit et la
+   dette : le biais FLATTE le chiffre publié, il ne le protège pas. Contre-épreuve dans ``tests/test_phillips_v061.py`` : indexer la
+   dépense primaire sur l'IPC porterait la dette 2035 de 159,35 à 164,85 %
+   du PIB. Le mot est faux, la mécanique décrite ci-dessus ne l'est pas —
+   c'est bien ce biais qui explique le déplacement du corridor de déficit,
+   et il l'explique dans le sens où le corridor s'est ouvert.
 
 Le solde primaire est désormais borné PAR SON PROPRE TEST
 (``test_corridor_solde_primaire``), plus serré que ce que le corridor de
@@ -91,8 +101,10 @@ objet qu'elle. Effet mesuré, sans recalibrage d'aucune sorte :
 
 Le résidu (b) était donc pour partie un écart d'OBJET, pas un écart de modèle.
 Ce qu'il en reste — le tendanciel de dépense primaire moins dynamique que celui
-de la mission, et le biais d'indexation I17 déclaré conservateur — appartient
-bien au bloc dépenses.
+de la mission, et le biais d'indexation I17, qui va dans le MÊME sens (une
+dépense indexée minorée) — appartient bien au bloc dépenses. Les deux
+composantes du résidu jouent donc en faveur du moteur, et c'est pour cela que
+le corridor de déficit est le seul à ne pas s'être resserré.
 
 Tolérances — écarts mesurés v0.6.1 lot 9 : déflateur ≤ 0,18 pt, taux
 ≤ 0,18 pt, charge ≤ 3,0 Md€, dette ≤ 1,27 pt, primaire ≤ 0,65 pt, déficit
@@ -249,8 +261,12 @@ def test_corridor_solde_primaire(trajectoire):
     de déficit l'absorbait mélangé à l'erreur de dénominateur. Il est
     maintenant borné pour lui-même, plus serré (1,0 pt) que ce que le
     corridor de déficit tolère (1,1 pt). Le sens de l'écart est CONSTANT et
-    connu : le moteur est plus favorable que la mission (dépense primaire
-    moins dynamique + biais d'indexation I17 déclaré conservateur)."""
+    connu : le moteur est plus favorable que la mission — et ses DEUX
+    composantes le sont, la dépense primaire moins dynamique comme le biais
+    d'indexation I17, qui FLATTE lui aussi. La docstring qualifiait ici le
+    biais I17 de prudent dans la même phrase que « le moteur est plus
+    favorable » : une contradiction interne d'une ligne, corrigée le
+    2026-08-26."""
     df, b = trajectoire
     for i in range(1, 6):
         primaire = (df['Déficit'].iloc[i] + b['Intérêts_Dette'].iloc[i]) / df['PIB'].iloc[i] * 100

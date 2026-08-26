@@ -70,12 +70,30 @@ sur l'IPC hors tabac.
 
 **Biais résiduel DÉCLARÉ : −0,15 pt/an** sur les rôles (ii) et (iii) —
 écart déflateur − prix à la consommation mesuré à −0,1/−0,2 pt en régime
-normal (jusqu'à −0,6/−0,8 pt en année de choc énergétique). Ce biais est
-CONSERVATEUR : il minore la dépense indexée ET minore la perte de pouvoir
-d'achat affichée. Il n'est PAS corrigé ici : tous les handlers consomment
-``inflation``, scinder en trois variables est un changement d'architecture
-qui s'instruit séparément (la constante à créer serait alors un coin
-``ECART_IPC_DEFLATEUR``, jamais un littéral dupliqué).
+normal (jusqu'à −0,6/−0,8 pt en année de choc énergétique).
+
+CE BIAIS N'EST PAS CONSERVATEUR — IL FLATTE (correction du 2026-08-26). La
+docstring a longtemps écrit l'inverse, en donnant pour preuve qu'il « minore
+la dépense indexée ET minore la perte de pouvoir d'achat ». Les deux effets
+nommés vont dans le MÊME sens, et c'est le sens favorable : une dépense
+minorée AMÉLIORE le déficit et la dette — la sortie titre du site — et une
+perte de pouvoir d'achat minorée est un indicateur embelli. Sur un simulateur
+budgétaire, « conservateur » désigne l'erreur qui joue contre soi ; celle-ci
+joue pour soi, dans les deux rôles à la fois.
+
+MAGNITUDE, MESURÉE PAR CONTRE-ÉPREUVE (``tests/test_phillips_v061.py`` :
+dépense primaire indexée sur l'IPC = déflateur + 0,15 pt, tout le reste
+identique) : déficit 2030 −6,40 → −6,86 (+0,46 pt), déficit 2035 −10,70 →
+−11,95 (+1,25 pt) ; dette 2030 129,65 → 130,93 (+1,28 pt), **dette 2035
+159,35 → 164,85, soit 5,5 points de PIB**. Ce n'est pas un résidu de second
+ordre : c'est l'ordre de grandeur d'un lot entier de corrections.
+
+Il n'est PAS corrigé ici : tous les handlers consomment ``inflation``,
+scinder en trois variables est un changement d'architecture qui s'instruit
+séparément (la constante à créer serait alors un coin ``ECART_IPC_DEFLATEUR``,
+jamais un littéral dupliqué). Ce qui change ici est ce qu'on en DIT — et
+c'est précisément ce que la règle du projet exige : dire dans quel sens joue
+chaque choix, sous peine d'être pire que le silence.
 
 --------------------------------------------------------------------------
 DETTE CONNUE, HORS PÉRIMÈTRE v0.6.1 (I18)
