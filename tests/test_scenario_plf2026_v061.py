@@ -367,6 +367,70 @@ def test_le_perimetre_non_representable_est_declare():
             f"votee non encodee et non dite est un tri silencieux")
 
 
+# ---------------------------------------------------------------------------
+# I37 — « Justifiés mais à documenter » (livrable du §A.1 rang 3, item 14)
+# ---------------------------------------------------------------------------
+
+# Chaque entrée : (paramètre, [fragments qui doivent apparaître dans le doc]).
+# Les fragments sont les CHIFFRES et les MOTS qui font le caveat — pas une
+# reformulation. Un caveat qui perd son chiffre n'est plus vérifiable par le
+# lecteur, et c'est le lecteur qui est la raison d'être de cette section.
+_CAVEATS_I37 = {
+    'fonction_publique.effectifs': ['-3 119', '6 724', 'caisses de sécurité sociale',
+                                    'périmètre État'],
+    'sante': ['4,65', 'annuelle', '10,4', '4,1'],
+    'niches_sociales_tge': ['3 SMIC', 'tous employeurs', '3,9', '3,1'],
+    'defense': ['5,3', 'structurel', 'LPM'],
+    'is_exceptionnel_tge': ['reconduction', '7,3'],
+}
+
+
+def test_les_caveats_de_perimetre_i37_sont_publies():
+    """Les cinq hypothèses de périmètre du scénario de référence sont ÉCRITES.
+
+    I37 est un livrable explicite de la v0.6.1 (§A.1 rang 3, item 14) et le
+    §C.1 le nomme comme item de neutralité à « enjeu de crédibilité élevé ».
+    Une seule des six lignes était livrée (le périmètre ≈6,5 Md€) ; les cinq
+    autres n'existaient nulle part dans le dépôt.
+
+    Le plus lourd n'est pas numérique : `effectifs = −3 119` est le chiffre
+    d'AFFICHAGE du Gouvernement (périmètre ministères + opérateurs + caisses
+    de sécurité sociale) ; sur le seul périmètre État, la LF 2026 crée
+    +6 724 ETP. Le reprendre sans caveat dans un scénario intitulé « la
+    politique votée » est exactement ce que le §C.1 annonce comme « ce qu'un
+    contradicteur relèvera » — pour 0,19 Md€/an d'effet moteur.
+
+    `docs/` du moteur = source CANONIQUE (public/docs/ en est la copie
+    synchronisée) : la garde voyage avec le repo public."""
+    texte = (_RACINE / 'docs' / 'SCENARIOS_POLITIQUES.md').read_text(encoding='utf-8')
+    manquants = {
+        parametre: [f for f in fragments if f not in texte]
+        for parametre, fragments in _CAVEATS_I37.items()
+    }
+    manquants = {k: v for k, v in manquants.items() if v}
+    assert not manquants, (
+        f"caveats I37 absents du document public : {manquants} — un paramètre "
+        f"dont le périmètre n'est pas dit se lit comme un chiffrage")
+
+
+@_SANS_FRONTEND
+def test_le_caveat_sante_dit_le_bon_chiffre():
+    """Le caveat le plus matériel doit citer la grandeur qu'il décrit.
+
+    `sante` est calé sur l'année 1 (+1,28 Md€) mais le moteur en fait un
+    effort structurel PERMANENT ; c'est le deuxième contributeur de la dérive
+    résiduelle du référentiel. Le test lit la valeur au moteur plutôt que de
+    la recopier : si le handler change, le document doit changer avec lui —
+    c'est la même discipline que pour les autres chiffres publiés."""
+    mesures = _mesures_publiees()
+    regime = _regime_mde('sante', mesures)
+    texte = (_RACINE / 'docs' / 'SCENARIOS_POLITIQUES.md').read_text(encoding='utf-8')
+    attendu = f"{regime:.2f}".replace('.', ',')
+    assert attendu in texte, (
+        f"le caveat santé doit publier le régime mesuré ({attendu} Md€/an) ; "
+        f"une valeur périmée y serait invisible")
+
+
 def test_optimisation_dette_ne_fait_pas_porter_son_chiffrage_a_une_institution():
     """Le pendant PUBLIC d'I34-b : le paramètre passe à 0, le libellé doit suivre.
 

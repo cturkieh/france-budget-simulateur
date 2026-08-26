@@ -61,6 +61,21 @@ d'autres canaux.
 Enfin, **la charge d'intérêts** (+5,8 Md€ en 2026) n'est pas un paramètre : elle est produite par
 le bloc dette du moteur, à partir du stock et du taux apparent.
 
+#### Ce que les paramètres encodés supposent
+
+Les mesures ci-dessus sont celles que le scénario **n'encode pas**. Celles qu'il encode portent,
+elles aussi, des choix de **périmètre** ou d'**hypothèse** — justifiés, mais qui ne se lisent pas
+dans le chiffre. Les taire reviendrait à présenter comme des données ce qui est, en partie, une
+convention. Aucune des cinq lignes ci-dessous ne change une valeur : elles la qualifient.
+
+| Paramètre | Ce qu'il suppose, et qui ne se voit pas dans le chiffre |
+|---|---|
+| `fonction_publique.effectifs = -3 119` | C'est le **« total général » du tableau des schémas d'emplois** annexé au budget 2026 : périmètre ministères + opérateurs **+ caisses de sécurité sociale**, hors effet de la réforme de la formation des enseignants. **Sur le seul périmètre État, la loi crée +6 724 ETP** (ministères +8 381, opérateurs −1 728). Le chiffre retenu est donc celui de l'affichage gouvernemental, et non celui de l'État employeur. Effet sur le solde : **+0,19 Md€/an** — l'enjeu est **éditorial, pas numérique**, et il est dit ici pour cette raison. |
+| `sante` (15 / 20 / 10) | Calé sur l'**année 1** (+1,28 Md€, prudent face aux 4,1 Md€ d'économies Sécurité sociale votées). Mais le moteur en fait un effort **structurel permanent de 4,65 Md€/an** à partir de 2030. **La persistance est une hypothèse**, et une hypothèse discutable : une LFSS est **annuelle**, et son paquet d'économies est passé de **10,4** à **4,1** Md€ au cours du débat parlementaire. C'est le deuxième contributeur de l'effort résiduel du scénario de référence. |
+| `niches_sociales_tge = 68` | Proxy de la réforme des **allègements généraux de cotisations** (Sénat, rapport général n° 139 t. II : **3,9** Md€ bruts / **3,1** Md€ nets en 2026). **L'assiette réelle est celle des rémunérations inférieures à 3 SMIC, tous employeurs** — et non les grandes entreprises que le nom du levier désigne. Les 2 Md€ encodés restent en deçà du chiffrage : conservateur, mais sur une assiette qui n'est pas celle du libellé. |
+| `defense = 57` | 57,15 Md€ hors CAS Pensions est un montant **nominal**, et **nominal ≠ structurel** : l'OFCE (*Policy brief* n° 154) chiffre la dépense structurelle supplémentaire à **5,3** Md€ et non 6,7. Par ailleurs le +7 **constant** sur tout l'horizon **sous-représente les marches de la LPM** (+3,2 Md€/an) au-delà de 2027 : les deux écarts jouent en sens opposé et ne sont pas compensés l'un par l'autre. |
+| `is_exceptionnel_tge = 7,3` | 7,3 Md€ est le rendement **2026** de la contribution exceptionnelle sur les bénéfices des grandes entreprises. Le porter sur tout l'horizon suppose sa **reconduction annuelle** — hypothèse que Fipeco juge probable et que le ministre de l'Économie a confirmée pour 2027, mais qui reste une hypothèse, non un texte voté au-delà de 2026. |
+
 **Garde permanente.** Une loi de finances est annuelle. Le scénario peut porter l'effort chiffré
 pour son année et faire l'hypothèse, déclarée, que les mesures structurelles persistent ; il ne
 peut pas **accélérer**. Un test-propriété du moteur

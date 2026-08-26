@@ -1814,14 +1814,14 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
 | Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 |
 |---|---|---|
-| `rn_2027` | +3,4 | +11,1 |
-| `lfi_2027` | +13,2 | +25,2 |
-| `renaissance_2027` | -7,1 | -4,7 |
-| `horizons_2027` | -10,8 | -6,8 |
-| `lr_2027` | -13,3 | -6,1 |
-| `ps_2027` | +0,1 | +8,6 |
-| `im_rabot_2029` | -33,6 | -26,5 |
-| `im_competitivite_2029` | -36,4 | -24,0 |
+| `rn_2027` | +3,4 | +10,9 |
+| `lfi_2027` | +13,2 | +25,0 |
+| `renaissance_2027` | -7,1 | -4,9 |
+| `horizons_2027` | -10,8 | -7,0 |
+| `lr_2027` | -13,3 | -6,3 |
+| `ps_2027` | +0,1 | +8,4 |
+| `im_rabot_2029` | -33,6 | -26,7 |
+| `im_competitivite_2029` | -36,4 | -24,2 |
 
 **Le constat, sans enrobage : sur cette mesure, les huit programmes se degradent
 tous PAR RAPPORT au scenario de reference — gauche comme droite, de +2,4 points
