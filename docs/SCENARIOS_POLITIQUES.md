@@ -148,7 +148,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | fonction_publique | point_indice | 0 | 0 | 10 | 0 | 0 | 0 | 3 | 0 | 0 |
 | fonction_publique_reforme | digitalisation | 0 | 30 | 10 | 50 | 20 | 50 | 15 | 0 | 50 |
 | fonction_publique_reforme | fusion_agences | 0 | 50 | 0 | 50 | 10 | 60 | 10 | 0 | 60 |
-| fraude_fiscale | effort | 0.2 | 1 | 1 | 0.5 | 0.5 | 0.8 | 0.9 | 0 | 0.8 |
+| fraude_fiscale | effort | 0.14 | 1 | 1 | 0.5 | 0.5 | 0.8 | 0.9 | 0 | 0.8 |
 | fraude_sociale | effort | 0.1 | 1 | 0.5 | 0.3 | 0.3 | 1 | 0.6 | 0 | 0.8 |
 | immigration | ame | 1.2 | 0.4 | 1.5 | 1.2 | 1.2 | 0.3 | 1.4 | 1.1 | 0.8 |
 | immigration | integration | 0.8 | 0.3 | 1.2 | 0.8 | 0.8 | 0.4 | 1 | 0.7 | 0.6 |

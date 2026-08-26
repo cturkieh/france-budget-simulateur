@@ -178,18 +178,102 @@ def test_optimisation_dette_sans_source_est_neutralisee():
     assert _mesures_publiees()['optimisation_dette']['intensite'] == 0
 
 
+# Bornes en Md€/an — les grandeurs que les sources chiffrent réellement.
+# LF 2026 : « Lutte contre les fraudes fiscales : 2,3 Md€ » (OFCE PB 154,
+# Tableau 4). Loi n° 2026-534 du 25/06/2026 : « récupérer plus de 1,5 milliard
+# d'euros supplémentaires, chaque année » — fiscal ET social confondus
+# (https://www.vie-publique.fr/loi/300456-lutte-contre-les-fraudes-sociales-et-fiscales-loi-du-25-juin-2026).
+LF2026_FRAUDE_FISCALE_MDE = 2.3
+LOI_2026_534_SUPPLEMENT_ANNUEL_MDE = 1.5
+# ⚠️ SOMME DÉCLARÉE DÉRIVÉE, pas citée : 2,3 (LF, fiscal) + 1,5 (loi du
+# 25/06, fiscal ET social). C'est la seule enveloppe de régime que les deux
+# primaires soutiennent CONJOINTEMENT, chacune employée une fois et une seule.
+# Elle est un PLAFOND d'ordre de grandeur, jamais une cible à égaliser
+# (cf. le piège de comparaison en tête de fichier).
+PLAFOND_REGIME_FRAUDE_MDE = (LF2026_FRAUDE_FISCALE_MDE
+                             + LOI_2026_534_SUPPLEMENT_ANNUEL_MDE)
+
+
+def _regime_mde(levier, mesures):
+    """Rendement maximal du levier sur l'horizon, en Md€/an — la grandeur que
+    les sources bornent. Mêmes conditions que ``effort_net_annuel``."""
+    local = BudgetSimulatorV45(periods=12, mesures=mesures)
+    handler = local.measure_handlers[levier]
+    return max(
+        recette - depense
+        for depense, recette, _ in (
+            handler({'id': levier}, mesures[levier], an, _PIB_MESURE,
+                    _INFLATION_MESURE, _CHOMAGE_MESURE)
+            for an in range(2026, 2036))
+    )
+
+
 @_SANS_FRONTEND
 def test_fraude_fiscale_bornee_par_le_chiffrage_de_la_loi():
-    """Le régime moteur de ~8 Md€/an en 2030 n'avait aucun ancrage.
+    """Le régime doit tenir dans le chiffrage de la loi — EN Md€, pas en curseur.
 
-    Deux bornes SOLIDES, concordantes : LF 2026 « Lutte contre les fraudes
-    fiscales : 2,3 Md€ » (OFCE PB 154, Tableau 4) ; loi n° 2026-534 du
-    25/06/2026, « récupérer plus de 1,5 milliard d'euros supplémentaires,
-    chaque année » — fiscal ET social confondus. 0,20 place le régime dans
-    cette fourchette ; 0,25 est la borne haute défendable."""
-    effort = _mesures_publiees()['fraude_fiscale']['effort']
-    assert effort == pytest.approx(0.20)
-    assert effort <= 0.25, "au-delà de 0,25 le levier sort du chiffrage de la loi"
+    Ce test bornait la valeur BRUTE du curseur (`effort == 0,20`,
+    `effort <= 0,25`), jamais le rendement. Or le curseur est adimensionnel :
+    aucune source ne le chiffre. La docstring affirmait « 0,20 place le régime
+    dans cette fourchette » — la mesure la contredisait : le régime valait
+    3,18 Md€/an pour la fraude fiscale seule, soit 1,4× la borne haute citée,
+    et 4,72 Md€/an avec la fraude sociale, soit 2,1×. C'est la même classe de
+    défaut que celle que le lot 9 corrige (un chiffrage qu'aucun texte ne
+    porte), logée cette fois dans la garde censée l'empêcher.
+
+    Constat de la revue adverse, clôturé le 2026-08-26. La borne porte
+    désormais sur le RÉGIME, en Md€/an, et le curseur en découle."""
+    mesures = _mesures_publiees()
+    regime = _regime_mde('fraude_fiscale', mesures)
+    assert regime <= LF2026_FRAUDE_FISCALE_MDE, (
+        f"régime encodé {regime:.2f} Md€/an > chiffrage de la LF 2026 "
+        f"({LF2026_FRAUDE_FISCALE_MDE} Md€) : le scénario « la politique "
+        f"votée » vote un rendement que la loi ne chiffre pas")
+
+
+@_SANS_FRONTEND
+def test_le_regime_fraude_total_tient_dans_les_deux_textes():
+    """Fiscal + social ≤ 2,3 + 1,5 Md€/an — chaque primaire employée UNE fois.
+
+    La borne totale est indispensable et ne se déduit pas de la précédente :
+    la loi du 25/06/2026 chiffre un supplément annuel qui couvre le fiscal ET
+    le social. Sans cette garde, on pourrait respecter la borne fiscale et
+    reloger le dépassement dans `fraude_sociale`, dont §B.5-35 établit
+    qu'AUCUN chiffrage distinct n'existe — c'est-à-dire compter deux fois la
+    même annonce. Mesuré avant : 4,72 Md€/an, soit 40 % de l'effort net 2030
+    du scénario de référence, dans la direction exacte du biais que le lot 9
+    prétend fermer."""
+    mesures = _mesures_publiees()
+    total = sum(_regime_mde(levier, mesures)
+                for levier in ('fraude_fiscale', 'fraude_sociale'))
+    assert total <= PLAFOND_REGIME_FRAUDE_MDE, (
+        f"régime fraude fiscale + sociale {total:.2f} Md€/an > "
+        f"{PLAFOND_REGIME_FRAUDE_MDE} Md€ (LF 2026 : "
+        f"{LF2026_FRAUDE_FISCALE_MDE} ; loi n° 2026-534 : "
+        f"{LOI_2026_534_SUPPLEMENT_ANNUEL_MDE}, fiscal ET social)")
+
+
+@_SANS_FRONTEND
+def test_le_curseur_fraude_fiscale_est_la_plus_grande_valeur_admissible():
+    """Le curseur n'est pas choisi, il est DÉDUIT de la borne en Md€.
+
+    0,14 est la plus grande valeur au centième dont le régime (2,23 Md€/an)
+    reste sous le chiffrage de la loi (2,3) — le levier étant linéaire en
+    `effort` (vérifié ci-dessous). Poser 0,15 rendrait 2,39 et sortirait.
+    Ce test existe pour que la valeur ne redevienne jamais un réglage : si
+    la borne source change, c'est elle qu'on édite, et le curseur suit."""
+    mesures = _mesures_publiees()
+    effort = mesures['fraude_fiscale']['effort']
+    assert effort == pytest.approx(0.14)
+    # Linéarité : le régime d'un curseur double vaut le double.
+    double = {**mesures, 'fraude_fiscale': {**mesures['fraude_fiscale'],
+                                            'effort': effort * 2}}
+    assert _regime_mde('fraude_fiscale', double) == pytest.approx(
+        2 * _regime_mde('fraude_fiscale', mesures), rel=1e-9)
+    # Le cran au-dessus sortirait : la valeur est bien la plus grande admissible.
+    suivant = {**mesures, 'fraude_fiscale': {**mesures['fraude_fiscale'],
+                                             'effort': 0.15}}
+    assert _regime_mde('fraude_fiscale', suivant) > LF2026_FRAUDE_FISCALE_MDE
 
 
 @_SANS_FRONTEND
