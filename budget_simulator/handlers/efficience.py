@@ -234,32 +234,44 @@ class EfficienceMixin(_MixinBase):
         roi_base = 8.75
         efficacite_recuperation = 0.70
 
-        # Économies
-        economies_identifiees = budget_controles * roi_base * phasing
-        economies_reelles = economies_identifiees * efficacite_recuperation
-
-        # Plafond théorique 13 Md€ (fraude détectée max), puis cap IGAS :
-        # la fraude sociale réellement recouvrable est estimée 6-8 Md€/an
-        # (IGAS). C'est un plafond de NIVEAU (montant max recouvrable),
-        # DISTINCT du mécanisme anti-double-comptage ASU ci-dessous (ne pas
-        # reconfondre les deux — c'est cette confusion qui rendait jadis
-        # la réduction ASU inerte : 8 < plafond ASU ∈ [9,1 ; 13]).
-        economies_reelles = min(economies_reelles, 13.0)  # plafond théorique (shadowé tant que 8 < 13)
-        economies_reelles = min(economies_reelles, 8.0)    # cap IGAS = borne effective
-
         # Anti-double-comptage ASU : si l'ASU est active, ses contrôles IA
         # intégrés captent déjà une part de la fraude sociale → ce levier
         # n'en récupère que le RÉSIDUEL (jusqu'à -30 % à plein régime,
         # 0.30·phasing). Contrepartie OBLIGATOIRE de l'exclusion symétrique
         # des gains fraude IA (+3-6 Md€) côté `_apply_asu` (cf docstring
         # depenses.py) : sans elle, ces montants ne sont comptés NI là NI
-        # ici. Appliqué APRÈS le cap IGAS (sinon shadowé). Dérivé de
-        # `self.mesures` + l'année via la source unique `asu_phasing` →
-        # AUCUNE dépendance à l'ordre d'exécution des handlers.
+        # ici. Appliqué au GISEMENT (donc aussi au budget saturant, cf.
+        # ci-dessous). Dérivé de `self.mesures` + l'année via la source
+        # unique `asu_phasing` → AUCUNE dépendance à l'ordre d'exécution
+        # des handlers.
         asu_ph = asu_phasing(self.mesures, year)
-        economies_reelles *= (1 - 0.30 * asu_ph)
 
-        delta_spending = -economies_reelles + budget_controles
+        # Gisement récupérable : plafond théorique 13 Md€ (fraude détectée
+        # max), puis cap IGAS — la fraude sociale réellement recouvrable est
+        # estimée 6-8 Md€/an (IGAS). Plafond de NIVEAU, DISTINCT du
+        # mécanisme ASU (ne pas reconfondre — c'est cette confusion qui
+        # rendait jadis la réduction ASU inerte : 8 < plafond ASU ∈
+        # [9,1 ; 13]). Le résiduel ASU réduit le gisement.
+        gisement = min(13.0, 8.0) * (1 - 0.30 * asu_ph)
+
+        # v0.6.3 (monotonie) : le budget ENGAGÉ sature avec le gisement.
+        # L'ancien calcul gardait un budget linéaire face à une récupération
+        # plafonnée : au-delà du point de saturation (effort ≈ 0,435 à plein
+        # phasing), chaque euro de contrôle coûtait sans rien récupérer —
+        # RN/LR à effort 1,0 recevaient ~1,5 Md€/an de MOINS que LFI à 0,5
+        # (même famille que la non-monotonie de l'audit Thierry, v0.6.0).
+        # Désormais l'excédent n'est pas engagé : on ne finance pas des
+        # contrôles dont le gisement IGAS dit qu'ils n'ont rien à récupérer.
+        # Le solde net devient FAIBLEMENT monotone en l'effort (flat au-delà
+        # de la saturation), strictement croissant en deçà — verrouillé par
+        # tests/test_passe_bugs_v063.py.
+        rendement_marginal = roi_base * efficacite_recuperation * phasing
+        budget_saturant = gisement / rendement_marginal if rendement_marginal > 0 else budget_controles
+        budget_engage = min(budget_controles, budget_saturant)
+
+        economies_reelles = budget_engage * rendement_marginal
+
+        delta_spending = -economies_reelles + budget_engage
 
         impacts = {
             'depenses': delta_spending,
@@ -268,11 +280,13 @@ class EfficienceMixin(_MixinBase):
             'competitivite': 0.0
         }
 
-        roi_observe = economies_reelles / budget_controles if budget_controles > 0 else 0
+        roi_observe = economies_reelles / budget_engage if budget_engage > 0 else 0
         asu_info = (f", anti-double-comptage ASU -{0.30 * asu_ph * 100:.0f}%"
                     if asu_ph > 0 else "")
+        saturation_info = (f" (demandé {budget_controles:.1f}, gisement saturé)"
+                           if budget_engage < budget_controles else "")
         _log_debug(self.debug_logs,
-            f"Y{year}: Fraude sociale - Budget {budget_controles:.1f}Md€, "
+            f"Y{year}: Fraude sociale - Budget engagé {budget_engage:.1f}Md€{saturation_info}, "
             f"Économies {economies_reelles:.1f}Md€, ROI {roi_observe:.1f}x (numérisation intégrée){asu_info}"
         )
 

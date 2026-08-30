@@ -79,11 +79,15 @@ def test_asu_active_strictly_reduces_fraude_savings(year):
         f"(ds {ds_asu} doit être > {ds_no_asu}). Interaction redevenue "
         "inerte → régression du fix anti-double-comptage (option A)."
     )
-    # Magnitude attendue : réduction = 0.30 * asu_phasing sur les économies.
+    # Magnitude attendue : réduction = 0.30 * asu_phasing sur le gisement.
+    # v0.6.3 (fix monotonie) : à effort saturant, budget engagé ET économies
+    # sont tous deux proportionnels au gisement récupérable → le SOLDE entier
+    # est linéaire dans le gisement : ds_asu = ds_no_asu × (1 − 0.30·ph).
+    # (L'ancienne re-dérivation `eco = −ds + 3.0` supposait un budget fixe de
+    # 3 Md€ — faux depuis que l'excédent au-delà de la saturation n'est plus
+    # engagé.)
     ph = asu_phasing({'asu': {'asu_activation': 1}}, year)
-    eco_no = -ds_no_asu + 3.0          # ds = -economies + budget_controles (effort 1.0 → 3 Md€)
-    eco_asu = -ds_asu + 3.0
-    assert eco_asu == pytest.approx(eco_no * (1 - 0.30 * ph), rel=1e-9)
+    assert ds_asu == pytest.approx(ds_no_asu * (1 - 0.30 * ph), rel=1e-9)
 
 
 def test_asu_inactive_leaves_fraude_full():

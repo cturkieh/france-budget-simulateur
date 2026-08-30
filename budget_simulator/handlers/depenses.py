@@ -122,6 +122,7 @@ from ..constants import (
     ASU_GINI_BORNE_PAR_MD_EUR,
     ASU_PERIMETRE_MD_EUR,
     ASU_PLAFONNEMENT_DEFAUT,
+    COUT_CHOMAGE_MARGINAL_MOIS_MD,
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
@@ -529,9 +530,16 @@ class DepensesMixin(_MixinBase):
         Frontend v4.5+ : Taux de remplacement % (0.45-0.80) + Durée (12-36 mois)
         Legacy : Montant Md€ (30-60) + Durée (12-36 mois)
 
-        Conversion taux → Md€ :
-        - Base 2025 (réforme avril) : 60% taux × 18 mois = 40 Md€
-        - Formule : Montant = 40 × (taux/0.60) × (durée/18)
+        DEUX CANAUX ORTHOGONAUX (v0.6.3 — fin du double comptage de la durée) :
+        - Canal TAUX : Montant = 40 × (taux/0.60) — base 2025 (réforme avril),
+          allocations Unédic ~40 Md€ à 60 % de taux et 18 mois de référence.
+          Un changement de taux touche TOUS les allocataires : proportionnel.
+        - Canal DURÉE : delta = (durée − 18) × COUT_CHOMAGE_MARGINAL_MOIS_MD
+          × (taux/0.60). Le mois MARGINAL ne concerne que la minorité qui
+          épuise ses droits (~30-40 % des sortants) : son coût (~0,75 Md€/an
+          par mois, ancre Unédic) est très inférieur au coût moyen 40/18 ≈
+          2,2. L'ancienne formule comptait la durée deux fois (dans montant
+          × durée/18 PUIS via un delta_duree additif ⇒ ~2,89 Md€/mois).
 
         Sources : Unédic 2025, OFCE 2023, INSEE 2024
         Réforme avril 2025 : 18 mois (<55 ans), 22.5 mois (55-56 ans), 27 mois (≥57 ans)
@@ -549,15 +557,18 @@ class DepensesMixin(_MixinBase):
         if not hasattr(self, '_chomage_params_prev'):
             self._chomage_params_prev = {'taux': 0.60, 'duree': DUREE_REF, 'degressivite': False}
 
-        # Compatibilité : Nouveau mode (taux %) ou Legacy mode (Md€)
+        # Compatibilité : Nouveau mode (taux %) ou Legacy mode (Md€).
+        # `montant` = canal TAUX SEUL (la durée ne passe QUE par le canal
+        # marginal ci-dessous) — il alimente aussi les impacts Gini/PA, qui
+        # ont leur propre terme durée (gini_duree) : y laisser la durée
+        # revenait à la compter deux fois là aussi.
         if 'taux_remplacement' in params:
             # Mode nouveau : Taux de remplacement % (0.45-0.80)
             taux_remplacement = params.get('taux_remplacement', 0.60)
-            montant = MONTANT_REF * (taux_remplacement / 0.60) * (duree / DUREE_REF)
         else:
-            # Mode legacy : Montant direct en Md€
-            montant = params.get('montant', MONTANT_REF)
-            taux_remplacement = 0.60 * (montant / MONTANT_REF) * (DUREE_REF / duree)  # Rétro-conversion pour logs
+            # Mode legacy : Montant direct en Md€ (à durée de référence)
+            taux_remplacement = 0.60 * (params.get('montant', MONTANT_REF) / MONTANT_REF)
+        montant = MONTANT_REF * (taux_remplacement / 0.60)
 
         # Détecter si paramètres ont changé (première année activation)
         # IMPORTANT: Inclure dégressivité pour tracker son activation
@@ -566,7 +577,10 @@ class DepensesMixin(_MixinBase):
         self._chomage_params_prev = params_current
 
         delta_montant = (montant - MONTANT_REF)
-        delta_duree = (duree - DUREE_REF) / DUREE_REF * 12 if duree != DUREE_REF else 0  # 12 Md€ pour variation proportionnelle
+        # Mois marginal proportionnel au taux : les allocations du mois
+        # supplémentaire sont versées au taux courant, pas au taux de réf.
+        delta_duree = (duree - DUREE_REF) * COUT_CHOMAGE_MARGINAL_MOIS_MD \
+            * (taux_remplacement / 0.60)
         delta_spending = delta_montant + delta_duree
         if degressivite:
             delta_spending *= 0.85 if delta_spending > 0 else 1.15

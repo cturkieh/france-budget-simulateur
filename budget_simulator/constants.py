@@ -22,6 +22,13 @@ CHARGES_INTERET_MD_EUR = 64.7  # Charge d'intérêts APU réalisée 2025 (INSEE,
 # === UNEMPLOYMENT (INSEE/DARES 2025) ===
 CHOMAGE_BASE = 0.076  # 7.6% unemployment rate
 CHOMAGE_NAIRU = 0.075  # Natural rate of unemployment
+# Coût MARGINAL d'un mois de durée maximale d'indemnisation (Md€/an, au taux
+# de remplacement de référence 60 %). Très inférieur au coût MOYEN (40/18 ≈
+# 2,2 Md€/mois) : seule la minorité d'allocataires qui épuise ses droits est
+# concernée par le mois marginal (~30-40 % des sortants, Unédic/DARES).
+# v0.6.3 : remplace le double comptage historique de _apply_chomage_alloc
+# (durée dans `montant` PUIS delta_duree additif ⇒ ~2,89 Md€/mois).
+COUT_CHOMAGE_MARGINAL_MOIS_MD = 0.75  # Md€/an par mois — ancre Unédic (chiffrage réforme durée), cf. docstring handler
 
 # === INEQUALITY (INSEE 2024) ===
 GINI_BASE = 0.29  # Gini coefficient France
