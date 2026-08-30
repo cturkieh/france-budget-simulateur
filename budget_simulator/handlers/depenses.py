@@ -141,6 +141,7 @@ from ..constants import (
     RETRAITES_GINI_RESIDU_FLUX,
     RETRAITES_PA_GEL_TOTAL,
     RETRAITES_REF_DUREE_ANS,
+    asu_cout_recours_md_eur,
     asu_cout_transition_md_eur,
     asu_effort_perenne_md_eur,
     asu_plafonnement_borne,
@@ -548,6 +549,7 @@ class DepensesMixin(_MixinBase):
         # Constantes de référence (réforme avril 2025)
         DUREE_REF = 18  # mois - nouvelle référence
         MONTANT_REF = 40  # Md€ pour 60% et 18 mois
+        TAUX_REF = 0.60  # taux de remplacement de la base MONTANT_REF (v0.6.3 : ex-littéral en 4 copies)
 
         duree = params.get('duree', DUREE_REF)
         if duree <= 0:
@@ -556,7 +558,7 @@ class DepensesMixin(_MixinBase):
 
         # Tracker première année activation (pour impact Gini one-time)
         if not hasattr(self, '_chomage_params_prev'):
-            self._chomage_params_prev = {'taux': 0.60, 'duree': DUREE_REF, 'degressivite': False}
+            self._chomage_params_prev = {'taux': TAUX_REF, 'duree': DUREE_REF, 'degressivite': False}
 
         # Compatibilité : Nouveau mode (taux %) ou Legacy mode (Md€).
         # `montant` = canal TAUX SEUL (la durée ne passe QUE par le canal
@@ -565,11 +567,11 @@ class DepensesMixin(_MixinBase):
         # revenait à la compter deux fois là aussi.
         if 'taux_remplacement' in params:
             # Mode nouveau : Taux de remplacement % (0.45-0.80)
-            taux_remplacement = params.get('taux_remplacement', 0.60)
+            taux_remplacement = params.get('taux_remplacement', TAUX_REF)
         else:
             # Mode legacy : Montant direct en Md€ (à durée de référence)
-            taux_remplacement = 0.60 * (params.get('montant', MONTANT_REF) / MONTANT_REF)
-        montant = MONTANT_REF * (taux_remplacement / 0.60)
+            taux_remplacement = TAUX_REF * (params.get('montant', MONTANT_REF) / MONTANT_REF)
+        montant = MONTANT_REF * (taux_remplacement / TAUX_REF)
 
         # Détecter si paramètres ont changé (première année activation)
         # IMPORTANT: Inclure dégressivité pour tracker son activation
@@ -581,7 +583,7 @@ class DepensesMixin(_MixinBase):
         # Mois marginal proportionnel au taux : les allocations du mois
         # supplémentaire sont versées au taux courant, pas au taux de réf.
         delta_duree = (duree - DUREE_REF) * COUT_CHOMAGE_MARGINAL_MOIS_MD \
-            * (taux_remplacement / 0.60)
+            * (taux_remplacement / TAUX_REF)
         delta_spending = delta_montant + delta_duree
         if degressivite:
             delta_spending *= 0.85 if delta_spending > 0 else 1.15
@@ -768,7 +770,7 @@ class DepensesMixin(_MixinBase):
         # recours », l'ajouter COMPLÈTE la source (détail : constants.py,
         # bloc I22/I26). Indépendant du plafond, comme la transition.
         transition = asu_cout_transition_md_eur(year)
-        recours = phasing * ASU_COUT_RECOURS_MD_EUR
+        recours = asu_cout_recours_md_eur(phasing)
         delta_spending = transition + recours \
             + phasing * asu_solde_perenne_md_eur(plafonnement)
         delta_revenue = 0.0

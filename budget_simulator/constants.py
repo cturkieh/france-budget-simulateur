@@ -1235,6 +1235,21 @@ def asu_cout_transition_md_eur(year: int) -> float:
     return ASU_COUT_TRANSITION_RETENU_MD_EUR / ASU_TRANSITION_ANNEES
 
 
+def asu_cout_recours_md_eur(phasing: float) -> float:
+    """Coût PÉRENNE de la hausse du taux de recours (Md€/an, >0 = surcoût).
+
+    v0.6.3 : troisième et dernière composante du coût ASU, aux côtés de
+    ``asu_solde_perenne_md_eur`` (barème) et ``asu_cout_transition_md_eur``
+    (bascule) — le coût d'une année se dérive donc de ``constants.py`` seul.
+    ``phasing`` = calendrier ``asu_phasing`` (le handler le calcule depuis
+    ``self.mesures``) : le recours monte avec la réforme puis reste à
+    2,4 Md€/an pour toujours — une réforme dont l'objet est de résorber le
+    non-recours ne cesse pas de le payer en année 5. Indépendant du plafond,
+    donc hors du plancher du solde pérenne (motif : bloc I22/I26 ci-dessus).
+    """
+    return phasing * ASU_COUT_RECOURS_MD_EUR
+
+
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré
 # (INSEE 2024 - Revenus disponibles bruts) :

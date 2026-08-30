@@ -17,7 +17,15 @@ from budget_simulator import BudgetSimulatorV45, FiscalMultipliers, load_default
 
 @pytest.fixture
 def simulator():
-    """Create a simulator with overridden base params for unit tests."""
+    """Create a simulator with overridden base params for unit tests.
+
+    ⚠️ HARNAIS FIGÉ, PAS L'ANCRE COURANTE : ces valeurs sont une photographie
+    délibérément gelée (recettes/dépenses en prévision PLF, croissance 0,009,
+    inflation 0,01…) pour que les tests unitaires calés dessus survivent aux
+    recalages de constants.py. Ne PAS les « mettre à jour » vers les valeurs
+    INSEE du moment (v0.6.3 : CROISSANCE_2025 = 0,008, INFLATION_BASE = 0,011)
+    — un test qui veut l'ancre courante importe constants.py directement.
+    """
     sim = BudgetSimulatorV45(periods=1)
     sim.base_params = {
         'pib_base': 2994,
