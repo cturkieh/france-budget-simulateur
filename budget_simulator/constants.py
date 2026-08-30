@@ -1250,6 +1250,24 @@ def asu_cout_recours_md_eur(phasing: float) -> float:
     return phasing * ASU_COUT_RECOURS_MD_EUR
 
 
+# === CALIBRATION FRAUDE SOCIALE (v0.6.3) ===
+# Sorties de l'inline du handler (revue passe 0) : depuis le fix de monotonie,
+# ces trois nombres ne calibrent plus seulement un rendement — leur produit
+# DÉTERMINE LE SEUIL DE SATURATION (budget saturant = GISEMENT/(ROI×EFFICACITÉ
+# ×phasing) ⇒ effort ≈ 0,435 à plein régime) au-delà duquel le curseur d'un
+# programme ne change plus rien. Un point de bascule qui touche au classement
+# RN/LR vs LFI doit être grepable et son déplacement visible en revue.
+# ⚠️ STATUTS INÉGAUX, hérités de la passe de sourcing v0.6.1 (docstring du
+# handler) : le GISEMENT est le cap IGAS (fraude réellement recouvrable
+# 6-8 Md€/an — la Cour, certification 2024, suggère un gisement brut d'indus
+# plutôt vers 4,0-4,4 : dette d'audit connue, le plafond « théorique »
+# historique de 13 Md€ était de toute façon shadowé par ce cap et a été
+# retiré du calcul) ; le ROI 8,75 n'est publié par AUCUNE source consultée
+# (valeur NON AUDITÉE) ; l'efficacité 0,70 idem.
+FRAUDE_SOCIALE_GISEMENT_MD_EUR = 8.0        # cap IGAS (borne haute 6-8), gisement recouvrable/an
+FRAUDE_SOCIALE_ROI = 8.75                   # € identifiés par € de contrôle — NON AUDITÉ (v0.6.1)
+FRAUDE_SOCIALE_EFFICACITE_RECUPERATION = 0.70  # part des sommes identifiées effectivement recouvrées
+
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré
 # (INSEE 2024 - Revenus disponibles bruts) :

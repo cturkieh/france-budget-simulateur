@@ -567,7 +567,7 @@ class DepensesMixin(_MixinBase):
         # revenait à la compter deux fois là aussi.
         if 'taux_remplacement' in params:
             # Mode nouveau : Taux de remplacement % (0.45-0.80)
-            taux_remplacement = params.get('taux_remplacement', TAUX_REF)
+            taux_remplacement = params['taux_remplacement']
         else:
             # Mode legacy : Montant direct en Md€ (à durée de référence)
             taux_remplacement = TAUX_REF * (params.get('montant', MONTANT_REF) / MONTANT_REF)
@@ -584,7 +584,11 @@ class DepensesMixin(_MixinBase):
         # supplémentaire sont versées au taux courant, pas au taux de réf.
         delta_duree = (duree - DUREE_REF) * COUT_CHOMAGE_MARGINAL_MOIS_MD \
             * (taux_remplacement / TAUX_REF)
-        delta_spending = delta_montant + delta_duree
+        # Somme € PRÉ-dégressivité, nommée une fois : les canaux d'indice
+        # (PA, compétitivité) la consomment telle quelle — seule la DÉPENSE
+        # porte le facteur de dégressivité, pas le choc de revenu des ménages.
+        delta_alloc = delta_montant + delta_duree
+        delta_spending = delta_alloc
         if degressivite:
             delta_spending *= 0.85 if delta_spending > 0 else 1.15
 
@@ -614,16 +618,21 @@ class DepensesMixin(_MixinBase):
             # ex-post 18/12/2025, p. 10-11). Même règle €, aucune constante
             # nouvelle ; à durée de référence la formule est identique à
             # l'ancienne (-0.002 × (40 − montant)/5).
-            pouvoir_achat = 0.002 * (delta_montant + delta_duree) / 5
+            pouvoir_achat = 0.002 * delta_alloc / 5
         else:
             # Années suivantes : impacts déjà intégrés dans indices courants
             gini = 0.0
             pouvoir_achat = 0.0
 
         # Compétitivité : Léger (flexibilité marché du travail) — ONE-TIME
-        # Règle : Baisse alloc = +0.0005 compétitivité (réforme Hartz IV)
+        # Règle : Baisse alloc = +0.0005 compétitivité (réforme Hartz IV).
+        # v0.6.3 : sur le canal € TOTAL (taux ET durée) — la fin du double
+        # comptage avait rendu ce canal inerte à la durée (même fuite que le
+        # PA, attrapée en revue), alors que Hartz IV, sa justification
+        # affichée, est précisément une réforme de DURÉE. À durée de
+        # référence la formule est identique à l'ancienne.
         if self._is_first_year_change('chomage_alloc_competitivite', params_current):
-            competitivite = 0.0005 * (MONTANT_REF - montant) / 5
+            competitivite = -0.0005 * delta_alloc / 5
         else:
             competitivite = 0.0
 

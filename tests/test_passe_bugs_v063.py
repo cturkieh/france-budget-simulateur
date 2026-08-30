@@ -132,6 +132,23 @@ class TestChomagePouvoirAchatDuree:
                                  'degressivite': False})['gini']
         assert gini == pytest.approx(0.002 * (18 - 12) / 6, rel=1e-9)
 
+    def test_la_competitivite_repond_aussi_a_la_duree(self):
+        """Même fuite que le PA, attrapée en revue : le canal compétitivité
+        (« flexibilité marché du travail », justifié par Hartz IV — une
+        réforme de DURÉE) lisait `montant`, devenu taux-seul après le fix du
+        double comptage → il était devenu inerte à la durée. Restauré sur le
+        canal € total : 18→12 mois = +0,0005 × 4,5/5 = +0,00045."""
+        c = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 12,
+                              'degressivite': False})['competitivite']
+        assert c == pytest.approx(0.0005 * (6 * 0.75) / 5, rel=1e-9)
+
+    def test_la_competitivite_canal_taux_inchangee(self):
+        """À durée de référence, formule bit-identique à l'ancienne."""
+        c = _chomage_impacts({'taux_remplacement': 0.55, 'duree': 18,
+                              'degressivite': False})['competitivite']
+        montant = 40 * (0.55 / 0.60)
+        assert c == pytest.approx(0.0005 * (40 - montant) / 5, rel=1e-9)
+
 
 # ---------------------------------------------------------------------------
 # BUG 2 — fraude sociale : solde net faiblement monotone en l'effort
