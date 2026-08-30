@@ -48,9 +48,11 @@ def _fraude_ds(params, year, mesures_extra=None):
 class TestChomageDuree:
     def test_l_ancre_marginale_est_dans_la_fourchette_sourcee(self):
         """La constante vit dans constants.py (source unique) et reste dans
-        la fourchette sourcée Unédic — un recalage hors fourchette doit être
-        un acte conscient (nouvelle source), pas une dérive."""
-        assert 0.5 <= COUT_CHOMAGE_MARGINAL_MOIS_MD <= 1.1
+        la fourchette sourcée Unédic (chiffrage direct 4,5 Md€/6 mois = 0,75 ;
+        routes stock et consommation : 0,70 et 0,67) — un recalage hors
+        fourchette doit être un acte conscient (nouvelle source), pas une
+        dérive."""
+        assert 0.65 <= COUT_CHOMAGE_MARGINAL_MOIS_MD <= 0.85
 
     def test_un_mois_de_plus_coute_le_marginal_pas_le_moyen(self):
         """+1 mois à taux de référence = exactement l'ancre marginale.

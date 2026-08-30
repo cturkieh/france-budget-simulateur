@@ -23,12 +23,22 @@ CHARGES_INTERET_MD_EUR = 64.7  # Charge d'intérêts APU réalisée 2025 (INSEE,
 CHOMAGE_BASE = 0.076  # 7.6% unemployment rate
 CHOMAGE_NAIRU = 0.075  # Natural rate of unemployment
 # Coût MARGINAL d'un mois de durée maximale d'indemnisation (Md€/an, au taux
-# de remplacement de référence 60 %). Très inférieur au coût MOYEN (40/18 ≈
-# 2,2 Md€/mois) : seule la minorité d'allocataires qui épuise ses droits est
-# concernée par le mois marginal (~30-40 % des sortants, Unédic/DARES).
+# de remplacement de référence 60 %). Ancre : Unédic, « Effets de l'adaptation
+# des règles d'assurance chômage à la conjoncture » (fév. 2023, actualisé
+# 17/04/2023), CONFIRMÉE par l'ex-post « Réforme 2023 : premiers effets de la
+# réforme de contracyclicité » (17-18/12/2025, p. 1) : la réduction 24→18 mois
+# (<53 ans) économise « de l'ordre de 4,5 Md€ par an » en croisière, soit
+# 4,5/6 = 0,75 Md€ par mois. Deux routes indépendantes convergent 5-10 % en
+# dessous (via le stock d'allocataires : 0,70 ; bottom-up consommation : 0,67)
+# → fourchette retenue 0,65-0,85 (testée). Très inférieur au coût MOYEN
+# (40/18 ≈ 2,2 Md€/mois) : ~30 % des entrants seulement atteignent la fin de
+# droits (ex-post 12/2025 p. 1 et 10), et les allocataires ne consomment que
+# ~2/3 de leur durée potentielle (p. 7 : 10 mois indemnisés pour 15 mois de
+# droit). Condition de validité : contracyclicité active, i.e. chômage BIT
+# < 9 % (prévisions Unédic 10/2025 : 7,6-8,0 % sur l'horizon → OK).
 # v0.6.3 : remplace le double comptage historique de _apply_chomage_alloc
 # (durée dans `montant` PUIS delta_duree additif ⇒ ~2,89 Md€/mois).
-COUT_CHOMAGE_MARGINAL_MOIS_MD = 0.75  # Md€/an par mois — ancre Unédic (chiffrage réforme durée), cf. docstring handler
+COUT_CHOMAGE_MARGINAL_MOIS_MD = 0.75  # Md€/an par mois de durée — Unédic 4,5 Md€ / 6 mois (réforme 2023)
 
 # === INEQUALITY (INSEE 2024) ===
 GINI_BASE = 0.29  # Gini coefficient France
@@ -63,7 +73,7 @@ if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
 # et par orchestrator.py (chemin année 0) : aucun littéral 0.010 dupliqué.
 # Ce N'EST PAS l'intercept de Phillips (cf. INFLATION_STRUCTURELLE ci-dessous)
 # ni la cible BCE (ancrage de convergence ~2,0 %, dans le rappel BCE inflation.py).
-INFLATION_BASE = 0.010  # graine inertie inflation année 0 (init inflation_precedente)
+INFLATION_BASE = 0.011  # graine inertie année 0 = déflateur PIB 2025 réalisé +1,1 % (INSEE Première n° 2105, 29/05/2026, comptes de la Nation 2025 — révisé de +1,2 %)
 # INFLATION_STRUCTURELLE : inflation TENDANCIELLE de moyen terme France =
 # POINT FIXE de la courbe de Phillips ancrée (engine/inflation.py).
 # Refonte 2026-06 : la formule applique (1−ρ)·π* + ρ·π_{t-1}, donc cette
@@ -172,7 +182,7 @@ BCE_PLANCHER_ACCOMMODANT = 0.008  # 0,8 % — seuil de la politique monétaire a
 CROISSANCE_POTENTIELLE = 0.011  # 1,1 % — moyenne du sentier de la mission
                                 # Jaravel/Ragot/Tavernier/Valla (07/2026) :
                                 # 1,2 / 1,2 / 1,0 / 1,0 % (2027-2030). v0.5.1 : 1,0.
-CROISSANCE_2025 = 0.009  # 0.9% INSEE définitif 2025
+CROISSANCE_2025 = 0.008  # +0,8 % en volume — INSEE Première n° 2105, 29/05/2026 (comptes de la Nation 2025 ; même publication que le déflateur INFLATION_BASE, appariement obligatoire)
 
 # === FISCAL PARAMETERS ===
 # v0.6.0 (audit externe 08/2026, constat 1) : TAUX_INTERET_BASE ne sert PLUS de

@@ -266,18 +266,23 @@ def test_la_conformite_du_corridor_2026_2030_ne_depend_pas_de_l_inertie(rho):
 def test_la_sensibilite_a_l_inertie_sur_la_fenetre_du_brief_est_publiee():
     """ÉCART AU BRIEF, mesuré et encadré DES DEUX CÔTÉS.
 
-    Le brief annonçait 0,02 pt et exigeait < 0,05 ; le moteur en fait 0,062.
-    L'encadrement est bilatéral à dessein : une borne haute seule se
-    desserrerait à la prochaine dérive, une borne basse seule laisserait
-    passer une correction qui, en éteignant le transitoire, ferait disparaître
-    l'écart sans que personne ne s'en aperçoive. Toute évolution de ce nombre
-    doit être un acte, pas un effet de bord."""
+    Le brief annonçait 0,02 pt et exigeait < 0,05 ; le moteur v0.6.1 en
+    faisait 0,062 (mesuré 26/08). RE-DÉCLARÉ v0.6.3 (30/08) : le recalage de
+    la graine 2025 sur les comptes définitifs (INFLATION_BASE 1,0 → 1,1 %,
+    INSEE Première n° 2105) raccourcit le transitoire → sensibilité mesurée
+    0,046 pt, désormais SOUS le seuil < 0,05 demandé par le brief. C'est la
+    bonne direction : la calibration dépend moins de ρ, le paramètre que
+    personne ne publie. L'encadrement est bilatéral à dessein : une borne
+    haute seule se desserrerait à la prochaine dérive, une borne basse seule
+    laisserait passer une correction qui, en éteignant le transitoire, ferait
+    disparaître l'écart sans que personne ne s'en aperçoive. Toute évolution
+    de ce nombre doit être un acte, pas un effet de bord."""
     ecart = abs(_moyenne_deflateur_2026_2030(0.25)
                 - _moyenne_deflateur_2026_2030(0.50))
-    assert 0.055 <= ecart <= 0.070, (
+    assert 0.040 <= ecart <= 0.055, (
         f"sensibilité de la moyenne 2026-2030 à ρ = {ecart:.4f} pt "
-        f"(mesurée 0,0620 au 2026-08-26 ; le brief annonçait 0,02 et "
-        f"demandait < 0,05 — écart assumé et déclaré)")
+        f"(mesurée 0,0460 au 2026-08-30, 0,0620 au 2026-08-26 ; le brief "
+        f"annonçait 0,02 et demandait < 0,05)")
 
 
 # --- I13/R2 — la pente ----------------------------------------------------
