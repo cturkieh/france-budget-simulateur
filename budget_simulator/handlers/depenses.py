@@ -123,6 +123,9 @@ from ..constants import (
     ASU_GINI_BORNE_PAR_MD_EUR,
     ASU_PERIMETRE_MD_EUR,
     ASU_PLAFONNEMENT_DEFAUT,
+    CHOMAGE_DUREE_REF_MOIS,
+    CHOMAGE_MONTANT_REF_MD,
+    CHOMAGE_TAUX_REF,
     COUT_CHOMAGE_MARGINAL_MOIS_MD,
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
@@ -546,10 +549,13 @@ class DepensesMixin(_MixinBase):
         Sources : Unédic 2025, OFCE 2023, INSEE 2024
         Réforme avril 2025 : 18 mois (<55 ans), 22.5 mois (55-56 ans), 27 mois (≥57 ans)
         """
-        # Constantes de référence (réforme avril 2025)
-        DUREE_REF = 18  # mois - nouvelle référence
-        MONTANT_REF = 40  # Md€ pour 60% et 18 mois
-        TAUX_REF = 0.60  # taux de remplacement de la base MONTANT_REF (v0.6.3 : ex-littéral en 4 copies)
+        # Constantes de référence (réforme avril 2025) — source unique
+        # constants.py, aux côtés de COUT_CHOMAGE_MARGINAL_MOIS_MD dont le
+        # bloc de sourcing les cite (v0.6.3, revue : les séparer laissait la
+        # dérivation du 0,75 orpheline de ses ancres).
+        DUREE_REF = CHOMAGE_DUREE_REF_MOIS
+        MONTANT_REF = CHOMAGE_MONTANT_REF_MD
+        TAUX_REF = CHOMAGE_TAUX_REF
 
         duree = params.get('duree', DUREE_REF)
         if duree <= 0:

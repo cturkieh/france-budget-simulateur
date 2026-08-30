@@ -26,11 +26,14 @@ from budget_simulator.simulator import BudgetSimulatorV45
 _GDP, _INFLATION, _UNEMP = 3000.0, 0.02, 0.075
 
 
+def _chomage(params):
+    """Tuple complet du handler (le handler ne lit pas self.mesures)."""
+    sim = BudgetSimulatorV45(periods=10)
+    return sim._apply_chomage_alloc({}, params, 2027, _GDP, _INFLATION, _UNEMP)
+
+
 def _chomage_ds(params):
-    sim = BudgetSimulatorV45(periods=10, mesures={'chomage_alloc': params})
-    ds, _, _ = sim._apply_chomage_alloc(
-        {}, params, 2027, _GDP, _INFLATION, _UNEMP)
-    return ds
+    return _chomage(params)[0]
 
 
 def _fraude_ds(params, year, mesures_extra=None):
@@ -53,6 +56,19 @@ class TestChomageDuree:
         fourchette doit être un acte conscient (nouvelle source), pas une
         dérive."""
         assert 0.65 <= COUT_CHOMAGE_MARGINAL_MOIS_MD <= 0.85
+
+    def test_la_derivation_de_l_ancre_tient_avec_ses_trois_ancres(self):
+        """Le bloc de sourcing dérive 0,75 = 4,5 Md€ / 6 mois (réforme 24→18)
+        et argumente « marginal ≪ moyen » via la base 40/18 à 60 %. Les trois
+        ancres vivent DANS constants.py à côté de la constante ; ce test rend
+        la dérivation exécutable — une révision de base qui laisserait la
+        justification fausse rougit ici au lieu de dériver en prose."""
+        from budget_simulator.constants import (
+            CHOMAGE_DUREE_REF_MOIS, CHOMAGE_MONTANT_REF_MD, CHOMAGE_TAUX_REF)
+        assert COUT_CHOMAGE_MARGINAL_MOIS_MD == pytest.approx(4.5 / 6)
+        assert CHOMAGE_DUREE_REF_MOIS == 18 and CHOMAGE_TAUX_REF == 0.60
+        cout_moyen = CHOMAGE_MONTANT_REF_MD / CHOMAGE_DUREE_REF_MOIS
+        assert cout_moyen / COUT_CHOMAGE_MARGINAL_MOIS_MD > 2.5  # marginal ≪ moyen
 
     def test_un_mois_de_plus_coute_le_marginal_pas_le_moyen(self):
         """+1 mois à taux de référence = exactement l'ancre marginale.
@@ -91,10 +107,7 @@ class TestChomageDuree:
 
 
 def _chomage_impacts(params):
-    sim = BudgetSimulatorV45(periods=10, mesures={'chomage_alloc': params})
-    _, _, impacts = sim._apply_chomage_alloc(
-        {}, params, 2027, _GDP, _INFLATION, _UNEMP)
-    return impacts
+    return _chomage(params)[2]
 
 
 class TestChomagePouvoirAchatDuree:
@@ -156,18 +169,21 @@ class TestChomagePouvoirAchatDuree:
 
 class TestFraudeMonotone:
     @pytest.mark.parametrize("year", [2026, 2027, 2029, 2032])
-    def test_le_solde_net_est_faiblement_monotone_en_l_effort(self, year):
-        """Plus d'effort anti-fraude ⇒ jamais un solde net pire.
+    @pytest.mark.parametrize("mesures_extra", [None, {'asu': {'asu_activation': 1}}],
+                             ids=['sans-asu', 'avec-asu'])
+    def test_le_solde_net_est_faiblement_monotone_en_l_effort(self, year, mesures_extra):
+        """Plus d'effort anti-fraude ⇒ jamais un solde net pire — y compris
+        sous ASU active (gisement résiduel réduit ⇒ budget saturant réduit).
         AVANT fix : au-delà d'effort ≈ 0,435 (plein phasing), ds REMONTAIT
         (budget linéaire, récupération plafonnée)."""
         grid = [i / 20 for i in range(21)]  # 0.00 … 1.00
         prev = None
         for effort in grid:
-            ds = _fraude_ds({'effort': effort}, year)
+            ds = _fraude_ds({'effort': effort}, year, mesures_extra=mesures_extra)
             if prev is not None:
                 assert ds <= prev + 1e-9, (
-                    f"non-monotonie à effort={effort:.2f} (année {year}) : "
-                    f"ds={ds:.4f} > {prev:.4f}")
+                    f"non-monotonie à effort={effort:.2f} (année {year}, "
+                    f"{mesures_extra!r}) : ds={ds:.4f} > {prev:.4f}")
             prev = ds
 
     def test_strictement_croissant_sous_la_saturation(self):
@@ -199,20 +215,6 @@ class TestFraudeMonotone:
         ds = _fraude_ds({'effort': 1.0}, 2026)
         attendu = -(3.0 * 8.75 * 0.25 * 0.70) + 3.0
         assert ds == pytest.approx(attendu, rel=1e-9)
-
-    @pytest.mark.parametrize("year", [2027, 2030])
-    def test_monotonie_preservee_avec_asu_active(self, year):
-        """L'anti-double-comptage ASU réduit le gisement récupérable — la
-        monotonie doit tenir aussi dans ce régime (budget saturant réduit)."""
-        asu = {'asu': {'asu_activation': 1}}
-        grid = [i / 10 for i in range(11)]
-        prev = None
-        for effort in grid:
-            ds = _fraude_ds({'effort': effort}, year, mesures_extra=asu)
-            if prev is not None:
-                assert ds <= prev + 1e-9, (
-                    f"non-monotonie sous ASU à effort={effort:.1f} ({year})")
-            prev = ds
 
     def test_asu_reduit_toujours_strictement_les_economies(self):
         """Le contrat ASU↔fraude (option A) survit au fix : ASU active ⇒

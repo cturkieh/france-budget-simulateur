@@ -39,6 +39,15 @@ CHOMAGE_NAIRU = 0.075  # Natural rate of unemployment
 # v0.6.3 : remplace le double comptage historique de _apply_chomage_alloc
 # (durée dans `montant` PUIS delta_duree additif ⇒ ~2,89 Md€/mois).
 COUT_CHOMAGE_MARGINAL_MOIS_MD = 0.75  # Md€/an par mois de durée — Unédic 4,5 Md€ / 6 mois (réforme 2023)
+# Les trois ANCRES de la dérivation ci-dessus (v0.6.3, sorties du corps du
+# handler où elles vivaient en locales) : la base « 40 Md€ à 60 % et 18 mois »
+# est ce que le bloc de sourcing cite pour dériver 0,75 (4,5/6 sur la réforme
+# 24→18) et pour le contraste marginal ≪ moyen (40/18 ≈ 2,2). Les séparer de
+# la constante qu'elles justifient, c'est garantir qu'une révision de base
+# laisse la justification fausse sans que rien ne rougisse.
+CHOMAGE_DUREE_REF_MOIS = 18   # durée de référence (<55 ans, réforme avril 2025)
+CHOMAGE_MONTANT_REF_MD = 40   # Md€ d'allocations à taux 60 % et 18 mois (cf. base 37,2 Unédic — dette déclarée)
+CHOMAGE_TAUX_REF = 0.60       # taux de remplacement de la base
 
 # === INEQUALITY (INSEE 2024) ===
 GINI_BASE = 0.29  # Gini coefficient France
