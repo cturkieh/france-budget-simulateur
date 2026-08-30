@@ -121,7 +121,7 @@ def test_aucune_collision_id_lfi_2026():
     assert "nfp_2027: {" not in content, "Le scénario nfp_2027 a été renommé en lfi_2027 — pas de définition résiduelle"
 
 
-# Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes (9 scénarios × 35 leviers).
+# Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes (tous les scénarios × 35 leviers ; MAJ 30/08/2026 : 10 scénarios).
 # Tolérance ±1.5 pt = absorbe les recalibrages mineurs tout en détectant la perte d'un gate
 # one-time PA (tva_rate, impot_revenu, impots_production, elargissement_ir, fiscalite_patrimoine,
 # transition_ecologique taxe_carbone) ou de l'asymétrie fonction_publique.
@@ -176,14 +176,20 @@ def test_aucune_collision_id_lfi_2026():
 # déclaré de -0,15 pt/an minore encore la perte affichée ici.
 EXPECTED_PA_2029_FULL = {
     "plf_2026": 101.9,
-    "rn_2027": 106.0,
+    # 30/08/2026 : retrait de la baisse de CSG furtive (0,097 → 0,098039 voté)
+    # chez RN et les deux scénarios Montaigne → PA −0,1 pt chacun.
+    "rn_2027": 105.9,
     "lfi_2027": 110.8,
-    "renaissance_2027": 103.7,
-    "horizons_2027": 107.3,
+    # 30/08/2026 : re-encodage Attal (droit au brut +15 Md€ mais année blanche
+    # inchangée, retrait rénovation non sourcée) 103.7 → 102.9 ; Philippe
+    # (retrait abattement retraités + chômage 16 mois) 107.3 → 106.7.
+    "renaissance_2027": 102.9,
+    "horizons_2027": 106.7,
     "lr_2027": 104.8,
     "ps_2027": 108.3,
-    "im_rabot_2029": 99.1,
-    "im_competitivite_2029": 104.5,
+    "ecologistes_2027": 107.1,
+    "im_rabot_2029": 99.0,
+    "im_competitivite_2029": 104.4,
 }
 
 

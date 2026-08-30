@@ -617,7 +617,7 @@ moteur ne cree une impulsion budgetaire que si l'effort depasse 0,1 % du PIB
 (`engine/growth.py`) — une regle A SEUIL. Un budget de prevention qui fait
 franchir ce seuil declenche d'un coup le multiplicateur, donc un peu de PIB,
 donc un ratio de dette legerement plus bas. Consequence mesuree : pousser le
-curseur au plafond fait MONTER la dette 2035 dans 7 des 9 scenarios publies
+curseur au plafond fait MONTER la dette 2035 dans 7 des 9 scenarios publies de l'epoque (v0.6.1)
 (jusqu'a +2,57 pt) et la fait baisser de 0,02 et 0,23 pt dans les deux autres.
 Ces deux baisses sont un **artefact de seuil du bloc macro**, pas un rendement
 de la prevention ; elles sont bornees par un test-propriete. Meme famille que
@@ -1550,7 +1550,7 @@ L'effet Gini d'age se declenche donc a la **premiere annee d'ecart non nul**
 quatre autres canaux d'une mesure d'age (moindres pensions, fuite sociale, offre
 de travail, bosse de chomage). Le canal INDEXATION du meme handler garde l'horloge
 du run : sa reference (la pleine indexation) ne bouge pas. Les deux horloges
-coincident pour tout age different de 62,75, donc pour les neuf scenarios publies.
+coincident pour tout age different de 62,75, donc pour tous les scenarios publies.
 
 ### Phasing (Montee en Puissance)
 
@@ -1823,21 +1823,41 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 |
-|---|---|---|
-| `rn_2027` | +3,4 | +10,9 |
-| `lfi_2027` | +13,2 | +25,0 |
-| `renaissance_2027` | -7,1 | -4,9 |
-| `horizons_2027` | -10,8 | -7,0 |
-| `lr_2027` | -13,3 | -6,3 |
-| `ps_2027` | +0,1 | +8,4 |
-| `im_rabot_2029` | -33,6 | -26,7 |
-| `im_competitivite_2029` | -36,4 | -24,2 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) |
+|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 |
+| `ecologistes_2027` | — | — | -2,2 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 |
 
-**Le constat, sans enrobage : sur cette mesure, les huit programmes se degradent
-tous PAR RAPPORT au scenario de reference — gauche comme droite, de +2,4 points
-pour Renaissance a +12,4 pour la variante competitivite de l'Institut
-Montaigne.** La cause est identifiable : cette version cable des canaux
+**Mise a jour du 30/08/2026 — la troisieme colonne ne mesure PAS un changement de
+moteur** (aucune ligne de calcul n'a change) : elle mesure le re-encodage des
+scenarios Renaissance, Horizons et LR sur leurs programmes publies cet ete, plus
+l'ajout du scenario Les Ecologistes (programme adopte le 13/07/2026). Le sens
+agrege de ce re-encodage : les ecarts favorables des scenarios du bloc central et
+de LR au scenario de reference se resserrent nettement (Renaissance -4,9 vers -1,5,
+Horizons -7,0 vers -1,3, LR -6,3 vers -4,0) — non par un choix de calibration,
+mais parce que la regle « aucun candidat ne recoit d'economies non sourcees »
+est desormais appliquee uniformement : les leviers herites sans source (efforts
+de fraude, optimisation de dette, coupes de recherche non annoncees, et une
+baisse de CSG furtive de 0,1 point presente dans six scenarios sans qu'aucun
+programme ne la porte — corrigee aussi chez RN et dans les deux scenarios de
+l'Institut Montaigne) sont revenus au droit en vigueur, et les depenses annoncees
+par les candidats (plan d'investissement Renaissance, baisse de cotisations
+« droit au brut ») sont entrees dans les scenarios au meme titre que leurs
+economies.
+
+**Le constat, sans enrobage — sur le passage v0.6.0 → v0.6.1 : les huit
+programmes alors publies se degradaient tous PAR RAPPORT au scenario de
+reference — gauche comme droite, de +2,4 points pour Renaissance a +12,4 pour
+la variante competitivite de l'Institut Montaigne.** (La troisieme colonne,
+elle, mesure le re-encodage des scenarios du 30/08/2026, pas le moteur — voir
+la mise a jour sous le tableau.) La cause est identifiable : cette version cable des canaux
 macroeconomiques (emploi seniors, Okun sur le potentiel, plafond de rendement de
 la prevention, cout reel de l'allocation sociale unique) que les programmes de
 parti actionnent beaucoup plus que la politique votee, laquelle ne bouge presque

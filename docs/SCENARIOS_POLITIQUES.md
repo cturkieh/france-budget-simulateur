@@ -13,9 +13,9 @@ Cet outil est un simulateur citoyen indépendant, sans affiliation gouvernementa
 
 ---
 
-## Les 9 scénarios
+## Les 10 scénarios
 
-Le simulateur propose **9 scénarios** : **7 programmes politiques** (gouvernement et principales formations) et **2 scénarios de think tank** produits par l'Institut Montaigne. Chaque scénario fixe l'ensemble des paramètres d'entrée du moteur ; le détail chiffré exact figure dans la section générée « Paramètres injectés ».
+Le simulateur propose **10 scénarios** : **8 programmes politiques** (gouvernement et principales formations) et **2 scénarios de think tank** produits par l'Institut Montaigne. Chaque scénario fixe l'ensemble des paramètres d'entrée du moteur ; le détail chiffré exact figure dans la section générée « Paramètres injectés ».
 
 ### Budget 2026 (voté)
 <!-- scenario:plf_2026 -->
@@ -98,14 +98,14 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 ### Programme Renaissance Attal 2027
 <!-- scenario:renaissance_2027 -->
 
-- **Source** : Programme G. Attal (Renaissance) — finances publiques, 2 juil. 2026
-- **Orientation** : redressement des comptes par la dépense plutôt que par l'impôt : objectif affiché de retour à l'équilibre en une décennie, effort porté d'abord sur le modèle social (gel temporaire des prestations, reprise de la réforme de l'assurance chômage) et sur la réduction des effectifs publics, sans hausse d'impôt et avec poursuite de la baisse de la fiscalité de production. Éducation, défense et transition écologique affichées comme priorités préservées. Le paramétrage encode les mesures chiffrables du programme de campagne — non la cible d'équilibre, qui est un résultat calculé par le moteur.
+- **Source** : Programme G. Attal (Renaissance) — attalpresident.fr/programme, consulté le 30 août 2026 (entretiens Les Échos 17/06, Le Parisien 02/07, Le Télégramme 22/07, Le Monde 25/08)
+- **Orientation** : redressement des comptes par la dépense plutôt que par l'impôt (objectif affiché de retour à l'équilibre en une décennie, effort d'abord sur le modèle social et les effectifs publics, sans hausse d'impôt), désormais combiné à des engagements de dépense et de baisse de prélèvements : plan d'investissement « France 2040 » pour l'IA (part publique ~10 Md€/an), « droit au brut » par baisse des cotisations salariales (non chiffré par le candidat, encodé sur bornes de tiers) et revalorisation enseignante. Le candidat adosse ces promesses aux mêmes économies non ventilées ; le paramétrage encode les mesures chiffrables des deux volets — non la cible d'équilibre, qui est un résultat calculé par le moteur.
 
 ### Programme Horizons Philippe 2027
 <!-- scenario:horizons_2027 -->
 
-- **Source** : Deal fiscal Horizons (E. Philippe, 6 nov 2025) + meeting de lancement (5 juil. 2026)
-- **Orientation** : compétitivité à solde neutre : « deal fiscal » avec les entreprises (forte baisse de la fiscalité de production intégralement compensée par la réduction des aides et niches aux entreprises, présentée comme à somme nulle pour l'État), prolongement de la réforme des retraites par un allongement de l'activité et une contribution accrue des retraités. Programme en cours de dévoilement (campagne lancée le 5 juillet 2026) : seules les mesures publiquement chiffrées sont paramétrées, le reste restant au statu quo budgétaire voté.
+- **Source** : Priorités É. Philippe — « Pour une France plus prospère » (site officiel) + AFP/débat Medef du 27 août 2026
+- **Orientation** : compétitivité et maîtrise affichée des comptes : « pacte fiscal » avec les entreprises (forte baisse de la fiscalité de production intégralement compensée par la réduction des aides et niches, à somme nulle pour l'État), durcissement de l'assurance chômage (12 mois d'indemnisation maximum pour les moins de 50 ans, converti en durée uniforme équivalente), fin de la surtaxe provisoire sur les grandes entreprises, et « travailler un peu plus longtemps » sans âge légal chiffré (calendrier légal maintenu, durée de cotisation en hypothèse). La cible de déficit à 2 % du PIB en fin de quinquennat est un résultat annoncé, non une mesure : seules les mesures publiquement chiffrées sont paramétrées, l'écart entre la cible et la trajectoire calculée mesurant la part non ventilée du programme.
 
 ### Programme LR Retailleau 2027
 <!-- scenario:lr_2027 -->
@@ -118,6 +118,12 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 
 - **Source** : Le Projet socialiste, volet éco « Vivre libres » (adopté le 25 juin 2026)
 - **Orientation** : social-démocratie d'équilibre, en position médiane entre la gauche de rupture et la majorité sortante. Abrogation partielle de la réforme des retraites, revalorisation du salaire minimum, investissement dans l'éducation et la transition, financés par une progressivité fiscale accrue et une fiscalité du patrimoine des plus hauts patrimoines (référence à la taxe Zucman). Recherche d'un équilibre entre justice sociale et soutenabilité budgétaire.
+
+### Programme Les Écologistes Tondelier 2027
+<!-- scenario:ecologistes_2027 -->
+
+- **Source** : « Pour une prospérité écologique » — nouveau programme des Écologistes (557 mesures, adopté le 13 juil. 2026)
+- **Orientation** : prospérité écologique par la refonte fiscale et l'investissement social : forte revalorisation du travail (salaire minimum à 2 000 € brut, rémunérations publiques), retour de l'âge minimum de départ à 62 ans, « garantie d'autonomie » remplaçant le RSA dès 18 ans, rénovation énergétique massive et adaptation climatique (7 Md€/an), financées par une refonte de la fiscalité du capital et des hauts revenus (ISF climatique, imposition minimale des très hauts patrimoines, tranche supérieure d'IR, CSG progressive relevée, imposition renforcée des grandes entreprises). Programme adopté en juillet 2026 ; la candidature reste suspendue aux discussions d'union à gauche — le paramétrage encode le programme adopté, indépendamment de l'issue.
 
 ### Institut Montaigne — Rabot -8%
 <!-- scenario:im_rabot_2029 -->
@@ -138,67 +144,67 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 > Tableau produit automatiquement par `scripts/generate_scenario_params.py` depuis `frontend-react/src/data/scenarios.json`. Toute modification manuelle entre les marqueurs sera écrasée. Ce tableau fait foi : en cas de doute, c'est lui qui décrit ce que simule l'outil.
 
 <!-- SCENARIO_PARAMS:START -->
-| Mesure | Paramètre | Budget 2026 (voté) | Programme RN Le Pen 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance Attal 2027 | Programme Horizons Philippe 2027 | Programme LR Retailleau 2027 | Programme PS 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
-|--------|-----------|--------------------|--------------------------|------------------------------|----------------------------------|----------------------------------|------------------------------|-------------------|--------------------------------|------------------------------------|
-| abattement_retraites | reforme_active | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
-| asu | asu_activation | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 1 |
-| asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.65 | 0.7 |
-| chomage_alloc | degressivite | false | false | false | false | false | false | false | false | false |
-| chomage_alloc | duree | 18 | 24 | 30 | 15 | 18 | 18 | 27 | 24 | 18 |
-| chomage_alloc | taux_remplacement | 0.6 | 0.57 | 0.7 | 0.6 | 0.6 | 0.57 | 0.65 | 0.6 | 0.55 |
-| collectivites | dotation | 116.6 | 115 | 140 | 120 | 120 | 110 | 130 | 110 | 95 |
-| collectivites | investissement | 0 | 0 | 15 | 0 | 0 | 0 | 8 | 0 | 0 |
-| cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.27 | 0.27 | 0.25 | 0.28 | 0.27 | 0.26 |
-| cotisations_salariales | baisse_points | 0 | 2 | 0 | 1.5 | 0 | 0 | 0 | 0 | 0 |
-| csg | progressive | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 0 | 0 |
-| csg | taux | 0.098039 | 0.097 | 0.105 | 0.097 | 0.097 | 0.097 | 0.1 | 0.097 | 0.097 |
-| defense | budget | 57 | 50 | 45 | 65 | 57 | 65 | 50 | 50 | 50 |
-| education | budget | 65 | 65 | 85 | 65 | 65 | 65 | 75 | 65 | 80 |
-| education | enseignants | 0 | 0 | 60000 | 0 | 0 | -20000 | 30000 | 0 | 10000 |
-| education | salaires | 0 | 0 | 15 | 5 | 0 | 1.5 | 8 | 0 | 8 |
-| elargissement_ir | taux_contribuables_cible | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 |
-| exonerations_salaires | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0.5 | 0 | 0 |
-| fiscalite_patrimoine | intensite | 0 | 0.15 | 0.3 | 0 | 0 | 0 | 0.25 | 0 | 0 |
-| fonction_publique | effectifs | -3119 | -50000 | 60000 | -100000 | -3119 | -200000 | 20000 | 0 | -120000 |
-| fonction_publique | point_indice | 0 | 0 | 10 | 0 | 0 | 0 | 3 | 0 | 0 |
-| fonction_publique_reforme | digitalisation | 0 | 30 | 10 | 50 | 20 | 50 | 15 | 0 | 50 |
-| fonction_publique_reforme | fusion_agences | 0 | 50 | 0 | 50 | 10 | 60 | 10 | 0 | 60 |
-| fraude_fiscale | effort | 0.14 | 1 | 1 | 0.5 | 0.5 | 0.8 | 0.9 | 0 | 0.8 |
-| fraude_sociale | effort | 0.1 | 1 | 0.5 | 0.3 | 0.3 | 1 | 0.6 | 0 | 0.8 |
-| immigration | ame | 1.2 | 0.4 | 1.5 | 1.2 | 1.2 | 0.3 | 1.4 | 1.1 | 0.8 |
-| immigration | integration | 0.8 | 0.3 | 1.2 | 0.8 | 0.8 | 0.4 | 1 | 0.7 | 0.6 |
-| impot_revenu | decote | 1 | 1.1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
-| impot_revenu | taux_superieur | 0.45 | 0.45 | 0.6 | 0.45 | 0.45 | 0.45 | 0.5 | 0.45 | 0.45 |
-| impot_societes | niches | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| impot_societes | taux | 0.25 | 0.25 | 0.3 | 0.25 | 0.25 | 0.25 | 0.27 | 0.25 | 0.25 |
-| impots_production | montant | 97 | 87 | 97 | 87 | 47 | 82 | 97 | 97 | 90 |
-| is_exceptionnel_tge | montant | 7.3 | 0 | 15 | 0 | 7.3 | 8 | 12 | 8 | 8 |
-| isf_climatique | intensite | 0 | 0.3 | 1 | 0 | 0 | 0 | 0.6 | 0 | 0 |
-| niches_fiscales_tge | montant | 57 | 58 | 20 | 56 | 31 | 50 | 40 | 58 | 40 |
-| niches_sociales_tge | montant | 68 | 70 | 50 | 68 | 68 | 80 | 55 | 70 | 55 |
-| optimisation_dette | intensite | 0 | 0.6 | 0 | 0.3 | 0.3 | 0.6 | 0.2 | 0 | 0.5 |
-| prestations_indexation | taux_indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 1 | 1 |
-| rabot_uniforme | exclure_defense | — | — | — | — | — | — | — | 1 | 1 |
-| rabot_uniforme | exclure_dette | — | — | — | — | — | — | — | 1 | 1 |
-| rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | 1 | 1 |
-| rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | 0.08 | 0 |
-| recherche_publique | budget | 10 | 8 | 15 | 8 | 8 | 3 | 12 | 0 | 15 |
-| retraites | age_depart | — | 61.5 | 60 | — | 65 | 65 | 62 | 64 | 65 |
-| retraites | duree_cotisation | 42.5 | 41 | 40 | 42.5 | 43 | 43 | 43 | 43 | 44 |
-| retraites | indexation | 1 | 1 | 1 | 0.9 | 1 | 1 | 1 | 1 | 0.8 |
-| sante | effort_ambu | 20 | 5 | 0 | 20 | 20 | 15 | 0 | 0 | 25 |
-| sante | effort_hopital | 15 | 5 | 0 | 15 | 15 | 20 | 0 | 0 | 30 |
-| sante | effort_prev_org | 10 | 5 | 0 | 20 | 10 | 10 | 0 | 0 | 15 |
-| sante | franchise_participation_taux | 100 | 100 | 0 | 100 | 100 | 120 | 50 | 100 | 110 |
-| sante | prevention_budget | 7.5 | 7.5 | 10.5 | 7.5 | 7.5 | 7.5 | 9.5 | 7.5 | 8.5 |
-| smic | montant_brut | 1800 | 1800 | 2050 | 1800 | 1800 | 1800 | 2150 | 1800 | 1800 |
-| subventions_tge | montant | 33 | 35 | 20 | 33 | 8 | 45 | 25 | 32 | 25 |
-| taxe_superprofits | intensite | 0 | 0.5 | 1 | 0 | 0 | 0 | 0.5 | 0 | 0 |
-| transition_ecologique | investissement | 0 | 5 | 50 | 0 | 0 | 8 | 25 | 0 | 20 |
-| transition_ecologique | renovation | 0 | 3 | 30 | 20 | 0 | 8 | 20 | 0 | 15 |
-| transition_ecologique | taxe_carbone | 44.6 | 44.6 | 120 | 44.6 | 44.6 | 100 | 100 | 100 | 110 |
-| tva_energie | taux | 0.2 | 0.055 | 0.055 | 0.2 | 0.2 | 0.2 | 0.1 | 0.2 | 0.2 |
-| tva_rate | taux | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 |
+| Mesure | Paramètre | Budget 2026 (voté) | Programme RN Le Pen 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance Attal 2027 | Programme Horizons Philippe 2027 | Programme LR Retailleau 2027 | Programme PS 2027 | Programme Les Écologistes Tondelier 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
+|--------|-----------|--------------------|--------------------------|------------------------------|----------------------------------|----------------------------------|------------------------------|-------------------|------------------------------------------|--------------------------------|------------------------------------|
+| abattement_retraites | reforme_active | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
+| asu | asu_activation | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 1 |
+| asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.5 | 0.65 | 0.7 |
+| chomage_alloc | degressivite | false | false | false | false | false | false | false | false | false | false |
+| chomage_alloc | duree | 18 | 24 | 30 | 16.5 | 16 | 18 | 27 | 24 | 24 | 18 |
+| chomage_alloc | taux_remplacement | 0.6 | 0.57 | 0.7 | 0.6 | 0.6 | 0.57 | 0.65 | 0.6 | 0.6 | 0.55 |
+| collectivites | dotation | 116.6 | 115 | 140 | 116.6 | 116.6 | 110 | 130 | 130 | 110 | 95 |
+| collectivites | investissement | 0 | 0 | 15 | 0 | 0 | 0 | 8 | 8 | 0 | 0 |
+| cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.27 | 0.27 | 0.242 | 0.28 | 0.28 | 0.27 | 0.26 |
+| cotisations_salariales | baisse_points | 0 | 2 | 0 | 2.5 | 0 | 0 | 0 | 0 | 0 | 0 |
+| csg | progressive | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
+| csg | taux | 0.098039 | 0.098039 | 0.105 | 0.098039 | 0.098039 | 0.098039 | 0.1 | 0.108039 | 0.098039 | 0.098039 |
+| defense | budget | 57 | 50 | 45 | 65 | 57 | 65 | 50 | 57 | 50 | 50 |
+| education | budget | 65 | 65 | 85 | 65 | 65 | 65 | 75 | 75 | 65 | 80 |
+| education | enseignants | 0 | 0 | 60000 | 0 | 0 | -20000 | 30000 | 30000 | 0 | 10000 |
+| education | salaires | 0 | 0 | 15 | 6.5 | 0 | 1.5 | 8 | 15 | 0 | 8 |
+| elargissement_ir | taux_contribuables_cible | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 |
+| exonerations_salaires | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0.5 | 0 | 0 | 0 |
+| fiscalite_patrimoine | intensite | 0 | 0.15 | 0.3 | 0 | 0 | 0 | 0.25 | 0.3 | 0 | 0 |
+| fonction_publique | effectifs | -3119 | -50000 | 60000 | -100000 | -3119 | -250000 | 20000 | 20000 | 0 | -120000 |
+| fonction_publique | point_indice | 0 | 0 | 10 | 0 | 0 | 0 | 3 | 10 | 0 | 0 |
+| fonction_publique_reforme | digitalisation | 0 | 30 | 10 | 50 | 20 | 50 | 15 | 0 | 0 | 50 |
+| fonction_publique_reforme | fusion_agences | 0 | 50 | 0 | 50 | 10 | 60 | 10 | 0 | 0 | 60 |
+| fraude_fiscale | effort | 0.14 | 1 | 1 | 0.14 | 0.14 | 0.8 | 0.9 | 1 | 0 | 0.8 |
+| fraude_sociale | effort | 0.1 | 1 | 0.5 | 0.1 | 0.1 | 1 | 0.6 | 0 | 0 | 0.8 |
+| immigration | ame | 1.2 | 0.4 | 1.5 | 1.2 | 1.2 | 0.3 | 1.4 | 1.5 | 1.1 | 0.8 |
+| immigration | integration | 0.8 | 0.3 | 1.2 | 0.8 | 0.8 | 0.4 | 1 | 1.2 | 0.7 | 0.6 |
+| impot_revenu | decote | 1 | 1.1 | 1 | 1 | 1 | 1 | 1 | 1.1 | 1 | 1 |
+| impot_revenu | taux_superieur | 0.45 | 0.45 | 0.6 | 0.45 | 0.45 | 0.45 | 0.5 | 0.6 | 0.45 | 0.45 |
+| impot_societes | niches | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| impot_societes | taux | 0.25 | 0.25 | 0.3 | 0.25 | 0.25 | 0.25 | 0.27 | 0.25 | 0.25 | 0.25 |
+| impots_production | montant | 97 | 87 | 97 | 87 | 47 | 82 | 97 | 97 | 97 | 90 |
+| is_exceptionnel_tge | montant | 7.3 | 0 | 15 | 0 | 0 | 8 | 12 | 15 | 8 | 8 |
+| isf_climatique | intensite | 0 | 0.3 | 1 | 0 | 0 | 0 | 0.6 | 1 | 0 | 0 |
+| niches_fiscales_tge | montant | 57 | 58 | 20 | 56 | 32 | 50 | 40 | 25 | 58 | 40 |
+| niches_sociales_tge | montant | 68 | 70 | 50 | 68 | 68 | 80 | 55 | 50 | 70 | 55 |
+| optimisation_dette | intensite | 0 | 0.6 | 0 | 0 | 0 | 0.6 | 0.2 | 0.3 | 0 | 0.5 |
+| prestations_indexation | taux_indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 1 | 1 | 1 |
+| rabot_uniforme | exclure_defense | — | — | — | — | — | — | — | — | 1 | 1 |
+| rabot_uniforme | exclure_dette | — | — | — | — | — | — | — | — | 1 | 1 |
+| rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | — | 1 | 1 |
+| rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | — | 0.08 | 0 |
+| recherche_publique | budget | 10 | 8 | 15 | 20 | 10 | 3 | 12 | 14 | 0 | 15 |
+| retraites | age_depart | — | 61.5 | 60 | — | — | 65 | 62 | 62 | 64 | 65 |
+| retraites | duree_cotisation | 42.5 | 41 | 40 | 42.5 | 43 | 43 | 43 | 42.5 | 43 | 44 |
+| retraites | indexation | 1 | 1 | 1 | 0.9 | 1 | 1 | 1 | 1 | 1 | 0.8 |
+| sante | effort_ambu | 20 | 5 | 0 | 20 | 20 | 15 | 0 | 0 | 0 | 25 |
+| sante | effort_hopital | 15 | 5 | 0 | 15 | 15 | 20 | 0 | 0 | 0 | 30 |
+| sante | effort_prev_org | 10 | 5 | 0 | 20 | 10 | 10 | 0 | 0 | 0 | 15 |
+| sante | franchise_participation_taux | 100 | 100 | 0 | 100 | 100 | 120 | 50 | 100 | 100 | 110 |
+| sante | prevention_budget | 7.5 | 7.5 | 10.5 | 7.5 | 7.5 | 7.5 | 9.5 | 9.5 | 7.5 | 8.5 |
+| smic | montant_brut | 1800 | 1800 | 2050 | 1800 | 1800 | 1800 | 2150 | 2000 | 1800 | 1800 |
+| subventions_tge | montant | 33 | 35 | 20 | 33 | 8 | 45 | 25 | 20 | 32 | 25 |
+| taxe_superprofits | intensite | 0 | 0.5 | 1 | 0 | 0 | 0 | 0.5 | 0.5 | 0 | 0 |
+| transition_ecologique | investissement | 0 | 5 | 50 | 0 | 0 | 8 | 25 | 7 | 0 | 20 |
+| transition_ecologique | renovation | 0 | 3 | 30 | 0 | 0 | 8 | 20 | 25 | 0 | 15 |
+| transition_ecologique | taxe_carbone | 44.6 | 44.6 | 120 | 44.6 | 44.6 | 100 | 100 | 44.6 | 100 | 110 |
+| tva_energie | taux | 0.2 | 0.055 | 0.055 | 0.2 | 0.2 | 0.2 | 0.1 | 0.2 | 0.2 | 0.2 |
+| tva_rate | taux | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 |
 <!-- SCENARIO_PARAMS:END -->
 
 ---
