@@ -57,10 +57,14 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
-| Deficit 2026 | -5,38 % | **-5,25 %** (loi votee : -5,0 %) |
-| Dette 2030 | 130,68 % | **129,65 %** (mission IGF : 130,5) |
-| Dette 2035 | 162,12 % | **159,35 %** |
-| Deficit 2035 | -11,27 % | **-10,70 %** |
+| Deficit 2026 | -5,37 % | **-5,25 %** (loi votee : -5,0 %) |
+| Dette 2030 | 130,41 % | **129,35 %** (mission IGF : 130,5) |
+| Dette 2035 | 161,79 % | **158,85 %** |
+| Deficit 2035 | -11,26 % | **-10,68 %** |
+
+  Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
+  d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
+  aux comptes definitifs INSEE et inertie d'inflation ramenee au milieu de sa fourchette).
 
   Toute grandeur mesuree publiee dans ce document nomme desormais son objet, et une garde de la suite moteur (`tests/test_chiffres_publies_v061.py`) la recalcule a chaque execution : un chiffre qui cesse de reproduire fait rougir la CI au lieu de rester en ligne.
 
@@ -1374,13 +1378,13 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 
 **Pass-through TVA (v4.0)** : one-shot, applique l'annee qui SUIT l'entree en vigueur de la mesure — la macro de l'annee t est calculee AVANT les mesures de t, l'impact TVA transmis vient donc de t-1. Pas de re-pass-through les annees suivantes : la persistance passe par l'inertie (rho = 0,5).
 
-**Ce que mesure la variable `inflation` — une variable pour trois roles (v4.1)** : le moteur n'a qu'une variable la ou l'economie en distingue trois — (i) le **deflateur du PIB**, denominateur du ratio de dette ; (ii) l'**IPC**, pour le pouvoir d'achat ; (iii) l'**indice d'indexation** des prestations. L'arbitrage retenu est de la caler sur le **deflateur**, parce que l'INSEE tranche explicitement (blog sept. 2022 : « les ressources publiques etant plus ou moins fonction du PIB en valeur plutot que de la seule consommation, c'est plutot le deflateur du PIB qui importe pour apprecier le taux d'emprunt reel des administrations publiques »), et parce que la dette est la sortie principale du site. L'indexation **legale** des pensions suit, elle, l'IPC hors tabac. **Biais residuel declare : -0,15 pt/an** sur les roles (ii) et (iii) — ecart deflateur/prix a la consommation mesure a -0,1/-0,2 pt en regime normal, jusqu'a -0,6/-0,8 pt en annee de choc energetique. **Ce biais n'est PAS conservateur — il FLATTE les chiffres publies** (correction du 26/08/2026 ; cette page ecrivait l'inverse). Il minore la depense indexee, donc il AMELIORE le deficit et la dette — la sortie principale du site — et il minore la perte de pouvoir d'achat affichee, donc il embellit cet indicateur aussi. Les deux effets vont dans le meme sens, et c'est le sens favorable ; « conservateur » designerait l'erreur qui joue contre soi. **Magnitude, mesuree par contre-epreuve** (depense primaire indexee sur l'IPC — l'indice que l'indexation legale suit — tout le reste identique) : deficit 2030 -6,40 -> -6,86, deficit 2035 -10,70 -> -11,95 ; dette 2030 129,65 -> 130,93, **dette 2035 159,35 -> 164,85, soit 5,5 points de PIB**. Ce n'est pas un residu de second ordre. Il n'est pas corrige ici : tous les handlers consomment `inflation`, scinder en trois variables est un changement d'architecture instruit separement — ce qui est corrige, c'est ce qu'on en dit.
+**Ce que mesure la variable `inflation` — une variable pour trois roles (v4.1)** : le moteur n'a qu'une variable la ou l'economie en distingue trois — (i) le **deflateur du PIB**, denominateur du ratio de dette ; (ii) l'**IPC**, pour le pouvoir d'achat ; (iii) l'**indice d'indexation** des prestations. L'arbitrage retenu est de la caler sur le **deflateur**, parce que l'INSEE tranche explicitement (blog sept. 2022 : « les ressources publiques etant plus ou moins fonction du PIB en valeur plutot que de la seule consommation, c'est plutot le deflateur du PIB qui importe pour apprecier le taux d'emprunt reel des administrations publiques »), et parce que la dette est la sortie principale du site. L'indexation **legale** des pensions suit, elle, l'IPC hors tabac. **Biais residuel declare : -0,15 pt/an** sur les roles (ii) et (iii) — ecart deflateur/prix a la consommation mesure a -0,1/-0,2 pt en regime normal, jusqu'a -0,6/-0,8 pt en annee de choc energetique. **Ce biais n'est PAS conservateur — il FLATTE les chiffres publies** (correction du 26/08/2026 ; cette page ecrivait l'inverse). Il minore la depense indexee, donc il AMELIORE le deficit et la dette — la sortie principale du site — et il minore la perte de pouvoir d'achat affichee, donc il embellit cet indicateur aussi. Les deux effets vont dans le meme sens, et c'est le sens favorable ; « conservateur » designerait l'erreur qui joue contre soi. **Magnitude, mesuree par contre-epreuve** (depense primaire indexee sur l'IPC — l'indice que l'indexation legale suit — tout le reste identique) : deficit 2030 -6,40 -> -6,86, deficit 2035 -10,70 -> -11,95 ; dette 2030 129,65 -> 130,93, **dette 2035 159,35 -> 164,85, soit 5,5 points de PIB** (contre-epreuve mesuree le 26/08/2026 sur l'etat v0.6.1 ; l'ordre de grandeur — le seul message ici — est inchange par la passe v0.6.3, dont les valeurs vivantes sont 129,35 / 158,85 / -10,68). Ce n'est pas un residu de second ordre. Il n'est pas corrige ici : tous les handlers consomment `inflation`, scinder en trois variables est un changement d'architecture instruit separement — ce qui est corrige, c'est ce qu'on en dit.
 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
-- L'output gap negatif tire le deflateur effectif vers **~1,2-1,5%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,22 / 1,42 / 1,43 / 1,49 / 1,51%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,414%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,22 / 1,43 / 1,46 / 1,53 / 1,57%. Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026.
-- **Marge a declarer** : la moyenne du scenario servi est a 0,014 pt du plancher de la fourchette, soit le meme ordre de grandeur que la sensibilite du sentier au parametre d'inertie `rho` (0,062 pt entre 0,25 et 0,50). La conformite tient sur toute la plage plausible de `rho`, et c'est verrouille par un test — mais elle tient sans grande marge, et le dire fait partie du contrat.
+- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,33 / 1,50 / 1,47 / 1,51 / 1,53%, ecart annuel <= 0,13 pt, **moyenne 2026-2030 = 1,468%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,33 / 1,51 / 1,50 / 1,55 / 1,58%. Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
+- **Marge a declarer** : la moyenne du scenario servi est a 0,068 pt du plancher de la fourchette (contre 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` est tombee a 0,046 pt entre 0,25 et 0,50 (0,062 avant) — desormais SOUS le seuil < 0,05 demande par le brief : la calibration depend moins du seul parametre que personne ne publie. La conformite tient sur toute la plage plausible de `rho`, et c'est verrouille par un test. En sens inverse, la marge du corridor de DETTE s'est resserree (deviation annuelle max 1,51 pt pour une tolerance de 1,6) : declare ici plutot que tu.
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -1713,11 +1717,11 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | **-5,25 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,38) |
-| Dette | **129,65 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -0,85 pt apres les recalages Phillips v4.1 et sourcing v4.2 — la v4.0 affichait +2,4 pt) |
-| Dette | **130,68 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **162,12 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 159,35) |
-| Deficit | **-11,27 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,70) |
+| Deficit | **-5,25 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,37) |
+| Dette | **129,35 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -0,85 pt apres les recalages Phillips v4.1 et sourcing v4.2 — la v4.0 affichait +2,4 pt) |
+| Dette | **130,41 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
+| Dette | **161,79 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 158,85) |
+| Deficit | **-11,26 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,68) |
 | Croissance potentielle | 1,1% | Sentier mission IGF 07/2026 (1,2/1,2/1,0/1,0), extensible a 1,3% |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
@@ -1823,17 +1827,41 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) |
-|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 |
-| `ecologistes_2027` | — | — | -2,2 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 |
+|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,7 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,7 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 |
+
+**Mise a jour du 30/08/2026 au soir — sens agrege de la v0.6.3 (quatrieme
+colonne).** Cette passe corrige deux bugs verifies et trois attributions, et
+son sens agrege est le MIROIR de la v0.6.1 : elle REND aux programmes ce que
+des mecanismes non sources leur retiraient. (1) La duree d'indemnisation
+chomage etait comptee DEUX FOIS (~2,89 Md EUR par mois d'ecart, contre
+0,75 sources Unedic) : les programmes qui l'allongent voient leur penalite
+fondre — LFI -7,3 points d'ecart, PS -4,7, RN -3,6, Les Ecologistes -3,6 —
+et les scenarios qui la reduisent (Renaissance a 15 mois, Horizons a
+12 mois, desormais encodes au parametre annonce et non plus en « duree
+equivalente ») economisent moins qu'avant : leurs ecarts favorables se
+resserrent encore (-1,5 vers -0,9 ; -1,3 vers -0,8). (2) L'effort
+anti-fraude au-dela du gisement IGAS ne coute plus a fonds perdus
+(monotonie retablie : ~+1,5 Md EUR/an rendus a RN et LR). (3) En sens
+inverse, le cout PERENNE du non-recours resorbe par l'ASU (2,4 Md EUR/an,
+DGALN) retire des economies a ses deux porteurs (LR, im_competitivite).
+(4) Le scenario im_rabot perd un artefact d'encodage (24 mois de duree
+herites de la reference d'avant la reforme d'avril 2025 — le « je ne change
+rien » d'alors etait devenu « +6 mois » quand le droit a bouge). Aucun de
+ces mouvements n'est un choix de calibration : chacun est la consequence
+d'une source ou d'une regle appliquee symetriquement, et les corrections
+jouent dans les deux sens (la gauche recupere sur la duree, la droite sur
+la fraude ; la droite paie le recours ASU, le centre perd ses durees
+equivalentes).
 
 **Mise a jour du 30/08/2026 — la troisieme colonne ne mesure PAS un changement de
 moteur** (aucune ligne de calcul n'a change) : elle mesure le re-encodage des
@@ -1869,7 +1897,7 @@ lot 8 ameliore la dette 2035 des NEUF scenarios sans exception (-5,6 a -10,6
 points), parce qu'un deflateur realise plus proche du corridor officiel donne un
 PIB nominal plus grand a tout le monde — c'est une correction de denominateur, en
 aucun cas une amelioration des finances publiques. Le scenario de reference passe
-ainsi de 170,1 (v0.6.0) a 159,35 points sur l'etat livre. Sur les ecarts relatifs, le lot 8 joue
+ainsi de 170,1 (v0.6.0) a 158,85 points sur l'etat livre (recale 30/08/2026, v0.6.3). Sur les ecarts relatifs, le lot 8 joue
 entre -0,7 et +4,3 point : il retire un peu de leur avantage aux deux scenarios
 les plus austeres (im_rabot, im_competitivite), dont la desinflation etait en
 partie soutenue par un garde-fou monetaire qui se declenchait jusqu'a dix annees
@@ -2000,6 +2028,403 @@ Deux corollaires assumes de la meme facon :
 - **le cout des annees de vie gagnees** (pensions, autonomie) est un mecanisme
   certain (van Baal 2008 ; arithmetique des retraites) dont le quantum n'est
   pas publie : il est signale ici et **n'est affecte d'aucun coefficient**.
+
+---
+
+## Choix de modelisation assumes — le registre des arbitrages
+
+La section precedente (L1 a L9) declare ce que ce simulateur ne fait **pas**
+par rapport aux modeles academiques. Celle-ci declare l'inverse : ce qu'il a
+fallu **trancher** pour qu'il produise un chiffre, la ou les sources publiques
+divergent, se contredisent, ou ne publient rien du tout. Un modele qui refuse
+d'arbitrer ne rend aucun resultat : la neutralite ne consiste donc pas a
+n'avoir aucun choix, mais a les prendre **symetriquement**, a nommer
+l'alternative ecartee, et a dire dans quel sens joue chacun. Le registre
+ci-dessous est l'index de ces arbitrages — le detail, les sources primaires et
+les tests-proprietes vivent dans les sections thematiques auxquelles chaque
+entree renvoie. Regle qui les gouverne tous : **un coefficient non source est
+supprime, jamais recalibre sur une valeur inventee.**
+
+### Macro : inflation, output gap, chomage
+
+**M1. Pente de Phillips a 0,20 — calibration encadree, pas estimation France.**
+Le choix : `PHILLIPS_PENTE_MT = 0,20` sur l'output gap. L'alternative ecartee :
+0,40, la pente de moyen terme mesuree par la Banque de France (*Rue de la
+Banque* n° 56, fevrier 2018, formule 4c2/(1-c1)), tous regimes confondus. La
+justification : dans les scenarios francais l'output gap est **negatif sur tout
+l'horizon**, donc sur le segment ou les estimations controlant les anticipations
+sont les plus pertinentes — la BCE (ECB WP n° 3133, octobre 2025) y mesure
+environ 0,065 converti sur l'output gap. Retenir 0,40 sur-punirait la conjoncture
+basse. **Il n'existe aucune estimation publiee de la pente de Phillips sur la
+France seule et sur l'output gap** : 0,20 est encadre par 0,40 et 0,065, ce
+n'est pas une valeur estimee. Detail : § Inflation et Courbe de Phillips.
+
+**M2. Courbe lineaire — pas de non-linearite en L inverse.** Le choix : la
+courbe reste lineaire, donc **symetrique par construction**. L'alternative
+ecartee : la non-linearite en L inverse (Benigno & Eggertsson, NBER WP 31197),
+qui est pourtant sourcee. La justification : elle est **asymetrique par
+construction** — plate en bas (aucune desinflation pour les programmes de
+consolidation), raide en haut (surcout inflationniste pour les programmes
+d'expansion). L'introduire serait une decision de neutralite, pas un reglage
+technique. Le verdict le plus recent la conteste par ailleurs : avec effets
+fixes pays x temps, « the non-linearity effectively disappears » (BCE, WP
+n° 3133).
+
+**M3. Deux termes d'effort budgetaire conserves — dette connue, declaree.** Le
+choix : les termes `-0,12 x effort` (consolidation) et `+0,08 x |effort|`
+(expansion) de `calculate_inflation` sont maintenus en l'etat. L'alternative
+ecartee : les retirer dans la meme passe que le recalage de la courbe. La
+justification : ils cumulent **trois defauts reels** — non sources, asymetriques
+entre eux, et en double comptage partiel avec le canal output gap — ce qui en
+fait une instruction a eux seuls, pas un effet de bord d'une recalibration. Ils
+sont **dits** plutot que corriges a l'aveugle.
+
+**M4. Une seule variable d'inflation, calee sur le deflateur.** Le choix : la
+variable unique `inflation` remplit trois roles (deflateur du PIB, IPC du
+pouvoir d'achat, indice d'indexation des prestations) et elle est calee sur le
+**deflateur**. L'alternative ecartee : la scinder en trois — tous les handlers
+la consomment, c'est un changement d'architecture instruit separement. La
+justification : l'INSEE tranche explicitement en faveur du deflateur pour
+apprecier les ressources publiques, et la dette est la sortie principale du
+site. **Le biais residuel de -0,15 pt/an n'est pas conservateur** : mesure par
+contre-epreuve, il vaut **5,5 points de dette 2035**. Detail : § Inflation et
+Courbe de Phillips.
+
+**M5. Output gap initial a -0,7 %, et la loi de mouvement conservee.** Le
+choix : `OUTPUT_GAP_INITIAL = -0,7 %` (RAA 2026, tableau n° 2 p. 20 ; avis HCFP
+n° 2026-3), et le gap continue d'obeir a `gap(t) = 0,8 x gap(t-1) + 0,2 x
+(croissance - potentielle)`. Deux alternatives ecartees : la variante FMI
+-0,4 % (Article IV 2026, Table 1), et le remplacement de la loi de mouvement par
+l'identite comptable. La justification : les deux primaires encadrent -0,7 et
+-0,4, et c'est la borne basse qui est retenue ; avec l'identite comptable, en
+statu quo (croissance = potentielle) le gap **ne se refermerait jamais** et
+l'inflation resterait durablement deprimee. C'est le niveau de depart qui etait
+faux, pas la loi.
+
+**M6. Les conversions chomage - output gap passent par le coefficient du
+moteur.** Le choix : toute conversion entre un ecart de chomage et un ecart
+d'activite utilise le coefficient d'Okun du moteur (-0,35, cf. L3). La
+justification : la passe de sourcing v0.6.1 **n'a pas cherche** de coefficient
+d'Okun estime sur la France. Les grandeurs qui en derivent sont donc
+defendables au mieux, et ne sont jamais presentees comme des valeurs estimees.
+
+### Retraites : bareme d'age et canal emploi seniors
+
+**M7. Bareme plat au-dela de 65 ans.** Le choix : 6,0 Md EUR par annee d'age
+sur **tout** le domaine 60-67 ans. L'alternative ecartee : un rendement
+decroissant au-dela de 65 ans. La justification : aucune source consultee ne
+chiffre le passage 65->66 ni 66->67, alors que le curseur monte a 67 ans. Le
+rendement decroissant est reel mais **doux** (0,285 -> 0,25 -> 0,20-0,25 pt sur
+le solde du systeme), jamais en falaise. **Hors de la plage 63-65 ans, le
+chiffrage est une extrapolation.** Detail : § Retraites.
+
+**M8. Symetrie stricte du bareme d'age.** Le choix : une annee de report
+rapporte exactement ce qu'une annee d'abaissement coute. L'alternative ecartee :
+le facteur d'asymetrie **0,70 a la baisse**, publie par la Cour des comptes
+(fevrier 2025, tableau n° 6 : -4,2 contre +6,0). La justification : ce facteur
+est mesure sur le seul palier 64->63 et decoule d'une hypothese explicite de
+modelisation sur les carrieres longues (Prisme suppose 80 % de reports a la
+hausse contre 40 % d'avancements a la baisse, Cour note 135 p. 74) ; rien ne le
+valide de 62 vers 60. Surtout, **aucune des deux options n'est neutre** — un
+coefficient plus faible a la baisse allege le cout affiche des programmes
+d'abaissement, un plus eleve les alourdit. La symetrie est le seul choix qui ne
+demande pas de prendre parti. Bande de sensibilite publiee : une baisse d'une
+annee d'age coute de **4,2 a 6,0 Md EUR/an**.
+
+**M9. Aucun slot cotisations dans le handler retraites.** Le choix : le handler
+n'inscrit que les moindres depenses de pension ; les cotisations retraite (Cour,
+tableau n° 6 : +2,4 Md EUR/an ; DG Tresor : +1,5) et les autres recettes
+publiques naissent **entierement** du canal PIB/emploi. L'alternative ecartee :
+activer un slot recette a +1,5 Md EUR/an, qui aurait donne au levier le
+perimetre exact du solde du systeme de retraites (7,5 Md EUR par annee d'age).
+La justification : les deux options ne peuvent pas coexister sans double
+comptage, et l'absence de slot le rend **structurellement impossible** plutot
+que corrige par un coefficient. Grandeur de controle publiee, consommee par
+aucun calcul : la part des prelevements additionnels relevant des cotisations
+vaut 2,4 / (2,4 + 9,3) = **20,5 %** (fourchette de controle 20-33 %).
+
+**M10. Interpolation log-lineaire des profils macro.** Le choix : les horizons
+3, 4 et 6 a 9 ans des profils d'absorption et de resorption sont interpoles
+log-lineairement. La justification : le COR ne publie que les horizons 1, 2, 5,
+10, 20 ans et long terme. C'est une **convention**, pas une estimation. Le
+profil d'absorption reste ecrit en clair dans `constants.py`
+(`ABSORPTION_OFFRE_SENIORS`), sans etre consomme par le moteur, pour que le
+profil effectivement utilise demeure auditable.
+
+**M11. Le produit des deux montees en charge.** Le choix : le profil
+d'absorption macroeconomique est **multiplie** par la montee en charge par
+cohortes sur 5 ans. L'alternative ecartee : n'appliquer que l'un des deux — le
+calibrage COR est explicitement sans progressivite. La justification : les deux
+profils decrivent des phenomenes distincts, l'absorption du choc par l'economie
+d'un cote et l'arrivee des cohortes de l'autre ; le raisonnement tient, mais
+**le produit n'est mesure par personne**. Sensibilite testee : le bouclage a dix
+ans vaut **17,5 Md EUR avec** la multiplication et **18,2 sans**, contre 17,7
+dans la decomposition de la Cour — le choix ne change pas la conclusion.
+
+**M12. La bosse de chomage a +0,18 pt : une derivation propre a ce
+simulateur.** Le choix : +0,18 pt de taux de chomage au pic par annee d'age.
+L'alternative ecartee : reprendre l'un des modeles institutionnels. La
+justification : c'est le point ou ils divergent le plus, et **definitivement** —
+a un an, DG Tresor 0,00, I-MIP -0,40, OFCE +0,55 (COR du 26/03/2026, Document
+n° 2, tableau 4). La valeur retenue est la moyenne de **trois routes
+independantes** (+0,13 / +0,19 / +0,21), toutes appuyees sur la part « chomage »
+du devenir des seniors decales, **stable a 26-27 % sur deux methodologies et
+deux sources de donnees independantes** (Dubois & Koubi, Insee 2016 ; Rabate &
+Rochut, *JPEF* 2020). Statut : **derivation de ce simulateur, jamais un chiffre
+institutionnel**. Sens : elle joue **contre** les programmes de report d'age.
+
+**M13. Fuite sociale a 9,6 %, et non aux 20 % publies.** Le choix : la fuite
+vers d'autres prestations est inscrite a 9,6 % de la moindre depense brute.
+L'alternative ecartee : les 20 % publies par la Cour des comptes. La
+justification : la cle DREES/DARES decompose ces 20 % en 52 % d'assurance
+chomage, 36 % d'indemnites journalieres et 12 % de minima sociaux, et **la part
+assurance chomage est deja produite endogenement** par la categorie de depense
+« chomage » du moteur — que la bosse M12 fait precisement bouger. On ne retient
+donc que 48 % x 20 %. Verification croisee : 0,53 Md EUR par le canal endogene
+contre 0,62 Md EUR par la cle, ecart de 14 %.
+
+**M14. Le choc est date une seule fois.** Le choix : les quatre canaux du levier
+d'age demarrent l'annee ou l'ecart au calendrier legal s'ouvre — pas l'annee ou
+la simulation commence — et un ecart qui s'ouvre progressivement porte **une
+seule** montee en charge. L'alternative ecartee : convoluer une suite de chocs
+annuels. La justification : une convolution exigerait de decomposer un profil
+publie en reponses impulsionnelles, ce que le COR ne publie pas. Consequence
+chiffree, bornee et testee : l'increment annuel maximal de niveau de PIB par
+annee d'age atteint **0,177 pt** au lieu de 0,120 pour un ecart maintenu
+constant.
+
+**M15. Le canal emploi n'est cable que sur l'age d'ouverture des droits.** Le
+choix : le levier « duree de cotisation » ne produit que sa ligne de depense —
+ni offre de travail vers le PIB, ni bosse de chomage, ni fuite sociale. La
+justification : son calibrage (4,0 Md EUR/an par annee) n'a pas ete audite par
+la passe de sourcing v0.6.1. **Asymetrie assumee et mesuree** : un mouvement de
+2,5 ans obtenu par la duree vaut +2,3 points de dette 2035, le meme mouvement
+obtenu par l'age en vaut +10,4 — un rapport de 1 a 4,5, qui n'est pas neutre en
+pratique. Corriger un levier non source pour « faire symetrique » deplacerait
+des programmes sur une valeur inventee : l'asymetrie est **dite** plutot que
+comblee. Detail : § Canal emploi seniors.
+
+**M16. Quatre canaux deliberement non cables.** Le choix : pas d'effet
+d'eviction sur l'emploi des jeunes, pas d'effet sur la productivite, pas de
+baisse d'epargne par anticipation, pas de reprise de l'elasticite OFCE 0,30
+emploi/population active. La justification : les trois premiers relevent d'un
+consensus d'absence d'effet macro (Kalwij, Kapteyn & De Vos 2010 sur 22 pays
+OCDE ; COR 26/03/2026, Document n° 6) ou d'une non-identifiabilite reconnue par
+la DG Tresor elle-meme ; le quatrieme decrit un choc soudain et indifferencie,
+quand l'ex post francais donne 0,60-0,70. C'est de la sobriete, pas un oubli —
+le tableau complet est en § Canal emploi seniors.
+
+**M17. L'effet distributif du canal emploi n'est pas ajuste.** Le choix : le
+coefficient Gini du levier d'age (+0,001 par 1,25 annee d'ecart) reste inchange
+malgre l'ajout du canal emploi. La justification : l'heterogeneite est forte et
+documentee — les carrieres a capital humain eleve se prolongent, les carrieres
+discontinues basculent en chomage ou en invalidite — mais **aucune source ne la
+chiffre**. Convention associee, elle aussi declaree : l'effet plein est servi
+l'annee ou la mesure ouvre son ecart, puis **10 % de residu annuel**
+(`RETRAITES_GINI_RESIDU_FLUX`), parce qu'une reforme d'age deplace le niveau des
+inegalites une fois puis ne laisse qu'un flux de nouvelles cohortes.
+
+### Social et sante : prevention, allocation sociale unique
+
+**M18. Prevention : le taux de compensation plafonne a 0,50.** Entree detaillee
+en **L9** ci-dessus. En resume : l'effet budgetaire net d'un euro
+**supplementaire** de prevention en France n'est publie par aucune institution,
+et l'IGAS 2024 dit pourquoi ; 0,50 est borne par la litterature internationale
+et **ne sera jamais presente comme source**. Deux corollaires assumes de la meme
+facon : la **forme de la rampe** (4 annees pleines sans retour, puis +10 points
+par an) est une convention faute de courbe de rendement decroissant publiee ; le
+**cout des annees de vie gagnees** est un mecanisme certain au quantum non
+publie, signale et affecte d'aucun coefficient.
+
+**M19. ASU : le curseur de plafond pilote un effort budgetaire, par
+interpolation lineaire.** Le choix : le curseur 50-70 % du SMIC net est mappe
+lineairement sur l'effort budgetaire perenne, entre les deux **seules** variantes
+chiffrees par la DREES et l'Igas (juin 2024) — « a cout constant » (0) et
+« +2 Md EUR perennes ». L'alternative ecartee : conserver une economie de
+baremes (-11,5 Md EUR/an a plein regime en v0.5.1). La justification : aucune
+source ne publie la correspondance entre un niveau de plafond et un montant —
+l'interpolation est une **convention declaree**.
+
+**M20. ASU : economie de gestion a 0,3 Md EUR/an, une derivation.** Le choix :
+0,3 Md EUR/an (fourchette 0,2-0,5). L'alternative ecartee : les 6,0 Md EUR/an de
+la v0.5.1, sourcees par une note de think tank. La justification : la gestion de
+**toute** la branche famille vaut environ 3 Md EUR/an (Cour des comptes,
+communication au Senat, janvier 2026) — le coefficient precedent en representait
+le double ; sur le perimetre reel de l'ASU la masse mobilisable est de 0,8 a
+1,0 Md EUR/an. Statut : **derivation assumee**, jamais une estimation
+officielle — la mission parlementaire declare que ses moyens « n'ont pas permis
+d'en estimer precisement le montant ».
+
+**M21. ASU : le plancher de la fourchette de transition, et le recours en
+charge perenne.** Le choix : le cout de transition retenu est le **plancher**
+de la fourchette publiee — 2 Md EUR cumules sur quatre ans — et la hausse du
+taux de recours (2,4 Md EUR/an, DGALN) est une charge **perenne** montant avec
+le phasing (v0.6.3). Deux alternatives ecartees : le plafond 13,4 Md EUR (ou le
+milieu) pour la transition ; et, pour le recours, tant l'ancien rattachement a
+la seule montee en charge (0,6 Md EUR/an sur quatre ans puis plus rien — 
+qu'aucune source ne soutient : une reforme dont l'objet est de resorber le
+non-recours ne cesse pas de le payer en annee 5) que le gisement de recours
+integral (~7,8 Md EUR/an, DREES ER n° 1370 et n° 1379, 2026 — qu'aucun
+scenario officiel ne suppose). La justification : le chiffrage de la mission
+flash se declare lui-meme « hors hausse du taux de recours » ; ajouter les
+2,4 Md EUR COMPLETE la source, au seul montant qu'elle attache a la reforme.
+Que cela retourne un levier « economies » en cout est le constat de la source,
+pas un choix du modele.
+
+**M22. ASU : zero economie de fraude.** Le choix : aucune economie de fraude
+structurelle n'est inscrite dans l'ASU. L'alternative ecartee : les 2,0 Md EUR/an
+de la v0.5.1, presentes comme 30 % des « 6,3 Md EUR d'erreurs CAF ». La
+justification : ce montant est la **somme algebrique** d'indus et de rappels —
+30 a 36 % sont des sommes **dues** aux allocataires, dont la detection augmente
+la depense (Cour des comptes, certification des comptes du regime general,
+exercice 2024). Le residuel de fraude qualifiee est par ailleurs deja porte par
+le curseur « Fraude sociale ».
+
+**M23. ASU : un Gini majorant plutot qu'une conversion inventee.** Le choix :
+l'effet Gini de l'ASU est une **borne theorique entierement explicite** — un
+transfert net integralement recu par le tout premier centile. L'alternative
+ecartee : convertir en points de Gini la baisse de 1,1 pt du taux de pauvrete
+publiee par la DREES et l'Igas. La justification : aucune source ne publie le
+Gini de l'ASU, et la conversion serait une derivation non sourcee. La borne
+**majore deliberement** le benefice redistributif des programmes genereux
+plutot que de le minorer, et elle est conditionnee a l'effort : a cout constant,
+la reforme compte 4,0 millions de perdants pour 3,9 millions de gagnants — un
+pur transfert entre menages, d'effet agrege nul par construction.
+
+### Redistribution : perimetre et coefficients de Gini
+
+**M24. Une seule base : le Gini du niveau de vie.** Le choix : tous les
+coefficients Gini sont calibres sur le revenu disponible par unite de
+consommation (definition INSEE). L'alternative ecartee : le revenu elargi a
+l'ensemble de l'economie (Gini 0,188 contre 0,297 — Insee Analyses n° 118, avril
+2026). La justification : un moteur ne peut avoir qu'**une** base, et **le choix
+de la base inverse les signes** — un meme prelevement indirect est regressif
+rapporte au revenu disponible et progressif rapporte au revenu elargi, sans
+qu'aucun chiffre ne change. Consequence operationnelle : tout coefficient
+importe d'une publication qui utilise l'autre base doit etre **re-derive**,
+jamais recopie. Detail : § Indicateurs Macroeconomiques.
+
+**M25. Education : zero par construction de l'indicateur.** Le choix :
+`_apply_education` emet `gini = 0,0` en clair, avec son motif de perimetre.
+Deux alternatives ecartees : (a) l'ancien fallback generique qui retranchait
+0,04 x (depense / PIB) — sans aucune source, **asymetrique** (une coupe emettait
+exactement zero) et recurrent ; (b) un coefficient de -1,4 x 10^-4 par Md EUR
+derive sur la base **elargie**. La justification : les depenses d'education sont
+des transferts **en nature** et n'entrent pas dans le revenu disponible — zero
+par construction de l'indicateur, pas par omission. Aucune elasticite « +1 Md EUR
+d'education -> Gini » n'existe dans la litterature, et c'est methodologique : les
+evaluations distributives francaises travaillent en microsimulation sur
+**baremes**, et une depense d'education n'a pas de bareme. Ordre de grandeur,
+meme sur l'indicateur qui lui est le plus favorable : deplacer le Gini elargi de
+0,01 demanderait environ **72 Md EUR**, soit +70 % du budget de l'education
+nationale.
+
+**M26. Recherche publique : zero assume et argumente.** Le choix : `gini = 0,0`.
+La justification : c'est un trou de la **litterature**, pas de la collecte —
+aucune etude, francaise ou internationale, n'estime l'incidence distributive de
+la depense publique de R&D sur les menages, qui s'evalue par ses **rendements**.
+L'INSEE classe la diffusion de la recherche parmi les depenses de consommation
+**collective**, repartie par hypothese, avec trois variantes publiees et
+l'avertissement que ces hypotheses « sont determinantes ». Le commentaire du
+code qui affirmait une incidence a ete retire, pas reecrit.
+
+**M27. Renovation energetique : le profil des euros est une hypothese
+declaree.** Le choix : -3,4 x 10^-4 de Gini par Md EUR. L'hypothese : **aucune
+publication ne ventile les montants verses par decile** — l'ONRE publie des
+economies d'energie, l'ONPE des nombres de dossiers ; on suppose donc que les
+euros suivent le profil des **economies d'energie**. Elle est **conservatrice** :
+les taux de prise en charge plus eleves des menages « Bleu » et « Jaune »
+rendraient le profil en euros plus pro-pauvres, donc le coefficient plus fort en
+valeur absolue. Statut : DEFENDABLE, jamais SOLIDE.
+
+**M28. Taxe carbone : la condition de validite du coefficient est publiee.** Le
+choix : +0,0010 de Gini pour +50 EUR/tCO2 (Douenne, *The Energy Journal* 2020 ;
+Note IPP n° 34, juillet 2018). La condition : le coefficient est derive de
+politiques evaluees **sans recyclage** des recettes — ce qui correspond bien au
+moteur, ou les recettes abondent le budget general. **Si un scenario ajoutait une
+compensation forfaitaire, le signe s'inverserait** : les deciles D1 a D5
+deviendraient gagnants. La condition est publiee ici parce que le moteur ne sait
+pas la detecter tout seul.
+
+**M29. Le facteur d'echelle global n'est pas re-derive.** Le choix :
+`GINI_IMPACT_SCALE = 0,22` reste en l'etat. La justification : c'est un facteur
+**global unique** applique a la somme agregee, qui preserve les ecarts relatifs
+entre scenarios — lui attribuer un biais oriente est une erreur d'analyse. Il
+pose en revanche un vrai probleme de **tracabilite** des qu'un coefficient
+source entre dans l'agregat. Sa re-derivation suppose d'avoir source **tous** les
+coefficients Gini et corrige la semantique flux/niveau : chantier explicitement
+differe (v0.7), et non bricole entre-temps.
+
+**M32. Assurance chomage : le mois de duree coute son prix MARGINAL, pas le
+moyen.** Le choix (v0.6.3) : un mois de duree maximale d'indemnisation vaut
+0,75 Md EUR/an au taux de reference (Unedic : la reduction 24 -> 18 mois
+economise « de l'ordre de 4,5 Md EUR par an », fev. 2023, confirme par
+l'ex-post du 18/12/2025), multiplie par `taux/0,60`. L'alternative ecartee : le
+cout moyen (40/18 = 2,2 Md EUR/mois), qui traiterait chaque mois de plafond
+comme paye a tous les allocataires — or ~30 % des entrants seulement
+atteignent la fin de droits, et les droits ne sont consommes qu'aux deux
+tiers. L'ancienne formule cumulait les deux (double comptage, ~2,89 Md EUR par
+mois) : corrige, pas recalibre. Condition de validite declaree : contracyclicite
+active (chomage < 9 %).
+
+**M33. Fraude sociale : le budget de controle sature avec le gisement.** Le
+choix (v0.6.3) : au-dela du point ou le gisement recouvrable (cap IGAS
+6-8 Md EUR/an, net du residuel ASU) est atteint, l'excedent de budget de
+controle n'est **pas engage** — le solde net est plat, jamais decroissant.
+L'alternative ecartee : une courbe a rendements decroissants lisse, qui aurait
+laisse le solde net REDIMINUER au-dela d'un pic (aucune source ne publie la
+forme de cette courbe, et la non-monotonie penalisait les programmes a effort
+maximal de ~1,5 Md EUR/an a fonds perdus). Meme famille de correction que la
+non-monotonie relevee par l'audit externe d'aout 2026.
+
+**M34. Inertie d'inflation a 0,33 — calibration encadree, pas estimation.** Le
+choix (v0.6.3) : `INFLATION_INERTIE = 0,33`, milieu de la fourchette de
+travail declaree (0,20-0,50). L'alternative ecartee : le 0,50 historique — un
+litteral sans source, au sommet de cette fourchette. L'encadrement : aucune
+institution ne publie de coefficient de pass-through des anticipations
+(verifie contre BCE, blog du 31/03/2026) ; la direction vient de la Banque de
+France (Billet n° 335, dec. 2023) — transmission aux anticipations « moins
+d'un tiers » de sa valeur de court terme aux horizons longs dans les pays sans
+indexation salariale, objet voisin mais distinct de l'inflation retardee d'une
+forme reduite, et declare comme tel. Effet mesure : la sensibilite de la
+calibration a ce parametre tombe de 0,062 a 0,046 pt.
+
+**M35. Le canal distributif de la duree d'indemnisation garde son coefficient
+historique.** Le choix : `gini_duree` (0,002 par reduction de 6 mois) reste en
+l'etat, alors qu'il porte desormais SEUL la charge distributive du levier
+duree (le double comptage via le montant a ete corrige, cf. M32) et qu'il ne
+cite aucune source. La justification : le recalibrer sans source serait
+fabriquer ; les donnees de bascule vers l'ASS (13 -> 20 % des fins de droits
+entre mi-2022 et mi-2025) suggerent qu'il est plutot sous-calibre — passe de
+calage dediee au backlog, l'ecart est dit plutot que comble.
+
+### Scenario de reference et gouvernance
+
+**M30. Le scenario de reference ne porte que l'effort chiffre par la loi.** Le
+choix : « Budget 2026 (vote) » n'encode plus les leviers qu'aucune loi de
+finances n'a chiffres. L'alternative ecartee : conserver le calage sur le
+deficit de l'annee 1. La justification : le scenario etait **cale sur le deficit
+2026, pas construit mesure par mesure** ; tant qu'il n'etait qu'une colonne parmi
+neuf, c'etait une approximation, mais depuis qu'il est le point de depart du
+simulateur et le comparateur implicite de tous les programmes, c'etait un biais
+systematique en faveur de la politique votee. **Contrepartie obligatoire, livree
+dans le meme lot** : les recettes reellement votees et absentes sont encodees —
+sans quoi on remplacerait un biais par un autre. Effort encode : +2,9 Md EUR en
+2026 et +25,5 en 2030 **avant**, +3,9 et +11,8 **apres**. Garde permanente : un
+test-propriete borne a **0,5 point de PIB** la derive de l'effort encode entre
+l'annee votee et 2030 (mesure : 0,75 avant, 0,26 apres). Detail : § Neutralite.
+
+**M31. Ce que le perimetre du scenario de reference ne sait pas representer est
+declare, pas force.** Le choix : les mesures votees qu'aucun levier existant ne
+sait porter — environ 6,5 Md EUR de recettes, dont les 5,7 Md EUR de prelevement
+sur recettes au profit de l'Union europeenne, qui jouent **contre** le scenario
+de reference — sont publiees telles quelles dans `SCENARIOS_POLITIQUES.md`
+plutot que rangees dans un levier approchant. Y figurent aussi les hypotheses
+que les parametres encodes supposent : reconduction annuelle de la contribution
+exceptionnelle sur les benefices des grandes entreprises, persistance
+structurelle d'un effort sante que la LFSS ne vote que pour une annee, et
+perimetre du schema d'emplois (le total gouvernemental inclut les caisses de
+securite sociale ; sur le seul perimetre Etat, le solde est positif).
 
 ---
 

@@ -367,7 +367,7 @@ class OrchestratorMixin:
         unemployment = self.base_params['chomage_base']
         inflation = self.base_params['inflation_base']
         growth = self.base_params['croissance_potentielle']
-        output_gap = self.output_gap_courant  # -0.015 initial
+        output_gap = self.output_gap_courant  # init = OUTPUT_GAP_INITIAL (constants.py, source unique)
         purchasing_power = 100.0  # Initialisation avant la boucle (base 100 en 2025)
         competitivite_index = 100.0  # Indice de compétitivité des entreprises (base 100 en 2025)
 

@@ -71,7 +71,8 @@
           "default_expr": "MONTANT_REF"
         },
         "taux_remplacement": {
-          "default": 0.6,
+          "default": null,
+          "default_expr": "TAUX_REF",
           "presence_checked": true
         }
       },

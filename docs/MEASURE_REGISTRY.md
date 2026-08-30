@@ -27,7 +27,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
   - `degressivite` (défaut : `False`)
   - `duree` (défaut : `DUREE_REF` (non littéral))
   - `montant` (défaut : `MONTANT_REF` (non littéral))
-  - `taux_remplacement` (défaut : `0.6`)
+  - `taux_remplacement` (défaut : `TAUX_REF` (non littéral))
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `chomage_duree` → param `duree` [12–36, pas 3]
   - `chomage_taux_remplacement` → param `taux_remplacement` [0.45–0.8, pas 0.05]

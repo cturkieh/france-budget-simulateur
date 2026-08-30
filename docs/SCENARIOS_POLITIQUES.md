@@ -150,7 +150,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | asu | asu_activation | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 1 |
 | asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.5 | 0.65 | 0.7 |
 | chomage_alloc | degressivite | false | false | false | false | false | false | false | false | false | false |
-| chomage_alloc | duree | 18 | 24 | 30 | 16.5 | 16 | 18 | 27 | 24 | 24 | 18 |
+| chomage_alloc | duree | 18 | 24 | 30 | 15 | 12 | 18 | 27 | 24 | 18 | 18 |
 | chomage_alloc | taux_remplacement | 0.6 | 0.57 | 0.7 | 0.6 | 0.6 | 0.57 | 0.65 | 0.6 | 0.6 | 0.55 |
 | collectivites | dotation | 116.6 | 115 | 140 | 116.6 | 116.6 | 110 | 130 | 130 | 110 | 95 |
 | collectivites | investissement | 0 | 0 | 15 | 0 | 0 | 0 | 8 | 8 | 0 | 0 |
