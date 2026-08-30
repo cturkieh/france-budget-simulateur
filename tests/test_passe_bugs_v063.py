@@ -90,6 +90,49 @@ class TestChomageDuree:
         assert ds == pytest.approx(0.0, abs=1e-12)
 
 
+def _chomage_impacts(params):
+    sim = BudgetSimulatorV45(periods=10, mesures={'chomage_alloc': params})
+    _, _, impacts = sim._apply_chomage_alloc(
+        {}, params, 2027, _GDP, _INFLATION, _UNEMP)
+    return impacts
+
+
+class TestChomagePouvoirAchatDuree:
+    """v0.6.3 : la fin du double comptage avait laissé le pouvoir d'achat
+    SANS canal durée (le Gini a gini_duree, le PA n'avait plus rien) — or
+    couper des mois de droits est un choc de revenu réel pour les ~30 %
+    d'entrants qui épuisent leurs droits (Unédic ex-post 18/12/2025 p. 10-11).
+    Le PA suit désormais le canal € TOTAL, même règle INSEE (−0,002 / 5 Md€)."""
+
+    def test_couper_la_duree_frappe_le_pouvoir_d_achat(self):
+        """18→12 mois à taux constant : PA = 0,002 × (−4,5)/5 = −0,0018
+        (AVANT le fix v0.6.3 du double comptage : −0,0053 gonflé ;
+        APRÈS le fix mais AVANT ce patch : 0, canal disparu)."""
+        pa = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 12,
+                               'degressivite': False})['pouvoir_achat']
+        assert pa == pytest.approx(0.002 * (-6 * 0.75) / 5, rel=1e-9)
+
+    def test_allonger_la_duree_est_symetrique(self):
+        pa = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 24,
+                               'degressivite': False})['pouvoir_achat']
+        assert pa == pytest.approx(0.002 * (6 * 0.75) / 5, rel=1e-9)
+
+    def test_le_canal_taux_du_pa_est_inchange(self):
+        """À durée de référence, la formule est bit-identique à l'ancienne
+        −0,002 × (40 − montant)/5 : aucun scénario taux-seul ne bouge."""
+        pa = _chomage_impacts({'taux_remplacement': 0.55, 'duree': 18,
+                               'degressivite': False})['pouvoir_achat']
+        montant = 40 * (0.55 / 0.60)
+        assert pa == pytest.approx(-0.002 * (40 - montant) / 5, rel=1e-9)
+
+    def test_le_gini_duree_est_conserve_sans_double_comptage(self):
+        """gini = gini_montant (taux seul) + gini_duree — la durée ne passe
+        plus par montant, donc plus par gini_montant (facteur 6,3 d'avant)."""
+        gini = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 12,
+                                 'degressivite': False})['gini']
+        assert gini == pytest.approx(0.002 * (18 - 12) / 6, rel=1e-9)
+
+
 # ---------------------------------------------------------------------------
 # BUG 2 — fraude sociale : solde net faiblement monotone en l'effort
 # ---------------------------------------------------------------------------

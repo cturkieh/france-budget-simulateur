@@ -814,9 +814,13 @@ PREVENTION_PLAFOND_MD_EUR = round(
 #
 # ⚠️ CE QUI N'EXISTE PAS, et ne doit jamais être fabriqué (§ B.3-22 du dossier
 # de sourcing v0.6.1) : l'effet budgétaire net d'un euro SUPPLÉMENTAIRE de
-# prévention EN FRANCE n'est publié par aucune institution. L'IGAS 2024
-# (Bras & Monasse) dit pourquoi : « en l'absence d'une évaluation structurée
-# en France de l'efficacité et de l'efficience des actions de PPS ».
+# prévention EN FRANCE n'est publié par aucune institution. L'IGAS n° 2024-027R
+# (Bras & Monasse, oct. 2024) dit pourquoi — le champ « est encore peu
+# structuré en France, et mobilise de façon insuffisante des analyses
+# d'efficience » (synthèse, § 1 ; cf. aussi le titre du § 1.3.3 : « L'absence
+# de dynamique en France autour des études d'efficience »). [v0.6.3 : la
+# citation qui figurait ici auparavant n'apparaissait dans aucun des deux
+# rapports IGAS — remplacée par le libellé réel, vérifié au PDF.]
 # PREVENTION_OFFSET_CENTRAL_CAP est donc — et restera — un CHOIX DE
 # MODÉLISATION ASSUMÉ, borné par la littérature internationale ci-dessus,
 # JAMAIS présenté comme sourcé. Ce que les sources établissent, c'est
@@ -1013,9 +1017,13 @@ ASU_SOLDE_PERENNE_PLANCHER_MD_EUR = 0.0
 #  (a) valeur retenue = le PLANCHER de la fourchette officielle. C'est le choix
 #      le moins pénalisant pour les programmes qui portent l'ASU — la
 #      correction joue déjà contre eux, elle ne doit pas surcharger ;
-#  (b) profil UNIFORME sur les quatre années : la source publie une enveloppe
-#      cumulée, jamais un profil annuel. Répartir uniformément n'ajoute aucune
-#      hypothèse ;
+#  (b) profil UNIFORME sur les quatre années : SIMPLIFICATION ASSUMÉE.
+#      [v0.6.3 : la justification antérieure (« la source publie une enveloppe
+#      cumulée, jamais un profil annuel ») était FAUSSE — le rapport de la
+#      mission flash contient une table « Trajectoire du surcoût selon le mode
+#      de transition » avec les profils annuels (ex. Tr5+JR2 total 2,0 =
+#      0,0/2,1/0,9/0,0). Le profil uniforme reste retenu comme simplification,
+#      il n'est plus présenté comme imposé par la source.] ;
 #  (c) la source ne dit pas si les 2,4 Md€ de hausse du recours sont ponctuels
 #      ou pérennes. Le moteur les rattache à la montée en charge — choix
 #      CONSERVATEUR (il ne les rend pas permanents), et signalé comme tel.

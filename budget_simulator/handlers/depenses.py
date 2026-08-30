@@ -536,7 +536,7 @@ class DepensesMixin(_MixinBase):
           Un changement de taux touche TOUS les allocataires : proportionnel.
         - Canal DURÉE : delta = (durée − 18) × COUT_CHOMAGE_MARGINAL_MOIS_MD
           × (taux/0.60). Le mois MARGINAL ne concerne que la minorité qui
-          épuise ses droits (~30-40 % des sortants) : son coût (~0,75 Md€/an
+          épuise ses droits (~30 % des allocataires entrants) : son coût (~0,75 Md€/an
           par mois, ancre Unédic) est très inférieur au coût moyen 40/18 ≈
           2,2. L'ancienne formule comptait la durée deux fois (dans montant
           × durée/18 PUIS via un delta_duree additif ⇒ ~2,89 Md€/mois).
@@ -600,8 +600,18 @@ class DepensesMixin(_MixinBase):
             gini = gini_montant + gini_duree
 
             # Pouvoir d'achat : Impact FORT sur chômeurs (ONE-TIME)
-            # Règle : Montant 40→35 Md€ = -0.002 PA (INSEE 2024)
-            pouvoir_achat = -0.002 * (MONTANT_REF - montant) / 5
+            # Règle : 5 Md€ d'allocations en moins = -0.002 PA (INSEE 2024),
+            # appliquée au canal € TOTAL (taux ET durée). v0.6.3 : la fin du
+            # double comptage avait fait disparaître la durée du PA (le Gini
+            # a son gini_duree, le PA n'avait plus d'équivalent) — or couper
+            # des mois de droits est un choc de revenu réel pour les ~30 %
+            # d'entrants qui épuisent leurs droits (part basculant à l'ASS
+            # 13 → 20 % entre mi-2022 et mi-2025 ; 31 % des moins de 59 ans
+            # en emploi salarié trois mois après l'épuisement — Unédic
+            # ex-post 18/12/2025, p. 10-11). Même règle €, aucune constante
+            # nouvelle ; à durée de référence la formule est identique à
+            # l'ancienne (-0.002 × (40 − montant)/5).
+            pouvoir_achat = 0.002 * (delta_montant + delta_duree) / 5
         else:
             # Années suivantes : impacts déjà intégrés dans indices courants
             gini = 0.0
