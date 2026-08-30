@@ -185,11 +185,13 @@ class TestChomagePouvoirAchatDuree:
         assert c == pytest.approx(0.0005 * (6 * 0.75) / 5, rel=1e-9)
 
     def test_la_competitivite_canal_taux_inchangee(self):
-        """À durée de référence, formule bit-identique à l'ancienne."""
+        """À durée de référence, la formule garde sa forme (base = constante,
+        40 à l'époque du fix, 36,6 depuis v0.6.4)."""
+        from budget_simulator.constants import CHOMAGE_MONTANT_REF_MD as REF
         c = _chomage_impacts({'taux_remplacement': 0.55, 'duree': 18,
                               'degressivite': False})['competitivite']
-        montant = 40 * (0.55 / 0.60)
-        assert c == pytest.approx(0.0005 * (40 - montant) / 5, rel=1e-9)
+        montant = REF * (0.55 / 0.60)
+        assert c == pytest.approx(0.0005 * (REF - montant) / 5, rel=1e-9)
 
 
 # ---------------------------------------------------------------------------

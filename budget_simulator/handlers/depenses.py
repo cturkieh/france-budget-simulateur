@@ -126,6 +126,8 @@ from ..constants import (
     CHOMAGE_MONTANT_REF_MD,
     CHOMAGE_TAUX_REF,
     COUT_CHOMAGE_MARGINAL_MOIS_MD,
+    GINI_ALLOC_PAR_MD,
+    GINI_DUREE_SURPOIDS,
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
@@ -610,21 +612,36 @@ class DepensesMixin(_MixinBase):
         # retours à l'emploi, déjà créditée séparément par impact_chomage —
         # aucune source ne publie la décomposition, le choix est déclaré.)
         delta_alloc = delta_montant + delta_duree
-        if degressivite:
-            delta_alloc *= 0.85 if delta_alloc > 0 else 1.15
+        # v0.6.4 (revue adverse, constat 27) : le facteur de dégressivité est
+        # nommé UNE fois et s'applique à TOUS les canaux qui lisent ces euros —
+        # dépense, PA, compétitivité (v0.6.3) ET Gini (corrigé ici : ses ±15 %
+        # d'allocations étaient du revenu retiré aux ménages à coût distributif
+        # NUL — le free lunch exact que test_asu_no_free_lunch interdit au
+        # handler voisin, et la forme que v0.6.3 avait corrigée pour le PA).
+        facteur_degressivite = (0.85 if delta_alloc > 0 else 1.15) if degressivite else 1.0
+        delta_alloc *= facteur_degressivite
         delta_spending = delta_alloc
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # IMPORTANT : Impacts ONE-TIME uniquement (demande, effet niveau)
         # Évite cumul absurde sur 10 ans
         if is_first_year:
-            # Gini : Baisse allocations = impact FORT chômeurs (régressif)
-            # Règle : Montant 40→35 Md€ = +0.004 Gini (OFCE 2023)
-            gini_montant = 0.004 * (MONTANT_REF - montant) / 5
-
-            # Gini : Durée ↓ = impact chômeurs longue durée (régressif)
-            # Règle : Durée 18→12 mois = +0.002 Gini
-            gini_duree = 0.002 * (DUREE_REF - duree) / 6
+            # Gini (v0.6.4) : les DEUX canaux se pèsent sur LES MÊMES euros que
+            # la dépense (delta_montant / delta_duree, qui portent déjà
+            # l'interaction × taux/TAUX_REF du canal durée — revue adverse,
+            # constat 23), chacun multiplié par son poids distributif :
+            # - canal taux : GINI_ALLOC_PAR_MD (règle OFCE 2023, inchangée) —
+            #   frappe tous les allocataires ∝ allocation ;
+            # - canal durée : × GINI_DUREE_SURPOIDS (1,6) — le même euro coupé
+            #   frappe la cohorte fin de droits, k fois plus bas (dérivation
+            #   sourcée dans constants.py ; ex-0,002/6 mois sans source, M35).
+            # Signes : couper (delta < 0) émet un Gini POSITIF (régressif),
+            # allonger/augmenter émet un Gini négatif — symétrie v0.6.3.
+            # Le facteur de dégressivité porte sur la SOMME € ; appliqué à
+            # chaque composante, il préserve leurs proportions (constat 27).
+            gini_montant = GINI_ALLOC_PAR_MD * (-delta_montant) * facteur_degressivite
+            gini_duree = (GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD
+                          * (-delta_duree) * facteur_degressivite)
 
             gini = gini_montant + gini_duree
 

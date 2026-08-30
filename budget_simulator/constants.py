@@ -78,6 +78,47 @@ CHOMAGE_DUREE_REF_MOIS = 18   # durée de référence (<55 ans, réforme avril 2
 CHOMAGE_MONTANT_REF_MD = 36.6  # Md€ ∝ allocation, à taux 60 % et 18 mois (Unédic 2025, dérivation ci-dessus)
 CHOMAGE_TAUX_REF = 0.60       # taux de remplacement de la base
 
+# --- Distributif chômage (v0.6.4) : les DEUX canaux en € × un poids ---------
+# Règle montant (canal taux) : « 40→35 Md€ = +0,004 Gini » (OFCE 2023),
+# soit 0,004/5 = 0,0008 par Md€ d'allocations coupées. Source unique du
+# « par euro » : le canal durée s'exprime en MULTIPLE de cette règle.
+GINI_ALLOC_PAR_MD = 0.004 / 5  # Gini émis par Md€ d'allocations (canal taux, OFCE 2023)
+# Surpoids distributif du canal DURÉE, par euro coupé (v0.6.4, ex-0,002/6 mois
+# qui portait un k implicite de 0,556 SANS SOURCE — différé M35 résolu ici).
+# Par euro, une coupe de durée frappe plus bas qu'une coupe de taux : elle
+# tombe sur la cohorte FIN DE DROITS, dont la position se lit APRÈS la perte.
+# Dérivation (données OBSERVÉES, aucune microsimulation publiée n'existe) :
+#   1. Destins à +3 mois d'une fin de droits (Dares Focus n° 53, 06/10/2025,
+#      cohorte S2 2022, <59 ans, Midas) : 31 % en emploi salarié, 18 % au RSA,
+#      11 % à l'ASS, 71 % NI RSA NI ASS (partition réelle : « moins de 1 %
+#      cumulent », note graphique 3). L'ASS EXISTE toujours (décret 2026-219 :
+#      19,48 €/j) ; ARE moyenne 1 040 €/mois (T4 2025) vs ASS 584 €, RSA 652 €.
+#   2. Positions distributives par population (DREES E&R n° 1368, 24/02/2026,
+#      ERFS×DRM 2021, personnes en ménages bénéficiaires) : part D1+D2 —
+#      ARE 26 %, ASS 59 %, RSA 76 % (population 20 %).
+#   3. Poids relatif par indicateur I : k = Σ pᵢ·Iᵢ / I_ARE, le trou des 71 %
+#      encadré (borne basse : ni-ni à la position ARE, plancher manifeste ;
+#      borne haute : les 40 % ni emploi ni minimum à la position RSA), mix ASS
+#      11 % et 20 % → parts D1+D2 : k ∈ [1,49 ; 2,25].
+#   4. CORRECTION d'estimateur (vérification adverse, constat 22) : un ratio
+#      de parts de déciles n'est PAS un ratio d'impacts Gini — sous l'identité
+#      des coefficients de concentration (ΔG ∝ (C − G) par €, celle-là même de
+#      la borne ASU ci-dessous), les mêmes données donnent k ∈ [1,29 ; 1,96],
+#      centre ≈ 1,6. La colonne « taux de pauvreté » (k jusqu'à 2,72) est
+#      rétrogradée en contrôle de robustesse : un headcount n'a pas de
+#      correspondance défendable vers une élasticité de Gini.
+# Fourchette testée [1,3 ; 2,2] ; C implicite du canal durée à k = 1,6 :
+# G − 1,6×(G − C_ARE) ≈ −0,39, très au-dessus du plancher arithmétique C = −1.
+# Limites déclarées (dossier calage-chomage-v064, parent) : le trou des 71 %
+# porte la largeur ; groupes DREES non disjoints (encadré 2) ; DREES 2021 pré-
+# réforme 2023 (biais en sens contraires) ; linéarité assumée (choc concentré
+# → k devrait croître avec l'ampleur). NB inter-familles (cf. borne ASU plus
+# bas, lignes « coefficients hérités ») : ce coefficient rejoint la famille de
+# la règle montant (gonflement ~2,6× vs physique, absorbé par
+# GINI_IMPACT_SCALE) — l'homogénéisation avec la famille physique (ASU) reste
+# le chantier v0.7 « ne pas bricoler », étendu ici EN ÉCRITURE, pas creusé.
+GINI_DUREE_SURPOIDS = 1.6  # sans dimension : par €, la durée frappe k fois plus bas que le taux
+
 # === INEQUALITY (INSEE 2024) ===
 GINI_BASE = 0.29  # Gini coefficient France
 
