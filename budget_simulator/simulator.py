@@ -11,7 +11,8 @@ from asteval import Interpreter
 from ._logging import _log_debug
 from .constants import (
     PIB_BASE_2025_MD_EUR, DETTE_RATIO_2025, RECETTES_BASE_MD_EUR,
-    DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_NAIRU, GINI_BASE,
+    DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_DEPENSE_BASELINE_MD,
+    CHOMAGE_NAIRU, GINI_BASE,
     GINI_HARD_CEILING, GINI_SOFT_FLOOR,
     INFLATION_BASE, INFLATION_INERTIE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
     OUTPUT_GAP_INITIAL,
@@ -456,7 +457,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             # PRESTATIONS SOCIALES
             'retraites': 380,              # Pensions (fusionné)
             'sante': 250,                  # Remboursements + ALD (fusionné)
-            'chomage': 40,                 # Assurance chômage, périmètre RÉGIME entier (≈ allocations 35,6 + aides 1,3 + points retraite 2,4 + activité partielle, Unédic 2025 ≈ 39,4) — PAS la base ∝ allocation du canal taux (CHOMAGE_MONTANT_REF_MD = 36,6, constants.py)
+            'chomage': CHOMAGE_DEPENSE_BASELINE_MD,  # périmètre RÉGIME entier ≠ base du canal taux (cf. constants.py)
             'dependance': 35,              # APA + AAH (fusionné)
             'minima_sociaux': 90,          # RSA + Prime activité + APL + Allocations famille (avant ASU)
 

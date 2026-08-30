@@ -352,8 +352,12 @@ def test_simulate_domar_crisis(default_simulator, monkeypatch):
     """Uses default_simulator fixture which has all base_params."""
     # Même bypass que test_apply_measures_plafond_10pct : le scénario de
     # crise Domar a besoin d'entrées hors domaine pour rendre r-g explosif.
+    # v0.6.4 : chomage_alloc aussi — le domaine dérivé du legacy `montant`
+    # (base × taux/0,60) borne désormais à 48,8 ; le 60 de la crise vaut un
+    # taux 0,984, volontairement hors domaine.
     from budget_simulator.constants import PARAM_DOMAINS
     monkeypatch.delitem(PARAM_DOMAINS, 'retraites')
+    monkeypatch.delitem(PARAM_DOMAINS, 'chomage_alloc')
     default_simulator.periods = 10
     default_simulator.base_params['taux_interet_base'] = 0.04
     default_simulator.base_params['croissance_potentielle'] = 0.005

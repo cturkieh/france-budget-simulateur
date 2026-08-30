@@ -730,7 +730,7 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
   `COUT_CHOMAGE_MARGINAL_MOIS_MD=0.75`
 
 **Impacts distributifs (v0.6.4, sur les euros des canaux ci-dessus) :**
-- Gini canal taux : GINI_ALLOC_PAR_MD = 0,0008 par Md EUR coupe (OFCE 2023)
+- Gini canal taux : GINI_ALLOC_PAR_MD_EUR = 0,0008 par Md EUR coupe (OFCE 2023)
 - Gini canal duree : × GINI_DUREE_SURPOIDS = 1,6 — par euro, une coupe de
   duree frappe plus bas (cohorte fin de droits : a +3 mois, 71 % ne touchent
   ni RSA ni ASS — Dares Focus n° 53 × DREES E&R n° 1368 ; cf. M35)
@@ -1844,17 +1844,27 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 |
-|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 |
+|---|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 |
+
+**Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
+cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,
+assiette proportionnelle a l'allocation) reduit l'amplitude budgetaire de ce
+canal d'environ 8,5 % : les programmes qui BAISSENT le taux de remplacement
+economisent un peu moins (RN +7,0 -> +7,1), ceux qui l'AUGMENTENT coutent un
+peu moins (LFI +17,8 -> +17,7 ; PS +3,8 -> +3,7). Le recalage distributif
+(`gini_duree`, k = 1,6 — cf. M35) ne touche pas la dette. Effet symetrique
+par construction (meme assiette pour tous), de l'ordre du dixieme de point :
+aucune note globale ni aucun classement ne bouge.
 
 **Mise a jour du 30/08/2026 au soir — sens agrege de la v0.6.3 (quatrieme
 colonne).** Cette passe corrige deux bugs verifies et trois attributions, et
@@ -2427,8 +2437,18 @@ coupe tombe sur une population dont 59-76 % vit dans les deux premiers
 deciles APRES la perte). La nuance qui protege du double comptage avec le
 canal taux : les fins de droits ne sont PAS plus pauvres AVANT la coupe (SJR
 moyen 64 EUR = celui de l'ensemble des indemnisables — Dares, tableau 1) ;
-tout le surpoids vient de l'apres. Meme passe : la degressivite cesse d'etre
-un free lunch Gini (constat 27, meme forme que le fix PA v0.6.3).
+tout le surpoids vient de l'apres. Limites declarees de la calibration :
+(1) le trou des 71 % « ni RSA ni ASS » — groupe heterogene et inobservable —
+porte toute la largeur de la fourchette ; (2) les groupes ARE/ASS/RSA de la
+DREES se RECOUVRENT (un menage peut percevoir deux prestations, encadre 2) —
+les traiter comme des positions disjointes est une approximation ; (3) la
+DREES decrit 2021, AVANT la reforme 2023 (deux biais en sens contraires :
+colonne ARE tres inseree qui GONFLE k, fins de droits post-2023 aux
+affiliations plus longues qui le DEGONFLE) ; (4) la regle est lineaire alors
+qu'un choc tout-ou-rien concentre est convexe — k devrait croitre avec
+l'ampleur de la coupe, non modelise et assume. Meme passe : la degressivite
+cesse d'etre un free lunch Gini (constat 27, meme forme que le fix PA
+v0.6.3), son facteur scalant les euros a la source.
 
 ### Scenario de reference et gouvernance
 

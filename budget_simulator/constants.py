@@ -77,62 +77,20 @@ CHOMAGE_DUREE_REF_MOIS = 18   # durée de référence (<55 ans, réforme avril 2
 # forfaitaire.
 CHOMAGE_MONTANT_REF_MD = 36.6  # Md€ ∝ allocation, à taux 60 % et 18 mois (Unédic 2025, dérivation ci-dessus)
 CHOMAGE_TAUX_REF = 0.60       # taux de remplacement de la base
-
-# --- Distributif chômage (v0.6.4) : les DEUX canaux en € × un poids ---------
-# Règle montant (canal taux) : « 40→35 Md€ = +0,004 Gini » (OFCE 2023),
-# soit 0,004/5 = 0,0008 par Md€ d'allocations coupées. Source unique du
-# « par euro » : le canal durée s'exprime en MULTIPLE de cette règle.
-GINI_ALLOC_PAR_MD = 0.004 / 5  # Gini émis par Md€ d'allocations (canal taux, OFCE 2023)
-# Surpoids distributif du canal DURÉE, par euro coupé (v0.6.4, ex-0,002/6 mois
-# qui portait un k implicite de 0,556 SANS SOURCE — différé M35 résolu ici).
-# Par euro, une coupe de durée frappe plus bas qu'une coupe de taux : elle
-# tombe sur la cohorte FIN DE DROITS, dont la position se lit APRÈS la perte.
-# Dérivation (données OBSERVÉES, aucune microsimulation publiée n'existe) :
-#   1. Destins à +3 mois d'une fin de droits (Dares Focus n° 53, 06/10/2025,
-#      cohorte S2 2022, <59 ans, Midas) : 31 % en emploi salarié, 18 % au RSA,
-#      11 % à l'ASS, 71 % NI RSA NI ASS (partition réelle : « moins de 1 %
-#      cumulent », note graphique 3). L'ASS EXISTE toujours (décret 2026-219 :
-#      19,48 €/j) ; ARE moyenne 1 040 €/mois (T4 2025) vs ASS 584 €, RSA 652 €.
-#   2. Positions distributives par population (DREES E&R n° 1368, 24/02/2026,
-#      ERFS×DRM 2021, personnes en ménages bénéficiaires) : part D1+D2 —
-#      ARE 26 %, ASS 59 %, RSA 76 % (population 20 %).
-#   3. Poids relatif par indicateur I : k = Σ pᵢ·Iᵢ / I_ARE, le trou des 71 %
-#      encadré (borne basse : ni-ni à la position ARE, plancher manifeste ;
-#      borne haute : les 40 % ni emploi ni minimum à la position RSA), mix ASS
-#      11 % et 20 % → parts D1+D2 : k ∈ [1,49 ; 2,25].
-#   4. CORRECTION d'estimateur (vérification adverse, constat 22) : un ratio
-#      de parts de déciles n'est PAS un ratio d'impacts Gini — sous l'identité
-#      des coefficients de concentration (ΔG ∝ (C − G) par €, celle-là même de
-#      la borne ASU ci-dessous), les mêmes données donnent k ∈ [1,29 ; 1,96],
-#      centre ≈ 1,6. La colonne « taux de pauvreté » (k jusqu'à 2,72) est
-#      rétrogradée en contrôle de robustesse : un headcount n'a pas de
-#      correspondance défendable vers une élasticité de Gini.
-# Fourchette testée [1,3 ; 2,2]. VALIDITÉ PHYSIQUE, résultat positif (contre-
-# vérification croisée orchestrateur × vérificateur, 30/08) : k = 1,6 implique
-# un coefficient de concentration C_durée = G − k×(G − C_ARE) ≈ −0,39 pour un
-# plancher arithmétique C = −1 — soit ~30 % de l'impact Gini physiquement
-# maximal pour les mêmes euros — ET ce C implicite est cohérent avec celui
-# estimé indépendamment des déciles DREES pour le mix fin-de-droits (−0,27 à
-# −0,49). La calibration est donc bornée des DEUX côtés par l'arithmétique,
-# pas seulement ancrée à un ratio (l'objection v0.6.3 « aucune source » est
-# soldée). C_ARE ≈ −0,134 : dérivé du graphique 1 DREES 1368 (D1 13 %, D2
-# 13 %, D6-D10 37 %, bloc D3-D5 au rang moyen 0,35 ; rang moyen D6-D10 posé à
-# r = 0,75) — recette de recalcul et sensibilité (r 0,70→0,80 ⇒ k_max
-# arithmétique 3,5→2,5, calculé 3,04 à r = 0,75) dans
-# tests/test_calage_chomage_v064.py, à refaire si GINI_BASE est recalibré.
-# Limites déclarées (dossier calage-chomage-v064, parent) : le trou des 71 %
-# porte la largeur ; groupes DREES non disjoints (encadré 2) ; DREES 2021 pré-
-# réforme 2023 (biais en sens contraires) ; linéarité assumée (choc concentré
-# → k devrait croître avec l'ampleur). NB inter-familles (cf. borne ASU plus
-# bas, lignes « coefficients hérités ») : ce coefficient rejoint la famille de
-# la règle montant (gonflement ~2,6× vs physique, absorbé par
-# GINI_IMPACT_SCALE) ; l'ASU reste le SEUL levier à émission physiquement
-# calibrée — et le rescale ×0,22 la ramène à 22 % d'une grandeur dérivée comme
-# MAJORANT (un majorant × 0,22 ne majore plus rien). L'homogénéisation v0.7
-# doit donc ramener l'ASU DANS la famille (ou scinder GINI_IMPACT_SCALE par
-# famille), PAS tirer la famille vers l'ASU — chantier « ne pas bricoler »,
-# étendu ici EN ÉCRITURE, pas creusé.
-GINI_DUREE_SURPOIDS = 1.6  # sans dimension : par €, la durée frappe k fois plus bas que le taux
+# Catégorie de dépense baseline « chomage » (simulator.spending_categories_base,
+# indexée u/u_base) : périmètre RÉGIME entier ≈ allocations 35,6 + aides 1,3 +
+# points retraite 2,4 + activité partielle ≈ 39,4 (Unédic 2025), arrondi 40
+# historique conservé. Deux périmètres = deux constantes : celle-ci n'est PAS
+# la base ∝ allocation du canal taux (CHOMAGE_MONTANT_REF_MD).
+CHOMAGE_DEPENSE_BASELINE_MD = 40
+# Facteurs de dégressivité (héritage v4.5, non re-sourcés par la passe v0.6.4
+# qui n'a fait que les NOMMER — sortis des littéraux du handler, même geste que
+# CHOMAGE_*_REF en v0.6.3) : une allocation dégressive verse ~15 % de moins sur
+# une hausse, et une coupe dégressive économise ~15 % de plus. Le facteur d'une
+# mesure s'applique AUX EUROS À LA SOURCE (delta_montant/delta_duree), donc
+# tous les canaux (dépense, PA, compétitivité, Gini) le portent d'office.
+CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE = 0.85
+CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE = 1.15
 
 # === INEQUALITY (INSEE 2024) ===
 GINI_BASE = 0.29  # Gini coefficient France
@@ -156,6 +114,63 @@ if not GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING:
     raise ValueError("GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING requis (dénominateur de l'amortissement)")
 if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
     raise ValueError("Constantes d'assemblage Gini hors domaine (SCALE ∈ ]0;1], RATE ∈ ]0;1[)")
+
+# --- Émission Gini du levier chômage (v0.6.4) : deux canaux en € × un poids --
+# Règle montant (canal taux) : « 40→35 Md€ = +0,004 Gini » (OFCE 2023), soit
+# 0,004/5 = 0,0008 par Md€ d'allocations coupées. Source unique du « par
+# euro » : le canal durée s'exprime en MULTIPLE de cette règle.
+GINI_ALLOC_PAR_MD_EUR = 0.004 / 5  # Gini émis par Md€ d'allocations (canal taux, OFCE 2023)
+# Surpoids distributif du canal DURÉE, par euro coupé (v0.6.4, ex-0,002/6 mois
+# qui portait un k implicite de 0,556 SANS SOURCE — différé M35 résolu, choix
+# et limites documentés dans METHODOLOGIE.md § M35). Par euro, une coupe de
+# durée frappe plus bas qu'une coupe de taux : elle tombe sur la cohorte FIN
+# DE DROITS, dont la position se lit APRÈS la perte.
+# Dérivation (données OBSERVÉES, aucune microsimulation publiée n'existe) :
+#   1. Destins à +3 mois d'une fin de droits (Dares Focus n° 53, 06/10/2025,
+#      cohorte S2 2022, <59 ans, Midas) : 31 % en emploi salarié, 18 % au RSA,
+#      11 % à l'ASS, 71 % NI RSA NI ASS (partition réelle : « moins de 1 %
+#      cumulent », note graphique 3). L'ASS EXISTE toujours (décret 2026-219 :
+#      19,48 €/j) ; ARE moyenne 1 040 €/mois (T4 2025) vs ASS 584 €, RSA 652 €.
+#   2. Positions distributives par population (DREES E&R n° 1368, 24/02/2026,
+#      ERFS×DRM 2021, personnes en ménages bénéficiaires) : part D1+D2 —
+#      ARE 26 %, ASS 59 %, RSA 76 % (population 20 %).
+#   3. Poids relatif par indicateur I : k = Σ pᵢ·Iᵢ / I_ARE, le trou des 71 %
+#      encadré (borne basse : ni-ni à la position ARE, plancher manifeste ;
+#      borne haute : les 40 % ni emploi ni minimum à la position RSA), mix ASS
+#      11 % et 20 % → parts D1+D2 : k ∈ [1,49 ; 2,25].
+#   4. CORRECTION d'estimateur (vérification adverse, constat 22) : un ratio
+#      de parts de déciles n'est PAS un ratio d'impacts Gini — sous l'identité
+#      des coefficients de concentration (ΔG ∝ (C − G) par €, celle-là même de
+#      ASU_GINI_BORNE_PAR_MD_EUR plus bas), les mêmes données donnent
+#      k ∈ [1,29 ; 1,96], centre ≈ 1,6. La colonne « taux de pauvreté »
+#      (k jusqu'à 2,72) est rétrogradée en contrôle de robustesse : un
+#      headcount n'a pas de correspondance défendable vers une élasticité
+#      de Gini.
+# Fourchette testée [1,3 ; 2,2]. VALIDITÉ PHYSIQUE, résultat positif (contre-
+# vérification croisée, 30/08) : k = 1,6 implique C_durée = GINI_BASE −
+# k×(GINI_BASE − GINI_C_ARE) ≈ −0,39 pour un plancher arithmétique C = −1 —
+# ~30 % de l'impact Gini physiquement maximal pour les mêmes euros — ET ce C
+# implicite est cohérent avec celui estimé indépendamment des déciles DREES
+# pour le mix fin-de-droits (−0,27 à −0,49). La calibration est bornée des
+# DEUX côtés par l'arithmétique, pas seulement ancrée à un ratio (l'objection
+# v0.6.3 « aucune source » est soldée). Limites (détail METHODOLOGIE § M35) :
+# trou des 71 % ; groupes DREES non disjoints ; millésime 2021 pré-réforme ;
+# linéarité assumée. NB inter-familles (cf. « coefficients hérités » sous
+# ASU_GINI_BORNE_PAR_MD_EUR) : ce coefficient rejoint la famille de la règle
+# montant (gonflement ~2,6× vs physique, absorbé par GINI_IMPACT_SCALE) ;
+# l'ASU reste le SEUL levier à émission physiquement calibrée — et le rescale
+# ×0,22 la ramène à 22 % d'une grandeur dérivée comme MAJORANT (un majorant
+# × 0,22 ne majore plus rien). L'homogénéisation v0.7 doit donc ramener l'ASU
+# DANS la famille (ou scinder GINI_IMPACT_SCALE par famille), PAS tirer la
+# famille vers l'ASU — chantier « ne pas bricoler », étendu ici EN ÉCRITURE.
+GINI_DUREE_SURPOIDS = 1.6  # sans dimension : par €, la durée frappe k fois plus bas que le taux
+# Coefficient de concentration des ménages ARE, l'ancre qui rend le surpoids
+# falsifiable (C = 2·F̄ − 1 sur les déciles publiés DREES 1368, graphique 1 —
+# rang moyen D6-D10 posé à r = 0,75 ; sensibilité r 0,70→0,80 ⇒ k_max
+# arithmétique 2,8→3,3). Ne dépend PAS de GINI_BASE (seul le k_max en
+# dépend). Recette de recalcul EXÉCUTÉE, pas en prose :
+# test_le_c_implicite_du_canal_duree_reste_arithmetiquement_valide.
+GINI_C_ARE = -0.134
 
 # === INFLATION & GROWTH ===
 # INFLATION_BASE : graine d'inertie. Valeur initiale de `inflation_precedente`
@@ -536,6 +551,14 @@ PARAM_DOMAINS = {
     'chomage_alloc': {
         'duree': (12.0, 36.0),
         'taux_remplacement': (0.45, 0.80),
+        # v0.6.4 : le mode legacy `montant` est une représentation du taux
+        # (taux = TAUX_REF × montant/base) — son domaine se DÉRIVE de celui du
+        # taux au lieu d'ouvrir une porte qui le contourne (avant : aucune
+        # borne, montant=200 valait taux 3,28 sans clamp).
+        'montant': (
+            CHOMAGE_MONTANT_REF_MD * 0.45 / CHOMAGE_TAUX_REF,
+            CHOMAGE_MONTANT_REF_MD * 0.80 / CHOMAGE_TAUX_REF,
+        ),
     },
     'retraites': {
         'age_depart': (60.0, 67.0),
@@ -825,10 +848,8 @@ PHASING_CHOMAGE_SENIORS = (0.196, 0.400, 0.492, 0.536, 0.554,
 # brique E ci-dessus fait précisément bouger. L'inscrire aussi dans le
 # handler serait un double comptage.
 # Vérification croisée : au pic, +0,10 pt appliqué à la catégorie `chomage`
-# (base 40 Md€ — la CATÉGORIE de dépense baseline, périmètre régime entier
-# ≈ allocations + aides + points retraite, simulator.py ; à ne pas confondre
-# avec CHOMAGE_MONTANT_REF_MD = 36,6, l'assiette ∝ allocation du canal taux —
-# facteur u/u_base avec u_base = 7,6 %) donne 0,53 Md€, contre
+# (CHOMAGE_DEPENSE_BASELINE_MD, facteur u/u_base avec u_base = 7,6 %) donne
+# 0,53 Md€, contre
 # 52 % × 20 % × 6,0 = 0,62 Md€ dans la clé DREES/DARES — écart 14 %.
 # Corroboration indépendante : Rabaté & Rochut 2020, « crowding out effects
 # […] around one fifth of the fiscal gains ».

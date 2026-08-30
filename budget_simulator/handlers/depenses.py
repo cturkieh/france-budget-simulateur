@@ -125,8 +125,10 @@ from ..constants import (
     CHOMAGE_DUREE_REF_MOIS,
     CHOMAGE_MONTANT_REF_MD,
     CHOMAGE_TAUX_REF,
+    CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE,
+    CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE,
     COUT_CHOMAGE_MARGINAL_MOIS_MD,
-    GINI_ALLOC_PAR_MD,
+    GINI_ALLOC_PAR_MD_EUR,
     GINI_DUREE_SURPOIDS,
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
@@ -611,15 +613,21 @@ class DepensesMixin(_MixinBase):
         # interdit au handler voisin. (Une part de l'économie vient de
         # retours à l'emploi, déjà créditée séparément par impact_chomage —
         # aucune source ne publie la décomposition, le choix est déclaré.)
+        # v0.6.4 (revue adverse, constat 27 + revue Altitude) : la dégressivité
+        # scale LES EUROS À LA SOURCE — delta_montant et delta_duree portent le
+        # facteur, donc TOUT consommateur (dépense, PA, compétitivité, Gini)
+        # l'hérite d'office. L'ancienne forme (facteur sur la seule somme
+        # delta_alloc) obligeait chaque canal à se souvenir de l'appliquer :
+        # c'est ce qui a produit DEUX FOIS le même free lunch (PA corrigé en
+        # v0.6.3, Gini en v0.6.4 — la forme que test_asu_no_free_lunch
+        # interdit au handler voisin).
+        if degressivite:
+            facteur_degressivite = (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
+                                    if delta_montant + delta_duree > 0
+                                    else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
+            delta_montant *= facteur_degressivite
+            delta_duree *= facteur_degressivite
         delta_alloc = delta_montant + delta_duree
-        # v0.6.4 (revue adverse, constat 27) : le facteur de dégressivité est
-        # nommé UNE fois et s'applique à TOUS les canaux qui lisent ces euros —
-        # dépense, PA, compétitivité (v0.6.3) ET Gini (corrigé ici : ses ±15 %
-        # d'allocations étaient du revenu retiré aux ménages à coût distributif
-        # NUL — le free lunch exact que test_asu_no_free_lunch interdit au
-        # handler voisin, et la forme que v0.6.3 avait corrigée pour le PA).
-        facteur_degressivite = (0.85 if delta_alloc > 0 else 1.15) if degressivite else 1.0
-        delta_alloc *= facteur_degressivite
         delta_spending = delta_alloc
 
         # === IMPACTS MACROÉCONOMIQUES ===
@@ -627,21 +635,17 @@ class DepensesMixin(_MixinBase):
         # Évite cumul absurde sur 10 ans
         if is_first_year:
             # Gini (v0.6.4) : les DEUX canaux se pèsent sur LES MÊMES euros que
-            # la dépense (delta_montant / delta_duree, qui portent déjà
-            # l'interaction × taux/TAUX_REF du canal durée — revue adverse,
-            # constat 23), chacun multiplié par son poids distributif :
-            # - canal taux : GINI_ALLOC_PAR_MD (règle OFCE 2023, inchangée) —
-            #   frappe tous les allocataires ∝ allocation ;
-            # - canal durée : × GINI_DUREE_SURPOIDS (1,6) — le même euro coupé
-            #   frappe la cohorte fin de droits, k fois plus bas (dérivation
-            #   sourcée dans constants.py ; ex-0,002/6 mois sans source, M35).
-            # Signes : couper (delta < 0) émet un Gini POSITIF (régressif),
-            # allonger/augmenter émet un Gini négatif — symétrie v0.6.3.
-            # Le facteur de dégressivité porte sur la SOMME € ; appliqué à
-            # chaque composante, il préserve leurs proportions (constat 27).
-            gini_montant = GINI_ALLOC_PAR_MD * (-delta_montant) * facteur_degressivite
-            gini_duree = (GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD
-                          * (-delta_duree) * facteur_degressivite)
+            # la dépense (delta_montant / delta_duree — interaction × taux et
+            # dégressivité déjà DANS les euros, revue adverse constat 23),
+            # chacun multiplié par son poids distributif : canal taux =
+            # GINI_ALLOC_PAR_MD_EUR (règle OFCE 2023, inchangée) ; canal durée
+            # × GINI_DUREE_SURPOIDS — le même euro coupé frappe la cohorte fin
+            # de droits, k fois plus bas (dérivation sourcée constants.py +
+            # METHODOLOGIE § M35 ; ex-0,002/6 mois sans source). Signes :
+            # couper (delta < 0) émet un Gini POSITIF (régressif) — symétrie
+            # v0.6.3.
+            gini_montant = GINI_ALLOC_PAR_MD_EUR * (-delta_montant)
+            gini_duree = GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD_EUR * (-delta_duree)
 
             gini = gini_montant + gini_duree
 

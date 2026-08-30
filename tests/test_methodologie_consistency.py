@@ -347,6 +347,41 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             must_appear_in=(METHODO, PUBLIC_METHODO),
             doc_patterns=("-0,0017",),
         ),
+        # --- v0.6.4 (calage chômage) : les 4 grandeurs que la doc cite en
+        # clair. Motif d'entrée (revue Altitude) : le « 40 » n'était PAS ici,
+        # et c'est pour ça qu'il a fallu le traquer À LA MAIN dans deux
+        # fichiers lors de son recalage.
+        CriticalConstant(
+            name="CHOMAGE_MONTANT_REF_MD (base du canal taux, Md EUR)",
+            source="constants.CHOMAGE_MONTANT_REF_MD",
+            raw_value=constants.CHOMAGE_MONTANT_REF_MD,
+            representations=("36,6",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+        ),
+        CriticalConstant(
+            name="COUT_CHOMAGE_MARGINAL_MOIS_MD (Md EUR/an par mois)",
+            source="constants.COUT_CHOMAGE_MARGINAL_MOIS_MD",
+            raw_value=constants.COUT_CHOMAGE_MARGINAL_MOIS_MD,
+            representations=("0,75",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+        ),
+        CriticalConstant(
+            name="GINI_ALLOC_PAR_MD_EUR (règle montant, Gini par Md EUR)",
+            source="constants.GINI_ALLOC_PAR_MD_EUR",
+            raw_value=constants.GINI_ALLOC_PAR_MD_EUR,
+            representations=("0,0008",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+        ),
+        CriticalConstant(
+            name="GINI_DUREE_SURPOIDS (surpoids distributif du canal durée)",
+            source="constants.GINI_DUREE_SURPOIDS",
+            raw_value=constants.GINI_DUREE_SURPOIDS,
+            representations=("1,6",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            # « 1,6 » nu matcherait n'importe quel 1,6 (inflation 1,6 %…) :
+            # motif discriminant = la phrase du § M35 / du § impacts.
+            doc_patterns=("GINI_DUREE_SURPOIDS = 1,6", "k = 1,6"),
+        ),
     )
 
 

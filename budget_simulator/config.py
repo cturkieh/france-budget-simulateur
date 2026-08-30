@@ -2,6 +2,8 @@ import json
 import logging
 
 from .constants import (
+    CHOMAGE_DUREE_REF_MOIS,
+    CHOMAGE_MONTANT_REF_MD,
     POLICY_MEASURES_PATH,
     PREVENTION_BASE_MD_EUR,
     RETRAITES_REF_DUREE_ANS,
@@ -50,7 +52,7 @@ def load_default_values():
             # investissement ni une coupe de prévention.
             'prevention_budget': PREVENTION_BASE_MD_EUR
         },
-        'chomage_alloc': {'montant': 36.6, 'duree': 18, 'degressivite': False},  # = CHOMAGE_MONTANT_REF_MD (v0.6.4) : le neutre legacy DOIT égaler la base du canal taux (testé)
+        'chomage_alloc': {'montant': CHOMAGE_MONTANT_REF_MD, 'duree': CHOMAGE_DUREE_REF_MOIS, 'degressivite': False},
         'asu': {'asu_activation': 0, 'asu_plafonnement': 0.65},  # activation: 0/1, plafonnement: 0.5-0.7 (50-70% SMIC)
         'education': {'budget': 65, 'enseignants': 0, 'salaires': 0},
         'transition_ecologique': {'investissement': 0, 'taxe_carbone': 44.6, 'renovation': 0},
