@@ -66,7 +66,7 @@ class TestChomageDuree:
 
     def test_la_derivation_de_l_ancre_tient_avec_ses_trois_ancres(self):
         """Le bloc de sourcing dérive 0,75 = 4,5 Md€ / 6 mois (réforme 24→18)
-        et argumente « marginal ≪ moyen » via la base 40/18 à 60 %. Les trois
+        et argumente « marginal ≪ moyen » via la base à 60 % / 18 mois. Les trois
         ancres vivent DANS constants.py à côté de la constante ; ce test rend
         la dérivation exécutable — une révision de base qui laisserait la
         justification fausse rougit ici au lieu de dériver en prose."""
@@ -90,15 +90,19 @@ class TestChomageDuree:
         assert ds == pytest.approx(12 * COUT_CHOMAGE_MARGINAL_MOIS_MD, rel=1e-9)
 
     def test_le_canal_taux_est_inchange_par_le_fix(self):
-        """À durée de référence, le canal taux garde sa base 40 Md€/60 %."""
+        """À durée de référence, le canal taux reste base × (taux/0,60 − 1)
+        (base = CHOMAGE_MONTANT_REF_MD, 40 à l'époque du fix, 36,6 depuis le
+        recalage d'assiette v0.6.4)."""
+        from budget_simulator.constants import CHOMAGE_MONTANT_REF_MD
         ds = _chomage_ds({'taux_remplacement': 0.70, 'duree': 18, 'degressivite': False})
-        assert ds == pytest.approx(40 * (0.70 / 0.60 - 1), rel=1e-9)
+        assert ds == pytest.approx(CHOMAGE_MONTANT_REF_MD * (0.70 / 0.60 - 1), rel=1e-9)
 
     def test_interaction_le_mois_marginal_suit_le_taux(self):
         """Un mois de droits à taux 70 % coûte proportionnellement plus
         qu'à 60 % (les allocations versées ce mois-là sont plus élevées)."""
+        from budget_simulator.constants import CHOMAGE_MONTANT_REF_MD
         ds = _chomage_ds({'taux_remplacement': 0.70, 'duree': 24, 'degressivite': False})
-        attendu = 40 * (0.70 / 0.60 - 1) \
+        attendu = CHOMAGE_MONTANT_REF_MD * (0.70 / 0.60 - 1) \
             + 6 * COUT_CHOMAGE_MARGINAL_MOIS_MD * (0.70 / 0.60)
         assert ds == pytest.approx(attendu, rel=1e-9)
 
@@ -116,8 +120,10 @@ class TestChomageDuree:
         assert ds == pytest.approx(0.0, abs=1e-12)
 
     def test_legacy_defaut_reste_neutre(self):
-        """Le défaut config {'montant': 40, 'duree': 18} vaut zéro delta."""
-        ds = _chomage_ds({'montant': 40, 'duree': 18, 'degressivite': False})
+        """Le défaut config {'montant': base, 'duree': 18} vaut zéro delta."""
+        from budget_simulator.constants import CHOMAGE_MONTANT_REF_MD
+        ds = _chomage_ds({'montant': CHOMAGE_MONTANT_REF_MD, 'duree': 18,
+                          'degressivite': False})
         assert ds == pytest.approx(0.0, abs=1e-12)
 
 
@@ -146,19 +152,27 @@ class TestChomagePouvoirAchatDuree:
         assert pa == pytest.approx(0.002 * (6 * 0.75) / 5, rel=1e-9)
 
     def test_le_canal_taux_du_pa_est_inchange(self):
-        """À durée de référence, la formule est bit-identique à l'ancienne
-        −0,002 × (40 − montant)/5 : aucun scénario taux-seul ne bouge."""
+        """À durée de référence, la formule garde sa forme −0,002 × (base −
+        montant)/5 (base 40 à l'époque du fix, 36,6 depuis v0.6.4)."""
+        from budget_simulator.constants import CHOMAGE_MONTANT_REF_MD as REF
         pa = _chomage_impacts({'taux_remplacement': 0.55, 'duree': 18,
                                'degressivite': False})['pouvoir_achat']
-        montant = 40 * (0.55 / 0.60)
-        assert pa == pytest.approx(-0.002 * (40 - montant) / 5, rel=1e-9)
+        montant = REF * (0.55 / 0.60)
+        assert pa == pytest.approx(-0.002 * (REF - montant) / 5, rel=1e-9)
 
     def test_le_gini_duree_est_conserve_sans_double_comptage(self):
         """gini = gini_montant (taux seul) + gini_duree — la durée ne passe
-        plus par montant, donc plus par gini_montant (facteur 6,3 d'avant)."""
+        plus par montant, donc plus par gini_montant (facteur 6,3 d'avant).
+        v0.6.4 : le coefficient durée est recalé (k × règle montant, cf.
+        test_calage_chomage_v064) — ce test garde l'invariant de SÉPARATION :
+        à taux de référence, le gini est la seule composante durée."""
+        from budget_simulator.constants import (GINI_ALLOC_PAR_MD,
+                                                GINI_DUREE_SURPOIDS)
         gini = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 12,
                                  'degressivite': False})['gini']
-        assert gini == pytest.approx(0.002 * (18 - 12) / 6, rel=1e-9)
+        attendu = (GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD
+                   * 6 * COUT_CHOMAGE_MARGINAL_MOIS_MD)
+        assert gini == pytest.approx(attendu, rel=1e-9)
 
     def test_la_competitivite_repond_aussi_a_la_duree(self):
         """Même fuite que le PA, attrapée en revue : le canal compétitivité

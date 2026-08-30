@@ -50,7 +50,7 @@ def load_default_values():
             # investissement ni une coupe de prévention.
             'prevention_budget': PREVENTION_BASE_MD_EUR
         },
-        'chomage_alloc': {'montant': 40, 'duree': 18, 'degressivite': False},  # Réforme avril 2025 : durée 24→18 mois, montant 45→40
+        'chomage_alloc': {'montant': 36.6, 'duree': 18, 'degressivite': False},  # = CHOMAGE_MONTANT_REF_MD (v0.6.4) : le neutre legacy DOIT égaler la base du canal taux (testé)
         'asu': {'asu_activation': 0, 'asu_plafonnement': 0.65},  # activation: 0/1, plafonnement: 0.5-0.7 (50-70% SMIC)
         'education': {'budget': 65, 'enseignants': 0, 'salaires': 0},
         'transition_ecologique': {'investissement': 0, 'taxe_carbone': 44.6, 'renovation': 0},

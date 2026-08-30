@@ -537,14 +537,16 @@ class DepensesMixin(_MixinBase):
         DEUX CANAUX SÉPARÉS — la durée ne passe plus par la base (v0.6.3,
         fin du double comptage ; « séparés », pas « orthogonaux » : le canal
         durée porte un terme d'interaction × taux/TAUX_REF, assumé et testé) :
-        - Canal TAUX : Montant = 40 × (taux/0.60) — base 2025 (réforme avril),
-          allocations Unédic ~40 Md€ à 60 % de taux et 18 mois de référence.
-          Un changement de taux touche TOUS les allocataires : proportionnel.
+        - Canal TAUX : Montant = 36,6 × (taux/0.60) — base v0.6.4 = la somme
+          des lignes ∝ à l'allocation du rapport financier Unédic 2025
+          (dérivation et exclusions : bloc CHOMAGE_MONTANT_REF_MD,
+          constants.py). Un changement de taux touche TOUS les allocataires :
+          proportionnel.
         - Canal DURÉE : delta = (durée − 18) × COUT_CHOMAGE_MARGINAL_MOIS_MD
           × (taux/0.60). Le mois MARGINAL ne concerne que la minorité qui
           épuise ses droits (~30 % des allocataires entrants) : son coût (~0,75 Md€/an
-          par mois, ancre Unédic) est très inférieur au coût moyen 40/18 ≈
-          2,2. L'ancienne formule comptait la durée deux fois (dans montant
+          par mois, ancre Unédic) est très inférieur au coût moyen 36,6/18 ≈
+          2,0. L'ancienne formule comptait la durée deux fois (dans montant
           × durée/18 PUIS via un delta_duree additif ⇒ ~2,89 Md€/mois).
 
         Sources : Unédic 2025, OFCE 2023, INSEE 2024

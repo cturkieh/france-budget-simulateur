@@ -137,7 +137,7 @@
       "cible": "depenses",
       "parametres": {
         "montant": {
-          "valeur_defaut": 45,
+          "valeur_defaut": 36.6,
           "min": 30,
           "max": 60,
           "step": 2,
@@ -145,7 +145,7 @@
           "type": "number"
         },
         "duree": {
-          "valeur_defaut": 24,
+          "valeur_defaut": 18,
           "min": 12,
           "max": 36,
           "step": 3,

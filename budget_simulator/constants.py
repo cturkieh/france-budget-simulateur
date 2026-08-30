@@ -32,22 +32,50 @@ CHOMAGE_NAIRU = 0.075  # Natural rate of unemployment
 # 4,5/6 = 0,75 Md€ par mois. Deux routes indépendantes convergent 5-10 % en
 # dessous (via le stock d'allocataires : 0,70 ; bottom-up consommation : 0,67)
 # → fourchette retenue 0,65-0,85 (testée). Très inférieur au coût MOYEN
-# (40/18 ≈ 2,2 Md€/mois) : ~30 % des entrants seulement atteignent la fin de
+# (36,6/18 ≈ 2,0 Md€/mois) : ~30 % des entrants seulement atteignent la fin de
 # droits (ex-post 12/2025 p. 1 et 10), et les allocataires ne consomment que
 # ~2/3 de leur durée potentielle (p. 7 : 10 mois indemnisés pour 15 mois de
 # droit). Condition de validité : contracyclicité active, i.e. chômage BIT
 # < 9 % (prévisions Unédic 10/2025 : 7,6-8,0 % sur l'horizon → OK).
+# ⚠️ Périmètre (v0.6.4, revue adverse) : 0,75 est l'économie DU RÉGIME (elle
+# inclut la validation des points de retraite, qui suit les JOURS indemnisés),
+# quand la base du canal taux ci-dessous est ∝ au MONTANT de l'allocation —
+# deux périmètres défendables qui ne coïncident pas (~7 %), déclaré. Et c'est
+# l'économie du régime, PAS des APU : ~15 % revient en minima financés par
+# l'État (bascule RSA/ASS +25 pts à ~625 €/mois vs ARE 1 040 €, Dares Focus
+# n° 53 — non modélisé, déclaré).
 # v0.6.3 : remplace le double comptage historique de _apply_chomage_alloc
 # (durée dans `montant` PUIS delta_duree additif ⇒ ~2,89 Md€/mois).
 COUT_CHOMAGE_MARGINAL_MOIS_MD = 0.75  # Md€/an par mois de durée — Unédic 4,5 Md€ / 6 mois (réforme 2023)
 # Les trois ANCRES de la dérivation ci-dessus (v0.6.3, sorties du corps du
-# handler où elles vivaient en locales) : la base « 40 Md€ à 60 % et 18 mois »
+# handler où elles vivaient en locales) : la base « 36,6 Md€ à 60 % et 18 mois »
 # est ce que le bloc de sourcing cite pour dériver 0,75 (4,5/6 sur la réforme
-# 24→18) et pour le contraste marginal ≪ moyen (40/18 ≈ 2,2). Les séparer de
+# 24→18) et pour le contraste marginal ≪ moyen (36,6/18 ≈ 2,0). Les séparer de
 # la constante qu'elles justifient, c'est garantir qu'une révision de base
 # laisse la justification fausse sans que rien ne rougisse.
 CHOMAGE_DUREE_REF_MOIS = 18   # durée de référence (<55 ans, réforme avril 2025)
-CHOMAGE_MONTANT_REF_MD = 40   # Md€ d'allocations à taux 60 % et 18 mois (cf. base 37,2 Unédic — dette déclarée)
+# Base du canal TAUX (v0.6.4, ex-40) : la somme des lignes du rapport financier
+# Unédic 2025 qu'un changement de taux de remplacement met MÉCANIQUEMENT à
+# l'échelle — ARE 32,124 + ARE Formation 1,718 (même montant journalier) +
+# ASR/ASP 1,745 + autres 0,020 + ARCE 0,956 (60 % du reliquat de droits ARE,
+# décret du 26/06/2023) = 36,563 (§5.1.2.1-5.1.2.2, p. 75-76, comptes 2025
+# certifiés). EXCLUS, avec leur raison d'assiette : validation des points de
+# retraite 2,43 Md€ (assiette = SJR, pas l'allocation — fiche Unédic
+# « Trimestres et points de retraite », MAJ 04/07/2025 : une baisse de TAUX ne
+# la réduit pas, une baisse de DURÉE si — c'est l'asymétrie que le canal
+# marginal ci-dessus porte) ; contribution France Travail 4,98 (11 % des
+# recettes N−2) ; primes CSP + aide fin de droits + IDR (forfaitaires) ;
+# activité partielle. L'ancien 40 ≈ charges techniques hors France Travail
+# (40,02 en 2025) : il agrégeait ces lignes non proportionnelles. CONVENTION
+# déclarée : l'ASR/ASP (1,75) est incluse par périmètre de politique publique
+# (le levier couvre le régime), pas par proportionnalité stricte — l'ASP
+# ≥ 1 an d'ancienneté vaut 75 % d'un SJR calculé À PART ; l'exclure donnerait
+# 34,8. Caveats : montée en charge de la réforme 2023 achevée en 2026
+# (prévision Unédic 06/2026 p. 10) → 36,6 surestime LÉGÈREMENT le régime de
+# croisière ; le « 37,2 » (allocations brutes ET aides, tableau 4 p. 15 de la
+# même prévision) est une estimation pré-clôture qui inclut ~0,3 de
+# forfaitaire.
+CHOMAGE_MONTANT_REF_MD = 36.6  # Md€ ∝ allocation, à taux 60 % et 18 mois (Unédic 2025, dérivation ci-dessus)
 CHOMAGE_TAUX_REF = 0.60       # taux de remplacement de la base
 
 # === INEQUALITY (INSEE 2024) ===
@@ -741,7 +769,10 @@ PHASING_CHOMAGE_SENIORS = (0.196, 0.400, 0.492, 0.536, 0.554,
 # brique E ci-dessus fait précisément bouger. L'inscrire aussi dans le
 # handler serait un double comptage.
 # Vérification croisée : au pic, +0,10 pt appliqué à la catégorie `chomage`
-# (base 40 Md€, facteur u/u_base avec u_base = 7,6 %) donne 0,53 Md€, contre
+# (base 40 Md€ — la CATÉGORIE de dépense baseline, périmètre régime entier
+# ≈ allocations + aides + points retraite, simulator.py ; à ne pas confondre
+# avec CHOMAGE_MONTANT_REF_MD = 36,6, l'assiette ∝ allocation du canal taux —
+# facteur u/u_base avec u_base = 7,6 %) donne 0,53 Md€, contre
 # 52 % × 20 % × 6,0 = 0,62 Md€ dans la clé DREES/DARES — écart 14 %.
 # Corroboration indépendante : Rabaté & Rochut 2020, « crowding out effects
 # […] around one fifth of the fiscal gains ».

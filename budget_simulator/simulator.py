@@ -456,7 +456,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             # PRESTATIONS SOCIALES
             'retraites': 380,              # Pensions (fusionné)
             'sante': 250,                  # Remboursements + ALD (fusionné)
-            'chomage': 40,                 # Allocations chômage
+            'chomage': 40,                 # Assurance chômage, périmètre RÉGIME entier (≈ allocations 35,6 + aides 1,3 + points retraite 2,4 + activité partielle, Unédic 2025 ≈ 39,4) — PAS la base ∝ allocation du canal taux (CHOMAGE_MONTANT_REF_MD = 36,6, constants.py)
             'dependance': 35,              # APA + AAH (fusionné)
             'minima_sociaux': 90,          # RSA + Prime activité + APL + Allocations famille (avant ASU)
 
