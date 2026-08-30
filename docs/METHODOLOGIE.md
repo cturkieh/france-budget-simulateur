@@ -1830,11 +1830,11 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 | Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 |
 |---|---|---|---|---|
 | `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,7 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 |
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 |
 | `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,7 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 |
 | `ecologistes_2027` | — | — | -2,2 | -5,8 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 |
 | `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 |
@@ -1845,7 +1845,7 @@ son sens agrege est le MIROIR de la v0.6.1 : elle REND aux programmes ce que
 des mecanismes non sources leur retiraient. (1) La duree d'indemnisation
 chomage etait comptee DEUX FOIS (~2,89 Md EUR par mois d'ecart, contre
 0,75 sources Unedic) : les programmes qui l'allongent voient leur penalite
-fondre — LFI -7,3 points d'ecart, PS -4,7, RN -3,6, Les Ecologistes -3,6 —
+fondre — LFI -7,2 points d'ecart, PS -4,6, RN -3,6, Les Ecologistes -3,6 —
 et les scenarios qui la reduisent (Renaissance a 15 mois, Horizons a
 12 mois, desormais encodes au parametre annonce et non plus en « duree
 equivalente ») economisent moins qu'avant : leurs ecarts favorables se
