@@ -52,6 +52,28 @@ def test_asu_phasing_predicate_matches_apply_asu_non_zero():
     assert asu_phasing({'asu': {'asu_activation': 0.5}}, 2030) == 1.00
 
 
+def test_activation_non_finie_est_inactive_partout():
+    """v0.6.3 : plus d'ASU FANTÔME sous la porte de finitude.
+
+    En mode tolérant, la porte RETIRE une activation NaN de `params` →
+    `_apply_asu` retombe sur son défaut (0, rien n'est émis). Le prédicat,
+    qui lit les mesures BRUTES, la traitait comme active (`NaN != 0`) : la
+    fraude sociale amputait alors son gisement de 30 % (~2 Md€/an) pour une
+    réforme jamais appliquée, sans un log. Le prédicat suit désormais la
+    même sémantique que la porte : non fini = inactif, DES DEUX CÔTÉS."""
+    nan = float('nan')
+    for val in (nan, float('inf'), float('-inf')):
+        assert asu_phasing({'asu': {'asu_activation': val}}, 2030) == 0.0
+    # et la fraude ne subit donc AUCUNE réduction fantôme :
+    plein = _fraude_ds({'fraude_sociale': {'effort': 1.0}}, 2030)
+    avec_nan = BudgetSimulatorV45(
+        periods=10,
+        mesures={'fraude_sociale': {'effort': 1.0},
+                 'asu': {'asu_activation': nan}})._apply_fraude_sociale(
+        {}, {'effort': 1.0}, 2030, _GDP, _INFLATION, _UNEMP)[0]
+    assert avec_nan == pytest.approx(plein, abs=1e-12)
+
+
 # --------------------------------------------------------------------------
 # (b) INTERACTION EFFECTIVE — ASU active réduit réellement les économies
 # --------------------------------------------------------------------------

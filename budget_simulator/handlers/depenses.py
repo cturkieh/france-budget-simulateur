@@ -119,7 +119,6 @@ reproduire le pattern.
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
-    ASU_COUT_RECOURS_MD_EUR,
     ASU_GINI_BORNE_PAR_MD_EUR,
     ASU_PERIMETRE_MD_EUR,
     ASU_PLAFONNEMENT_DEFAUT,
@@ -144,8 +143,8 @@ from ..constants import (
     RETRAITES_GINI_RESIDU_FLUX,
     RETRAITES_PA_GEL_TOTAL,
     RETRAITES_REF_DUREE_ANS,
+    asu_cout_annuel_md_eur,
     asu_cout_recours_md_eur,
-    asu_cout_transition_md_eur,
     asu_effort_perenne_md_eur,
     asu_plafonnement_borne,
     asu_solde_perenne_md_eur,
@@ -535,7 +534,9 @@ class DepensesMixin(_MixinBase):
         Frontend v4.5+ : Taux de remplacement % (0.45-0.80) + Durée (12-36 mois)
         Legacy : Montant Md€ (30-60) + Durée (12-36 mois)
 
-        DEUX CANAUX ORTHOGONAUX (v0.6.3 — fin du double comptage de la durée) :
+        DEUX CANAUX SÉPARÉS — la durée ne passe plus par la base (v0.6.3,
+        fin du double comptage ; « séparés », pas « orthogonaux » : le canal
+        durée porte un terme d'interaction × taux/TAUX_REF, assumé et testé) :
         - Canal TAUX : Montant = 40 × (taux/0.60) — base 2025 (réforme avril),
           allocations Unédic ~40 Md€ à 60 % de taux et 18 mois de référence.
           Un changement de taux touche TOUS les allocataires : proportionnel.
@@ -557,9 +558,11 @@ class DepensesMixin(_MixinBase):
         MONTANT_REF = CHOMAGE_MONTANT_REF_MD
         TAUX_REF = CHOMAGE_TAUX_REF
 
+        # v0.6.3 : l'ex-clamp `if duree <= 0: duree = DUREE_REF` est SUPPRIMÉ —
+        # il gardait une division legacy disparue, et réinterprétait en
+        # silence une valeur absurde comme « statu quo ». Le domaine
+        # (12-36 mois) est désormais porté par PARAM_DOMAINS, comme partout.
         duree = params.get('duree', DUREE_REF)
-        if duree <= 0:
-            duree = DUREE_REF
         degressivite = params.get('degressivite', False)
 
         # Tracker première année activation (pour impact Gini one-time)
@@ -590,13 +593,20 @@ class DepensesMixin(_MixinBase):
         # supplémentaire sont versées au taux courant, pas au taux de réf.
         delta_duree = (duree - DUREE_REF) * COUT_CHOMAGE_MARGINAL_MOIS_MD \
             * (taux_remplacement / TAUX_REF)
-        # Somme € PRÉ-dégressivité, nommée une fois : les canaux d'indice
-        # (PA, compétitivité) la consomment telle quelle — seule la DÉPENSE
-        # porte le facteur de dégressivité, pas le choc de revenu des ménages.
+        # Somme € des allocations, nommée une fois et consommée par la
+        # dépense ET les canaux d'indice (PA, compétitivité). v0.6.3 (revue) :
+        # la dégressivité s'applique À CETTE SOMME, pas à la seule dépense —
+        # les 15 % d'économies supplémentaires qu'elle achète sont des
+        # allocations que les ménages ne reçoivent pas. L'ancien câblage en
+        # faisait un « free lunch » : du déficit gagné à coût distributif
+        # strictement nul, la forme exacte que test_asu_no_free_lunch
+        # interdit au handler voisin. (Une part de l'économie vient de
+        # retours à l'emploi, déjà créditée séparément par impact_chomage —
+        # aucune source ne publie la décomposition, le choix est déclaré.)
         delta_alloc = delta_montant + delta_duree
-        delta_spending = delta_alloc
         if degressivite:
-            delta_spending *= 0.85 if delta_spending > 0 else 1.15
+            delta_alloc *= 0.85 if delta_alloc > 0 else 1.15
+        delta_spending = delta_alloc
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # IMPORTANT : Impacts ONE-TIME uniquement (demande, effet niveau)
@@ -646,12 +656,19 @@ class DepensesMixin(_MixinBase):
         # Source: France Stratégie 2019, réforme assurance chômage 2019
         # Dégressivité + durée réduite → Incitation retour emploi rapide
         # Impact: -0.10 à -0.15 points (France Stratégie)
+        # v0.6.3 (revue) : le canal durée devient SYMÉTRIQUE — la garde
+        # `duree < DUREE_REF` le rendait unilatéral : couper des mois
+        # gagnait un bonus d'emploi, en AJOUTER ne coûtait rien (la théorie
+        # de la recherche d'emploi joue dans les deux sens : des droits plus
+        # longs allongent les durées de recherche). Doctrine du projet :
+        # symétrie par instrument, sauf source contraire — même arbitrage
+        # que le barème d'âge des retraites (C1, v0.6.1).
         if is_first_year and degressivite:
             # Dégressivité activée → Fort impact incitation
             impact_chomage = -0.0015  # -0.15 points
-        elif is_first_year and duree < DUREE_REF:
-            # Durée réduite sous la référence → Impact modéré
-            impact_chomage = -0.0005 * (DUREE_REF - duree) / 6  # Durée 12m → -0.05 pt
+        elif is_first_year:
+            # Durée vs référence, dans les deux sens (nul à la référence)
+            impact_chomage = -0.0005 * (DUREE_REF - duree) / 6  # 12m → -0.05 pt ; 24m → +0.05 pt
         else:
             impact_chomage = 0.0
 
@@ -752,7 +769,12 @@ class DepensesMixin(_MixinBase):
         # (source canonique, IDENTIQUE à celle lue par
         # _phasing.asu_is_active — le prédicat booléen anti-double-comptage
         # consommé par _apply_prestations_indexation et, via asu_phasing,
-        # par la fraude sociale).
+        # par la fraude sociale). v0.6.3 : la COHÉRENCE sous la porte de
+        # finitude est rétablie CÔTÉ PRÉDICAT — asu_is_active traite
+        # désormais une activation non finie comme INACTIVE, exactement ce
+        # que la porte fait ici (clé NaN retirée → défaut 0 → early return).
+        # Avant : ASU fantôme — ce handler n'émettait rien pendant que la
+        # fraude amputait son gisement de 30 % (~2 Md€/an effacés sans log).
         activation = params.get('asu_activation', 0)
         plafonnement = asu_plafonnement_borne(
             params.get('asu_plafonnement', ASU_PLAFONNEMENT_DEFAUT))
@@ -777,17 +799,15 @@ class DepensesMixin(_MixinBase):
         # l'économie de gestion dérivée y dépassait l'effort interpolé, alors
         # que la variante officielle la moins coûteuse (« à coût constant »)
         # a un solde pérenne EXACTEMENT nul. Motif complet : constants.py.
-        # Transition : enveloppe des quatre premières années, indépendante
-        # du plafond (aucune source ne les lie).
-        # Recours (v0.6.3) : la résorption du non-recours coûte de façon
-        # PÉRENNE (2,4 Md€/an DGALN, montée avec le phasing) — le chiffrage
-        # de la mission flash se déclare lui-même « hors hausse du taux de
-        # recours », l'ajouter COMPLÈTE la source (détail : constants.py,
-        # bloc I22/I26). Indépendant du plafond, comme la transition.
-        transition = asu_cout_transition_md_eur(year)
-        recours = asu_cout_recours_md_eur(phasing)
-        delta_spending = transition + recours \
-            + phasing * asu_solde_perenne_md_eur(plafonnement)
+        # Coût de l'année via LA porte de composition (constants.py,
+        # v0.6.3) : transition (4 ans) + recours pérenne (2,4 Md€/an DGALN
+        # montée avec le phasing — le chiffrage de la mission flash se
+        # déclare lui-même « hors hausse du taux de recours », l'ajouter
+        # COMPLÈTE la source, détail bloc I22/I26) + solde de barème phasé.
+        # Le handler ne compose plus les trois conventions temporelles à la
+        # main — c'était le piège relevé en revue type-design.
+        cout = asu_cout_annuel_md_eur(plafonnement, year, phasing)
+        delta_spending = cout.total
         delta_revenue = 0.0
 
         impacts = {
@@ -814,7 +834,11 @@ class DepensesMixin(_MixinBase):
         # reste calé sur le seul effort : la borne DREES par Md€ est dérivée
         # de la redistribution du BARÈME, l'étendre au recours serait une
         # extrapolation (le moteur ne fabrique pas).
-        impacts['pouvoir_achat'] = ((effort + ASU_COUT_RECOURS_MD_EUR)
+        # F5 (revue) : le niveau de régime du recours vient de SA fonction
+        # (asu_cout_recours_md_eur(1.0)), pas du littéral importé — les deux
+        # consommateurs (budget, PA) suivent la même source ; si le recours
+        # prend un jour une courbe propre, la ligne PA suit.
+        impacts['pouvoir_achat'] = ((effort + asu_cout_recours_md_eur(1.0))
                                     / RDB_MENAGES_MD_EUR) * increment
 
         # === GINI ===
@@ -832,8 +856,8 @@ class DepensesMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
                    f"Y{year}: ASU plaf={plafonnement:.0%} - phasing={phasing:.0%}, "
-                   f"effort={effort:.2f}Md€, transition={transition:.2f}Md€, "
-                   f"total={delta_spending:+.2f}Md€")
+                   f"effort={effort:.2f}Md€, transition={cout.transition:.2f}Md€, "
+                   f"recours={cout.recours:.2f}Md€, total={delta_spending:+.2f}Md€")
 
         return delta_spending, delta_revenue, impacts
 

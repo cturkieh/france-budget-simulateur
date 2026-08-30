@@ -624,6 +624,30 @@ def test_cout_total_des_quatre_premieres_annees_dans_la_fourchette(plafonnement)
         f"facture des 4 premières années : {cumul:.2f} Md€ à {plafonnement}")
 
 
+@pytest.mark.parametrize("year,ph", [(2026, 0.25), (2027, 0.50), (2028, 0.75)])
+def test_le_recours_suit_le_phasing_une_seule_fois(year, ph):
+    """Le recours est phasé UNE fois (porte asu_cout_annuel_md_eur, v0.6.3).
+    Un double-phasing (ph²) passerait le cumul 4 ans (6,5 ∈ [2 ; 13,4]) et
+    serait invisible en régime (1×1=1) : une année de phasing PARTIEL est le
+    seul point où il rougit. Idem pour le champ perenne : l'oubli du
+    « phasing × » n'était attrapé qu'au plafond maximal."""
+    cout = constants.asu_cout_annuel_md_eur(ASU_PLAFONNEMENT_MIN, year, ph)
+    assert cout.recours == pytest.approx(ph * ASU_COUT_RECOURS_MD_EUR, abs=1e-12)
+    assert cout.perenne == pytest.approx(
+        ph * constants.asu_solde_perenne_md_eur(ASU_PLAFONNEMENT_MIN), abs=1e-12)
+    assert cout.total == pytest.approx(
+        cout.transition + cout.recours + cout.perenne, abs=1e-12)
+
+
+def test_le_recours_dgaln_est_pin_a_sa_source():
+    """2,4 Md€ = LE montant que la mission flash attache à la réforme
+    (« hors hausse du taux de recours (2,4 milliards d'euros d'après la
+    DGALN) ») — un chiffre publié unique, pas une fourchette : tout écart
+    est un acte (nouvelle source), jamais une dérive. (Revue : la borne
+    bilatérale de dette restait verte à 1,2 — moitié de la source.)"""
+    assert ASU_COUT_RECOURS_MD_EUR == 2.4
+
+
 def test_le_recours_est_facture_en_perenne_pas_en_blip():
     """v0.6.3 : la hausse du recours (2,4 Md€/an, DGALN) est une charge
     PÉRENNE qui monte avec le phasing — plus un blip de transition. L'ancien

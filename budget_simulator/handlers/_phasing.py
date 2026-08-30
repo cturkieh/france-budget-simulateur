@@ -25,6 +25,7 @@ NB sémantique : ``_one_time_level`` est gaté sur l'ANNÉE CALENDAIRE
 détecte un changement effectif de ``params`` (re-trigger sur slider
 modifié en cours de simulation). Les deux ne sont pas interchangeables.
 """
+import math
 from typing import Callable, Dict, Sequence, TypeVar
 
 from ..constants import POLICY_START_YEAR
@@ -83,7 +84,8 @@ def _resolve_intensite_or_legacy(
 
 
 def asu_is_active(mesures: Dict) -> bool:
-    """ASU active ssi ``mesures['asu']`` existe et ``asu_activation != 0``.
+    """ASU active ssi ``mesures['asu']`` existe et ``asu_activation != 0``
+    ET FINI.
 
     Source unique consommée par ``asu_phasing`` ET
     ``depenses._apply_prestations_indexation`` (anti-double-comptage des
@@ -92,9 +94,27 @@ def asu_is_active(mesures: Dict) -> bool:
     (``params``) pour rester byte-identique au golden master — ne pas le
     router ici sans régénération auditée (dette connue, Item 2 contrat
     de params).
+
+    v0.6.3 (revue silent-failure) : une activation NON FINIE est INACTIVE —
+    la porte de finitude RETIRE la clé NaN/±inf de ``params`` en mode
+    tolérant (contrat : « le handler retombe sur son défaut, le neutre »),
+    donc ``_apply_asu`` n'émet rien ; le prédicat, qui lit ``mesures``
+    BRUT, la traitait comme active (``NaN != 0``) → ASU FANTÔME : la fraude
+    amputait son gisement de 30 % (~2 Md€/an) pour une réforme jamais
+    appliquée, sans un log. Le prédicat suit désormais la même sémantique
+    que la porte. (Un toggle dévié mais FINI, ex. 0.5, reste actif — le
+    harnais standalone en dépend.)
     """
     asu = mesures.get('asu')
-    return bool(asu) and asu.get('asu_activation', 0) != 0
+    if not asu:
+        return False
+    activation = asu.get('asu_activation', 0)
+    try:
+        if not math.isfinite(activation):
+            return False
+    except TypeError:
+        pass  # non numérique : même traitement qu'avant (véracité booléenne)
+    return activation != 0
 
 
 def asu_phasing(mesures: Dict, year: int) -> float:

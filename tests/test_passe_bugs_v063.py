@@ -7,7 +7,8 @@ de durée, contre ~0,75 Md€/an réel (ancre Unédic — le marginal est très
 inférieur au moyen 40/18 ≈ 2,2 car seule une minorité d'allocataires épuise
 ses droits). Contrat post-fix : le canal TAUX (montant) et le canal DURÉE
 (coût marginal sourcé ``COUT_CHOMAGE_MARGINAL_MOIS_MD``, constants.py) sont
-ORTHOGONAUX ; la durée ne passe QUE par le canal marginal.
+SÉPARÉS — la durée ne passe plus par la base (pas « orthogonaux » : le canal
+durée garde un terme d'interaction × taux/TAUX_REF, assumé et testé).
 
 BUG 2 — fraude sociale : récupération plafonnée (cap IGAS 8 Md€) mais budget
 de contrôle linéaire → au-delà du point de saturation (effort ≈ 0,435 à
@@ -20,7 +21,13 @@ l'effort, strictement croissant sous saturation.
 """
 import pytest
 
-from budget_simulator.constants import COUT_CHOMAGE_MARGINAL_MOIS_MD
+from budget_simulator.constants import (
+    COUT_CHOMAGE_MARGINAL_MOIS_MD,
+    FRAUDE_SOCIALE_EFFICACITE_RECUPERATION,
+    FRAUDE_SOCIALE_GISEMENT_MD_EUR,
+    FRAUDE_SOCIALE_ROI,
+    fraude_budget_saturant_md_eur,
+)
 from budget_simulator.simulator import BudgetSimulatorV45
 
 _GDP, _INFLATION, _UNEMP = 3000.0, 0.02, 0.075
@@ -99,6 +106,14 @@ class TestChomageDuree:
         """18→12 mois = −6 × marginal (symétrie stricte du canal durée)."""
         ds = _chomage_ds({'taux_remplacement': 0.60, 'duree': 12, 'degressivite': False})
         assert ds == pytest.approx(-6 * COUT_CHOMAGE_MARGINAL_MOIS_MD, rel=1e-9)
+
+    def test_point_de_reference_neutre_en_mode_taux(self):
+        """Au point de référence exact (taux 0,60, durée 18), delta = 0 —
+        l'invariant qui porte réellement le fix (revue F6), testé jusqu'ici
+        seulement en mode legacy."""
+        ds = _chomage_ds({'taux_remplacement': 0.60, 'duree': 18,
+                          'degressivite': False})
+        assert ds == pytest.approx(0.0, abs=1e-12)
 
     def test_legacy_defaut_reste_neutre(self):
         """Le défaut config {'montant': 40, 'duree': 18} vaut zéro delta."""
@@ -214,18 +229,23 @@ class TestFraudeMonotone:
         assert ds_10 == pytest.approx(ds_05, abs=1e-9)
 
     def test_le_budget_engage_sature_avec_le_gisement(self):
-        """À plein phasing, le solde net vaut −(cap IGAS) + budget saturant :
-        −8 + 8/(8,75 × 0,70) ≈ −6,69 Md€ — pas −8 + 3 = −5 (budget plein)."""
+        """À plein phasing, le solde net vaut −(cap IGAS) + budget saturant
+        (≈ −8 + 1,31 = −6,69 Md€) — pas −8 + 3 = −5 (budget plein). Le seuil
+        vient de sa SOURCE UNIQUE (fraude_budget_saturant_md_eur), plus
+        d'une re-multiplication de littéraux nus."""
         ds = _fraude_ds({'effort': 1.0}, 2030)
-        budget_saturant = 8.0 / (8.75 * 0.70)
-        assert ds == pytest.approx(-8.0 + budget_saturant, rel=1e-9)
+        budget_saturant = fraude_budget_saturant_md_eur(1.0)
+        assert ds == pytest.approx(
+            -FRAUDE_SOCIALE_GISEMENT_MD_EUR + budget_saturant, rel=1e-9)
 
     def test_annees_de_montee_en_charge_comportement_inchange(self):
         """En 2026 (phasing 0,25), le gisement n'est pas saturable même à
         effort 1,0 (budget saturant ≈ 5,2 > 3) : le calcul d'avant-fix reste
         valable au bit près — le fix ne touche QUE la zone saturée."""
+        assert fraude_budget_saturant_md_eur(0.25) > 3.0  # la prémisse, prouvée
         ds = _fraude_ds({'effort': 1.0}, 2026)
-        attendu = -(3.0 * 8.75 * 0.25 * 0.70) + 3.0
+        attendu = -(3.0 * FRAUDE_SOCIALE_ROI * 0.25
+                    * FRAUDE_SOCIALE_EFFICACITE_RECUPERATION) + 3.0
         assert ds == pytest.approx(attendu, rel=1e-9)
 
     def test_asu_reduit_toujours_strictement_les_economies(self):

@@ -4,6 +4,7 @@ All values documented with sources.
 """
 
 from pathlib import Path
+from typing import NamedTuple
 
 # Chemin absolu vers policy_measures.json (à la racine du projet, parent du package)
 POLICY_MEASURES_PATH = Path(__file__).resolve().parent.parent / 'policy_measures.json'
@@ -441,6 +442,17 @@ INTENSITE_DOMAINS = {
 PARAM_DOMAINS = {
     'fraude_sociale': {
         'effort': (0.0, 1.0),
+    },
+    # v0.6.3 (revue silent-failure) : depuis la fin du double comptage, la
+    # durée est LE paramètre le plus porteur du moteur (elle seule produit
+    # les euros que deux fiches publient comme « calculés ») et elle n'avait
+    # AUCUNE borne hors-UI : duree=240 valait +166 Md€/an (rattrapé par le
+    # seul clip générique 5 % PIB), duree<=0 était réinterprété « statu quo »
+    # par un clamp muet du handler (supprimé — c'était l'ex-garde d'une
+    # division legacy qui n'existe plus). Bornes = policy_measures.json.
+    'chomage_alloc': {
+        'duree': (12.0, 36.0),
+        'taux_remplacement': (0.45, 0.80),
     },
     'retraites': {
         'age_depart': (60.0, 67.0),
@@ -1257,14 +1269,44 @@ def asu_cout_recours_md_eur(phasing: float) -> float:
 
     v0.6.3 : troisième et dernière composante du coût ASU, aux côtés de
     ``asu_solde_perenne_md_eur`` (barème) et ``asu_cout_transition_md_eur``
-    (bascule) — le coût d'une année se dérive donc de ``constants.py`` seul.
-    ``phasing`` = calendrier ``asu_phasing`` (le handler le calcule depuis
-    ``self.mesures``) : le recours monte avec la réforme puis reste à
-    2,4 Md€/an pour toujours — une réforme dont l'objet est de résorber le
-    non-recours ne cesse pas de le payer en année 5. Indépendant du plafond,
-    donc hors du plancher du solde pérenne (motif : bloc I22/I26 ci-dessus).
+    (bascule). ``phasing`` = calendrier ``asu_phasing`` : le recours monte
+    avec la réforme puis reste à 2,4 Md€/an pour toujours — une réforme dont
+    l'objet est de résorber le non-recours ne cesse pas de le payer en
+    année 5. Indépendant du plafond, donc hors du plancher du solde pérenne
+    (motif : bloc I22/I26 ci-dessus). Composition : ``asu_cout_annuel_md_eur``.
     """
     return phasing * ASU_COUT_RECOURS_MD_EUR
+
+
+class AsuCout(NamedTuple):
+    """Décomposition du coût ASU d'une année (Md€, >0 = surcoût)."""
+    transition: float   # bascule, 4 premières années, indépendante du plafond
+    recours: float      # pérenne, monte avec le phasing puis reste
+    perenne: float      # barème (solde plancher), déjà multiplié par le phasing
+
+    @property
+    def total(self) -> float:
+        return self.transition + self.recours + self.perenne
+
+
+def asu_cout_annuel_md_eur(plafonnement: float, year: int, phasing: float) -> AsuCout:
+    """LA porte de composition du coût ASU — le coût d'une année se dérive
+    de ``constants.py`` seul, par cet appel unique.
+
+    v0.6.3 (revue type-design) : les trois composantes ont trois conventions
+    temporelles différentes (régime à multiplier / déjà annualisée / déjà
+    phasée) qu'aucune signature ne distingue — composées à la main chez
+    l'appelant, un double-phasing du recours ou un oubli du ``phasing ×``
+    devant le solde type-checkaient et passaient les tests de bornes. Le
+    handler lit ``.total`` et ne compose plus rien ; les tests assertent les
+    champs (dont le seul point où un double-phasing rougit : une année de
+    phasing PARTIEL, cf. test_asu_v061).
+    """
+    return AsuCout(
+        transition=asu_cout_transition_md_eur(year),
+        recours=asu_cout_recours_md_eur(phasing),
+        perenne=phasing * asu_solde_perenne_md_eur(plafonnement),
+    )
 
 
 # === CALIBRATION FRAUDE SOCIALE (v0.6.3) ===
@@ -1295,6 +1337,24 @@ if not (0 < FRAUDE_SOCIALE_GISEMENT_MD_EUR
     raise ValueError(
         "Calibration fraude sociale hors domaine : GISEMENT > 0, ROI > 0, "
         "EFFICACITÉ ∈ ]0;1] requis (le seuil de saturation en divise).")
+
+
+def fraude_budget_saturant_md_eur(phasing: float, asu_ph: float = 0.0) -> float:
+    """Budget de contrôle au-delà duquel le gisement IGAS n'a plus rien à
+    rendre (Md€) — LE point de bascule du levier fraude sociale.
+
+    v0.6.3 (revue type-design) : ce seuil existait en cinq exemplaires
+    (prose « ≈ 0,435 » × 2, re-dérivations manuelles × 3 dans les tests),
+    aucun calculé. Source unique désormais : à plein régime,
+    ``fraude_budget_saturant_md_eur(1.0) / 3`` donne l'effort de saturation.
+    À rendement nul (avant l'entrée en vigueur), renvoie l'infini : tout le
+    budget est engagé, rien n'est récupéré — comportement historique.
+    Le résiduel ASU (``asu_ph``) réduit le gisement, donc le seuil.
+    """
+    gisement = FRAUDE_SOCIALE_GISEMENT_MD_EUR * (1 - 0.30 * asu_ph)
+    rendement = (FRAUDE_SOCIALE_ROI
+                 * FRAUDE_SOCIALE_EFFICACITE_RECUPERATION * phasing)
+    return gisement / rendement if rendement > 0 else float('inf')
 
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré

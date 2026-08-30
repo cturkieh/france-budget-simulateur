@@ -80,9 +80,9 @@ from ..constants import (
     COUT_MOYEN_AGENT_FP_EUR,
     DEPARTS_ANNUELS_FP,
     FRAUDE_SOCIALE_EFFICACITE_RECUPERATION,
-    FRAUDE_SOCIALE_GISEMENT_MD_EUR,
     FRAUDE_SOCIALE_ROI,
     POLICY_START_YEAR,
+    fraude_budget_saturant_md_eur,
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing, asu_phasing
@@ -261,7 +261,6 @@ class EfficienceMixin(_MixinBase):
         # résiduel ASU réduit le gisement. Constantes : source unique
         # constants.py § CALIBRATION FRAUDE SOCIALE (leurs statuts d'audit
         # inégaux y sont déclarés).
-        gisement = FRAUDE_SOCIALE_GISEMENT_MD_EUR * (1 - 0.30 * asu_ph)
 
         # v0.6.3 (monotonie) : le budget ENGAGÉ sature avec le gisement.
         # L'ancien calcul gardait un budget linéaire face à une récupération
@@ -273,14 +272,13 @@ class EfficienceMixin(_MixinBase):
         # contrôles dont le gisement IGAS dit qu'ils n'ont rien à récupérer.
         # Le solde net devient FAIBLEMENT monotone en l'effort (flat au-delà
         # de la saturation), strictement croissant en deçà — verrouillé par
-        # tests/test_passe_bugs_v063.py. À phasing nul (avant l'entrée en
-        # vigueur), la condition est fausse : tout le budget est engagé et
-        # rien n'est récupéré — comportement historique conservé.
+        # tests/test_passe_bugs_v063.py. Le seuil vit dans constants.py
+        # (fraude_budget_saturant_md_eur — source unique, infini à phasing
+        # nul : tout le budget est engagé, rien récupéré, comme toujours).
         rendement_marginal = (FRAUDE_SOCIALE_ROI
                               * FRAUDE_SOCIALE_EFFICACITE_RECUPERATION * phasing)
-        budget_engage = (gisement / rendement_marginal
-                         if rendement_marginal * budget_controles > gisement
-                         else budget_controles)
+        budget_engage = min(budget_controles,
+                            fraude_budget_saturant_md_eur(phasing, asu_ph))
 
         economies_reelles = budget_engage * rendement_marginal
 
