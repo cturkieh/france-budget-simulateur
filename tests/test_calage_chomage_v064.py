@@ -156,16 +156,41 @@ class TestGiniDureeRecale:
                               'degressivite': False}) < 0
 
     def test_le_reel_delivre_reste_sous_la_borne_arithmetique(self):
-        """Invariant physique (constat 24) : après le rescale d'assemblage
-        (× GINI_IMPACT_SCALE), le Gini RÉEL délivré par Md€ de durée coupée ne
-        peut pas dépasser la borne C = −1 (ASU_GINI_BORNE_PAR_MD_EUR) — le
-        maximum arithmétique d'un transfert intégralement pris au premier
-        centile. (La comparaison PRÉ-scale croiserait deux familles de
-        calibration — NB constants.py:1122-1125, chantier v0.7.)"""
+        """Filet physique lâche (constat 24, RECLASSÉ après contre-vérif) :
+        après le rescale d'assemblage (× GINI_IMPACT_SCALE), le Gini RÉEL
+        délivré par Md€ de durée coupée ne peut pas dépasser la borne C = −1
+        (ASU_GINI_BORNE_PAR_MD_EUR) — le maximum arithmétique d'un transfert
+        intégralement pris au premier centile. Ne mord qu'à k > 5,3 : c'est le
+        garde-fou contre l'erreur grossière (k fantaisiste, scale cassé), pas
+        la contrainte fine — celle-ci est le test du C implicite ci-dessous.
+        (La comparaison PRÉ-scale croiserait deux familles de calibration —
+        NB constants.py, chantier v0.7.)"""
         from budget_simulator.constants import (GINI_ALLOC_PAR_MD,
                                                 GINI_DUREE_SURPOIDS)
         reel_par_md = GINI_IMPACT_SCALE * GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD
         assert reel_par_md <= ASU_GINI_BORNE_PAR_MD_EUR
+
+    def test_le_c_implicite_du_canal_duree_reste_arithmetiquement_valide(self):
+        """Contrainte fine (contre-vérification du constat 24) : le surpoids k
+        s'interprète comme un coefficient de concentration implicite
+        C_durée = G − k × (G − C_ARE), qui doit rester ≥ −1 (un transfert ne
+        peut pas être plus concentré que « tout au premier centile »). À
+        k = 1,6 : C_durée ≈ −0,39, cohérent avec l'estimation indépendante
+        des déciles DREES pour le mix fin-de-droits (−0,27 à −0,49).
+
+        C_ARE = 2·F̄ − 1 sur les personnes en ménages ARE, avec la recette de
+        recalcul (à refaire si GINI_BASE ou la source DREES bouge) : déciles
+        publiés DREES E&R n° 1368, graphique 1 — D1 13 %, D2 13 %, D6-D10
+        37 % au rang moyen r = 0,75, bloc D3-D5 (37 %) au rang moyen 0,35 →
+        F̄ = 0,13×0,05 + 0,13×0,15 + 0,37×0,35 + 0,37×0,75 ≈ 0,433 →
+        C_ARE ≈ −0,134. Sensibilité déclarée : r = 0,70 → C_ARE −0,078
+        (k_max 3,5) ; r = 0,80 → −0,226 (k_max 2,5) ; le k_max ≈ 3,04 du
+        commentaire constants.py est calculé à r = 0,75."""
+        from budget_simulator.constants import GINI_BASE, GINI_DUREE_SURPOIDS
+        C_ARE = -0.134
+        c_duree_implicite = GINI_BASE - GINI_DUREE_SURPOIDS * (GINI_BASE - C_ARE)
+        assert c_duree_implicite >= -1.0
+        assert c_duree_implicite == pytest.approx(-0.39, abs=0.02)
 
 
 # ---------------------------------------------------------------------------

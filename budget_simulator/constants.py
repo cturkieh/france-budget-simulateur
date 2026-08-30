@@ -107,16 +107,31 @@ GINI_ALLOC_PAR_MD = 0.004 / 5  # Gini émis par Md€ d'allocations (canal taux,
 #      centre ≈ 1,6. La colonne « taux de pauvreté » (k jusqu'à 2,72) est
 #      rétrogradée en contrôle de robustesse : un headcount n'a pas de
 #      correspondance défendable vers une élasticité de Gini.
-# Fourchette testée [1,3 ; 2,2] ; C implicite du canal durée à k = 1,6 :
-# G − 1,6×(G − C_ARE) ≈ −0,39, très au-dessus du plancher arithmétique C = −1.
+# Fourchette testée [1,3 ; 2,2]. VALIDITÉ PHYSIQUE, résultat positif (contre-
+# vérification croisée orchestrateur × vérificateur, 30/08) : k = 1,6 implique
+# un coefficient de concentration C_durée = G − k×(G − C_ARE) ≈ −0,39 pour un
+# plancher arithmétique C = −1 — soit ~30 % de l'impact Gini physiquement
+# maximal pour les mêmes euros — ET ce C implicite est cohérent avec celui
+# estimé indépendamment des déciles DREES pour le mix fin-de-droits (−0,27 à
+# −0,49). La calibration est donc bornée des DEUX côtés par l'arithmétique,
+# pas seulement ancrée à un ratio (l'objection v0.6.3 « aucune source » est
+# soldée). C_ARE ≈ −0,134 : dérivé du graphique 1 DREES 1368 (D1 13 %, D2
+# 13 %, D6-D10 37 %, bloc D3-D5 au rang moyen 0,35 ; rang moyen D6-D10 posé à
+# r = 0,75) — recette de recalcul et sensibilité (r 0,70→0,80 ⇒ k_max
+# arithmétique 3,5→2,5, calculé 3,04 à r = 0,75) dans
+# tests/test_calage_chomage_v064.py, à refaire si GINI_BASE est recalibré.
 # Limites déclarées (dossier calage-chomage-v064, parent) : le trou des 71 %
 # porte la largeur ; groupes DREES non disjoints (encadré 2) ; DREES 2021 pré-
 # réforme 2023 (biais en sens contraires) ; linéarité assumée (choc concentré
 # → k devrait croître avec l'ampleur). NB inter-familles (cf. borne ASU plus
 # bas, lignes « coefficients hérités ») : ce coefficient rejoint la famille de
 # la règle montant (gonflement ~2,6× vs physique, absorbé par
-# GINI_IMPACT_SCALE) — l'homogénéisation avec la famille physique (ASU) reste
-# le chantier v0.7 « ne pas bricoler », étendu ici EN ÉCRITURE, pas creusé.
+# GINI_IMPACT_SCALE) ; l'ASU reste le SEUL levier à émission physiquement
+# calibrée — et le rescale ×0,22 la ramène à 22 % d'une grandeur dérivée comme
+# MAJORANT (un majorant × 0,22 ne majore plus rien). L'homogénéisation v0.7
+# doit donc ramener l'ASU DANS la famille (ou scinder GINI_IMPACT_SCALE par
+# famille), PAS tirer la famille vers l'ASU — chantier « ne pas bricoler »,
+# étendu ici EN ÉCRITURE, pas creusé.
 GINI_DUREE_SURPOIDS = 1.6  # sans dimension : par €, la durée frappe k fois plus bas que le taux
 
 # === INEQUALITY (INSEE 2024) ===
