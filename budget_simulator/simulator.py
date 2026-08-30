@@ -13,7 +13,7 @@ from .constants import (
     PIB_BASE_2025_MD_EUR, DETTE_RATIO_2025, RECETTES_BASE_MD_EUR,
     DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_NAIRU, GINI_BASE,
     GINI_HARD_CEILING, GINI_SOFT_FLOOR,
-    INFLATION_BASE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
+    INFLATION_BASE, INFLATION_INERTIE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
     OUTPUT_GAP_INITIAL,
     TAUX_INTERET_BASE, TAUX_PLAFOND_ABSOLU,
 )
@@ -433,7 +433,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.economic_coeffs = {
             'okun': -0.35,
             'debt_drag': -0.005,  # Compromis entre -0.008 (Reinhart-Rogoff) et -0.003 (Herndon et al. 2014)
-            'inflation_inertia': 0.50,
+            'inflation_inertia': INFLATION_INERTIE,  # source unique constants.py (v0.6.3 : 0,50 littéral nu → 0,33 encadré)
             # FIX: ancien 0.40 (positif) signifiait "chômage élevé → plus de croissance"
             # ce qui est économiquement faux. Quand le SMIC augmente le chômage,
             # l'ancien code récompensait ce chômage par un boost de croissance.

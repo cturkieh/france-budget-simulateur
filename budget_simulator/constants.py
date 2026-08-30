@@ -74,6 +74,34 @@ if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
 # Ce N'EST PAS l'intercept de Phillips (cf. INFLATION_STRUCTURELLE ci-dessous)
 # ni la cible BCE (ancrage de convergence ~2,0 %, dans le rappel BCE inflation.py).
 INFLATION_BASE = 0.011  # graine inertie année 0 = déflateur PIB 2025 réalisé +1,1 % (INSEE Première n° 2105, 29/05/2026, comptes de la Nation 2025 — révisé de +1,2 %)
+# INFLATION_INERTIE : poids ρ de l'inflation PASSÉE dans la courbe de Phillips
+# ancrée — π_t = (1−ρ)·(π* + κ·gap_t) + ρ·π_{t−1}. Paramètre de VITESSE de
+# convergence vers l'ancrage, PAS de niveau (le point fixe n'en dépend pas).
+#
+# ⚠️ CHOIX DE CALIBRATION ENCADRÉ, PAS UNE ESTIMATION (même statut que
+# PHILLIPS_PENTE_MT) : aucune institution ne publie de coefficient de
+# pass-through des anticipations — vérifié 30/08/2026 contre BCE, blog
+# « From peak back to target » (Böninghausen, Gosselin, Schupp, Vladu,
+# 31/03/2026), qui documente l'ancrage à 2,0 % SANS en publier l'élasticité.
+# L'encadrement retenu :
+#  - direction : Banque de France, « Indexation des salaires sur les prix et
+#    ancrage des anticipations d'inflation », Billet n° 335, déc. 2023 — dans
+#    les pays SANS clause d'indexation, dont la France depuis 1983, la
+#    transmission de l'inflation réalisée aux anticipations « diminue en
+#    continu avec l'horizon de prévision pour s'établir à moins d'un tiers de
+#    sa valeur à court terme pour les horizons à long terme » (citation
+#    vérifiée 30/08/2026 sur la page du billet). ⚠️ borne la DIRECTION et
+#    l'ordre de grandeur, pas ρ lui-même : le billet parle des ANTICIPATIONS,
+#    ρ pèse l'inflation RETARDÉE d'une forme réduite.
+#  - fourchette de travail du projet : 0,20-0,50 (déclarée dans
+#    engine/inflation.py, conformité au corridor vérifiée sur toute la plage).
+# Motif du 0,33 : la v0.6.2 portait 0,50 EN LITTÉRAL, sans source, au SOMMET
+# de cette fourchette. 0,33 en occupe le milieu et est le point cohérent avec
+# la direction BdF (« moins d'un tiers »). Effet mesuré (30/08/2026) :
+# déflateur moyen 2026-2030 1,430 → 1,468 %, écart annuel max au sentier de
+# la mission 0,160 → 0,130, corridors mission 10/10 verts ; la sensibilité de
+# la calibration à ρ tombe de 0,062 à 0,046 pt (cf. test_phillips_v061).
+INFLATION_INERTIE = 0.33  # ρ — v0.6.3, remplace le littéral nu 0,50 de simulator.py (jamais sourcé)
 # INFLATION_STRUCTURELLE : inflation TENDANCIELLE de moyen terme France =
 # POINT FIXE de la courbe de Phillips ancrée (engine/inflation.py).
 # Refonte 2026-06 : la formule applique (1−ρ)·π* + ρ·π_{t-1}, donc cette
