@@ -575,8 +575,12 @@ class DepensesMixin(_MixinBase):
         # ont leur propre terme durée (gini_duree) : y laisser la durée
         # revenait à la compter deux fois là aussi.
         if 'taux_remplacement' in params:
-            # Mode nouveau : Taux de remplacement % (0.45-0.80)
-            taux_remplacement = params['taux_remplacement']
+            # Mode nouveau : Taux de remplacement % (0.45-0.80).
+            # Le défaut est INATTEIGNABLE (le `in` ci-dessus le garantit)
+            # mais il reste : le générateur du registre public dérive le
+            # contrat de l'AST — `params[...]` publiait « requis (KeyError
+            # si absent) », faux pour un paramètre optionnel (revue).
+            taux_remplacement = params.get('taux_remplacement', TAUX_REF)
         else:
             # Mode legacy : Montant direct en Md€ (à durée de référence)
             taux_remplacement = TAUX_REF * (params.get('montant', MONTANT_REF) / MONTANT_REF)
@@ -830,10 +834,13 @@ class DepensesMixin(_MixinBase):
         # compte 4,0 millions de perdants pour 3,9 millions de gagnants.
         # v0.6.3 : le recours résorbé est lui aussi un transfert aux ménages
         # (des prestations DUES atteignent enfin leurs titulaires) — même
-        # convention comptable transfert/RDB que l'effort. Le Gini, lui,
-        # reste calé sur le seul effort : la borne DREES par Md€ est dérivée
-        # de la redistribution du BARÈME, l'étendre au recours serait une
-        # extrapolation (le moteur ne fabrique pas).
+        # convention comptable transfert/RDB que l'effort, et même borne
+        # Gini (cf. bloc GINI ci-dessous : une première version de ce
+        # commentaire refusait le Gini au motif d'une « borne DREES dérivée
+        # du barème » — FAUX, la borne est le majorant théorique C = −1,
+        # dont le domaine est « tout transfert net vers le bas » ; le
+        # recours y a même le titre le plus fort : zéro perdant, concentré
+        # en bas par construction — ce sont les études DREES du non-recours).
         # F5 (revue) : le niveau de régime du recours vient de SA fonction
         # (asu_cout_recours_md_eur(1.0)), pas du littéral importé — les deux
         # consommateurs (budget, PA) suivent la même source ; si le recours
@@ -850,9 +857,18 @@ class DepensesMixin(_MixinBase):
         # concentration réelle est moins extrême, donc l'effet réel est plus
         # PETIT : le moteur MAJORE délibérément le bénéfice redistributif,
         # pour qu'on ne puisse pas lui reprocher de minorer l'apport des
-        # programmes généreux. Conditionné à l'effort par construction : à
-        # coût nul, l'ASU est un pur transfert entre ménages.
-        impacts['gini'] = -ASU_GINI_BORNE_PAR_MD_EUR * effort * increment
+        # programmes généreux. v0.6.3 (revue) : l'euro de RECOURS entre dans
+        # la borne au même titre que l'euro de barème — le domaine de la
+        # borne est « un transfert net de E Md€ vers le bas », exactement ce
+        # qu'est le recours résorbé ; appliquer la convention quand elle
+        # CHARGE le programme (budget, PA) et la retenir quand elle le
+        # CRÉDITE aurait été l'asymétrie. Un majorant étendu à un second
+        # euro ne peut que surestimer — le sens d'erreur déclaré. À barème
+        # constant (effort nul), il reste donc un gain Gini : il est PAYÉ
+        # (2,4 Md€/an pérennes), plus un free lunch.
+        impacts['gini'] = (-ASU_GINI_BORNE_PAR_MD_EUR
+                           * (effort + asu_cout_recours_md_eur(1.0))
+                           * increment)
 
         _log_debug(self.debug_logs,
                    f"Y{year}: ASU plaf={plafonnement:.0%} - phasing={phasing:.0%}, "

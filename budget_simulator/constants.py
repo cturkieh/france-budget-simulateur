@@ -397,11 +397,11 @@ CHOMAGE_CLIP_MAX = 0.12
 #   optimisation_dette / isf_climatique / taxe_superprofits /
 #     exonerations_salaires : intensité fractionnaire [0,1]
 #     (0 = inactif, 1 = plein effet ; aucun clamp backend).
-# fraude_fiscale EXCLU : `effort` bimodal (∈[0,1] = intensité, >1 = montant
-# Md€ legacy) non bornable sans clarifier la sémantique → chantier Item 2
-# (contrat de params). fraude_sociale n'est PLUS exclu (v0.6.3) : sa lecture
-# bimodale est supprimée du handler (discontinuité à effort = 1,0), le levier
-# est borné par PARAM_DOMAINS ci-dessous.
+# v0.6.3 : plus AUCUNE exclusion pour bimodalité — les lectures bimodales de
+# fraude_sociale ET fraude_fiscale (∈[0,1] = intensité, >1 = Md€ legacy) sont
+# supprimées des handlers (discontinuités à effort = 1,0 : +1,56 Md€/an côté
+# social, −29 Md€ de recettes côté fiscal) ; les deux leviers sont bornés par
+# PARAM_DOMAINS ci-dessous.
 INTENSITE_DOMAINS = {
     'optimisation_dette': (0.0, 1.0),
     'isf_climatique': (0.0, 1.0),
@@ -432,15 +432,14 @@ INTENSITE_DOMAINS = {
 # les pose désormais hors défaut) entrent donc ici, avec les bornes que
 # `policy_measures.json` publie déjà pour eux — source unique, vérifiée par
 # `test_les_bornes_declarees_sont_celles_du_registre_public`.
-# `fraude_fiscale` reste HORS registre pour la même raison
-# qu'INTENSITE_DOMAINS l'exclut (`effort` bimodal : ∈[0,1] = intensité, >1 =
-# montant Md€ legacy) ; sa finitude est couverte par l'étage 1 et son
-# rendement par la garde en Md€/an de tests/test_scenario_plf2026_v061.py.
-# `fraude_sociale` ENTRE au registre (v0.6.3) : bimodalité supprimée du
-# handler, effort = intensité pure ∈ [0;1] (union UI + scénarios publiés,
-# efforts encodés 0 à 1,0).
+# `fraude_sociale` ET `fraude_fiscale` ENTRENT au registre (v0.6.3) :
+# bimodalité supprimée des deux handlers, effort = intensité pure ∈ [0;1]
+# (union UI + scénarios publiés, efforts encodés 0 à 1,0 des deux côtés).
 PARAM_DOMAINS = {
     'fraude_sociale': {
+        'effort': (0.0, 1.0),
+    },
+    'fraude_fiscale': {
         'effort': (0.0, 1.0),
     },
     # v0.6.3 (revue silent-failure) : depuis la fin du double comptage, la

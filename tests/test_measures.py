@@ -319,7 +319,9 @@ def test_apply_measures_plafond_10pct(simulator, monkeypatch):
         'impot_societes': {'taux': 0.35, 'niches': 40},
         'csg': {'taux': 0.16},
         'impot_revenu': {'taux_superieur': 0.60, 'decote': 0.5},
-        'fraude_fiscale': {'effort': 30, 'numerique': True}
+        # v0.6.3 : intensité 1,0 = cible 30 Md€ (l'ex-lecture legacy « 30 »
+        # en Md€ est supprimée ; même économie, la borne de domaine tient)
+        'fraude_fiscale': {'effort': 1.0, 'numerique': True}
     }
     year = 2026
     gdp = 2994

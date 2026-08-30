@@ -390,9 +390,17 @@ def test_asu_no_free_lunch(year):
     amélioré et +0,3 % de pouvoir d'achat sans rien dépenser.
     """
     _, _, impacts = _impacts(ASU_PLAFONNEMENT_MIN, year)
-    assert impacts.get('gini', 0.0) == 0.0, (
-        f"Y{year}: Gini amélioré sans effort budgétaire — "
-        f"{impacts.get('gini')!r}")
+    # v0.6.3 (M3) : le Gini suit le transfert TOTAL — effort de barème PLUS
+    # recours résorbé (2,4 Md€/an, FACTURÉ au budget). À effort nul il reste
+    # donc un gain Gini : il n'est pas gratuit, il est payé. La borne C = −1
+    # a pour domaine « tout transfert net vers le bas » ; le recours y a le
+    # titre le plus fort (zéro perdant, concentré en bas par construction).
+    ph = asu_phasing({'asu': {'asu_activation': 1}}, year)
+    ph_prev = asu_phasing({'asu': {'asu_activation': 1}}, year - 1)
+    attendu_gini = -constants.ASU_GINI_BORNE_PAR_MD_EUR \
+        * ASU_COUT_RECOURS_MD_EUR * (ph - ph_prev)
+    assert impacts.get('gini', 0.0) == pytest.approx(attendu_gini, abs=1e-15), (
+        f"Y{year}: Gini ≠ borne × recours facturé — {impacts.get('gini')!r}")
     # v0.6.3 : le pouvoir d'achat n'est plus nul à effort de barème nul —
     # mais il n'est PAS gratuit : c'est le recours résorbé (2,4 Md€/an,
     # DGALN), désormais FACTURÉ au budget de façon pérenne. La propriété
@@ -471,13 +479,12 @@ def test_asu_gini_jamais_ameliore_sans_effort(plafonnement):
     porte réellement : l'amélioration est STRICTEMENT proportionnelle à
     l'effort pérenne, donc nulle dès que l'effort est nul."""
     effort = asu_effort_perenne_md_eur(plafonnement)
+    transfert = effort + ASU_COUT_RECOURS_MD_EUR  # v0.6.3 : recours inclus, payé
     for year in _ANNEES_HORIZON:
         gini = _impacts(plafonnement, year)[2].get('gini', 0.0)
-        if effort == 0:
-            assert gini == 0.0, f"Y{year}: Gini {gini:+.6f} sans effort"
-        else:
-            assert gini <= 0.0, (
-                f"Y{year}: l'effort ne peut pas DÉGRADER le Gini ({gini:+.6f})")
+        assert gini <= 0.0, (
+            f"Y{year}: le transfert ne peut pas DÉGRADER le Gini ({gini:+.6f})")
+        assert transfert > 0  # plus de cas « transfert nul » : le recours est toujours là
 
 
 @pytest.mark.parametrize("year", _ANNEES_HORIZON)
@@ -492,13 +499,13 @@ def test_gini_strictement_proportionnel_a_l_effort(year):
     """
     ratios = []
     for plafonnement in _POSITIONS_UI:
-        effort = asu_effort_perenne_md_eur(plafonnement)
-        if effort == 0:
-            continue
-        ratios.append(_impacts(plafonnement, year)[2].get('gini', 0.0) / effort)
+        # v0.6.3 : le déterminant unique est le transfert TOTAL (barème +
+        # recours), tous deux facturés — le ratio Gini/transfert est constant.
+        transfert = asu_effort_perenne_md_eur(plafonnement) + ASU_COUT_RECOURS_MD_EUR
+        ratios.append(_impacts(plafonnement, year)[2].get('gini', 0.0) / transfert)
     assert ratios
     assert max(ratios) - min(ratios) < 1e-12, (
-        f"Y{year}: le Gini ne dépend pas linéairement de l'effort ({ratios})")
+        f"Y{year}: le Gini ne dépend pas linéairement du transfert ({ratios})")
 
 
 def test_gini_est_une_borne_haute_declaree():
@@ -510,12 +517,16 @@ def test_gini_est_une_borne_haute_declaree():
     Le total accumulé sur l'horizon doit donc rester égal à cette borne, et
     rester minuscule au regard de l'indice publié.
     """
-    borne = ASU_GINI_BORNE_PAR_MD_EUR * ASU_EFFORT_PERENNE_MAX_MD_EUR
+    # v0.6.3 (M3) : la borne s'applique au transfert TOTAL — effort maximal
+    # + recours résorbé (2,4 Md€/an, facturé au budget).
+    borne = ASU_GINI_BORNE_PAR_MD_EUR * (
+        ASU_EFFORT_PERENNE_MAX_MD_EUR + ASU_COUT_RECOURS_MD_EUR)
     cumul = sum(_impacts(ASU_PLAFONNEMENT_MAX, y)[2].get('gini', 0.0)
                 for y in range(2025, 2051))
     assert cumul == pytest.approx(-borne, rel=1e-9)
-    assert abs(cumul) < 0.002, (
-        f"effet Gini brut {cumul:+.5f} : 2 Md€ sur un revenu disponible de "
+    assert abs(cumul) < 0.005, (
+        f"effet Gini brut {cumul:+.5f} : 4,4 Md€ (2 de barème + 2,4 de "
+        f"recours, v0.6.3) sur un revenu disponible de "
         f"{RDB_MENAGES_MD_EUR:.0f} Md€ ne peuvent pas déplacer l'indice de "
         f"plus de quelques dix-millièmes")
 
@@ -1224,8 +1235,10 @@ def test_le_plancher_est_un_plafond_sur_l_economie_de_gestion(plafonnement):
     gestion_effective = min(ASU_ECO_SIMPLIFICATION_MD_EUR, effort)
     assert constants.asu_solde_perenne_md_eur(plafonnement) == pytest.approx(
         effort - gestion_effective, abs=1e-12)
-    # Et le canal redistributif suit le transfert, pas le solde.
+    # Et le canal redistributif suit le transfert TOTAL (v0.6.3 : le
+    # recours résorbé y entre — toujours > 0 quand l'ASU est active, donc
+    # le Gini s'améliore toujours, et c'est toujours PAYÉ).
     gini = _impacts(plafonnement, 2027)[2].get('gini', 0.0)
-    assert (gini < 0) == (effort > 0), (
-        f"à {plafonnement}: Gini {gini:+.8f} pour un effort de {effort} Md€ — "
-        "l'amélioration doit suivre le transfert réel vers les ménages")
+    assert gini < 0, (
+        f"à {plafonnement}: Gini {gini:+.8f} — le transfert (effort {effort}"
+        f" + recours {ASU_COUT_RECOURS_MD_EUR}) doit toujours améliorer")

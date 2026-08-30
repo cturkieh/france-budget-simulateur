@@ -14,11 +14,11 @@
         "effort": {
           "valeur_defaut": 0,
           "min": 0,
-          "max": 30,
-          "step": 1,
-          "label": "Effort annuel (Md€)",
+          "max": 1,
+          "step": 0.1,
+          "label": "Intensité des contrôles (0-1 → cible 0-30 Md€)",
           "type": "number",
-          "tooltip": "ROI 13x avec IA/data mining intégré (DGFiP 2024). Potentiel : 80-100 Md€ (fraude TVA, dissimulation revenus, optimisation agressive). Phasing 5 ans. IA baseline : CFVR, Foncier Innovant, GALAXIE."
+          "tooltip": "ROI 13x avec IA/data mining intégré (DGFiP 2024). Potentiel : 80-100 Md€ (fraude TVA, dissimulation revenus, optimisation agressive). Phasing 5 ans. IA baseline : CFVR, Foncier Innovant, GALAXIE. v0.6.3 : la lecture legacy en Md€ (valeurs > 1) est supprimée — l'ancienne borne publiée (0-30, « Effort annuel Md€ ») décrivait cette lecture, jamais l'UI réelle (0-1, affichée en %)."
         }
       }
     },

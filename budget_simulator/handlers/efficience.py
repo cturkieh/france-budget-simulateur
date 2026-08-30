@@ -105,15 +105,15 @@ class EfficienceMixin(_MixinBase):
     def _apply_fraude_fiscale(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """Lutte fraude fiscale avec montée progressive (5 ans). Potentiel 80-100 Md€, ROI 13x (IA intégrée baseline).
         Sources: DGFiP 2024, Cour comptes 2025. Voir METHODOLOGIE.md § Lutte contre la Fraude."""
-        # Conversion intensité (0-1) vers Md€ (0-30)
-        # Frontend v4.5+ envoie intensité 0-1, mais legacy peut envoyer Md€ directement
-        effort_raw = params.get('effort', 0)
-        if effort_raw <= 1.0:
-            # Mode intensité (0-1) → conversion en Md€
-            recettes_cible = effort_raw * 30  # 0-30 Md€ (Cour des comptes: DGFiP récupère ~15 Md€/an, max réaliste ~30 Md€)
-        else:
-            # Mode legacy (déjà en Md€)
-            recettes_cible = effort_raw
+        # Conversion intensité (0-1) vers Md€ (0-30).
+        # v0.6.3 : même dé-bimodalisation que fraude_sociale — la lecture
+        # par MAGNITUDE (> 1 = Md€ legacy) créait ici une falaise de
+        # −29 Md€ de recettes entre effort 1,0 (cible 30) et 1,01 (cible
+        # 1,01), sur un levier 10× plus lourd que son jumeau social, et un
+        # effort NÉGATIF détruisait 10-41 Md€/an de recettes sans un log.
+        # Tous les scénarios publiés sont ∈ [0;1] (identique au bit) ; le
+        # levier entre au registre PARAM_DOMAINS (effort ∈ [0;1]).
+        recettes_cible = params.get('effort', 0) * 30  # 0-30 Md€ (Cour des comptes : DGFiP ~15 Md€/an, max réaliste ~30)
 
         if recettes_cible == 0:
             return 0, 0, {}
