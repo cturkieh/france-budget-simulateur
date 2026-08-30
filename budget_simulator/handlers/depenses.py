@@ -613,20 +613,36 @@ class DepensesMixin(_MixinBase):
         # interdit au handler voisin. (Une part de l'économie vient de
         # retours à l'emploi, déjà créditée séparément par impact_chomage —
         # aucune source ne publie la décomposition, le choix est déclaré.)
-        # v0.6.4 (revue adverse, constat 27 + revue Altitude) : la dégressivité
-        # scale LES EUROS À LA SOURCE — delta_montant et delta_duree portent le
-        # facteur, donc TOUT consommateur (dépense, PA, compétitivité, Gini)
-        # l'hérite d'office. L'ancienne forme (facteur sur la seule somme
-        # delta_alloc) obligeait chaque canal à se souvenir de l'appliquer :
-        # c'est ce qui a produit DEUX FOIS le même free lunch (PA corrigé en
-        # v0.6.3, Gini en v0.6.4 — la forme que test_asu_no_free_lunch
-        # interdit au handler voisin).
+        # v0.6.4 (revue adverse, constat 27 + revues Altitude et passe 1) : la
+        # dégressivité scale LES EUROS À LA SOURCE — delta_montant et
+        # delta_duree portent le facteur, donc tout canal EN EUROS (dépense,
+        # PA, compétitivité, Gini) l'hérite d'office ; le canal COMPORTEMENTAL
+        # (incitation emploi, France Stratégie, plus bas) ne scale pas — voulu.
+        # L'ancienne forme (facteur sur la seule somme delta_alloc) obligeait
+        # chaque canal à se souvenir de l'appliquer : c'est ce qui a produit
+        # DEUX FOIS le même free lunch (PA corrigé en v0.6.3, Gini en v0.6.4 —
+        # la forme que test_asu_no_free_lunch interdit au handler voisin).
+        # Le facteur se choisit PAR CANAL, sur le signe des euros de CE canal
+        # (revue passe 1) : choisi sur la somme puis appliqué aux composantes,
+        # il donnait au canal minoritaire d'une réforme à signes mixtes
+        # (ex. taux ↑ + durée ↓) le facteur INVERSE de ce que les constantes
+        # déclarent, et rendait le Gini discontinu (saut ~26 %) au point où la
+        # somme change de signe. À signes égaux — tous les cas atteints par
+        # l'UI et les scénarios — delta_alloc est inchangé.
+        # ⚠️ DETTE NOMMÉE (non traitée ici, cf. backlog parent) : la
+        # dégressivité SEULE reste non modélisée en euros — l'économie de
+        # ~15 % sur le STOCK d'allocations n'a pas de source chiffrée dans ce
+        # handler ; son seul effet émis (incitation emploi) est de surcroît
+        # filtré par l'orchestrateur (has_macro_impact ne lit pas la clé
+        # 'chomage') → activer la dégressivité sans toucher taux/durée est
+        # aujourd'hui un no-op de bout en bout.
         if degressivite:
-            facteur_degressivite = (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
-                                    if delta_montant + delta_duree > 0
-                                    else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
-            delta_montant *= facteur_degressivite
-            delta_duree *= facteur_degressivite
+            delta_montant *= (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
+                              if delta_montant > 0
+                              else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
+            delta_duree *= (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
+                            if delta_duree > 0
+                            else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
         delta_alloc = delta_montant + delta_duree
         delta_spending = delta_alloc
 
@@ -690,12 +706,16 @@ class DepensesMixin(_MixinBase):
         # longs allongent les durées de recherche). Doctrine du projet :
         # symétrie par instrument, sauf source contraire — même arbitrage
         # que le barème d'âge des retraites (C1, v0.6.1).
-        if is_first_year and degressivite:
-            # Dégressivité activée → Fort impact incitation
-            impact_chomage = -0.0015  # -0.15 points
-        elif is_first_year:
+        if is_first_year:
             # Durée vs référence, dans les deux sens (nul à la référence)
             impact_chomage = -0.0005 * (DUREE_REF - duree) / 6  # 12m → -0.05 pt ; 24m → +0.05 pt
+            # v0.6.4 (revue passe 1) : l'incitation dégressivité s'AJOUTE au
+            # canal durée au lieu de l'ÉCRASER — l'ancienne branche `if
+            # degressivite` remplaçait tout : durée 36 + dégressivité
+            # basculait de +0,15 à −0,15 pt (0,30 pt de swing sur un booléen),
+            # perdant la symétrie durée restaurée en v0.6.3.
+            if degressivite:
+                impact_chomage += -0.0015  # -0.15 points (France Stratégie)
         else:
             impact_chomage = 0.0
 

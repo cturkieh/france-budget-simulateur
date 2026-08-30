@@ -119,10 +119,13 @@ class TestBaseCanalTaux:
 
 class TestGiniDureeRecale:
     def test_le_surpoids_reste_dans_la_fourchette_observee(self):
-        """k ∈ [1,3 ; 2,2] : l'encadrement par coefficients de concentration
-        sur DREES 1368 × Dares 53 (le trou des 71 % « ni-ni » porte la
-        largeur). Sortir de la fourchette = nouvelle source, pas une dérive."""
-        assert 1.3 <= GINI_DUREE_SURPOIDS <= 2.2
+        """k ∈ [1,29 ; 1,96] : l'enveloppe de l'estimateur par coefficients de
+        concentration sur DREES 1368 × Dares 53 (le trou des 71 % « ni-ni »
+        porte la largeur). Revue passe 1 : PAS [1,3 ; 2,2] — cette fourchette
+        mélangeait le plancher de l'estimateur corrigé et le plafond de
+        l'estimateur ÉCARTÉ, et aurait laissé passer k = 2,0 que M35 écarte
+        nommément. Sortir de la fourchette = nouvelle source, pas une dérive."""
+        assert 1.29 <= GINI_DUREE_SURPOIDS <= 1.96
 
     def test_la_regle_montant_est_la_source_unique_du_par_euro(self):
         """GINI_ALLOC_PAR_MD_EUR = 0,004/5 (OFCE 2023) : le canal durée
@@ -240,3 +243,66 @@ class TestDegressiviteGini:
                               'degressivite': False})
         assert avec == pytest.approx(
             CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE * sans, rel=1e-9)
+
+    def test_tous_les_canaux_en_euros_portent_le_facteur(self):
+        """Propriété générique (revue Altitude) : le facteur étant DANS les
+        euros, dépense, PA et compétitivité valent exactement facteur × leur
+        valeur sans dégressivité — c'est ce qui attraperait un futur canal €
+        branché en amont du scaling. (Cas à signe unique : une coupe pure.)"""
+        params = {'taux_remplacement': 0.50, 'duree': 18}
+        avec = chomage_impacts({**params, 'degressivite': True})
+        sans = chomage_impacts({**params, 'degressivite': False})
+        f = CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE
+        assert avec['depenses'] == pytest.approx(f * sans['depenses'], rel=1e-9)
+        assert avec['pouvoir_achat'] == pytest.approx(
+            f * sans['pouvoir_achat'], rel=1e-9)
+        assert avec['competitivite'] == pytest.approx(
+            f * sans['competitivite'], rel=1e-9)
+
+    def test_signes_mixtes_chaque_canal_recoit_son_propre_facteur(self):
+        """Revue passe 1 : taux ↑ + durée ↓ (configuration politique banale) —
+        le facteur se choisit PAR CANAL sur le signe de SES euros, pas sur la
+        somme. Choisi sur la somme, le canal minoritaire recevait le facteur
+        INVERSE des constantes et le Gini sautait de ~26 % au point où la
+        somme change de signe. Ici : la hausse de taux est atténuée (× 0,85),
+        la coupe de durée approfondie (× 1,15), chacun selon sa direction."""
+        params = {'taux_remplacement': 0.70, 'duree': 12}
+        avec = chomage_impacts({**params, 'degressivite': True})
+        sans_m = chomage_ds({'taux_remplacement': 0.70, 'duree': 18,
+                             'degressivite': False})       # € du canal taux seul
+        sans_d = chomage_ds({'taux_remplacement': 0.70, 'duree': 12,
+                             'degressivite': False}) - sans_m  # € durée seuls
+        attendu_ds = (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE * sans_m
+                      + CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE * sans_d)
+        assert chomage_ds({**params, 'degressivite': True}) == pytest.approx(
+            attendu_ds, rel=1e-9)
+        attendu_gini = (GINI_ALLOC_PAR_MD_EUR
+                        * (-CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE * sans_m
+                           - GINI_DUREE_SURPOIDS
+                           * CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE * sans_d))
+        assert avec['gini'] == pytest.approx(attendu_gini, rel=1e-9)
+
+    def test_l_incitation_emploi_s_ajoute_au_canal_duree(self):
+        """Revue passe 1 : l'ancienne branche ÉCRASAIT le canal durée —
+        durée 36 + dégressivité basculait de +0,15 à −0,15 pt de chômage
+        (0,30 pt de swing sur un booléen). Désormais additive."""
+        seul = chomage_impacts({'taux_remplacement': 0.60, 'duree': 36,
+                                'degressivite': False})['chomage']
+        combine = chomage_impacts({'taux_remplacement': 0.60, 'duree': 36,
+                                   'degressivite': True})['chomage']
+        assert seul == pytest.approx(0.0015, rel=1e-9)
+        assert combine == pytest.approx(seul - 0.0015, rel=1e-9)
+
+
+class TestDeuxPerimetres:
+    def test_la_categorie_baseline_reste_distincte_de_la_base_du_canal_taux(self):
+        """Revue Altitude : « deux périmètres = deux constantes » était porté
+        par un commentaire — un futur /simplify aurait pu fusionner 36,6 et
+        40. La catégorie de dépense baseline (régime ENTIER : allocations +
+        aides + points retraite + activité partielle ≈ 39,4) majore
+        structurellement la base ∝ allocation du canal taux ; l'écart ≈ les
+        lignes exclues par assiette (points retraite 2,43 + forfaitaires)."""
+        from budget_simulator.constants import CHOMAGE_DEPENSE_BASELINE_MD
+        assert CHOMAGE_DEPENSE_BASELINE_MD > CHOMAGE_MONTANT_REF_MD
+        ecart = CHOMAGE_DEPENSE_BASELINE_MD - CHOMAGE_MONTANT_REF_MD
+        assert ecart == pytest.approx(2.43 + 0.24 + 0.07 + 0.06 + 0.65, abs=0.6)

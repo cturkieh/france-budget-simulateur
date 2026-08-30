@@ -86,9 +86,15 @@ CHOMAGE_DEPENSE_BASELINE_MD = 40
 # Facteurs de dégressivité (héritage v4.5, non re-sourcés par la passe v0.6.4
 # qui n'a fait que les NOMMER — sortis des littéraux du handler, même geste que
 # CHOMAGE_*_REF en v0.6.3) : une allocation dégressive verse ~15 % de moins sur
-# une hausse, et une coupe dégressive économise ~15 % de plus. Le facteur d'une
-# mesure s'applique AUX EUROS À LA SOURCE (delta_montant/delta_duree), donc
-# tous les canaux (dépense, PA, compétitivité, Gini) le portent d'office.
+# une hausse, et une coupe dégressive économise ~15 % de plus. Chaque facteur
+# s'applique AUX EUROS À LA SOURCE, PAR CANAL et sur le signe des euros de CE
+# canal (delta_montant, delta_duree) — tous les canaux en euros (dépense, PA,
+# compétitivité, Gini) le portent alors d'office. ⚠️ La question du SIGNE sur
+# le canal durée est une dette de sourcing déclarée : sous un barème
+# dégressif, les DERNIERS mois d'un droit sont les moins chers — une coupe de
+# durée devrait plausiblement économiser MOINS, pas 15 % de plus (revue
+# passe 1, v0.6.4) ; à instruire avec la dégressivité « seule » (économie de
+# stock non modélisée), cf. backlog parent.
 CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE = 0.85
 CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE = 1.15
 
@@ -146,7 +152,11 @@ GINI_ALLOC_PAR_MD_EUR = 0.004 / 5  # Gini émis par Md€ d'allocations (canal t
 #      (k jusqu'à 2,72) est rétrogradée en contrôle de robustesse : un
 #      headcount n'a pas de correspondance défendable vers une élasticité
 #      de Gini.
-# Fourchette testée [1,3 ; 2,2]. VALIDITÉ PHYSIQUE, résultat positif (contre-
+# Fourchette testée [1,29 ; 1,96] = l'enveloppe de l'estimateur CORRIGÉ, pas
+# de l'estimateur écarté (revue passe 1 : une fourchette mélangeant les deux
+# aurait laissé passer k = 2,0, nommément écarté par M35). Un recalage hors
+# fourchette = nouvelle source, re-déclarée en acte.
+# VALIDITÉ PHYSIQUE, résultat positif (contre-
 # vérification croisée, 30/08) : k = 1,6 implique C_durée = GINI_BASE −
 # k×(GINI_BASE − GINI_C_ARE) ≈ −0,39 pour un plancher arithmétique C = −1 —
 # ~30 % de l'impact Gini physiquement maximal pour les mêmes euros — ET ce C
@@ -170,7 +180,21 @@ GINI_DUREE_SURPOIDS = 1.6  # sans dimension : par €, la durée frappe k fois p
 # arithmétique 2,8→3,3). Ne dépend PAS de GINI_BASE (seul le k_max en
 # dépend). Recette de recalcul EXÉCUTÉE, pas en prose :
 # test_le_c_implicite_du_canal_duree_reste_arithmetiquement_valide.
+# ⚠️ Consommée par la garde d'import ci-dessous et par les tests UNIQUEMENT —
+# ancre de falsifiabilité, PAS du code mort : ne pas supprimer au motif
+# qu'aucun handler ne la lit.
 GINI_C_ARE = -0.134
+# Garde de domaine (même famille que les `raise` de l'assemblage ci-dessus) :
+# un surpoids qui impliquerait un coefficient de concentration < −1 serait
+# arithmétiquement impossible (plus concentré que « tout au premier
+# centile »). Couple trois constantes recalibrées indépendamment (GINI_BASE,
+# GINI_C_ARE, GINI_DUREE_SURPOIDS) — un fork qui patche l'une sans lancer la
+# suite casse ICI, à l'import, pas en silence.
+if GINI_BASE - GINI_DUREE_SURPOIDS * (GINI_BASE - GINI_C_ARE) < -1.0:
+    raise ValueError(
+        "GINI_DUREE_SURPOIDS implique un coefficient de concentration < -1 "
+        "(impossible arithmétique) — recalibrer k, GINI_C_ARE ou GINI_BASE ensemble"
+    )
 
 # === INFLATION & GROWTH ===
 # INFLATION_BASE : graine d'inertie. Valeur initiale de `inflation_precedente`
@@ -534,6 +558,12 @@ INTENSITE_DOMAINS = {
 # `fraude_sociale` ET `fraude_fiscale` ENTRENT au registre (v0.6.3) :
 # bimodalité supprimée des deux handlers, effort = intensité pure ∈ [0;1]
 # (union UI + scénarios publiés, efforts encodés 0 à 1,0 des deux côtés).
+# Domaine du taux de remplacement, nommé UNE fois (revue passe 1 v0.6.4 : le
+# couple 0,45/0,80 était dupliqué entre l'entrée `taux_remplacement` et la
+# dérivation du domaine `montant`, un littéral de dict ne pouvant pas
+# s'auto-référencer).
+_CHOMAGE_TAUX_DOMAINE = (0.45, 0.80)
+
 PARAM_DOMAINS = {
     'fraude_sociale': {
         'effort': (0.0, 1.0),
@@ -550,14 +580,14 @@ PARAM_DOMAINS = {
     # division legacy qui n'existe plus). Bornes = policy_measures.json.
     'chomage_alloc': {
         'duree': (12.0, 36.0),
-        'taux_remplacement': (0.45, 0.80),
+        'taux_remplacement': _CHOMAGE_TAUX_DOMAINE,
         # v0.6.4 : le mode legacy `montant` est une représentation du taux
         # (taux = TAUX_REF × montant/base) — son domaine se DÉRIVE de celui du
         # taux au lieu d'ouvrir une porte qui le contourne (avant : aucune
         # borne, montant=200 valait taux 3,28 sans clamp).
         'montant': (
-            CHOMAGE_MONTANT_REF_MD * 0.45 / CHOMAGE_TAUX_REF,
-            CHOMAGE_MONTANT_REF_MD * 0.80 / CHOMAGE_TAUX_REF,
+            CHOMAGE_MONTANT_REF_MD * _CHOMAGE_TAUX_DOMAINE[0] / CHOMAGE_TAUX_REF,
+            CHOMAGE_MONTANT_REF_MD * _CHOMAGE_TAUX_DOMAINE[1] / CHOMAGE_TAUX_REF,
         ),
     },
     'retraites': {

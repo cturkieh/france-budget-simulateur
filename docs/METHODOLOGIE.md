@@ -1862,8 +1862,13 @@ assiette proportionnelle a l'allocation) reduit l'amplitude budgetaire de ce
 canal d'environ 8,5 % : les programmes qui BAISSENT le taux de remplacement
 economisent un peu moins (RN +7,0 -> +7,1), ceux qui l'AUGMENTENT coutent un
 peu moins (LFI +17,8 -> +17,7 ; PS +3,8 -> +3,7). Le recalage distributif
-(`gini_duree`, k = 1,6 — cf. M35) ne touche pas la dette. Effet symetrique
-par construction (meme assiette pour tous), de l'ordre du dixieme de point :
+(`gini_duree`, k = 1,6 — cf. M35) ne touche pas la dette ; ce qu'il touche,
+et dans quel sens : il ameliore le Gini des programmes qui ALLONGENT la duree
+d'indemnisation (LFI 0,272 -> 0,271 ; PS 0,278 -> 0,277 ; RN 0,287 -> 0,286)
+et degrade celui de ceux qui la RACCOURCISSENT (Horizons 0,290 -> 0,291) —
+directionnel par construction, mais desormais adosse a des donnees observees
+la ou l'ancien coefficient ne citait aucune source. Effet budgetaire
+symetrique (meme assiette pour tous), de l'ordre du dixieme de point :
 aucune note globale ni aucun classement ne bouge.
 
 **Mise a jour du 30/08/2026 au soir — sens agrege de la v0.6.3 (quatrieme
@@ -2419,15 +2424,17 @@ calibration a ce parametre tombe de 0,062 a 0,046 pt.
 
 **M35. Le canal distributif de la duree : surpoids k = 1,6 par euro, cale sur
 les donnees de bascule fin de droits (v0.6.4 — resout le differe v0.6.3).**
-Le choix : `gini_duree = GINI_DUREE_SURPOIDS × GINI_ALLOC_PAR_MD × euros du
-canal duree`, avec k = 1,6. La derivation, sur donnees OBSERVEES (aucune
+Le choix : `gini_duree = GINI_DUREE_SURPOIDS × GINI_ALLOC_PAR_MD_EUR × euros
+du canal duree`, avec k = 1,6. La derivation, sur donnees OBSERVEES (aucune
 microsimulation distributive d'une reforme de duree n'est publiee — verifie
 OFCE, IPP, DREES, CNAF, DG Tresor) : destins a +3 mois d'une fin de droits
 (Dares Focus n° 53 : 31 % emploi salarie, 18 % RSA, 11 % ASS, 71 % ni-ni)
 croises avec les positions distributives par population (DREES E&R n° 1368,
 ERFS×DRM 2021), estimateur par coefficients de concentration — un ratio de
 parts de deciles n'est PAS un ratio d'impacts Gini (verification adverse,
-constat 22). Fourchette testee [1,3 ; 2,2] ; le trou des 71 % « ni RSA ni
+constat 22). Fourchette testee [1,29 ; 1,96] — l'enveloppe de l'estimateur
+corrige, celle de l'estimateur ecarte (jusqu'a 2,72) ne borne rien ; le trou
+des 71 % « ni RSA ni
 ASS » (groupe heterogene, inobservable) porte la largeur. Les alternatives
 ecartees : k = 2,0 (moyenne d'indicateurs incluant le taux de pauvrete — un
 headcount n'a pas de correspondance defendable vers une elasticite de Gini,
