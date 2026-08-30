@@ -393,8 +393,15 @@ def test_asu_no_free_lunch(year):
     assert impacts.get('gini', 0.0) == 0.0, (
         f"Y{year}: Gini amélioré sans effort budgétaire — "
         f"{impacts.get('gini')!r}")
-    assert impacts.get('pouvoir_achat', 0.0) == 0.0, (
-        f"Y{year}: pouvoir d'achat agrégé créé sans effort budgétaire — "
+    # v0.6.3 : le pouvoir d'achat n'est plus nul à effort de barème nul —
+    # mais il n'est PAS gratuit : c'est le recours résorbé (2,4 Md€/an,
+    # DGALN), désormais FACTURÉ au budget de façon pérenne. La propriété
+    # « no free lunch » devient : chaque point de PA est payé, au centime.
+    ph = asu_phasing({'asu': {'asu_activation': 1}}, year)
+    ph_prev = asu_phasing({'asu': {'asu_activation': 1}}, year - 1)
+    attendu_pa = (ASU_COUT_RECOURS_MD_EUR / RDB_MENAGES_MD_EUR) * (ph - ph_prev)
+    assert impacts.get('pouvoir_achat', 0.0) == pytest.approx(attendu_pa, abs=1e-12), (
+        f"Y{year}: PA ≠ transfert de recours facturé — "
         f"{impacts.get('pouvoir_achat')!r}")
 
 
@@ -574,16 +581,20 @@ def test_pouvoir_achat_egale_l_effort_rapporte_au_revenu_disponible():
         effort = asu_effort_perenne_md_eur(plafonnement)
         cumul = sum(_impacts(plafonnement, y)[2].get('pouvoir_achat', 0.0)
                     for y in range(2025, 2051))
-        assert cumul == pytest.approx(effort / RDB_MENAGES_MD_EUR, rel=1e-9)
+        # v0.6.3 : + le recours résorbé (2,4 Md€/an), transfert aux ménages
+        # au même titre que l'effort de barème — et facturé au budget.
+        assert cumul == pytest.approx(
+            (effort + ASU_COUT_RECOURS_MD_EUR) / RDB_MENAGES_MD_EUR, rel=1e-9)
 
 
-def test_pouvoir_achat_maximal_reste_sous_deux_dixiemes_de_point():
-    """Ordre de grandeur publiable : même à +2 Md€/an, le gain de pouvoir
-    d'achat agrégé reste sous +0,2 % (le dossier annonce ≈ +0,13 % sur un RDB
-    de 1 700 Md€ ; le moteur utilise sa propre assiette)."""
+def test_pouvoir_achat_maximal_reste_sous_quatre_dixiemes_de_point():
+    """Ordre de grandeur publiable : même à +2 Md€/an de barème + 2,4 Md€/an
+    de recours résorbé (v0.6.3), le gain de pouvoir d'achat agrégé reste sous
+    +0,4 % ((2,0 + 2,4)/1380 ≈ +0,32 % — l'ancienne borne 0,2 % datait du
+    monde sans recours pérenne, re-déclarée en acte le 30/08/2026)."""
     cumul = sum(_impacts(ASU_PLAFONNEMENT_MAX, y)[2].get('pouvoir_achat', 0.0)
                 for y in range(2025, 2051))
-    assert 0.0 < cumul < 0.002
+    assert 0.0 < cumul < 0.004
 
 
 # ---------------------------------------------------------------------------
@@ -613,24 +624,34 @@ def test_cout_total_des_quatre_premieres_annees_dans_la_fourchette(plafonnement)
         f"facture des 4 premières années : {cumul:.2f} Md€ à {plafonnement}")
 
 
-def test_transition_inclut_la_hausse_du_recours():
-    """La baisse du non-recours AUGMENTE la dépense (+2,4 Md€, DGALN pour le
-    seul volet logement). Le moteur la traitait comme un gain redistributif
-    gratuit : elle doit désormais être facturée."""
+def test_le_recours_est_facture_en_perenne_pas_en_blip():
+    """v0.6.3 : la hausse du recours (2,4 Md€/an, DGALN) est une charge
+    PÉRENNE qui monte avec le phasing — plus un blip de transition. L'ancien
+    rattachement (0,6 Md€/an × 4 ans puis zéro) n'était soutenu par aucune
+    source : une réforme dont l'objet est de résorber le non-recours ne
+    cesse pas de le payer en année 5. L'enveloppe de transition, elle,
+    revient au plancher officiel seul (2 Md€ cumulés)."""
     annees = range(POLICY_START_YEAR, POLICY_START_YEAR + ASU_TRANSITION_ANNEES)
-    cumul = sum(asu_cout_transition_md_eur(y) for y in annees)
-    assert cumul == pytest.approx(
-        ASU_COUT_TRANSITION_RETENU_MD_EUR + ASU_COUT_RECOURS_MD_EUR)
+    cumul_transition = sum(asu_cout_transition_md_eur(y) for y in annees)
+    assert cumul_transition == pytest.approx(ASU_COUT_TRANSITION_RETENU_MD_EUR)
+    # En régime (transition finie, phasing 1,0), le handler facture toujours
+    # le recours : delta = solde pérenne + 2,4, à chaque année, pour toujours.
+    for year in (2030, 2035, 2050):
+        attendu = (constants.asu_solde_perenne_md_eur(ASU_PLAFONNEMENT_MIN)
+                   + ASU_COUT_RECOURS_MD_EUR)
+        assert _delta(ASU_PLAFONNEMENT_MIN, year) == pytest.approx(attendu, abs=1e-12), (
+            f"Y{year}: le recours a cessé d'être payé")
 
 
 @pytest.mark.parametrize("year", range(POLICY_START_YEAR,
                                        POLICY_START_YEAR + ASU_TRANSITION_ANNEES))
 def test_transition_uniforme_sur_quatre_ans(year):
-    """Profil UNIFORME : la source publie une enveloppe cumulée sur quatre
-    ans, jamais un profil annuel. Répartir uniformément est le choix qui
-    n'ajoute aucune hypothèse (déclaré comme convention dans constants.py)."""
-    attendu = (ASU_COUT_TRANSITION_RETENU_MD_EUR + ASU_COUT_RECOURS_MD_EUR) \
-        / ASU_TRANSITION_ANNEES
+    """Profil UNIFORME : SIMPLIFICATION ASSUMÉE (v0.6.3 — la justification
+    antérieure « la source ne publie jamais de profil annuel » était fausse,
+    le rapport de la mission flash contient la table des profils ; cf.
+    constants.py, choix (b)). L'enveloppe ne porte plus que le plancher
+    officiel : le recours est parti en charge pérenne."""
+    attendu = ASU_COUT_TRANSITION_RETENU_MD_EUR / ASU_TRANSITION_ANNEES
     assert asu_cout_transition_md_eur(year) == pytest.approx(attendu)
 
 
@@ -861,9 +882,12 @@ def test_le_handler_consomme_toujours_asu_phasing(year, attendu):
     """
     assert asu_phasing({'asu': {'asu_activation': 1}}, year) == attendu
     perenne = _delta(ASU_PLAFONNEMENT_MAX, year) - asu_cout_transition_md_eur(year)
+    # v0.6.3 : la part pérenne porte aussi le recours résorbé (2,4 Md€/an),
+    # sur le MÊME calendrier asu_phasing — c'est précisément l'objet du test.
     attendu_perenne = attendu * (
         asu_effort_perenne_md_eur(ASU_PLAFONNEMENT_MAX)
-        - ASU_ECO_SIMPLIFICATION_MD_EUR)
+        - ASU_ECO_SIMPLIFICATION_MD_EUR
+        + ASU_COUT_RECOURS_MD_EUR)
     assert perenne == pytest.approx(attendu_perenne, rel=1e-9)
 
 
@@ -894,7 +918,9 @@ def test_le_double_comptage_fraude_n_est_plus_compte_deux_fois_dans_l_asu():
     """
     texte = _texte_bloc_asu()
     assert not _cite(texte, r"ECO_FRAUDE_STRUCT")
-    assert not _cite(texte, r"6[.,]3")
+    # (?<!v0\.) : le garde vise le chiffre CAF « 6,3 Md€ », pas les
+    # étiquettes de version « v0.6.3 » apparues avec la passe du 30/08.
+    assert not _cite(texte, r"(?<!v0\.)6[.,]3")
 
 
 def test_prestations_indexation_toujours_neutralise_par_l_asu():
@@ -1003,16 +1029,21 @@ def test_activer_l_asu_ne_reduit_plus_la_dette():
         f"({avec:.2f} vs {sans:.2f})")
 
 
-def test_asu_la_moins_genereuse_reste_quasi_neutre():
+def test_asu_la_moins_genereuse_coute_le_recours_rien_de_plus():
     """À l'autre extrémité du curseur (variante « à coût constant »), la
-    réforme ne rapporte quasiment rien : seule l'économie de gestion joue, et
-    elle est payée d'avance par le coût de transition."""
+    réforme ne rapporte rien — et depuis la v0.6.3 elle COÛTE le recours
+    résorbé (2,4 Md€/an pérennes, DGALN), le seul montant que la source
+    attache à la réforme hors barème. Mesuré : ≈ +1,0 pt de dette 2035.
+    Borne bilatérale : en deçà, le recours aurait cessé d'être payé ; au-delà,
+    un coût non sourcé se serait glissé. (Ancienne propriété « quasi neutre »
+    < 1,0 pt : re-déclarée en acte le 30/08/2026 — la quasi-neutralité était
+    celle d'un monde où résorber le non-recours était gratuit.)"""
     sans = _simuler({})['Dette/PIB %'].iloc[-1]
     avec = _simuler({'asu': {'asu_activation': 1,
                              'asu_plafonnement': 0.50}})['Dette/PIB %'].iloc[-1]
-    assert abs(avec - sans) < 1.0, (
-        f"écart de dette 2035 {avec - sans:+.2f} pt pour une réforme à coût "
-        f"constant — l'ASU ne doit plus déplacer la trajectoire")
+    assert 0.5 < (avec - sans) < 1.6, (
+        f"écart de dette 2035 {avec - sans:+.2f} pt pour la variante à coût "
+        f"constant — attendu ≈ +1,0 pt (le recours pérenne, rien d'autre)")
 
 
 # ===========================================================================
@@ -1110,8 +1141,10 @@ def test_le_solde_perenne_est_la_source_unique_du_plancher(plafonnement):
     assert solde >= 0.0
     assert solde == pytest.approx(max(effort - ASU_ECO_SIMPLIFICATION_MD_EUR, 0.0))
     # En régime permanent (phasing = 1, transition terminée), le handler rend
-    # exactement ce que la source unique annonce.
-    assert _delta(plafonnement, 2032) == pytest.approx(solde, abs=1e-12)
+    # exactement ce que la source unique annonce, PLUS le recours pérenne
+    # (v0.6.3) — additif et indépendant du plafond, donc hors du plancher.
+    assert _delta(plafonnement, 2032) == pytest.approx(
+        solde + ASU_COUT_RECOURS_MD_EUR, abs=1e-12)
 
 
 def test_l_economie_de_gestion_reste_effective_la_ou_elle_a_de_la_place():

@@ -1024,9 +1024,19 @@ ASU_SOLDE_PERENNE_PLANCHER_MD_EUR = 0.0
 #      de transition » avec les profils annuels (ex. Tr5+JR2 total 2,0 =
 #      0,0/2,1/0,9/0,0). Le profil uniforme reste retenu comme simplification,
 #      il n'est plus présenté comme imposé par la source.] ;
-#  (c) la source ne dit pas si les 2,4 Md€ de hausse du recours sont ponctuels
-#      ou pérennes. Le moteur les rattache à la montée en charge — choix
-#      CONSERVATEUR (il ne les rend pas permanents), et signalé comme tel.
+#  (c) [v0.6.3, RÉVISÉ] la hausse du recours (2,4 Md€/an, DGALN via la mission
+#      flash) est désormais PÉRENNE, montant avec le phasing : le chiffrage
+#      officiel se déclare lui-même « hors hausse du taux de recours (2,4
+#      milliards d'euros d'après la DGALN) » — l'ajouter n'est pas du double
+#      comptage, c'est COMPLÉTER le chiffrage de la source. Le rattachement
+#      antérieur à la seule montée en charge (0,6 Md€/an × 4 ans puis zéro)
+#      n'était soutenu par aucune source. Ordre de grandeur du gisement
+#      total si recours à 100 % : ≈ 2,5 Md€/an RSA (DREES ER n° 1370,
+#      05/2026) + ≈ 5,3 Md€/an prime d'activité (ER n° 1379, 08/07/2026)
+#      ≈ 7,8 Md€/an — AUCUN scénario de la mission ne suppose le recours
+#      intégral, le moteur retient le seul montant que la source attache à
+#      la réforme (2,4). Que cela retourne un levier « économies » en coût
+#      est le constat de la source, pas un choix du modèle.
 ASU_COUT_TRANSITION_PLANCHER_MD_EUR = 2.0    # borne basse publiée (4 ans, cumulé)
 ASU_COUT_TRANSITION_PLAFOND_MD_EUR = 13.4    # borne haute publiée (4 ans, cumulé)
 ASU_COUT_TRANSITION_RETENU_MD_EUR = ASU_COUT_TRANSITION_PLANCHER_MD_EUR
@@ -1207,16 +1217,22 @@ def asu_solde_perenne_md_eur(plafonnement: float) -> float:
 def asu_cout_transition_md_eur(year: int) -> float:
     """Coût de transition de l'année ``year`` (Md€, >0 = surcoût).
 
-    Enveloppe = plancher officiel (2 Md€ cumulés sur quatre ans) + hausse du
-    taux de recours (2,4 Md€), répartie uniformément sur les quatre années de
-    montée en charge (``ASU_PHASING_SCHEDULE``). Zéro avant l'entrée en
-    vigueur comme après : c'est un coût de bascule, pas une charge pérenne.
+    Enveloppe = plancher officiel (2 Md€ cumulés sur quatre ans), répartie
+    uniformément sur les quatre années de montée en charge
+    (``ASU_PHASING_SCHEDULE``). Zéro avant l'entrée en vigueur comme après :
+    c'est un coût de bascule, pas une charge pérenne.
+
+    v0.6.3 : la hausse du taux de recours (``ASU_COUT_RECOURS_MD_EUR``) est
+    SORTIE de cette enveloppe — elle était comptée 0,6 Md€/an pendant quatre
+    ans puis PLUS RIEN, ce qu'aucune source ne soutient : une réforme dont
+    l'objet est de résorber le non-recours ne cesse pas de le payer en
+    année 5. Elle est désormais émise par le handler comme charge PÉRENNE
+    montant avec le phasing (cf. ``_apply_asu``).
     """
     ecoule = year - POLICY_START_YEAR
     if not 0 <= ecoule < ASU_TRANSITION_ANNEES:
         return 0.0
-    return (ASU_COUT_TRANSITION_RETENU_MD_EUR + ASU_COUT_RECOURS_MD_EUR) \
-        / ASU_TRANSITION_ANNEES
+    return ASU_COUT_TRANSITION_RETENU_MD_EUR / ASU_TRANSITION_ANNEES
 
 
 # === CALIBRATION ÉCONOMIQUE ===

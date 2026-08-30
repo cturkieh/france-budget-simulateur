@@ -119,6 +119,7 @@ reproduire le pattern.
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    ASU_COUT_RECOURS_MD_EUR,
     ASU_GINI_BORNE_PAR_MD_EUR,
     ASU_PERIMETRE_MD_EUR,
     ASU_PLAFONNEMENT_DEFAUT,
@@ -761,8 +762,15 @@ class DepensesMixin(_MixinBase):
         # a un solde pérenne EXACTEMENT nul. Motif complet : constants.py.
         # Transition : enveloppe des quatre premières années, indépendante
         # du plafond (aucune source ne les lie).
+        # Recours (v0.6.3) : la résorption du non-recours coûte de façon
+        # PÉRENNE (2,4 Md€/an DGALN, montée avec le phasing) — le chiffrage
+        # de la mission flash se déclare lui-même « hors hausse du taux de
+        # recours », l'ajouter COMPLÈTE la source (détail : constants.py,
+        # bloc I22/I26). Indépendant du plafond, comme la transition.
         transition = asu_cout_transition_md_eur(year)
-        delta_spending = transition + phasing * asu_solde_perenne_md_eur(plafonnement)
+        recours = phasing * ASU_COUT_RECOURS_MD_EUR
+        delta_spending = transition + recours \
+            + phasing * asu_solde_perenne_md_eur(plafonnement)
         delta_revenue = 0.0
 
         impacts = {
@@ -783,7 +791,14 @@ class DepensesMixin(_MixinBase):
         # L'effet sur le revenu disponible agrégé vaut donc l'effort
         # rapporté au RDB — et il est NUL à coût constant, où la réforme
         # compte 4,0 millions de perdants pour 3,9 millions de gagnants.
-        impacts['pouvoir_achat'] = (effort / RDB_MENAGES_MD_EUR) * increment
+        # v0.6.3 : le recours résorbé est lui aussi un transfert aux ménages
+        # (des prestations DUES atteignent enfin leurs titulaires) — même
+        # convention comptable transfert/RDB que l'effort. Le Gini, lui,
+        # reste calé sur le seul effort : la borne DREES par Md€ est dérivée
+        # de la redistribution du BARÈME, l'étendre au recours serait une
+        # extrapolation (le moteur ne fabrique pas).
+        impacts['pouvoir_achat'] = ((effort + ASU_COUT_RECOURS_MD_EUR)
+                                    / RDB_MENAGES_MD_EUR) * increment
 
         # === GINI ===
         # AUCUNE source ne publie l'effet Gini de l'ASU (les scénarios
