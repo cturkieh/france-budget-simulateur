@@ -714,18 +714,35 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
 **Parametres (post-reforme avril 2025) :**
 - Taux de remplacement : 45% a 80% (base 60%)
 - Duree allocations : 12 a 36 mois (base 18 mois — reforme avril 2025 : 24 → 18 mois pour les <55 ans)
-- Base budgetaire : 40 Md EUR (post-reforme ; etait 45 Md EUR avant la reforme)
+- Base du canal taux : 36,6 Md EUR (v0.6.4 — la somme des lignes du rapport
+  financier Unedic 2025 proportionnelles a l'allocation : ARE 32,124 +
+  ARE Formation 1,718 + ASR/ASP 1,745 + autres 0,020 + ARCE 0,956 ; exclus
+  avec leur raison d'assiette : points de retraite 2,43 — assiette = SJR —,
+  contribution France Travail 4,98 — 11 % des recettes N−2 —, aides
+  forfaitaires, activite partielle ; derivation complete dans constants.py)
 
-**Formule economique :**
-- Montant = 40 × (taux / 0,60) × (duree / 18)
-- Source code : `_apply_chomage_alloc` (`budget_simulator/handlers/depenses.py`), constantes `MONTANT_REF=40`, `DUREE_REF=18`
-- Elasticite duree chomage : +0,1 par 5 points de taux
+**Formule economique (deux canaux SEPARES depuis v0.6.3) :**
+- Canal TAUX : delta = 36,6 × (taux/0,60 − 1) — proportionnel, tous allocataires
+- Canal DUREE : delta = (duree − 18) × 0,75 × (taux/0,60) — cout MARGINAL
+  (M32), seule la minorite qui epuise ses droits est concernee
+- Source code : `_apply_chomage_alloc` (`budget_simulator/handlers/depenses.py`),
+  constantes `CHOMAGE_MONTANT_REF_MD=36.6`, `CHOMAGE_DUREE_REF_MOIS=18`,
+  `COUT_CHOMAGE_MARGINAL_MOIS_MD=0.75`
 
-**Impacts :**
-- Gini : Allongement durée 18 → 24 mois ≈ +5 Md EUR = -0,004 (REDUCTION inegalites — protection chomeurs)
-- PA : Hausse = +0,002 (impact direct, sens inverse pour une baisse)
+**Impacts distributifs (v0.6.4, sur les euros des canaux ci-dessus) :**
+- Gini canal taux : GINI_ALLOC_PAR_MD = 0,0008 par Md EUR coupe (OFCE 2023)
+- Gini canal duree : × GINI_DUREE_SURPOIDS = 1,6 — par euro, une coupe de
+  duree frappe plus bas (cohorte fin de droits : a +3 mois, 71 % ne touchent
+  ni RSA ni ASS — Dares Focus n° 53 × DREES E&R n° 1368 ; cf. M35)
+- Degressivite : son facteur (±15 % d'allocations) s'applique aux DEUX canaux
+  ET au Gini (v0.6.4, fin du free lunch — meme famille que le fix PA v0.6.3)
+- PA : 0,002 par 5 Md EUR sur le canal € total (taux ET duree, v0.6.3)
 
-> **Note historique** : Avant la reforme avril 2025, la base etait `MONTANT_REF=45 Md EUR` × `DUREE_REF=24 mois`. La reforme a aligne la duree de reference (18 mois <55 ans, 22,5 mois 55-56 ans, 27 mois ≥57 ans) ; le simulateur prend la duree des <55 ans comme reference (majoritaire) pour la conversion taux ↔ montant.
+> **Note historique** : avant la reforme d'avril 2025 la base etait 45 Md EUR
+> × 24 mois ; de v0.6.3 a v0.6.4 le canal taux portait 40 Md EUR — un agregat
+> (~charges techniques hors France Travail) qui incluait des lignes qu'un
+> changement de taux ne met pas a l'echelle. Le simulateur prend la duree des
+> <55 ans (18 mois) comme reference pour la conversion taux ↔ montant.
 
 ### Allocation Sociale Unique (ASU)
 
@@ -2360,7 +2377,8 @@ moyen.** Le choix (v0.6.3) : un mois de duree maximale d'indemnisation vaut
 0,75 Md EUR/an au taux de reference (Unedic : la reduction 24 -> 18 mois
 economise « de l'ordre de 4,5 Md EUR par an », fev. 2023, confirme par
 l'ex-post du 18/12/2025), multiplie par `taux/0,60`. L'alternative ecartee : le
-cout moyen (40/18 = 2,2 Md EUR/mois), qui traiterait chaque mois de plafond
+cout moyen (36,6/18 ≈ 2,0 Md EUR/mois depuis le recalage d'assiette v0.6.4),
+qui traiterait chaque mois de plafond
 comme paye a tous les allocataires — or ~30 % des entrants seulement
 atteignent la fin de droits, et les droits ne sont consommes qu'aux deux
 tiers. L'ancienne formule cumulait les deux (double comptage, ~2,89 Md EUR par
@@ -2389,14 +2407,28 @@ indexation salariale, objet voisin mais distinct de l'inflation retardee d'une
 forme reduite, et declare comme tel. Effet mesure : la sensibilite de la
 calibration a ce parametre tombe de 0,062 a 0,046 pt.
 
-**M35. Le canal distributif de la duree d'indemnisation garde son coefficient
-historique.** Le choix : `gini_duree` (0,002 par reduction de 6 mois) reste en
-l'etat, alors qu'il porte desormais SEUL la charge distributive du levier
-duree (le double comptage via le montant a ete corrige, cf. M32) et qu'il ne
-cite aucune source. La justification : le recalibrer sans source serait
-fabriquer ; les donnees de bascule vers l'ASS (13 -> 20 % des fins de droits
-entre mi-2022 et mi-2025) suggerent qu'il est plutot sous-calibre — passe de
-calage dediee au backlog, l'ecart est dit plutot que comble.
+**M35. Le canal distributif de la duree : surpoids k = 1,6 par euro, cale sur
+les donnees de bascule fin de droits (v0.6.4 — resout le differe v0.6.3).**
+Le choix : `gini_duree = GINI_DUREE_SURPOIDS × GINI_ALLOC_PAR_MD × euros du
+canal duree`, avec k = 1,6. La derivation, sur donnees OBSERVEES (aucune
+microsimulation distributive d'une reforme de duree n'est publiee — verifie
+OFCE, IPP, DREES, CNAF, DG Tresor) : destins a +3 mois d'une fin de droits
+(Dares Focus n° 53 : 31 % emploi salarie, 18 % RSA, 11 % ASS, 71 % ni-ni)
+croises avec les positions distributives par population (DREES E&R n° 1368,
+ERFS×DRM 2021), estimateur par coefficients de concentration — un ratio de
+parts de deciles n'est PAS un ratio d'impacts Gini (verification adverse,
+constat 22). Fourchette testee [1,3 ; 2,2] ; le trou des 71 % « ni RSA ni
+ASS » (groupe heterogene, inobservable) porte la largeur. Les alternatives
+ecartees : k = 2,0 (moyenne d'indicateurs incluant le taux de pauvrete — un
+headcount n'a pas de correspondance defendable vers une elasticite de Gini,
+retrograde en robustesse) ; l'ancien 0,002/6 mois (k implicite 0,556, aucune
+source : par euro, la duree pesait moitie moins que le taux alors que la
+coupe tombe sur une population dont 59-76 % vit dans les deux premiers
+deciles APRES la perte). La nuance qui protege du double comptage avec le
+canal taux : les fins de droits ne sont PAS plus pauvres AVANT la coupe (SJR
+moyen 64 EUR = celui de l'ensemble des indemnisables — Dares, tableau 1) ;
+tout le surpoids vient de l'apres. Meme passe : la degressivite cesse d'etre
+un free lunch Gini (constat 27, meme forme que le fix PA v0.6.3).
 
 ### Scenario de reference et gouvernance
 
