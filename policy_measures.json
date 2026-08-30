@@ -409,11 +409,11 @@
         "effort": {
           "valeur_defaut": 0,
           "min": 0,
-          "max": 3,
-          "step": 0.5,
-          "label": "Budget contrôles (Md€)",
+          "max": 1,
+          "step": 0.1,
+          "label": "Intensité des contrôles (0-1 → budget 0-3 Md€)",
           "type": "number",
-          "tooltip": "ROI 8.75x avec IA/datamining intégré. Potentiel : 13 Md€ (RSA, APL, arrêts maladie abusifs). Phasing 4 ans. Neutralité : Gini=0, PA=0, Compétitivité=0. Calibration NON AUDITÉE (v0.6.1) : la Cour des comptes (certification des comptes de la sécurité sociale 2024, mai 2025) mesure un risque résiduel de 9,4 Md€ à 9 mois, dont 30 à 36 % sont des rappels dus aux allocataires."
+          "tooltip": "ROI 8.75x avec IA/datamining intégré. Potentiel : 13 Md€ (RSA, APL, arrêts maladie abusifs). Phasing 4 ans. Budget engagé saturé au gisement IGAS (6-8 Md€/an) : au-delà, l'excédent n'est pas dépensé (v0.6.3). Neutralité : Gini=0, PA=0, Compétitivité=0. Calibration NON AUDITÉE (v0.6.1) : la Cour des comptes (certification des comptes de la sécurité sociale 2024, mai 2025) mesure un risque résiduel de 9,4 Md€ à 9 mois, dont 30 à 36 % sont des rappels dus aux allocataires. v0.6.3 : la lecture legacy en Md€ (valeurs > 1) est supprimée — l'ancienne borne publiée (0-3, « Budget contrôles Md€ ») décrivait cette lecture, jamais l'UI réelle (0-1, affichée en %)."
         }
       }
     },

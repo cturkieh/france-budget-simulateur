@@ -396,9 +396,11 @@ CHOMAGE_CLIP_MAX = 0.12
 #   optimisation_dette / isf_climatique / taxe_superprofits /
 #     exonerations_salaires : intensité fractionnaire [0,1]
 #     (0 = inactif, 1 = plein effet ; aucun clamp backend).
-# fraude_fiscale / fraude_sociale EXCLUS : `effort` bimodal
-# (∈[0,1] = intensité, >1 = montant Md€ legacy) non bornable sans
-# clarifier la sémantique → chantier Item 2 (contrat de params).
+# fraude_fiscale EXCLU : `effort` bimodal (∈[0,1] = intensité, >1 = montant
+# Md€ legacy) non bornable sans clarifier la sémantique → chantier Item 2
+# (contrat de params). fraude_sociale n'est PLUS exclu (v0.6.3) : sa lecture
+# bimodale est supprimée du handler (discontinuité à effort = 1,0), le levier
+# est borné par PARAM_DOMAINS ci-dessous.
 INTENSITE_DOMAINS = {
     'optimisation_dette': (0.0, 1.0),
     'isf_climatique': (0.0, 1.0),
@@ -429,11 +431,17 @@ INTENSITE_DOMAINS = {
 # les pose désormais hors défaut) entrent donc ici, avec les bornes que
 # `policy_measures.json` publie déjà pour eux — source unique, vérifiée par
 # `test_les_bornes_declarees_sont_celles_du_registre_public`.
-# `fraude_fiscale` / `fraude_sociale` restent HORS registre pour la même raison
-# qu'INTENSITE_DOMAINS les exclut (`effort` bimodal : ∈[0,1] = intensité, >1 =
-# montant Md€ legacy) ; leur finitude est couverte par l'étage 1 et leur
+# `fraude_fiscale` reste HORS registre pour la même raison
+# qu'INTENSITE_DOMAINS l'exclut (`effort` bimodal : ∈[0,1] = intensité, >1 =
+# montant Md€ legacy) ; sa finitude est couverte par l'étage 1 et son
 # rendement par la garde en Md€/an de tests/test_scenario_plf2026_v061.py.
+# `fraude_sociale` ENTRE au registre (v0.6.3) : bimodalité supprimée du
+# handler, effort = intensité pure ∈ [0;1] (union UI + scénarios publiés,
+# efforts encodés 0 à 1,0).
 PARAM_DOMAINS = {
+    'fraude_sociale': {
+        'effort': (0.0, 1.0),
+    },
     'retraites': {
         'age_depart': (60.0, 67.0),
         'indexation': (0.0, 1.2),
@@ -1276,6 +1284,17 @@ def asu_cout_recours_md_eur(phasing: float) -> float:
 FRAUDE_SOCIALE_GISEMENT_MD_EUR = 8.0        # cap IGAS (borne haute 6-8), gisement recouvrable/an
 FRAUDE_SOCIALE_ROI = 8.75                   # € identifiés par € de contrôle — NON AUDITÉ (v0.6.1)
 FRAUDE_SOCIALE_EFFICACITE_RECUPERATION = 0.70  # part des sommes identifiées effectivement recouvrées
+# Garde de domaine : le budget saturant DIVISE par ROI × EFFICACITÉ × phasing,
+# et un gisement ≤ 0 rendrait le levier muet (ou son budget négatif) sans
+# aucun signal ; un ROI nul INVERSERAIT la monotonie que la v0.6.3 vient de
+# rétablir. `raise` et non `assert` : python -O strip les asserts, la garde
+# doit survivre en prod (même convention que Gini et _valider_domaine_asu).
+if not (0 < FRAUDE_SOCIALE_GISEMENT_MD_EUR
+        and 0 < FRAUDE_SOCIALE_ROI
+        and 0 < FRAUDE_SOCIALE_EFFICACITE_RECUPERATION <= 1):
+    raise ValueError(
+        "Calibration fraude sociale hors domaine : GISEMENT > 0, ROI > 0, "
+        "EFFICACITÉ ∈ ]0;1] requis (le seuil de saturation en divise).")
 
 # === CALIBRATION ÉCONOMIQUE ===
 # Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré

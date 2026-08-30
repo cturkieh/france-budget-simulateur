@@ -175,8 +175,12 @@ class TestFraudeMonotone:
         """Plus d'effort anti-fraude ⇒ jamais un solde net pire — y compris
         sous ASU active (gisement résiduel réduit ⇒ budget saturant réduit).
         AVANT fix : au-delà d'effort ≈ 0,435 (plein phasing), ds REMONTAIT
-        (budget linéaire, récupération plafonnée)."""
-        grid = [i / 20 for i in range(21)]  # 0.00 … 1.00
+        (budget linéaire, récupération plafonnée). La grille DÉPASSE 1,0
+        exprès : la lecture bimodale historique (>1 = Md€ legacy) créait un
+        saut de +1,56 Md€/an pile à effort = 1,0 — la valeur encodée de RN
+        et LR — supprimée en v0.6.3 (le domaine [0;1] est désormais porté
+        par PARAM_DOMAINS, ce test appelle le handler SOUS la porte)."""
+        grid = [i / 20 for i in range(31)]  # 0.00 … 1.50, frontière 1.0 incluse
         prev = None
         for effort in grid:
             ds = _fraude_ds({'effort': effort}, year, mesures_extra=mesures_extra)
@@ -185,6 +189,14 @@ class TestFraudeMonotone:
                     f"non-monotonie à effort={effort:.2f} (année {year}, "
                     f"{mesures_extra!r}) : ds={ds:.4f} > {prev:.4f}")
             prev = ds
+
+    def test_continuite_a_l_ancienne_frontiere_bimodale(self):
+        """effort = 1,0 n'est plus une frontière de mode : 1,0 et 1,0+ε
+        donnent le même solde (tous deux saturés à plein phasing). AVANT :
+        ds(1.0) = −6,69 (intensité, saturé) vs ds(1.001) = −5,13 (legacy
+        Md€) — +1,56 Md€/an de discontinuité sur la valeur encodée RN/LR."""
+        assert _fraude_ds({'effort': 1.001}, 2030) == pytest.approx(
+            _fraude_ds({'effort': 1.0}, 2030), abs=1e-2)
 
     def test_strictement_croissant_sous_la_saturation(self):
         """Sous le point de saturation du gisement, chaque cran d'effort

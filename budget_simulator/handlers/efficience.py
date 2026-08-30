@@ -213,15 +213,16 @@ class EfficienceMixin(_MixinBase):
         institutions réelles au nom voisin (HCFiPS et HCFEA) ont été
         vérifiées, aucune ne publie ces chiffres. L'attribution n'est donc pas
         remplacée par une source de substitution."""
-        # Conversion intensité (0-1) vers Md€ (0-3)
-        # Frontend v4.5+ envoie intensité 0-1, mais legacy peut envoyer Md€ directement
-        effort_raw = params.get('effort', 0)
-        if effort_raw <= 1.0:
-            # Mode intensité (0-1) → conversion en Md€
-            budget_controles = effort_raw * 3  # 0-3 Md€
-        else:
-            # Mode legacy (déjà en Md€)
-            budget_controles = effort_raw
+        # Conversion intensité (0-1) vers Md€ (0-3).
+        # v0.6.3 (revue type-design) : la lecture BIMODALE historique
+        # (≤ 1 = intensité, > 1 = montant Md€ « legacy ») est SUPPRIMÉE — la
+        # bascule par MAGNITUDE créait une discontinuité de +1,56 Md€/an
+        # exactement à effort = 1,0, la valeur encodée de RN et LR : un
+        # re-encodage à 1,1 aurait sauté de mode en silence. Aucun scénario
+        # publié n'utilisait le mode Md€ (efforts publiés : 0 à 1,0), et le
+        # levier entre au registre PARAM_DOMAINS (effort ∈ [0;1]) — la porte
+        # de domaine borne désormais les entrées hors-UI, comme partout.
+        budget_controles = params.get('effort', 0) * 3  # 0-3 Md€
 
         if budget_controles == 0:
             return 0, 0, {}
