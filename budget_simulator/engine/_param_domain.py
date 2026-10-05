@@ -178,7 +178,10 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     qu'elle soit avalée par une garde de finitude. ``None`` n'est pas une
     valeur mal typée : c'est l'absence de valeur.
     """
-    out = params  # chemin nominal : objet identique, aucune copie
+    # Clés à retirer, accumulées puis retirées en UNE reconstruction : un
+    # retrait clé par clé recopiait le dict à chaque fois (quadratique sur un
+    # bloc de milliers de null, payload JSON standard sous la limite de taille).
+    retirees = set()
     for key, value in params.items():
         if value is None:
             _tracer_null(f"{measure_id}.{key}",
@@ -200,8 +203,10 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
                 "appelante à corriger)",
                 measure_id, key, value,
             )
-        out = {k: v for k, v in out.items() if k != key}
-    return out
+        retirees.add(key)
+    if not retirees:
+        return params  # chemin nominal : objet identique, aucune copie
+    return {k: v for k, v in params.items() if k not in retirees}
 
 
 def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,

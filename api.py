@@ -82,10 +82,11 @@ async def simulate(request: SimulationRequest):
         levier pour ce paramètre, y compris pour un booléen
         (`{"taxe_superprofits": {"tous_secteurs": null}}` = tous secteurs,
         le défaut) — exactement comme si la clé était omise ;
-      - `null` sur un LEVIER ENTIER (`{"taxe_superprofits": null}`) = levier
-        ABSENT : non appliqué, absent des impacts, résultat identique à une
+      - `null` sur un LEVIER ENTIER connu (`{"taxe_superprofits": null}`) =
+        levier ABSENT : non appliqué, absent des impacts, résultat identique à une
         requête sans cette clé. À distinguer de `{"taxe_superprofits": {}}`,
-        qui applique le levier avec tous ses défauts.
+        qui applique le levier avec tous ses défauts. Un levier INCONNU reste
+        rejeté en 422, même à `null`.
       Préférer omettre la clé ; le serveur trace un WARNING `PARAM_NULL`.
     """
     # Instantiation moteur (chargement policy_measures.json + registre).
