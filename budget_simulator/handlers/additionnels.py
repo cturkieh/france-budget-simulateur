@@ -23,6 +23,7 @@ Le mixin accède à ``self.mesures`` et ``self.debug_logs``, attributs
 d'instance de ``BudgetSimulatorV45``.
 """
 import logging
+import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import POLICY_START_YEAR
@@ -31,6 +32,28 @@ from ._phasing import _one_time_level, _resolve_intensite_or_legacy, _year_phasi
 from ._types import ImpactsDict
 
 logger = logging.getLogger(__name__)
+
+
+def _point_indice_fp_brut(mesures: Dict) -> float:
+    """``fonction_publique.point_indice`` lu par le SMIC (anti-double comptage).
+
+    Lecture CROISÉE de ``mesures`` BRUT — hors de la porte unique, qui ne
+    filtre que les ``params`` du levier dispatché. Elle doit donc rendre ce
+    que le handler ``fonction_publique`` aura effectivement appliqué : son
+    défaut (0) quand la porte retire la valeur (``None`` / NaN / ±inf), ou
+    quand le bloc est absent ou ``null``. Valeur non numérique ou bloc mal
+    formé → 0 aussi : NEUTRE ici, l'anomalie est signalée par la porte de
+    ``fonction_publique`` elle-même (même convention que ``_seniors``). Sans
+    cette garde, un ``null`` sur le point d'indice faisait échouer le SMIC
+    (Sentry FRANCE-BUDGET-Z). Les booléens restent numériques, comme à la
+    porte. Valeur légitime → rendue telle quelle (golden byte-identique)."""
+    bloc = mesures.get('fonction_publique')
+    if not isinstance(bloc, dict):
+        return 0.0
+    valeur = bloc.get('point_indice', 0)
+    if isinstance(valeur, (int, float)) and math.isfinite(valeur):
+        return valeur
+    return 0.0
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -67,9 +90,7 @@ class AdditionnelsMixin(_MixinBase):
         # Correction double-comptage : si le point d'indice augmente aussi,
         # la hausse FP est déjà partiellement couverte. Surcoût SMIC net = max(0, hausse - PI).
         masse_salariale_fp_concernee = 50  # Md€
-        hausse_pi_pct = 0.0
-        if 'fonction_publique' in self.mesures:
-            hausse_pi_pct = self.mesures['fonction_publique'].get('point_indice', 0) / 100
+        hausse_pi_pct = _point_indice_fp_brut(self.mesures) / 100
         delta_fp = masse_salariale_fp_concernee * max(0, hausse_pct - hausse_pi_pct)
 
         # 2. DÉPENSES AIDES SOCIALES (indexées sur SMIC : RSA, prime activité)

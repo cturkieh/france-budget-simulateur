@@ -40,6 +40,43 @@ from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 logger = logging.getLogger(__name__)
 
 
+def _tracer_null(libelle: str, cle_dedup: tuple, warned: set | None) -> None:
+    """WARNING ``PARAM_NULL`` — token stable, filtrable dans Sentry Logs.
+    Dédupliqué sur la simulation via ``warned`` (la porte tourne chaque
+    année : sans dédup, un seul null = ~10 lignes identiques). Clé suffixée
+    ``'null'`` : espace distinct des clés ``(mesure, param)`` du clamp et de
+    la finitude, qui partagent le même set."""
+    if warned is not None and cle_dedup in warned:
+        return
+    logger.warning(
+        "PARAM_NULL %s=None — retiré, le handler applique son défaut "
+        "(null = pas de valeur ; l'appelant devrait omettre la clé)",
+        libelle,
+    )
+    if warned is not None:
+        warned.add(cle_dedup)
+
+
+def normaliser_bloc_null(measure_id: str, params, *,
+                         warned: set | None = None):
+    """Bloc de mesure ``None`` (``{"mesure": null}``) → ``{}`` — même
+    sémantique que ``None`` sur un paramètre, un cran plus haut : la mesure
+    sans aucun paramètre, chaque handler sur ses défauts.
+
+    Seul ``None`` est normalisé. Un bloc MAL FORMÉ (liste, nombre, str) reste
+    rendu tel quel et échoue BRUYAMMENT au premier accès de la porte
+    (``logger.error`` + ``HANDLER_FAILED_KEY``, ``ExceptionGroup`` en strict)
+    — décision verrouillée par
+    ``tests/test_asu_prestations_indexation_contract.py::test_malformed_asu_fails_loudly_not_silently``
+    : un raccourci humain ``{'asu': 1}`` est une faute à remonter, pas une
+    absence. Entrée légitime (dict) → objet identique (golden byte-identique).
+    """
+    if params is None:
+        _tracer_null(measure_id, (measure_id, None, 'null'), warned)
+        return {}
+    return params
+
+
 def _refuser_non_finis(measure_id: str, params: Dict, *,
                        strict: bool, warned: set | None) -> Dict:
     """Porte de FINITUDE — universelle, indépendante de tout domaine déclaré.
@@ -71,12 +108,34 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     repli qui n'invente rien est le défaut du handler. Une seule règle pour
     une seule condition, sinon deux lectures du même objet coexistent.
 
+    ``None`` (JSON ``null``) — même porte, même repli, contrat différent
+    (Sentry FRANCE-BUDGET-Z, 2026-10) : ``None`` dit lui aussi « pas de
+    valeur », et c'est même sa seule signification. Le laisser passer
+    trahissait la sémantique annoncée : ``params.get('montant', 97)`` rend
+    ``None`` (la clé EXISTE), pas le défaut, et ``97 - None`` lève — mesure
+    comptée à 0 + une ERROR par année simulée. La clé est donc RETIRÉE, comme
+    pour NaN, et tracée par un WARNING ``PARAM_NULL`` dédupliqué. Mais dans
+    les DEUX modes, sans escalade stricte : un NaN est un poison de calcul (un
+    amont a divisé par zéro), alors qu'un ``None`` est une absence déclarée,
+    déjà LÉGITIME en strict pour ``intensite`` (« slider non posé »,
+    ``validate_intensite_domain``). Inventaire préalable (2026-10) : aucun
+    lecteur du moteur ne donne à ``None`` un sens distinct de la clé absente
+    — tous les ``params.get(k, défaut)`` attendent le défaut, et les seuls
+    tests ``is None`` (``_resolve_intensite_or_legacy``, ``_seniors``) le
+    confondent déjà avec l'absence. Propriété verrouillée pour chaque
+    (mesure, paramètre) du registre : ``tests/test_param_null_porte.py``.
+
     Une valeur non numérique est ignorée ici : le contrat MIXIN_BAD_PARAMS
     veut qu'une ``str`` lève ``TypeError`` au comparateur de domaine, jamais
-    qu'elle soit avalée par une garde de finitude.
+    qu'elle soit avalée par une garde de finitude. ``None`` n'est pas une
+    valeur mal typée : c'est l'absence de valeur.
     """
     out = params
     for key, value in params.items():
+        if value is None:
+            _tracer_null(f"{measure_id}.{key}", (measure_id, key, 'null'), warned)
+            out = {k: v for k, v in out.items() if k != key}
+            continue
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
         if math.isfinite(value):
@@ -104,9 +163,12 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
     """Valide/borne les paramètres NOMMÉS de ``measure_id`` selon
     ``PARAM_DOMAINS`` (revue 2026-08-04) — même contrat dual que
     ``validate_intensite_domain`` : no-op (objet identique) pour toute
-    entrée légitime ou clé absente/None, ``ValueError`` en strict sinon,
-    ``logger.warning`` + copie clampée en tolérant. Une ``str`` lève
-    TypeError au comparateur (contrat MIXIN_BAD_PARAMS, pas de garde).
+    entrée légitime ou clé absente, ``ValueError`` en strict sinon,
+    ``logger.warning`` + copie clampée en tolérant. Une clé à ``None`` est
+    RETIRÉE dans les deux modes (copie, WARNING ``PARAM_NULL``) : le handler
+    applique son défaut, comme pour la clé absente — cf. ``_refuser_non_finis``.
+    Une ``str`` lève TypeError au comparateur (contrat MIXIN_BAD_PARAMS, pas
+    de garde).
 
     ``warned`` (optionnel) : set détenu par l'appelant, portée = une
     simulation. La fonction est appelée chaque année simulée pour la même

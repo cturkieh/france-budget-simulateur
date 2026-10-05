@@ -95,7 +95,11 @@ from ..constants import (
     HANDLER_FAILED_KEY,
     INDEXATION_BASELINE_RATIO,
 )
-from ._param_domain import validate_intensite_domain, validate_param_domains
+from ._param_domain import (
+    normaliser_bloc_null,
+    validate_intensite_domain,
+    validate_param_domains,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -185,6 +189,17 @@ class OrchestratorMixin:
             measure = self.measure_registry[measure_id]
             delta_spending, delta_revenue = 0, 0
             try:
+                # `warned` : dédup des WARNING de la porte sur la durée d'une
+                # simulation (reset dans _reset_state) — le clamp/retrait reste
+                # appliqué chaque année, seule la journalisation est dédupliquée.
+                if not hasattr(self, '_domain_clamp_warned'):
+                    self._domain_clamp_warned = set()
+                # Bloc `null` (`{"mesure": null}`) = la mesure sans paramètre,
+                # AVANT tout `.get` de la porte. Un bloc mal formé (liste…)
+                # passe tel quel et échoue bruyamment ci-dessous (verrouillé).
+                parameters = normaliser_bloc_null(
+                    measure_id, parameters, warned=self._domain_clamp_warned
+                )
                 # Porte unique Lot C Item 1 : borne intensite par domaine
                 # AVANT le dispatch. Tolérant = warning+clamp ; STRICT =
                 # ValueError capté par l'except infra → ExceptionGroup
@@ -195,12 +210,9 @@ class OrchestratorMixin:
                 )
                 # Même porte pour les paramètres NOMMÉS des handlers
                 # symétrisés (PARAM_DOMAINS, revue 2026-08-04) : ferme la
-                # propagation silencieuse de NaN et la bande hors-UI.
-                # `warned` : dédup du WARNING sur la durée d'une simulation
-                # (reset dans _reset_state) — le clamp reste appliqué chaque
-                # année, seule la journalisation est dédupliquée.
-                if not hasattr(self, '_domain_clamp_warned'):
-                    self._domain_clamp_warned = set()
+                # propagation silencieuse de NaN et la bande hors-UI ; retire
+                # aussi les clés à `None` (null = pas de valeur → défaut du
+                # handler, Sentry FRANCE-BUDGET-Z).
                 parameters = validate_param_domains(
                     measure_id, parameters, strict=strict_mode,
                     warned=self._domain_clamp_warned

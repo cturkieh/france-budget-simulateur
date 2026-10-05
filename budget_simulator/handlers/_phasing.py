@@ -104,11 +104,18 @@ def asu_is_active(mesures: Dict) -> bool:
     appliquée, sans un log. Le prédicat suit désormais la même sémantique
     que la porte. (Un toggle dévié mais FINI, ex. 0.5, reste actif — le
     harnais standalone en dépend.)
+
+    2026-10 (Sentry FRANCE-BUDGET-Z) : même trou pour ``None``. La porte le
+    retire désormais (null = pas de valeur → défaut 0 → ``_apply_asu``
+    n'émet rien), mais ``None != 0`` rendait le prédicat VRAI : ASU fantôme
+    identique au cas NaN. ``None`` → inactive, comme la clé absente.
     """
     asu = mesures.get('asu')
     if not asu:
         return False
     activation = asu.get('asu_activation', 0)
+    if activation is None:
+        return False
     try:
         if not math.isfinite(activation):
             return False

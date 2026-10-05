@@ -716,6 +716,15 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # Créer snapshot des mesures actuelles
         snapshot = {}
         for measure_id, params in self.mesures.items():
+            # Bloc non-dict (null, ou mal formé) : `.items()` levait ici, HORS
+            # de tout `try` (appel depuis calculate_growth dès qu'une autre
+            # mesure bouge) → toute la simulation tombait (500 API). Le hash ne
+            # sert qu'à détecter un CHANGEMENT de mesures entre années ; un
+            # bloc constant y est neutre. Un bloc mal formé reste signalé par
+            # la porte unique d'apply_measures (ERROR + HANDLER_FAILED_KEY).
+            if not isinstance(params, dict):
+                snapshot[measure_id] = {}
+                continue
             # Garder seulement les valeurs sérialisables
             snapshot[measure_id] = {
                 k: v for k, v in params.items()

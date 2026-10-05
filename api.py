@@ -77,6 +77,10 @@ async def simulate(request: SimulationRequest):
       production) — le client reçoit 200 avec un résultat sur les bornes
       respectées. Pour un comportement strict (422 si hors domaine), activer
       `BUDGETLAB_STRICT=1` côté serveur.
+    - Une valeur `null` — sur un paramètre (`{"csg": {"taux": null}}`) ou sur
+      un levier entier (`{"csg": null}`) — équivaut à la clé ABSENTE : le
+      levier applique son défaut, dans les deux modes. Préférer omettre la
+      clé ; le serveur trace un WARNING `PARAM_NULL`.
     """
     # Instantiation moteur (chargement policy_measures.json + registre).
     # En cas d'échec systémique (fichier corrompu, schema cassé) → 500.

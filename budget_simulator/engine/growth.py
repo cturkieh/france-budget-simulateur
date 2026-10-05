@@ -69,12 +69,13 @@ aucune opération du bloc ne peut lever (``_get_default_values`` =
 return dict littéral pur ; ``.get`` sur dict ; ``isinstance`` neutralise
 les types tordus avant arithmétique ; ``np.log2(1+delta)`` avec
 ``delta>0.1`` garanti ⇒ argument > 1.1, jamais d'exception). Le seul
-vecteur théorique (valeur non-dict dans ``self.mesures``) crashe
-**bruyamment en amont** dans ``apply_measures`` (en 2026 via
-``detect_active_measures``/``params.items()`` ; les autres années via
-le ``try`` per-mesure → ``logger.error`` + ``HANDLER_FAILED_KEY``),
-AVANT que ce bloc soit atteint — 8 scénarios + 7 adversariaux :
-0 déclenchement. Sévérité réelle : LOW / dette défensive,
+vecteur (valeur non-dict dans ``self.mesures``) n'était PAS arrêté en
+amont, contrairement à ce qu'affirmait cette note : le ``try`` per-mesure
+d'``apply_measures`` l'absorbe, puis ``.get`` levait ICI et coupait le
+bonus d'offre de TOUTES les mesures. Fermé (2026-10, Sentry
+FRANCE-BUDGET-Z) par une garde ``isinstance(…, dict)`` dans la boucle ;
+l'anomalie reste signalée par la porte unique (``logger.error`` +
+``HANDLER_FAILED_KEY``). Sévérité réelle : LOW / dette défensive,
 PAS un silent-failure atteignable. Néanmoins, par conformité à la règle
 projet « zéro catch silencieux » et pour qu'un futur refactor qui le
 rendrait atteignable ne dégrade pas la croissance potentielle en
@@ -434,8 +435,17 @@ class GrowthMixin:
 
             for key, cfg in self.SUPPLY_EFFECTS.items():
                 measure_params = self.mesures.get(cfg['measure_id'], {})
+                # Lecture BRUTE de self.mesures (hors porte unique) : même
+                # sémantique que la porte. Bloc null ou mal formé → mesure à
+                # ses défauts ici (l'anomalie d'un bloc mal formé ressort par
+                # la porte d'apply_measures) ; clé à None → défaut, comme la
+                # clé absente (Sentry FRANCE-BUDGET-Z).
+                if not isinstance(measure_params, dict):
+                    measure_params = {}
                 default_val = defaults.get(cfg['measure_id'], {}).get(cfg['param'], 0)
                 current_val = measure_params.get(cfg['param'], default_val)
+                if current_val is None:
+                    current_val = default_val
 
                 if not isinstance(current_val, (int, float)) or not isinstance(default_val, (int, float)):
                     continue

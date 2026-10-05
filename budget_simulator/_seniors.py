@@ -159,8 +159,8 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     if not isinstance(bloc, dict):
         return 0.0
     age = bloc.get('age_depart')
-    # `None` : la porte le laisse passer intact (`out.get(key) is None` →
-    # `continue`) et c'est le handler qui lève à la soustraction. Neutre.
+    # `None` : la porte le RETIRE (null = pas de valeur, 2026-10) et le
+    # handler applique le calendrier légal — écart nul. Neutre ici aussi.
     # `str` et objets : la porte lève au comparateur. Neutre.
     # Les booléens restent DANS ce chemin (`isinstance(True, int)` est vrai en
     # Python) — c'est voulu : la porte les clampe, donc nous aussi.

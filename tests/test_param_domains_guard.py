@@ -36,13 +36,19 @@ def test_noop_for_measure_without_named_domains():
 
 
 def test_noop_when_param_absent_or_none():
-    """Paramètre absent ou None → no-op (les défauts du handler font foi)."""
+    """Paramètre absent ou None → les défauts du handler font foi.
+
+    Absent : no-op (objet identique). None : la clé est RETIRÉE (copie, entrée
+    non mutée) — l'ancien no-op laissait ``params.get(k, défaut)`` rendre
+    ``None`` au handler, qui levait (Sentry FRANCE-BUDGET-Z) : l'intention
+    « les défauts font foi » n'était pas tenue. Pas d'escalade en strict."""
     params = {'age_depart': 62.75}  # indexation/duree absents
     out = validate_param_domains('retraites', params, strict=True)
     assert out is params
     params_none = {'indexation': None}
     out_none = validate_param_domains('retraites', params_none, strict=True)
-    assert out_none is params_none
+    assert out_none == {}
+    assert params_none == {'indexation': None}
 
 
 def test_in_domain_values_return_same_object():
