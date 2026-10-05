@@ -22,9 +22,14 @@ vérifiée deux fois : mesure isolée, puis TOUTES les mesures présentes —
 c'est la seconde qui attrape un canal latéral (ex. le SMIC qui lit
 ``fonction_publique.point_indice``).
 
-Même logique un cran plus haut : un bloc ``{"mesure": null}`` équivaut à
-``{"mesure": {}}``. Un bloc mal formé (liste, nombre, str) reste, lui, un
-échec BRUYANT par la porte unique (décision verrouillée,
+Même logique un cran plus haut : un bloc ``{"levier": null}`` équivaut au
+levier ABSENT — et non à ``{"levier": {}}``, qui n'est pas neutre :
+``{"taxe_superprofits": {}}`` applique la taxe à 25 % tous secteurs (choix de
+conception antérieur). Sur un outil dont la neutralité est l'argument
+central, « pas de valeur » doit donner exactement le résultat sans le levier,
+y compris dans les lecteurs latéraux (hash des mesures, effets d'offre, SMIC,
+ASU, seniors, réforme FP). Un bloc mal formé (liste, nombre, str) reste, lui,
+un échec BRUYANT par la porte unique (décision verrouillée,
 ``test_asu_prestations_indexation_contract.py``) — mais il ne doit plus faire
 tomber TOUTE la simulation (constat de la même passe : le hash des mesures
 levait hors de tout ``try`` → 500 sur l'API dès qu'une autre mesure bougeait).
@@ -175,15 +180,75 @@ def test_null_equivaut_a_cle_absente_toutes_mesures_actives(mesure, param, stric
               f"{mesure}.{param}=None (toutes actives)", f"{mesure}.{param}=None")
 
 
+def _assert_levier_absent_des_impacts(impacts, mesure, contexte):
+    for annee in impacts:
+        assert mesure not in annee, f"{contexte} : {mesure} présent dans les impacts"
+
+
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
 @pytest.mark.parametrize('mesure', MESURES)
-def test_bloc_null_equivaut_a_bloc_vide(mesure, strict, caplog):
-    """``{"mesure": null}`` = la mesure sans paramètre, avec une autre mesure
-    ACTIVE — sans elle l'effort est nul et le hash des mesures (qui faisait
-    tomber toute la simulation) n'est jamais calculé."""
+def test_bloc_null_equivaut_a_levier_absent_base_neutre(mesure, strict, caplog):
+    """``{"levier": null}`` = levier ABSENT, avec une autre mesure ACTIVE —
+    sans elle l'effort est nul et le hash des mesures (qui faisait tomber
+    toute la simulation, et qui doit voir le bloc null comme absent) n'est
+    jamais calculé."""
     actif = {'tva_rate': {'taux': 0.22}} if mesure != 'tva_rate' else {'csg': {'taux': 0.10}}
-    _verifier({**actif, mesure: None}, {**actif, mesure: {}}, strict, caplog,
-              f"bloc {mesure}=None", f"{mesure}=None")
+    _verifier({**actif, mesure: None}, actif, strict, caplog,
+              f"bloc {mesure}=None (base neutre)", f"{mesure}=None")
+    _assert_levier_absent_des_impacts(
+        _simuler({**actif, mesure: None}, strict)[2], mesure, f"bloc {mesure}=None")
+
+
+@pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
+@pytest.mark.parametrize('mesure', MESURES)
+def test_bloc_null_equivaut_a_levier_absent_toutes_actives(mesure, strict, caplog):
+    """Toutes les AUTRES mesures déviées : les lecteurs latéraux de
+    ``self.mesures`` brut (SMIC ← point d'indice, fraude ← ASU, effets
+    d'offre, seniors, réforme FP, hash) ont un consommateur actif et doivent
+    voir le bloc null exactement comme la clé retirée de cette base."""
+    sans_levier = {m: dict(p) for m, p in BASE_ACTIVE.items() if m != mesure}
+    _verifier({**sans_levier, mesure: None}, sans_levier, strict, caplog,
+              f"bloc {mesure}=None (toutes actives)", f"{mesure}=None")
+
+
+def test_inventaire_bloc_null_couvre_les_lecteurs_lateraux():
+    """Anti-faux-vert : la base active doit contenir les leviers dont un
+    lecteur latéral lit le bloc brut, sinon la propriété « toutes actives »
+    ne les exercerait pas."""
+    for levier in ('fonction_publique', 'asu', 'retraites', 'smic', 'fraude_sociale'):
+        assert levier in BASE_ACTIVE and levier in MESURES, levier
+    assert 'taxe_superprofits' in MESURES
+
+
+@pytest.mark.parametrize('mesure', MESURES)
+def test_hash_et_journal_voient_le_bloc_null_comme_absent(mesure):
+    """Lecteurs latéraux dont l'écart n'est PAS observable dans les résultats
+    (le hash ne sert qu'à détecter un changement d'une année à l'autre ; la
+    liste des leviers déviés n'est que journalisée) : la règle « bloc null =
+    levier absent » y est vérifiée directement."""
+    actif = {'tva_rate': {'taux': 0.22}} if mesure != 'tva_rate' else {'csg': {'taux': 0.10}}
+    avec_null = BudgetSimulatorV45(periods=1, mesures={**actif, mesure: None})
+    sans = BudgetSimulatorV45(periods=1, mesures=dict(actif))
+    assert avec_null._get_active_measures_hash() == sans._get_active_measures_hash()
+    assert avec_null.detect_active_measures() == sans.detect_active_measures()
+    seul = BudgetSimulatorV45(periods=1, mesures={mesure: None})
+    assert seul._get_active_measures_hash() == 'no_measures'
+
+
+@pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
+def test_taxe_superprofits_null_n_applique_pas_la_taxe(strict, caplog):
+    """Cas nommé (revue 2026-10) : ``{"taxe_superprofits": null}`` appliquait
+    la taxe (25 % tous secteurs, comme ``{}``) alors que l'API annonce « clé
+    absente ». ``null`` = levier absent ; ``{}`` garde son sens (le levier à
+    ses défauts) — la distinction est vérifiée pour ne pas être neutralisée
+    par accident."""
+    _verifier({'taxe_superprofits': None}, {}, strict, caplog,
+              "taxe_superprofits=None", "taxe_superprofits=None")
+    df_null, _, imp_null = _simuler({'taxe_superprofits': None}, strict)
+    df_vide, _, _ = _simuler({'taxe_superprofits': {}}, strict)
+    _assert_levier_absent_des_impacts(imp_null, 'taxe_superprofits', "taxe_superprofits=None")
+    assert not df_null['Déficit/PIB %'].equals(df_vide['Déficit/PIB %']), \
+        "{} doit rester le levier appliqué à ses défauts, distinct de null"
 
 
 # --------------------------------------------------------------------------
@@ -197,10 +262,15 @@ def test_smic_ne_herite_pas_d_un_null_de_fonction_publique(valeur_fp, strict, ca
     """Le SMIC lit ``fonction_publique.point_indice`` brut (anti-double
     comptage). Un null là-bas faisait échouer le SMIC lui-même."""
     smic = {'smic': {'montant_brut': 1900}}
-    fp = None if valeur_fp == 'bloc_null' else {'point_indice': None}
-    jeton = 'fonction_publique=None' if valeur_fp == 'bloc_null' else 'fonction_publique.point_indice=None'
-    _verifier({**smic, 'fonction_publique': fp}, {**smic, 'fonction_publique': {}},
-              strict, caplog, f"smic + fonction_publique {valeur_fp}", jeton)
+    if valeur_fp == 'bloc_null':
+        # Bloc null = levier ABSENT (et non `{}`).
+        avec_null, sans = {**smic, 'fonction_publique': None}, smic
+        jeton = 'fonction_publique=None'
+    else:
+        avec_null = {**smic, 'fonction_publique': {'point_indice': None}}
+        sans = {**smic, 'fonction_publique': {}}
+        jeton = 'fonction_publique.point_indice=None'
+    _verifier(avec_null, sans, strict, caplog, f"smic + fonction_publique {valeur_fp}", jeton)
 
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])

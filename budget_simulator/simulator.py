@@ -35,6 +35,7 @@ from .engine.expenditures import ExpendituresMixin
 from .engine.micro_impacts import MicroImpactsMixin
 from .engine.growth import GrowthMixin
 from .engine.orchestrator import OrchestratorMixin
+from .engine._param_domain import leviers_presents
 
 logger = logging.getLogger(__name__)
 
@@ -612,7 +613,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.measure_registry = self._load_measure_config()
         self.debug_logs.append(f"Measure registry: {list(self.measure_registry.keys())}")
         self.mesures = mesures or {}
-        self.debug_logs.append(f"Mesures actives: {list(self.mesures.keys())}")
+        self.debug_logs.append(f"Mesures actives: {list(leviers_presents(self.mesures).keys())}")
 
         self._potential_growth_bonus = 0.0   # Bonus potentiel structurel (offre)
         self._supply_years = {}              # {measure_key: années actives}
@@ -710,18 +711,22 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
     def _get_active_measures_hash(self) -> str:
         """Hash des mesures actives basé sur self.mesures pour détecter changements"""
-        if not self.mesures:
+        # Levier à `null` = levier ABSENT (même règle qu'apply_measures, qui le
+        # saute) : retiré AVANT le test de vacuité, sinon `{"x": null}` seul
+        # rendrait un hash ≠ "no_measures" et divergerait de l'absence.
+        mesures = leviers_presents(self.mesures)
+        if not mesures:
             return "no_measures"
 
         # Créer snapshot des mesures actuelles
         snapshot = {}
-        for measure_id, params in self.mesures.items():
-            # Bloc non-dict (null, ou mal formé) : `.items()` levait ici, HORS
+        for measure_id, params in mesures.items():
+            # Bloc MAL FORMÉ (liste, nombre, str) : `.items()` levait ici, HORS
             # de tout `try` (appel depuis calculate_growth dès qu'une autre
             # mesure bouge) → toute la simulation tombait (500 API). Le hash ne
             # sert qu'à détecter un CHANGEMENT de mesures entre années ; un
-            # bloc constant y est neutre. Un bloc mal formé reste signalé par
-            # la porte unique d'apply_measures (ERROR + HANDLER_FAILED_KEY).
+            # bloc constant y est neutre. Il reste signalé par la porte unique
+            # d'apply_measures (ERROR + HANDLER_FAILED_KEY).
             if not isinstance(params, dict):
                 snapshot[measure_id] = {}
                 continue

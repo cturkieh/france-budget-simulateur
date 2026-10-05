@@ -144,18 +144,21 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
       nul : le canal dépense pricait un abaissement de 2,75 à 4 ans pendant
       que l'offre de travail et le chômage restaient neutres — un programme
       hybride que personne n'a demandé.
-    - Ce que la porte RETIRE — NaN et ±inf, depuis le 2026-08-26 — rend le
-      handler à son défaut, c'est-à-dire au calendrier légal : écart nul,
-      des deux côtés.
-    - Ce qui fait LEVER la porte (``str``) ou le handler (``None``, qui
-      traverse la porte intact puis échoue à la soustraction) reste dégradé
-      à neutre : y lever ici court-circuiterait le seul chemin tracé.
+    - Ce que la porte RETIRE — NaN et ±inf depuis le 2026-08-26, ``None``
+      depuis 2026-10 (null = pas de valeur) — rend le handler à son défaut,
+      c'est-à-dire au calendrier légal : écart nul, des deux côtés.
+    - Un bloc ``retraites: null`` est le levier ABSENT (``apply_measures`` le
+      saute) : écart nul, des deux côtés.
+    - Ce qui fait LEVER la porte (``str``, bloc mal formé) reste dégradé à
+      neutre : y lever ici court-circuiterait le seul chemin tracé.
     """
     bloc = mesures.get('retraites')
-    # Garde de type sur le BLOC lui-même : un payload non-dict (liste, str,
-    # nombre) levait ici une AttributeError en tête de boucle d'année, hors du
-    # `try` per-mesure — donc sans `logger.error` ni `HANDLER_FAILED_KEY`.
-    # Neutre ici, l'anomalie ressort par la porte unique la même année.
+    # Garde de type sur le BLOC lui-même. `None` (bloc null) = levier absent,
+    # sauté par apply_measures : neutre, exactement comme la clé absente. Un
+    # payload mal formé (liste, str, nombre) levait ici une AttributeError en
+    # tête de boucle d'année, hors du `try` per-mesure — donc sans
+    # `logger.error` ni `HANDLER_FAILED_KEY`. Neutre ici, l'anomalie ressort
+    # par la porte unique la même année.
     if not isinstance(bloc, dict):
         return 0.0
     age = bloc.get('age_depart')

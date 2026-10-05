@@ -96,7 +96,8 @@ from ..constants import (
     INDEXATION_BASELINE_RATIO,
 )
 from ._param_domain import (
-    normaliser_bloc_null,
+    leviers_presents,
+    tracer_si_levier_null,
     validate_intensite_domain,
     validate_param_domains,
 )
@@ -114,7 +115,8 @@ class OrchestratorMixin:
         defaults = self._get_default_values()
         active_measures = []
 
-        for measure_id, params in self.mesures.items():
+        # Levier à `null` = absent (même règle qu'apply_measures).
+        for measure_id, params in leviers_presents(self.mesures).items():
             if measure_id not in defaults:
                 continue
             # Auxiliaire de JOURNALISATION uniquement (appelé une fois, en
@@ -188,18 +190,21 @@ class OrchestratorMixin:
                 continue
             measure = self.measure_registry[measure_id]
             delta_spending, delta_revenue = 0, 0
+            # `warned` : dédup des WARNING de la porte sur la durée d'une
+            # simulation (reset dans _reset_state) — le clamp/retrait reste
+            # appliqué chaque année, seule la journalisation est dédupliquée.
+            if not hasattr(self, '_domain_clamp_warned'):
+                self._domain_clamp_warned = set()
+            # Bloc `null` (`{"levier": null}`) = levier ABSENT : sauté, absent
+            # de `impacts` (≠ `{}`, qui applique les défauts du handler — ex.
+            # taxe_superprofits à 25 % tous secteurs). Les lecteurs latéraux
+            # de self.mesures suivent la même règle. Un bloc mal formé
+            # (liste…) n'est PAS sauté : il échoue bruyamment ci-dessous
+            # (verrouillé).
+            if tracer_si_levier_null(measure_id, parameters,
+                                     warned=self._domain_clamp_warned):
+                continue
             try:
-                # `warned` : dédup des WARNING de la porte sur la durée d'une
-                # simulation (reset dans _reset_state) — le clamp/retrait reste
-                # appliqué chaque année, seule la journalisation est dédupliquée.
-                if not hasattr(self, '_domain_clamp_warned'):
-                    self._domain_clamp_warned = set()
-                # Bloc `null` (`{"mesure": null}`) = la mesure sans paramètre,
-                # AVANT tout `.get` de la porte. Un bloc mal formé (liste…)
-                # passe tel quel et échoue bruyamment ci-dessous (verrouillé).
-                parameters = normaliser_bloc_null(
-                    measure_id, parameters, warned=self._domain_clamp_warned
-                )
                 # Porte unique Lot C Item 1 : borne intensite par domaine
                 # AVANT le dispatch. Tolérant = warning+clamp ; STRICT =
                 # ValueError capté par l'except infra → ExceptionGroup
@@ -678,7 +683,7 @@ class OrchestratorMixin:
                 if not np.isfinite(gini_impact):
                     raise RuntimeError(
                         f"Y{year_idx}: impact Gini agrégé non fini ({gini_impact!r}) — "
-                        f"un handler émet NaN/inf (mesures actives : {sorted(self.mesures)})"
+                        f"un handler émet NaN/inf (mesures actives : {sorted(leviers_presents(self.mesures))})"
                     )
                 if gini_impact != 0:
                     _log_debug(self.debug_logs, f"Y{year_idx}: Impact Gini brut annuel = {gini_impact:.6f}")

@@ -73,9 +73,10 @@ vecteur (valeur non-dict dans ``self.mesures``) n'était PAS arrêté en
 amont, contrairement à ce qu'affirmait cette note : le ``try`` per-mesure
 d'``apply_measures`` l'absorbe, puis ``.get`` levait ICI et coupait le
 bonus d'offre de TOUTES les mesures. Fermé (2026-10, Sentry
-FRANCE-BUDGET-Z) par une garde ``isinstance(…, dict)`` dans la boucle ;
-l'anomalie reste signalée par la porte unique (``logger.error`` +
-``HANDLER_FAILED_KEY``). Sévérité réelle : LOW / dette défensive,
+FRANCE-BUDGET-Z) par une garde ``isinstance(…, dict)`` dans la boucle : un
+bloc ``null`` y est lu comme le levier ABSENT (même règle qu'``apply_measures``,
+qui le saute), un bloc mal formé aussi, son anomalie restant signalée par
+la porte unique (``logger.error`` + ``HANDLER_FAILED_KEY``). Sévérité réelle : LOW / dette défensive,
 PAS un silent-failure atteignable. Néanmoins, par conformité à la règle
 projet « zéro catch silencieux » et pour qu'un futur refactor qui le
 rendrait atteignable ne dégrade pas la croissance potentielle en
@@ -436,10 +437,11 @@ class GrowthMixin:
             for key, cfg in self.SUPPLY_EFFECTS.items():
                 measure_params = self.mesures.get(cfg['measure_id'], {})
                 # Lecture BRUTE de self.mesures (hors porte unique) : même
-                # sémantique que la porte. Bloc null ou mal formé → mesure à
-                # ses défauts ici (l'anomalie d'un bloc mal formé ressort par
-                # la porte d'apply_measures) ; clé à None → défaut, comme la
-                # clé absente (Sentry FRANCE-BUDGET-Z).
+                # sémantique que la porte. Bloc null → `{}` = exactement le
+                # levier absent ici (current_val = défaut, delta nul), comme
+                # apply_measures qui le saute ; bloc mal formé → idem, son
+                # anomalie ressort par la porte d'apply_measures ; clé à None
+                # → défaut, comme la clé absente (Sentry FRANCE-BUDGET-Z).
                 if not isinstance(measure_params, dict):
                     measure_params = {}
                 default_val = defaults.get(cfg['measure_id'], {}).get(cfg['param'], 0)
@@ -493,10 +495,12 @@ class GrowthMixin:
                     f"(actifs: {', '.join(k for k, v in self._supply_bonus_by_key.items() if abs(v) > 0.00001)})")
 
         except Exception as e:
-            # Garde défensif : inatteignable en run normal (la re-analyse
-            # adverse a prouvé qu'aucune exception n'est atteignable ici —
-            # un input non-dict crashe bruyamment en amont dans
-            # apply_measures). Mais SI un refactor futur le rendait
+            # Garde défensif : inatteignable en run normal — un bloc non-dict
+            # (null ou mal formé) est neutralisé par la garde `isinstance` de
+            # la boucle (il n'est PAS arrêté en amont : apply_measures absorbe
+            # un bloc mal formé dans son `try` per-mesure et saute un bloc
+            # null), et une valeur non numérique par la garde de type avant
+            # l'arithmétique. Mais SI un refactor futur le rendait
             # atteignable, la dégradation (bonus→0) ne doit pas rester muette :
             # logger.error remonte au monitoring si l'opérateur en a configuré
             # un. Comportement runtime inchangé sur tout input atteignable →

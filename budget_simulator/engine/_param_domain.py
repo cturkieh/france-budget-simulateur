@@ -40,7 +40,8 @@ from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 logger = logging.getLogger(__name__)
 
 
-def _tracer_null(libelle: str, cle_dedup: tuple, warned: set | None) -> None:
+def _tracer_null(libelle: str, consequence: str, cle_dedup: tuple,
+                 warned: set | None) -> None:
     """WARNING ``PARAM_NULL`` — token stable, filtrable dans Sentry Logs.
     Dédupliqué sur la simulation via ``warned`` (la porte tourne chaque
     année : sans dédup, un seul null = ~10 lignes identiques). Clé suffixée
@@ -49,32 +50,47 @@ def _tracer_null(libelle: str, cle_dedup: tuple, warned: set | None) -> None:
     if warned is not None and cle_dedup in warned:
         return
     logger.warning(
-        "PARAM_NULL %s=None — retiré, le handler applique son défaut "
-        "(null = pas de valeur ; l'appelant devrait omettre la clé)",
-        libelle,
+        "PARAM_NULL %s=None — %s (null = pas de valeur ; l'appelant devrait "
+        "omettre la clé)",
+        libelle, consequence,
     )
     if warned is not None:
         warned.add(cle_dedup)
 
 
-def normaliser_bloc_null(measure_id: str, params, *,
-                         warned: set | None = None):
-    """Bloc de mesure ``None`` (``{"mesure": null}``) → ``{}`` — même
-    sémantique que ``None`` sur un paramètre, un cran plus haut : la mesure
-    sans aucun paramètre, chaque handler sur ses défauts.
+def tracer_si_levier_null(measure_id: str, params, *,
+                          warned: set | None = None) -> bool:
+    """Vrai ssi le bloc du levier est ``None`` (``{"levier": null}``), auquel
+    cas un WARNING ``PARAM_NULL`` dédupliqué est tracé. L'appelant
+    (``apply_measures``) SAUTE alors le levier : null = « pas de valeur » =
+    levier ABSENT, et non ``{}`` — ``{}`` n'est pas neutre (ex.
+    ``{"taxe_superprofits": {}}`` applique la taxe à 25 % tous secteurs, choix
+    de conception antérieur). Les lecteurs latéraux de ``self.mesures``
+    partagent la même règle via ``leviers_presents`` / leurs gardes de type.
 
-    Seul ``None`` est normalisé. Un bloc MAL FORMÉ (liste, nombre, str) reste
-    rendu tel quel et échoue BRUYAMMENT au premier accès de la porte
+    Seul ``None`` est concerné. Un bloc MAL FORMÉ (liste, nombre, str) rend
+    ``False`` et échoue BRUYAMMENT au premier accès de la porte
     (``logger.error`` + ``HANDLER_FAILED_KEY``, ``ExceptionGroup`` en strict)
     — décision verrouillée par
     ``tests/test_asu_prestations_indexation_contract.py::test_malformed_asu_fails_loudly_not_silently``
     : un raccourci humain ``{'asu': 1}`` est une faute à remonter, pas une
-    absence. Entrée légitime (dict) → objet identique (golden byte-identique).
+    absence.
     """
-    if params is None:
-        _tracer_null(measure_id, (measure_id, None, 'null'), warned)
-        return {}
-    return params
+    if params is not None:
+        return False
+    _tracer_null(measure_id, "levier ignoré, comme s'il était absent",
+                 (measure_id, None, 'null'), warned)
+    return True
+
+
+def leviers_presents(mesures: Dict) -> Dict:
+    """``mesures`` sans les leviers à ``None`` — la vue « levier absent » que
+    doivent partager les lecteurs de ``self.mesures`` BRUT (hash des mesures,
+    journalisation). Objet IDENTIQUE quand aucun bloc n'est null (golden
+    byte-identique) ; sinon copie, l'entrée n'est jamais mutée."""
+    if all(v is not None for v in mesures.values()):
+        return mesures
+    return {k: v for k, v in mesures.items() if v is not None}
 
 
 def _refuser_non_finis(measure_id: str, params: Dict, *,
@@ -118,12 +134,23 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     les DEUX modes, sans escalade stricte : un NaN est un poison de calcul (un
     amont a divisé par zéro), alors qu'un ``None`` est une absence déclarée,
     déjà LÉGITIME en strict pour ``intensite`` (« slider non posé »,
-    ``validate_intensite_domain``). Inventaire préalable (2026-10) : aucun
-    lecteur du moteur ne donne à ``None`` un sens distinct de la clé absente
-    — tous les ``params.get(k, défaut)`` attendent le défaut, et les seuls
-    tests ``is None`` (``_resolve_intensite_or_legacy``, ``_seniors``) le
-    confondent déjà avec l'absence. Propriété verrouillée pour chaque
-    (mesure, paramètre) du registre : ``tests/test_param_null_porte.py``.
+    ``validate_intensite_domain``). Inventaire préalable (2026-10) : pour la
+    plupart des lecteurs, ``None`` faisait lever (``params.get(k, défaut)``
+    rend ``None``, l'arithmétique échoue) ou se confondait déjà avec
+    l'absence (tests ``is None`` de ``_resolve_intensite_or_legacy`` et
+    ``_seniors``). DEUX lecteurs lui donnaient en silence un sens distinct, et
+    ce retrait CHANGE donc leur résultat observable (alignement voulu sur la
+    clé absente) :
+
+    - ``taxe_superprofits.tous_secteurs: null`` était lu comme FAUX (assiette
+      énergie seule) ; il vaut désormais le défaut ``True`` (tous secteurs) ;
+    - ``asu.asu_activation: null`` ACTIVAIT l'ASU (``None == 0`` faux dans
+      ``_apply_asu``, ``None != 0`` vrai dans ``asu_is_active``) ; il vaut
+      désormais le défaut 0 (ASU inactive).
+
+    Règle uniforme, booléens compris : ``null`` sur un paramètre = défaut du
+    levier. Propriété verrouillée pour chaque (mesure, paramètre) du
+    registre : ``tests/test_param_null_porte.py``.
 
     Une valeur non numérique est ignorée ici : le contrat MIXIN_BAD_PARAMS
     veut qu'une ``str`` lève ``TypeError`` au comparateur de domaine, jamais
@@ -133,7 +160,9 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     out = params
     for key, value in params.items():
         if value is None:
-            _tracer_null(f"{measure_id}.{key}", (measure_id, key, 'null'), warned)
+            _tracer_null(f"{measure_id}.{key}",
+                         "retiré, le handler applique son défaut",
+                         (measure_id, key, 'null'), warned)
             out = {k: v for k, v in out.items() if k != key}
             continue
         if isinstance(value, bool) or not isinstance(value, (int, float)):

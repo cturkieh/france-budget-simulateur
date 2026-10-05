@@ -319,6 +319,8 @@ class EfficienceMixin(_MixinBase):
         non-remplacement selon l'intensité (0-50 % jusqu'à 10, 50-67 %
         au-delà), montée en charge 2027-2030, cumul de cohortes plafonné à 8."""
         params = self.mesures.get('fonction_publique_reforme', {})
+        # Bloc null (levier absent, sauté par apply_measures) ou mal formé →
+        # 0.0, le même résultat que la clé absente (intensité nulle).
         if not isinstance(params, dict):
             return 0.0
 

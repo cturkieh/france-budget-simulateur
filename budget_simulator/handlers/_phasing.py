@@ -108,7 +108,9 @@ def asu_is_active(mesures: Dict) -> bool:
     2026-10 (Sentry FRANCE-BUDGET-Z) : même trou pour ``None``. La porte le
     retire désormais (null = pas de valeur → défaut 0 → ``_apply_asu``
     n'émet rien), mais ``None != 0`` rendait le prédicat VRAI : ASU fantôme
-    identique au cas NaN. ``None`` → inactive, comme la clé absente.
+    identique au cas NaN. ``None`` → inactive, comme la clé absente. Un bloc
+    ``asu: null`` (levier absent, sauté par ``apply_measures``) est inactif
+    lui aussi (``not asu``).
     """
     asu = mesures.get('asu')
     if not asu:
