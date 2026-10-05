@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import POLICY_START_YEAR
 from .._logging import _log_debug
+from ..engine._param_domain import valeur_brute
 from ._phasing import _one_time_level, _resolve_intensite_or_legacy, _year_phasing
 from ._types import ImpactsDict
 
@@ -41,16 +42,14 @@ def _point_indice_fp_brut(mesures: Dict) -> float:
     filtre que les ``params`` du levier dispatché. Elle doit donc rendre ce
     que le handler ``fonction_publique`` aura effectivement appliqué : son
     défaut (0) quand la porte retire la valeur (``None`` / NaN / ±inf), ou
-    quand le bloc est absent ou ``null``. Valeur non numérique ou bloc mal
-    formé → 0 aussi : NEUTRE ici, l'anomalie est signalée par la porte de
-    ``fonction_publique`` elle-même (même convention que ``_seniors``). Sans
-    cette garde, un ``null`` sur le point d'indice faisait échouer le SMIC
-    (Sentry FRANCE-BUDGET-Z). Les booléens restent numériques, comme à la
-    porte. Valeur légitime → rendue telle quelle (golden byte-identique)."""
-    bloc = mesures.get('fonction_publique')
-    if not isinstance(bloc, dict):
-        return 0.0
-    valeur = bloc.get('point_indice', 0)
+    quand le bloc est absent ou ``null`` (``valeur_brute``). Valeur non
+    numérique ou bloc mal formé → 0 aussi : NEUTRE ici, l'anomalie est
+    signalée par la porte de ``fonction_publique`` elle-même (même
+    convention que ``_seniors``). Sans cette garde, un ``null`` sur le point
+    d'indice faisait échouer le SMIC (Sentry FRANCE-BUDGET-Z). Les booléens
+    restent numériques, comme à la porte. Valeur légitime → rendue telle
+    quelle (golden byte-identique)."""
+    valeur = valeur_brute(mesures, 'fonction_publique', 'point_indice', 0.0)
     if isinstance(valeur, (int, float)) and math.isfinite(valeur):
         return valeur
     return 0.0

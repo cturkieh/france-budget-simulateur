@@ -45,7 +45,7 @@ import pandas as pd
 import pytest
 
 from budget_simulator.constants import HANDLER_FAILED_KEY, INTENSITE_DOMAINS, PARAM_DOMAINS
-from budget_simulator.engine._param_domain import validate_param_domains
+from budget_simulator.engine._param_domain import validate_param_domains, valeur_brute
 from budget_simulator.simulator import BudgetSimulatorV45
 
 # `.absolute()` et non `.resolve()` : tests/ est un symlink depuis le parent.
@@ -53,6 +53,8 @@ ROOT = Path(__file__).absolute().parent.parent
 REGISTRE_JSON = ROOT / 'tests' / 'snapshots' / 'measure_registry.json'
 
 PERIODES = 10
+_SIM = BudgetSimulatorV45(periods=1)
+_REGISTRE = json.loads(REGISTRE_JSON.read_text())['mesures']
 
 
 def _paires_mesure_param():
@@ -60,18 +62,17 @@ def _paires_mesure_param():
     lecteur : le registre généré depuis l'AST des handlers, les défauts
     moteur, et les ``parametres`` déclarés de ``policy_measures.json`` (seule
     source pour les mesures ASTEVAL)."""
-    sim = BudgetSimulatorV45(periods=1)
     paires = set()
-    for mesure, cfg in json.loads(REGISTRE_JSON.read_text())['mesures'].items():
+    for mesure, cfg in _REGISTRE.items():
         for param in (cfg.get('params') or {}):
             paires.add((mesure, param))
-    for mesure, params in sim._get_default_values().items():
+    for mesure, params in _SIM._get_default_values().items():
         for param in params:
             paires.add((mesure, param))
-    for mesure, cfg in sim.measure_registry.items():
+    for mesure, cfg in _SIM.measure_registry.items():
         for param in (cfg.get('parametres') or {}):
             paires.add((mesure, param))
-    return sorted(p for p in paires if p[0] in sim.measure_registry)
+    return sorted(p for p in paires if p[0] in _SIM.measure_registry)
 
 
 def _base_toutes_actives():
@@ -81,7 +82,7 @@ def _base_toutes_actives():
     latéraux avec un CONSOMMATEUR actif : à ses défauts, un handler sort
     souvent avant de lire la mesure voisine (constaté : SMIC)."""
     base = {}
-    for mesure, cfg in json.loads(REGISTRE_JSON.read_text())['mesures'].items():
+    for mesure, cfg in _REGISTRE.items():
         for curseur in cfg.get('sliders') or []:
             param, haut = curseur.get('param'), curseur.get('max')
             if not param or haut is None:
@@ -95,7 +96,7 @@ def _base_toutes_actives():
 
 
 PAIRES = _paires_mesure_param()
-MESURES = sorted(BudgetSimulatorV45(periods=1).measure_registry)
+MESURES = sorted(_SIM.measure_registry)
 BASE_ACTIVE = _base_toutes_actives()
 
 
@@ -113,6 +114,26 @@ def _simuler(mesures, strict):
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1' if strict else ''}):
         df, detail, rapport = sim.simulate()
     return df, detail, rapport['measure_impacts_by_year']
+
+
+_REFERENCES = {}
+
+
+def _simuler_reference(mesures, strict):
+    """Résultat de RÉFÉRENCE (sans null), mémoïsé : des centaines de cas
+    partagent la même référence (ex. toutes les paires d'une mesure, ou la
+    base « toutes mesures présentes »). Le moteur est déterministe et les
+    résultats ne sont que lus (``assert_frame_equal``)."""
+    cle = (json.dumps(mesures, sort_keys=True), strict)
+    if cle not in _REFERENCES:
+        _REFERENCES[cle] = _simuler(mesures, strict)
+    return _REFERENCES[cle]
+
+
+def _autre_mesure_active(mesure):
+    """Une mesure ACTIVE autre que ``mesure`` : sans effort non nul, le hash
+    des mesures n'est jamais calculé."""
+    return {'tva_rate': {'taux': 0.22}} if mesure != 'tva_rate' else {'csg': {'taux': 0.10}}
 
 
 def _assert_aucun_echec(impacts, contexte):
@@ -146,7 +167,8 @@ def _verifier(avec_null, sans_cle, strict, caplog, contexte, jeton):
     # une par année (c'est le bruit Sentry du constat de prod).
     assert sum(jeton in w for w in warnings) == 1, \
         f"{contexte} : WARNING non dédupliqué ({len(warnings)} lignes)"
-    _assert_identiques(_simuler(sans_cle, strict), obtenu, contexte)
+    _assert_identiques(_simuler_reference(sans_cle, strict), obtenu, contexte)
+    return obtenu
 
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
@@ -192,11 +214,10 @@ def test_bloc_null_equivaut_a_levier_absent_base_neutre(mesure, strict, caplog):
     sans elle l'effort est nul et le hash des mesures (qui faisait tomber
     toute la simulation, et qui doit voir le bloc null comme absent) n'est
     jamais calculé."""
-    actif = {'tva_rate': {'taux': 0.22}} if mesure != 'tva_rate' else {'csg': {'taux': 0.10}}
-    _verifier({**actif, mesure: None}, actif, strict, caplog,
-              f"bloc {mesure}=None (base neutre)", f"{mesure}=None")
-    _assert_levier_absent_des_impacts(
-        _simuler({**actif, mesure: None}, strict)[2], mesure, f"bloc {mesure}=None")
+    actif = _autre_mesure_active(mesure)
+    obtenu = _verifier({**actif, mesure: None}, actif, strict, caplog,
+                       f"bloc {mesure}=None (base neutre)", f"{mesure}=None")
+    _assert_levier_absent_des_impacts(obtenu[2], mesure, f"bloc {mesure}=None")
 
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
@@ -226,7 +247,7 @@ def test_hash_et_journal_voient_le_bloc_null_comme_absent(mesure):
     (le hash ne sert qu'à détecter un changement d'une année à l'autre ; la
     liste des leviers déviés n'est que journalisée) : la règle « bloc null =
     levier absent » y est vérifiée directement."""
-    actif = {'tva_rate': {'taux': 0.22}} if mesure != 'tva_rate' else {'csg': {'taux': 0.10}}
+    actif = _autre_mesure_active(mesure)
     avec_null = BudgetSimulatorV45(periods=1, mesures={**actif, mesure: None})
     sans = BudgetSimulatorV45(periods=1, mesures=dict(actif))
     assert avec_null._get_active_measures_hash() == sans._get_active_measures_hash()
@@ -237,14 +258,13 @@ def test_hash_et_journal_voient_le_bloc_null_comme_absent(mesure):
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
 def test_taxe_superprofits_null_n_applique_pas_la_taxe(strict, caplog):
-    """Cas nommé (revue 2026-10) : ``{"taxe_superprofits": null}`` appliquait
+    """Cas nommé : ``{"taxe_superprofits": null}`` appliquait
     la taxe (25 % tous secteurs, comme ``{}``) alors que l'API annonce « clé
     absente ». ``null`` = levier absent ; ``{}`` garde son sens (le levier à
     ses défauts) — la distinction est vérifiée pour ne pas être neutralisée
     par accident."""
-    _verifier({'taxe_superprofits': None}, {}, strict, caplog,
-              "taxe_superprofits=None", "taxe_superprofits=None")
-    df_null, _, imp_null = _simuler({'taxe_superprofits': None}, strict)
+    df_null, _, imp_null = _verifier({'taxe_superprofits': None}, {}, strict, caplog,
+                                     "taxe_superprofits=None", "taxe_superprofits=None")
     df_vide, _, _ = _simuler({'taxe_superprofits': {}}, strict)
     _assert_levier_absent_des_impacts(imp_null, 'taxe_superprofits', "taxe_superprofits=None")
     assert not df_null['Déficit/PIB %'].equals(df_vide['Déficit/PIB %']), \
@@ -309,6 +329,23 @@ def test_porte_ne_touche_pas_une_entree_sans_null():
     """Byte-identité golden : aucune copie quand rien n'est retiré."""
     params = {'indexation': 1.0, 'age_depart': 63.0}
     assert validate_param_domains('retraites', params, strict=True) is params
+
+
+@pytest.mark.parametrize('mesures', [
+    {}, {'csg': None}, {'csg': [1]}, {'csg': 42}, {'csg': {}}, {'csg': {'taux': None}},
+], ids=['levier_absent', 'bloc_null', 'bloc_liste', 'bloc_nombre', 'cle_absente', 'cle_null'])
+def test_valeur_brute_rend_le_defaut_sans_valeur(mesures):
+    """Accès partagé des lecteurs latéraux : toute forme de « pas de valeur »
+    (et le bloc mal formé, neutre hors porte) rend le défaut."""
+    assert valeur_brute(mesures, 'csg', 'taux', 0.092) == 0.092
+
+
+def test_valeur_brute_rend_la_valeur_telle_quelle():
+    """Valeur présente (même non finie ou non numérique) rendue sans filtre :
+    la neutralisation reste au lecteur, comme documenté."""
+    assert valeur_brute({'csg': {'taux': 0.1}}, 'csg', 'taux', 0.092) == 0.1
+    assert math.isnan(valeur_brute({'csg': {'taux': math.nan}}, 'csg', 'taux', 0.092))
+    assert valeur_brute({'csg': {'taux': 'x'}}, 'csg', 'taux', 0.092) == 'x'
 
 
 def test_le_contrat_str_reste_un_echec_bruyant():

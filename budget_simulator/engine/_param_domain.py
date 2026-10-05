@@ -40,22 +40,28 @@ from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 logger = logging.getLogger(__name__)
 
 
+def _avertir_une_fois(warned: set | None, cle: tuple, msg: str, *args) -> None:
+    """``logger.warning`` dédupliqué sur la simulation via ``warned`` (set
+    détenu par l'appelant ; ``None`` = pas de dédup). La porte tourne chaque
+    année simulée : sans dédup, une seule anomalie = ~10 lignes identiques."""
+    if warned is not None and cle in warned:
+        return
+    logger.warning(msg, *args)
+    if warned is not None:
+        warned.add(cle)
+
+
 def _tracer_null(libelle: str, consequence: str, cle_dedup: tuple,
                  warned: set | None) -> None:
     """WARNING ``PARAM_NULL`` — token stable, filtrable dans Sentry Logs.
-    Dédupliqué sur la simulation via ``warned`` (la porte tourne chaque
-    année : sans dédup, un seul null = ~10 lignes identiques). Clé suffixée
-    ``'null'`` : espace distinct des clés ``(mesure, param)`` du clamp et de
-    la finitude, qui partagent le même set."""
-    if warned is not None and cle_dedup in warned:
-        return
-    logger.warning(
+    Clé suffixée ``'null'`` : espace distinct des clés ``(mesure, param)`` du
+    clamp et de la finitude, qui partagent le même set ``warned``."""
+    _avertir_une_fois(
+        warned, cle_dedup,
         "PARAM_NULL %s=None — %s (null = pas de valeur ; l'appelant devrait "
         "omettre la clé)",
         libelle, consequence,
     )
-    if warned is not None:
-        warned.add(cle_dedup)
 
 
 def tracer_si_levier_null(measure_id: str, params, *,
@@ -66,7 +72,7 @@ def tracer_si_levier_null(measure_id: str, params, *,
     levier ABSENT, et non ``{}`` — ``{}`` n'est pas neutre (ex.
     ``{"taxe_superprofits": {}}`` applique la taxe à 25 % tous secteurs, choix
     de conception antérieur). Les lecteurs latéraux de ``self.mesures``
-    partagent la même règle via ``leviers_presents`` / leurs gardes de type.
+    partagent la même règle via ``leviers_presents`` et ``valeur_brute``.
 
     Seul ``None`` est concerné. Un bloc MAL FORMÉ (liste, nombre, str) rend
     ``False`` et échoue BRUYAMMENT au premier accès de la porte
@@ -91,6 +97,21 @@ def leviers_presents(mesures: Dict) -> Dict:
     if all(v is not None for v in mesures.values()):
         return mesures
     return {k: v for k, v in mesures.items() if v is not None}
+
+
+def valeur_brute(mesures: Dict, measure_id: str, param: str, defaut):
+    """``mesures[measure_id][param]`` pour un lecteur LATÉRAL de
+    ``self.mesures`` brut (hors porte unique), avec la sémantique « null =
+    pas de valeur » de la porte : bloc absent, ``null`` ou mal formé →
+    ``defaut`` ; clé absente ou ``None`` → ``defaut``. Un bloc mal formé est
+    neutre ici, son anomalie ressortant par la porte d'``apply_measures``
+    (``logger.error`` + ``HANDLER_FAILED_KEY``). NaN, ±inf et types non
+    numériques sont rendus tels quels : au lecteur de les neutraliser."""
+    bloc = mesures.get(measure_id)
+    if not isinstance(bloc, dict):
+        return defaut
+    valeur = bloc.get(param)
+    return defaut if valeur is None else valeur
 
 
 def _refuser_non_finis(measure_id: str, params: Dict, *,
@@ -157,32 +178,28 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     qu'elle soit avalée par une garde de finitude. ``None`` n'est pas une
     valeur mal typée : c'est l'absence de valeur.
     """
-    out = params
+    out = params  # chemin nominal : objet identique, aucune copie
     for key, value in params.items():
         if value is None:
             _tracer_null(f"{measure_id}.{key}",
                          "retiré, le handler applique son défaut",
                          (measure_id, key, 'null'), warned)
-            out = {k: v for k, v in out.items() if k != key}
+        elif (isinstance(value, bool) or not isinstance(value, (int, float))
+              or math.isfinite(value)):
             continue
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            continue
-        if math.isfinite(value):
-            continue
-        if strict:
+        elif strict:
             raise ValueError(
                 f"{measure_id}.{key}={value!r} non fini (NaN/inf) — "
                 f"empoisonnerait toute la trajectoire (mode BUDGETLAB_STRICT)"
             )
-        if warned is None or (measure_id, key) not in warned:
-            logger.warning(
+        else:
+            _avertir_une_fois(
+                warned, (measure_id, key),
                 "PARAM_NON_FINI %s.%s=%r — clé retirée, le handler retombe "
                 "sur son défaut (mode tolérant : service préservé, entrée "
                 "appelante à corriger)",
                 measure_id, key, value,
             )
-            if warned is not None:
-                warned.add((measure_id, key))
         out = {k: v for k, v in out.items() if k != key}
     return out
 
@@ -239,15 +256,13 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
                     f"[{low}, {high}] (mode BUDGETLAB_STRICT)"
                 )
             clamped = high if value > high else low  # < low → borne basse
-            if warned is None or (measure_id, key) not in warned:
-                logger.warning(
-                    "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "
-                    "→ clampé à %s (mode tolérant : service préservé, "
-                    "calibration à vérifier)",
-                    measure_id, key, value, low, high, clamped,
-                )
-                if warned is not None:
-                    warned.add((measure_id, key))
+            _avertir_une_fois(
+                warned, (measure_id, key),
+                "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "
+                "→ clampé à %s (mode tolérant : service préservé, "
+                "calibration à vérifier)",
+                measure_id, key, value, low, high, clamped,
+            )
             out = {**out, key: clamped}
     return out
 

@@ -69,14 +69,12 @@ aucune opération du bloc ne peut lever (``_get_default_values`` =
 return dict littéral pur ; ``.get`` sur dict ; ``isinstance`` neutralise
 les types tordus avant arithmétique ; ``np.log2(1+delta)`` avec
 ``delta>0.1`` garanti ⇒ argument > 1.1, jamais d'exception). Le seul
-vecteur (valeur non-dict dans ``self.mesures``) n'était PAS arrêté en
-amont, contrairement à ce qu'affirmait cette note : le ``try`` per-mesure
-d'``apply_measures`` l'absorbe, puis ``.get`` levait ICI et coupait le
-bonus d'offre de TOUTES les mesures. Fermé (2026-10, Sentry
-FRANCE-BUDGET-Z) par une garde ``isinstance(…, dict)`` dans la boucle : un
-bloc ``null`` y est lu comme le levier ABSENT (même règle qu'``apply_measures``,
-qui le saute), un bloc mal formé aussi, son anomalie restant signalée par
-la porte unique (``logger.error`` + ``HANDLER_FAILED_KEY``). Sévérité réelle : LOW / dette défensive,
+vecteur (bloc non-dict dans ``self.mesures`` : ``null`` ou mal formé)
+n'est PAS arrêté en amont — ``apply_measures`` saute un bloc null et
+absorbe un bloc mal formé dans son ``try`` per-mesure — : il est
+neutralisé dans la boucle par ``valeur_brute`` (levier lu comme absent,
+l'anomalie d'un bloc mal formé restant signalée par la porte unique,
+Sentry FRANCE-BUDGET-Z). Sévérité réelle : LOW / dette défensive,
 PAS un silent-failure atteignable. Néanmoins, par conformité à la règle
 projet « zéro catch silencieux » et pour qu'un futur refactor qui le
 rendrait atteignable ne dégrade pas la croissance potentielle en
@@ -100,6 +98,7 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
+from ._param_domain import valeur_brute
 
 logger = logging.getLogger(__name__)
 
@@ -435,19 +434,11 @@ class GrowthMixin:
             defaults = self._get_default_values()
 
             for key, cfg in self.SUPPLY_EFFECTS.items():
-                measure_params = self.mesures.get(cfg['measure_id'], {})
-                # Lecture BRUTE de self.mesures (hors porte unique) : même
-                # sémantique que la porte. Bloc null → `{}` = exactement le
-                # levier absent ici (current_val = défaut, delta nul), comme
-                # apply_measures qui le saute ; bloc mal formé → idem, son
-                # anomalie ressort par la porte d'apply_measures ; clé à None
-                # → défaut, comme la clé absente (Sentry FRANCE-BUDGET-Z).
-                if not isinstance(measure_params, dict):
-                    measure_params = {}
                 default_val = defaults.get(cfg['measure_id'], {}).get(cfg['param'], 0)
-                current_val = measure_params.get(cfg['param'], default_val)
-                if current_val is None:
-                    current_val = default_val
+                # Lecture BRUTE de self.mesures (hors porte unique) : bloc
+                # null/mal formé ou clé à None → défaut, delta nul.
+                current_val = valeur_brute(self.mesures, cfg['measure_id'],
+                                           cfg['param'], default_val)
 
                 if not isinstance(current_val, (int, float)) or not isinstance(default_val, (int, float)):
                     continue
@@ -496,11 +487,9 @@ class GrowthMixin:
 
         except Exception as e:
             # Garde défensif : inatteignable en run normal — un bloc non-dict
-            # (null ou mal formé) est neutralisé par la garde `isinstance` de
-            # la boucle (il n'est PAS arrêté en amont : apply_measures absorbe
-            # un bloc mal formé dans son `try` per-mesure et saute un bloc
-            # null), et une valeur non numérique par la garde de type avant
-            # l'arithmétique. Mais SI un refactor futur le rendait
+            # (null ou mal formé) est neutralisé par `valeur_brute`, une valeur
+            # non numérique par la garde de type avant l'arithmétique (cf.
+            # docstring du module). Mais SI un refactor futur le rendait
             # atteignable, la dégradation (bonus→0) ne doit pas rester muette :
             # logger.error remonte au monitoring si l'opérateur en a configuré
             # un. Comportement runtime inchangé sur tout input atteignable →

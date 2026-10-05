@@ -195,12 +195,8 @@ class OrchestratorMixin:
             # appliqué chaque année, seule la journalisation est dédupliquée.
             if not hasattr(self, '_domain_clamp_warned'):
                 self._domain_clamp_warned = set()
-            # Bloc `null` (`{"levier": null}`) = levier ABSENT : sauté, absent
-            # de `impacts` (≠ `{}`, qui applique les défauts du handler — ex.
-            # taxe_superprofits à 25 % tous secteurs). Les lecteurs latéraux
-            # de self.mesures suivent la même règle. Un bloc mal formé
-            # (liste…) n'est PAS sauté : il échoue bruyamment ci-dessous
-            # (verrouillé).
+            # Bloc `null` = levier ABSENT : sauté, absent de `impacts` (≠ `{}` ;
+            # un bloc mal formé, lui, échoue bruyamment ci-dessous).
             if tracer_si_levier_null(measure_id, parameters,
                                      warned=self._domain_clamp_warned):
                 continue
