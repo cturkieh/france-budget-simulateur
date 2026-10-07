@@ -87,12 +87,14 @@ def test_symetrie_age_et_duree():
 
 def test_gel_total_erosion_composee_puis_plateau():
     """Caractérisation, valeurs épinglées en littéral à dessein (v0.6.7) : hors
-    simulation, masse = base 2025 (380 Md€) × 0,86, π = 2 % chaque année ;
-    écart = 326,8 × [1 − 0,98ⁿ]. (v0.6.6 : 1,5 Md€ × années, soit −1,5 / −7,5 /
-    −10,5 quelle que soit l'inflation.)"""
-    assert _delta_depenses(0.0, POLICY_START_YEAR) == pytest.approx(-6.536)
-    assert _delta_depenses(0.0, POLICY_START_YEAR + 4) == pytest.approx(-31.3987, abs=1e-4)
-    assert _delta_depenses(0.0, _PLATEAU_YEAR) == pytest.approx(-43.0966, abs=1e-4)
+    simulation, masse = base 2025 (380 Md€) × 0,86, π = 2 % chaque année sauf
+    2025 (INFLATION_BASE = 1,1 %, que porte la revalorisation 2026 : chacune suit
+    l'inflation N−1) ; écart = 326,8 × [1 − 0,989 × 0,98ⁿ⁻¹]. (v0.6.6 : 1,5 Md€ ×
+    années, soit −1,5 / −7,5 / −10,5 quelle que soit l'inflation ; avant la
+    réfutation des handlers : 326,8 × [1 − 0,98ⁿ], −6,536 / −31,3987 / −43,0966.)"""
+    assert _delta_depenses(0.0, POLICY_START_YEAR) == pytest.approx(-3.5948)
+    assert _delta_depenses(0.0, POLICY_START_YEAR + 4) == pytest.approx(-28.6858, abs=1e-4)
+    assert _delta_depenses(0.0, _PLATEAU_YEAR) == pytest.approx(-40.4911, abs=1e-4)
     # Plateau : au-delà, l'écart au statu quo n'augmente plus.
     assert _delta_depenses(0.0, POLICY_START_YEAR + 9) == pytest.approx(
         _delta_depenses(0.0, _PLATEAU_YEAR)

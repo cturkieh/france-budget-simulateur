@@ -810,8 +810,10 @@ RETRAITES_COEFF_AGE_MD_EUR = 6.0
 RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
 # --- Désindexation des pensions (v0.6.7, audit Codex 10/2026, bloc B constat 2) ---
 # Économie = PART × masse nominale de la catégorie `retraites` de l'année ×
-# [1 − Π (1 − δ × max(π_s, 0))], δ = 1 − indexation, une revalorisation par an
-# dès POLICY_START_YEAR, chacune à l'inflation de SON année (handlers/depenses.py).
+# [1 − Π (1 − δ × max(π_{s−1}, 0))], δ = 1 − indexation, une revalorisation par
+# an dès POLICY_START_YEAR, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE — 2026 à
+# l'inflation 2025 réalisée, INFLATION_BASE (handlers/depenses.py, réfutation des
+# handlers : c'était l'inflation de l'année courante, gel 2026 = 4,48 Md€).
 # Remplace RETRAITES_EROSION_INDEXATION_MD_EUR = 1,5 Md€/an par année et par
 # point d'écart, indépendant de l'inflation et non sourcé : sur 380 Md€ de
 # pensions, une inflation implicite de 0,39 % — quatre fois moins qu'une

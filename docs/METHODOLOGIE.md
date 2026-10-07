@@ -134,7 +134,7 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 |-----------|-----------|--------|
 | Age legal | le DROIT EN VIGUEUR de l'annee simulee : 62,75 ans (62 ans 9 mois) en 2026-2027, puis +3 mois par an jusqu'a 64,0 ans en 2032 | bareme PLAT et SYMETRIQUE : +/-6,0 Md EUR par annee d'age d'ecart a la reference, sur tout le domaine 60-67 ans ; phasing cohortes 5 ans |
 | Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre (+/-4 Md EUR par annee, phasing 5 ans) |
-| Indexation | 100% inflation | v0.6.7 : écart de niveau composé des revalorisations évitées (chacune à l'inflation de son année) sur 0,86 de la masse nominale des pensions, SYMETRIQUE au premier ordre, plateau 7 ans |
+| Indexation | 100% inflation | v0.6.7 : écart de niveau composé des revalorisations évitées (chacune à l'inflation de l'année précédente, N−1) sur 0,86 de la masse nominale des pensions, SYMETRIQUE au premier ordre, plateau 7 ans |
 
 ### Hypotheses Economiques
 
@@ -438,10 +438,21 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 - Base : 17 millions de retraites x pension moyenne
 - Indexation 100% = maintien pouvoir d'achat (statu quo legal, impact budgetaire nul)
 - Erosion CUMULATIVE (v0.6.7, audit externe Codex 10/2026) : `économie(t) = 0,86 de la masse
-  nominale des pensions de l'année × [1 − Π_s (1 − δ × max(π_s, 0))]`, δ = 1 − indexation, une
-  revalorisation par an dès 2026, chacune à l'inflation de SON année, sept au plus (plateau 7 ans) —
-  le stock de pensions erode se renouvelle (nouvelles pensions liquidees sur les salaires,
-  extinction des cohortes anciennes) ; l'écart constitué subsiste ensuite, sans se rembourser.
+  nominale des pensions de l'année × [1 − Π_s (1 − δ × max(π_{s−1}, 0))]`, δ = 1 − indexation, une
+  revalorisation par an dès 2026, sept au plus (plateau 7 ans) — le stock de pensions erode se
+  renouvelle (nouvelles pensions liquidees sur les salaires, extinction des cohortes anciennes) ;
+  l'écart constitué subsiste ensuite, sans se rembourser.
+- Calendrier N−1 (réfutation des handlers, 07/10/2026) : chaque revalorisation porte l'inflation de
+  l'ANNÉE PRÉCÉDENTE, comme la loi (pensions au 1er janvier, prestations au 1er avril, sur l'inflation
+  passée) et comme la baseline du moteur (part indexée de `pi_idx`, ci-dessus). Celle de 2026 porte
+  l'inflation 2025 réalisée, `INFLATION_BASE` (1,1 %, constante INSEE et non sortie du moteur) ; les
+  suivantes, l'inflation que le moteur calcule pour l'année d'avant. Le moteur revalorisait à
+  l'inflation de l'année COURANTE (1,33 % en 2026) : un gel total 2026 valait 4,48 Md EUR, 21 % au-dessus
+  de l'ancrage OFCE de sa propre calibration ; il vaut désormais 3,7 Md EUR. Limite assumée : le moteur
+  n'a qu'un concept de prix (le déflateur), quand la loi revalorise sur l'indice des prix à la
+  consommation hors tabac — la revalorisation légale effective du 1er janvier 2026 a été de 0,9 %
+  (gel du PLFSS rejeté), soit un gel 2026 à ~3,0 Md EUR sur cette base. Effet de la correction sur la
+  dette 2035 : Renaissance +0,07 pt, IM-compétitivité +0,04.
 - Part indexée 0,86 : la masse que porte une désindexation décidée par la loi (régimes de base
   et pensions publiques ; l'Agirc-Arrco est revalorisé par les partenaires sociaux), calée sur
   l'OFCE — P. Madec, « Impôts et prestations : quels effets attendre d'une « année blanche » ? »,
@@ -1692,7 +1703,8 @@ Liste exhaustive PA one-time :
   SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir. Formule
   (v0.6.7) : `écart = masse nominale minima_sociaux de l'année × [1 − Π (1 − δ × max(π_s, 0))]`,
   δ = 1 − taux_indexation, produit sur les revalorisations écoulées (2026 → année, dix au plus),
-  chacune à l'inflation de SON année. Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
+  chacune à l'inflation de l'année précédente (calendrier N−1, même règle que les pensions,
+  § Retraites). Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
   l'écart passé à l'inflation du jour (gel total : −1,8 Md EUR en 2027 à 2 %, 0 en 2028
   si l'inflation tombait à 0 ; audit externe Codex, 10/2026). À inflation constante, les
   deux formules coïncident. Les deux limites signalées au lot 2 sont levées au lot 3C, par

@@ -384,23 +384,30 @@ def _prestations(taux, script):
 
 def _ecart_attendu(delta, script, annee):
     """Écart de niveau (part de l'assiette) après les revalorisations 2026..annee,
-    dix au plus."""
+    dix au plus, chacune à l'inflation de l'année PRÉCÉDENTE (réfutation des
+    handlers v0.6.7) : 2026 porte l'inflation 2025 réalisée du moteur
+    (INFLATION_BASE, le script n'y est pas lu), les suivantes script[s − 1]."""
+    from budget_simulator.constants import INFLATION_BASE
     facteur = 1.0
     for s in range(2026, min(annee, 2035) + 1):
-        facteur *= 1 - delta * max(script[s], 0.0)
+        pi = INFLATION_BASE if s == 2026 else script[s - 1]
+        facteur *= 1 - delta * max(pi, 0.0)
     return -(1 - facteur)
 
 
 def test_lot2_prestations_l_ecart_constitue_ne_disparait_pas():
     """RED v0.6.6 : gel total, π = 2 % jusqu'en 2027 puis 0 : −1,80 Md€ en 2027,
     0,00 en 2028. Une année sans inflation n'ouvre pas d'écart NOUVEAU ; elle ne
-    rembourse pas pour autant celui des années passées (deux revalorisations
-    évitées, 2026 et 2027 : 1 − 0,98² de l'assiette)."""
+    rembourse pas pour autant celui des années passées. Revalorisations à
+    l'inflation N−1 : 2026 sur 2025 (INFLATION_BASE), 2027 et 2028 sur les 2 %
+    de 2026 et 2027, rien ensuite — 1 − (1 − π₂₀₂₅) × 0,98² de l'assiette."""
+    from budget_simulator.constants import INFLATION_BASE
     script = {a: (0.02 if a <= 2027 else 0.0) for a in range(2025, 2036)}
     dep = _prestations(0.0, script)
-    assert dep[2026] == pytest.approx(-0.02, abs=1e-12)
-    for annee in range(2027, 2036):
-        assert dep[annee] == pytest.approx(-(1 - 0.98 ** 2), abs=1e-12), annee
+    assert dep[2026] == pytest.approx(-INFLATION_BASE, abs=1e-12)
+    assert dep[2027] == pytest.approx(-(1 - (1 - INFLATION_BASE) * 0.98), abs=1e-12)
+    for annee in range(2028, 2036):
+        assert dep[annee] == pytest.approx(-(1 - (1 - INFLATION_BASE) * 0.98 ** 2), abs=1e-12), annee
 
 
 def test_lot2_prestations_historique_conserve_inflation_variable():
@@ -418,12 +425,15 @@ def test_lot2_prestations_historique_conserve_inflation_variable():
 
 def test_lot2_prestations_inflation_constante_puissance():
     """À inflation constante, le produit historisé est la puissance du nombre de
-    revalorisations (2026 incluse depuis v0.6.7)."""
+    revalorisations (2026 incluse depuis v0.6.7) — la première à l'inflation 2025
+    réalisée (INFLATION_BASE), puisque chacune porte l'inflation N−1."""
+    from budget_simulator.constants import INFLATION_BASE
     script = {a: 0.015 for a in range(2025, 2036)}
     dep = _prestations(0.8, script)
     for annee in range(2026, 2036):
         k = annee - 2025
-        assert dep[annee] == pytest.approx(-(1 - (1 - 0.2 * 0.015) ** k), rel=1e-12, abs=1e-12)
+        attendu = 1 - (1 - 0.2 * INFLATION_BASE) * (1 - 0.2 * 0.015) ** (k - 1)
+        assert dep[annee] == pytest.approx(-attendu, rel=1e-12, abs=1e-12)
 
 
 # ---------------------------------------------------------------------------

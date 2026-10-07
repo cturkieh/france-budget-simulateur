@@ -179,20 +179,30 @@ class DepensesMixin(_MixinBase):
                                max_revalorisations: int) -> float:
         """Écart de NIVEAU d'une masse sous-indexée (part de la masse), v0.6.7.
 
-        ``1 − Π_s (1 − δ × max(π_s, 0))`` sur les revalorisations écoulées : une
-        par an dès POLICY_START_YEAR (la première année simulée — un gel voté
+        ``1 − Π_s (1 − δ × max(π_{s−1}, 0))`` sur les revalorisations écoulées :
+        une par an dès POLICY_START_YEAR (la première année simulée — un gel voté
         pour 2026 rapporte en 2026), au plus ``max_revalorisations``, chacune à
-        l'inflation de SON année (``_inflation_par_annee``, écrit par
-        ``simulate()`` avant les handlers ; l'année courante et, hors
-        simulation, toute année absente valent l'inflation de l'appel). Une
-        revalorisation n'est jamais négative : une année de déflation n'ouvre
-        pas d'écart, sans effacer les précédents. δ < 0 (sur-indexation) rend
-        un écart négatif : surcoût miroir au premier ordre.
+        l'inflation de l'ANNÉE PRÉCÉDENTE : la loi revalorise les pensions au
+        1er janvier et les prestations au 1er avril sur l'inflation passée, et
+        c'est elle que l'OFCE chiffre (gel 2026 : 1,1 %, 3,7 Md€ — l'ancrage de
+        RETRAITES_PART_MASSE_INDEXEE). La revalorisation de 2026 porte donc
+        l'inflation 2025 réalisée, ``base_params['inflation_base']`` (constante
+        INSEE, pas une sortie du moteur) ; les suivantes, l'inflation que le
+        moteur a calculée l'année d'avant (``_inflation_par_annee``, écrit par
+        ``simulate()`` avant les handlers ; hors simulation, une année absente
+        vaut l'inflation de l'appel). v0.6.7 jusqu'à la réfutation des handlers :
+        inflation de l'année COURANTE (gel 2026 : 4,48 Md€). Une revalorisation
+        n'est jamais négative : une année de déflation n'ouvre pas d'écart, sans
+        effacer les précédents. δ < 0 (sur-indexation) rend un écart négatif :
+        surcoût miroir au premier ordre.
         """
         dernier = min(year, POLICY_START_YEAR + max_revalorisations - 1)
         facteur = 1.0
         for annee in range(POLICY_START_YEAR, dernier + 1):
-            pi = inflation if annee == year else self._inflation_par_annee.get(annee, inflation)
+            if annee == POLICY_START_YEAR:
+                pi = self.base_params['inflation_base']
+            else:
+                pi = self._inflation_par_annee.get(annee - 1, inflation)
             facteur *= 1 - delta * max(pi, 0.0)
         return 1.0 - facteur
 
