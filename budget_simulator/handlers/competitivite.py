@@ -285,11 +285,18 @@ class CompetitiviteMixin(_MixinBase):
         # Reverse-check : 0.091 × 2750 × 0.25 ≈ 62 Md€ ✓ DGFiP.
         # Bug historique corrige : 0.25 × gdp (688 Md€) representait l'EBE, pas l'assiette IS.
         # Elasticite long terme DG Tresor 2017 : passage 33→25% = -10 a -12 Md€/an stationnaire.
+        # v0.6.7 (audit Codex, bloc B constat 4) : la variation de recette est
+        # R(nouveau taux) − R(25 %), R(t) = t × assiette(t). L'ancienne écriture
+        # (taux − 25 %) × assiette_nouvelle omettait la recette perdue à 25 % sur
+        # l'assiette qui part, et exagérait l'effet dans les DEUX sens (35 % : 24,6
+        # au lieu de 17,7 Md€ à PIB 3 000 ; 33→25 % au PIB 2017 : 15,4, hors de la
+        # fourchette DG Trésor citée ci-dessus — la formule corrigée donne 11,2).
         delta_taux = 0
         if rate != 0.25:
             elasticity = -1.0 if rate > 0.25 else -0.6
-            tax_base = 0.091 * gdp * recession_factor * (1 + elasticity * (rate - 0.25))
-            delta_taux = (rate - 0.25) * tax_base
+            assiette_actuelle = 0.091 * gdp * recession_factor
+            tax_base = assiette_actuelle * (1 + elasticity * (rate - 0.25))
+            delta_taux = rate * tax_base - 0.25 * assiette_actuelle
 
         delta_revenue = delta_niches + delta_taux
 

@@ -129,3 +129,78 @@ def test_lot1_aucun_emetteur_chomage_recurrent():
                 if mid != 'Année' and isinstance(imp, dict) and imp.get('chomage', 0.0) != 0.0:
                     fautifs.setdefault(nom, set()).add(mid)
     assert not fautifs, f"émission chômage récurrente : {fautifs}"
+
+
+# ---------------------------------------------------------------------------
+# Lot 1 — assiette de l'IS (bloc B, constat 4).
+# ``competitivite._apply_impot_societes`` calculait (taux − 25 %) × assiette_NOUVELLE :
+# il manquait la recette perdue au taux de 25 % sur l'assiette qui s'en va. La
+# bonne écriture est R(taux) − R(25 %), avec R(t) = t × assiette(t). À PIB 3 000 et
+# 35 % : 24,570 Md€ au lieu de 17,745 (chiffres de l'audit, reproduits).
+# ---------------------------------------------------------------------------
+
+IS_PART_ASSIETTE_PIB = 0.091            # competitivite.py (DGFiP 2024 : ~62 Md€ à 25 %)
+IS_ELASTICITE_HAUSSE, IS_ELASTICITE_BAISSE = -1.0, -0.6
+# PIB des propriétés : loin au-dessus du seuil de récession du handler (98 % de
+# pib_base), où l'assiette est réduite de 20 % — un état macro, pas la formule.
+_GDP_IS = 3300.0
+
+
+def _delta_is(taux, gdp=_GDP_IS):
+    sim = BudgetSimulatorV45(periods=10, mesures={})
+    _, recettes, impacts = sim._apply_impot_societes(
+        {}, {'taux': taux, 'niches': 0}, 2030, gdp, 0.015, 0.075)
+    assert impacts['taux'] == recettes   # niches = 0 : tout vient du taux
+    return recettes
+
+
+def _assiette(taux, gdp=_GDP_IS):
+    e = IS_ELASTICITE_HAUSSE if taux > 0.25 else IS_ELASTICITE_BAISSE
+    return IS_PART_ASSIETTE_PIB * gdp * (1 + e * (taux - 0.25))
+
+
+def test_lot1_is_chiffre_de_l_audit():
+    """RED v0.6.6 : 24,570 Md€ à 35 % (PIB 3 000) ; attendu 17,745."""
+    assert _delta_is(0.35, gdp=3000.0) == pytest.approx(17.745, abs=5e-4)
+
+
+def test_lot1_is_ancre_dg_tresor_2017():
+    """La source que cite le handler : passer de 33 % à 25 % coûte 10 à 12 Md€/an en
+    régime stationnaire (DG Trésor 2017). Au PIB 2017 (~2 300 Md€, ordre de grandeur),
+    la formule corrigée donne 11,2 ; l'ancienne 15,4, hors de la fourchette. Hors
+    récession, l'effet est proportionnel au PIB : on le calcule au PIB des propriétés
+    et on le ramène à 2 300 (appeler le handler à 2 300 déclencherait sa branche
+    récession, conçue pour un PIB qui chute, pas pour une autre année)."""
+    assert 10.0 <= _delta_is(0.33) * 2300.0 / _GDP_IS <= 12.0
+
+
+@pytest.mark.parametrize('taux', [0.15, 0.20, 0.24, 0.26, 0.27, 0.30, 0.35])
+def test_lot1_is_recette_nouvelle_moins_recette_perdue(taux):
+    """Décomposition exacte, dans les deux sens : effet statique (Δtaux × assiette
+    initiale) + effet de comportement (nouveau taux × variation d'assiette)."""
+    b0, b1 = _assiette(0.25), _assiette(taux)
+    statique, comportement = (taux - 0.25) * b0, taux * (b1 - b0)
+    assert _delta_is(taux) == pytest.approx(statique + comportement, rel=1e-12)
+    assert _delta_is(taux) == pytest.approx(taux * b1 - 0.25 * b0, rel=1e-12)
+
+
+@pytest.mark.parametrize('taux', [0.15, 0.20, 0.24, 0.26, 0.30, 0.35])
+def test_lot1_is_le_comportement_reduit_l_effet_dans_les_deux_sens(taux):
+    """Symétrie de principe : l'assiette réagit contre le contribuable dans les deux
+    sens, donc l'effet réel est PLUS PETIT que l'effet statique, que le taux monte
+    ou baisse. L'ancienne formule faisait l'inverse pour une baisse (−17 % à 20 % :
+    perte surestimée au-delà de l'effet mécanique)."""
+    statique = (taux - 0.25) * _assiette(0.25)
+    reel = _delta_is(taux)
+    assert reel * statique > 0, "même signe que l'effet statique"
+    assert abs(reel) < abs(statique)
+
+
+def test_lot1_is_monotone_et_continu_en_25():
+    """Recette strictement croissante en taux sur le domaine publié [15 % ; 35 %], et
+    nulle au taux en vigueur (continuité de part et d'autre de 25 %)."""
+    grille = [0.15 + 0.005 * i for i in range(41)]
+    deltas = [_delta_is(t) for t in grille]
+    assert all(b > a for a, b in zip(deltas, deltas[1:]))
+    assert _delta_is(0.25) == 0
+    assert abs(_delta_is(0.2501)) < 0.05 and abs(_delta_is(0.2499)) < 0.05

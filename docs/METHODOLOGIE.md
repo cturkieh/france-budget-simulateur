@@ -866,15 +866,26 @@ Les homogeneiser suppose de re-deriver le facteur d'echelle global
 **Parametres :**
 - Taux actuel : 25%
 - Range : 15% a 35%
-- Assiette : ~25% PIB avec elasticite
+- Assiette imposable : 9,1 % du PIB (benefice fiscal net, DGFiP 2024 : 0,091 × 2 750 × 25 % ≈ 62 Md EUR), reduite de 20 % en recession
 
-**Elasticite comportementale :**
-- Taux > 25% : elasticite -0,5 (optimisation fiscale)
-- Taux <= 25% : elasticite -0,3
+**Elasticite comportementale de l'assiette :**
+- Taux > 25% : elasticite -1,0 (optimisation fiscale)
+- Taux <= 25% : elasticite -0,6
+
+**Formule (v0.6.7)** : `assiette(t) = 0,091 × PIB × (1 + e × (t − 0,25))` et
+`Δrecettes = t × assiette(t) − 0,25 × assiette(0,25)`, soit l'effet statique
+(Δtaux × assiette actuelle) plus l'effet de comportement (nouveau taux × variation
+d'assiette). La v0.6.6 calculait `(t − 0,25) × assiette(t)` : elle omettait la recette
+perdue a 25 % sur l'assiette qui part et exagerait l'effet dans les deux sens (35 % a
+PIB 3 000 : 24,6 au lieu de 17,7 Md EUR ; audit externe Codex, 10/2026). Ancrage :
+DG Tresor 2017, passer de 33 % a 25 % coute 10 a 12 Md EUR/an en regime stationnaire ;
+la formule donne 11,2 au PIB 2017 (l'ancienne 15,4). Verrouille par
+`tests/test_audit_codex_v067.py` (decomposition, effet reel inferieur a l'effet
+statique dans les deux sens, monotonie, ancre DG Tresor).
 
 **Impacts :**
-- Gini : IS 25%->30% = -0,003 (redistribution)
-- Competitivite : IS 25%->30% = -0,005 (delocalisation)
+- Gini : aucun (canal retire en v0.6.1, non source et asymetrique)
+- Competitivite : ONE-TIME, `−Δrecettes × 0,015` l'annee du changement de taux (delocalisation / attractivite)
 
 ### TVA
 
