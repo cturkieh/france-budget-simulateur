@@ -15,7 +15,7 @@
 #   - par adresse cliente : BUDGETLAB_RATE_LIMIT_PER_MIN (défaut 120 ; 0 =
 #     désactivé, comme dans les tests) ; mémoire bornée (_RATE_LIMIT_CLES_MAX) ;
 #   - toutes adresses confondues : BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN (défaut
-#     600 ; 0 = désactivé) — la borne que ni une usurpation d'adresse ni un
+#     1 200 ; 0 = désactivé) — la borne que ni une usurpation d'adresse ni un
 #     réseau d'adresses ne contournent.
 # Adresse cliente : le pair TCP, sauf si BUDGETLAB_TRUST_PROXY = N ≥ 1 déclare N
 # proxys de confiance devant l'app ; la clé est alors le N-ième élément de
@@ -69,11 +69,12 @@ PERIODS_MAX = 10
 # simulateur du site relance un calcul au plus une fois par seconde de réglage
 # (anti-rebond d'1 s), soit ~60/min pour un visiteur actif ; le double laisse
 # passer deux visiteurs derrière la même adresse (établissement, rédaction, NAT
-# d'opérateur) et borne un client automatisé à 2 calculs par seconde. 600/min au
-# total : 10 calculs par seconde pour l'instance, au-delà desquels on refuse
-# plutôt que de laisser saturer le service pour tous.
+# d'opérateur) et borne un client automatisé à 2 calculs par seconde. 1 200/min
+# au total : 20 calculs par seconde pour l'instance (~7 ms le calcul en local),
+# au-delà desquels on refuse plutôt que de laisser saturer le service pour tous —
+# un délestage, pas une défense contre une attaque distribuée.
 RATE_LIMIT_PAR_MIN_DEFAUT = 120
-RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT = 600
+RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT = 1200
 _RATE_LIMIT_CLES_MAX = 10_000
 _CLE_GLOBALE = "*"
 
@@ -302,7 +303,7 @@ async def simulate(request: SimulationRequest):
       Préférer omettre la clé ; le serveur trace un WARNING `PARAM_NULL`.
     - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` requêtes par minute
       (défaut 120) depuis la même adresse cliente, ou plus de
-      `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` (défaut 600) toutes adresses
+      `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` (défaut 1 200) toutes adresses
       confondues ; `Retry-After` donne le délai en secondes. Limites par
       processus, désactivées à 0 ; adresse = pair TCP, ou élément de fin de
       `X-Forwarded-For` si `BUDGETLAB_TRUST_PROXY` déclare des proxys de

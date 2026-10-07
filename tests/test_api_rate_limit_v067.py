@@ -4,7 +4,7 @@ réfutation des handlers ; clé d'adresse durcie après la revue de sécurité).
 Contrat : seaux à jetons en mémoire, portés par le ROUTEUR (un déploiement qui
 l'inclut, comme la production, en hérite) — BUDGETLAB_RATE_LIMIT_PER_MIN par
 adresse (défaut 120) et BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN toutes adresses
-confondues (défaut 600), 0 = désactivé. Au-delà : 429 avec `Retry-After`
+confondues (défaut 1 200), 0 = désactivé. Au-delà : 429 avec `Retry-After`
 (secondes entières) et les en-têtes CORS, sans quoi le navigateur lirait le refus
 comme une panne réseau. Adresse = le pair TCP ; `X-Forwarded-For` n'est lu que si
 BUDGETLAB_TRUST_PROXY = N déclare N proxys de confiance, et alors au N-ième
@@ -170,10 +170,10 @@ def test_desactivable(monkeypatch):
 
 
 def test_defauts(monkeypatch):
-    """120/min par adresse, 600/min au total, pair TCP (aucun proxy de confiance)."""
+    """120/min par adresse, 1 200/min au total, pair TCP (aucun proxy de confiance)."""
     api = _api(monkeypatch, None, proxys=None, globale=None)
     assert api.RATE_LIMIT_PAR_MIN_DEFAUT == 120 and api._limiteur.capacite == 120
-    assert api.RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT == 600 and api._limiteur_global.capacite == 600
+    assert api.RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT == 1200 and api._limiteur_global.capacite == 1200
     assert api._proxys_de_confiance == 0
 
 
