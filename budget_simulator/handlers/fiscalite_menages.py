@@ -407,9 +407,15 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Compétitivité: Neutre (ne change pas coût travail pour entreprises)
         impacts['competitivite'] = 0.0
 
-        # Emploi: Légèrement positif via consommation
-        # +0.5% PA → +0.3% conso → +0.05% emploi (multiplier 0.6)
-        impacts['chomage'] = -0.0005 * baisse_points
+        # Emploi: Légèrement positif via consommation — ONE-TIME, comme PA et Gini
+        # +0.5% PA → +0.3% conso → +0.05% emploi (multiplier 0.6) : un effet de
+        # NIVEAU. v0.6.7 (audit Codex, bloc A constat 5) : il était réémis chaque
+        # année, or engine/unemployment.py l'ajoute à l'état AVANT la convergence
+        # NAIRU (u = 0,94·u + 0,06·nairu) — un terme récurrent y converge vers
+        # 0,94/0,06 ≈ 15,7 fois sa valeur (1 pt : −0,33 pt de chômage en 2034 au
+        # lieu de 0,05). Émis une fois, il décroît ensuite avec la convergence,
+        # comme tous les autres émetteurs de la clé.
+        impacts['chomage'] = -0.0005 * baisse_points if is_first_year else 0.0
 
         _log_debug(self.debug_logs,
                    f"Y{year}: Cotisations salariales -{baisse_points:.1f} pts - "

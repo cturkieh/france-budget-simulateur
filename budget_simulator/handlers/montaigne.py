@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 else:
     _MixinBase = object
 
+# Montée en charge du rabot : 50 % la première année, 100 % ensuite.
+_RABOT_PHASING = (0.5, 1.0)
+
 
 class MontaigneMixin(_MixinBase):
     """Handlers Section 6bis — Scénarios Institut Montaigne."""
@@ -69,7 +72,7 @@ class MontaigneMixin(_MixinBase):
 
         # Phasing progressif sur 2 ans (choc trop brutal sinon) :
         # 50 % la première année, 100 % ensuite
-        phasing = _year_phasing(years_elapsed, (0.5, 1.0))
+        phasing = _year_phasing(years_elapsed, _RABOT_PHASING)
 
         # ===== CALCUL DES ÉCONOMIES PAR CATÉGORIE =====
         # NOTE: On utilise la base DYNAMIQUE (2025 * spending_factor) pour que le taux
@@ -131,8 +134,17 @@ class MontaigneMixin(_MixinBase):
         # sur delta_spending. Pas de growth_shock séparé pour éviter le double-comptage.
 
         # 4. Impact Chômage - HAUSSE (Okun)
-        # Moins de fonctionnaires, moins de commandes publiques
-        impact_chomage = 0.004 * taux_reduction * phasing  # +0.32 pt à 8%
+        # Moins de fonctionnaires, moins de commandes publiques. Effet de NIVEAU
+        # 0.004 × taux (+0,032 pt à 8 %) émis par INCRÉMENT de montée en charge
+        # (50 % puis 50 %, somme = le niveau, zéro ensuite), comme l'ASU depuis
+        # v0.6.1. v0.6.7 (audit Codex, même motif que les cotisations
+        # salariales) : il était réémis chaque année devant la convergence NAIRU
+        # d'engine/unemployment.py, donc composé vers ~15,7 fois sa valeur.
+        # Les canaux gini / pouvoir_achat / competitivite ci-dessus et ci-dessous
+        # restent émis chaque année : dette documentée (METHODOLOGIE § Effets
+        # NIVEAU vs FLUX, « rabot_uniforme … jamais auditée »), hors de ce lot.
+        increment_phasing = phasing - _year_phasing(years_elapsed - 1, _RABOT_PHASING)
+        impact_chomage = 0.004 * taux_reduction * increment_phasing
 
         # 5. Impact Compétitivité - LÉGÈREMENT POSITIF (moins de prélèvements futurs)
         impact_competitivite = 0.002 * taux_reduction * phasing

@@ -1509,6 +1509,20 @@ Liste exhaustive PA one-time :
 > niveau atteint, zero en regime permanent. Son effet `depenses` reste un flux
 > (l'effort budgetaire perenne est bien une charge annuelle recurrente).
 
+> **MAJ v0.6.7 — la même règle vaut pour l'effet chômage direct.** Le moteur ajoute
+> `impacts['chomage']` au taux de chômage AVANT la convergence vers le NAIRU
+> (`u = 0,94·u + 0,06·nairu`, `engine/unemployment.py`). Un terme réémis chaque année
+> y converge donc vers 0,94/0,06 ≈ 15,7 fois sa valeur. Tous les émetteurs de la clé
+> sont gatés une seule fois, sauf deux, corrigés en v0.6.7 (audit externe Codex,
+> 10/2026) : `cotisations_salariales` (−0,05 pt par point de baisse, émis l'année
+> d'entrée : à 1 pt, l'effet direct atteignait −0,33 pt en 2034) et `rabot_uniforme`
+> (+0,004 × taux, émis par incrément de montée en charge comme l'ASU). Émis une fois,
+> l'effet décroît ensuite au rythme de la convergence. Propriété verrouillée en CI
+> sur tous les mini-scénarios et scénarios publiés : aucune émission chômage directe
+> une fois la montée en charge finie (`tests/test_audit_codex_v067.py`). Un effet de
+> niveau PERMANENT se modélise comme la bosse seniors (terme ajouté après la
+> convergence, retiré de l'état reporté), pas par réémission.
+
 **Effets FLUX (RECURRENT)** — Appliques CHAQUE ANNEE legitimement :
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
   taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires) ;
