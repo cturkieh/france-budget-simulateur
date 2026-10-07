@@ -18,14 +18,12 @@ Entrées (arbitrages du 07/10/2026 sur le dossier de sourcing du même jour) :
                 (LCI 22/09) ; durée de cotisation = droit en vigueur (aucune annoncée).
 
 Propriétés verrouillées :
-  (a) RN : les deux mesures retirées sont posées au droit voté (pas omises), et
-      rn_2027 porte exactement le jeu de leviers de plf_2026 ;
-  (b) RN (puis LR/Horizons une fois activés, cf. ECARTS_SOURCES_A_ACTIVER) : chaque
-      paramètre hors écarts sourcés vaut EXACTEMENT le droit voté —
-      c'est la forme exécutable de « aucune économie ni dépense non sourcée » ;
-  (c) RN : les écarts sourcés valent les arbitrages ;
-  (d) Horizons / LR : les paramètres re-encodés valent les arbitrages ;
-  (e) pourquoi « retirer » = poser au droit voté et JAMAIS omettre la clé : une clé
+  (a) RN : les deux mesures retirées sont posées au droit voté (pas omises) ;
+  (b) RN, LR, Horizons : même jeu de leviers que plf_2026, et chaque paramètre hors
+      écarts sourcés vaut EXACTEMENT le droit voté — c'est la forme exécutable de
+      « aucune économie ni dépense non sourcée » ;
+  (c) RN, LR, Horizons : les écarts sourcés valent les arbitrages ;
+  (d) pourquoi « retirer » = poser au droit voté et JAMAIS omettre la clé : une clé
       absente vaut le DÉFAUT DU MOTEUR (config.py, année 2025), pas la loi votée —
       et pour `taxe_superprofits` le handler à intensité 0 émet encore −0,002 de
       compétitivité (branche `tous_secteurs` fausse, dette moteur tracée v0.6.7),
@@ -65,21 +63,6 @@ RN_ECARTS_SOURCES = {
     ('recherche_publique', 'budget'): 19,            # base 10 + 9 Md€
 }
 
-HORIZONS_ATTENDU = {
-    ('retraites', 'age_depart'): 65.0,
-    ('retraites', 'duree_cotisation'): 45.0,
-}
-
-LR_ATTENDU = {
-    ('cotisations_patronales', 'taux'): 0.2525,
-    ('cotisations_salariales', 'baisse_points'): 2.5,
-    ('impots_production', 'montant'): 83,
-    ('fonction_publique', 'effectifs'): -300000,
-    ('retraites', 'duree_cotisation'): 42.5,
-    ('chomage_alloc', 'duree'): 18,
-}
-
-
 # Invariant « droit en vigueur sauf écart sourcé », appliqué par scénario. Clé = id
 # du scénario, valeur = liste EXPLICITE de ses écarts sourcés à plf_2026.
 # LR et Horizons : audit levier par levier du 07/10/2026 (tableau au CHANGELOG parent).
@@ -105,15 +88,13 @@ HORIZONS_ECARTS_SOURCES = {
     ('fonction_publique_reforme', 'digitalisation'): 20,
 }
 
+# PS, LFI, Écologistes, Renaissance : paramètres hérités pas encore passés au crible,
+# à ajouter ici à leurs prochains re-sourcings.
 ECARTS_SOURCES_PAR_SCENARIO = {
     'rn_2027': RN_ECARTS_SOURCES,
     'lr_2027': LR_ECARTS_SOURCES,
     'horizons_2027': HORIZONS_ECARTS_SOURCES,
 }
-
-# Scénarios dont les paramètres hérités ne sont pas encore passés au crible (PS, LFI,
-# Écologistes, Renaissance : à leurs prochains re-sourcings).
-ECARTS_SOURCES_A_ACTIVER = {}
 
 
 def _params(scenario):
@@ -136,17 +117,13 @@ def _ecarts_au_droit_en_vigueur(sid, ecarts_sources):
 
 
 @_SCENARIOS
-def test_a_rn_mesures_retirees_au_droit_vote_et_meme_jeu_de_leviers():
+def test_a_rn_mesures_retirees_au_droit_vote():
     rn, ref = SCENARIOS['rn_2027'], SCENARIOS['plf_2026']
     for cle in RN_CLES_RETIREES:
         assert rn.get(cle) == ref[cle], (
             f"{cle} : {rn.get(cle)!r} dans rn_2027, droit voté {ref[cle]!r} — "
-            "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (e))"
+            "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (d))"
         )
-    leviers, _ = _ecarts_au_droit_en_vigueur('rn_2027', RN_ECARTS_SOURCES)
-    assert not leviers['en_trop'] and not leviers['manquants'], (
-        f"leviers rn_2027 ≠ plf_2026 : {leviers}"
-    )
 
 
 @_SCENARIOS
@@ -157,30 +134,19 @@ def test_b_tout_parametre_non_source_vaut_le_droit_en_vigueur(sid):
     assert not params, f"paramètres {sid} hérités sans source (droit en vigueur, {sid}) : {params}"
 
 
-def test_b_bis_aucun_scenario_a_activer_en_double():
-    """Garde de cohérence : un scénario ne peut être à la fois actif et en attente."""
-    assert not set(ECARTS_SOURCES_PAR_SCENARIO) & set(ECARTS_SOURCES_A_ACTIVER)
-
-
-@_SCENARIOS
-@pytest.mark.parametrize('cle,attendu', RN_ECARTS_SOURCES.items(), ids=lambda x: str(x))
-def test_c_rn_ecarts_sources(cle, attendu):
-    assert _params(SCENARIOS['rn_2027']).get(cle) == attendu
-
-
 @_SCENARIOS
 @pytest.mark.parametrize(
     'sid,cle,attendu',
-    [('horizons_2027', k, v) for k, v in HORIZONS_ATTENDU.items()]
-    + [('lr_2027', k, v) for k, v in LR_ATTENDU.items()],
-    ids=lambda x: str(x),
+    [(sid, k, v) for sid, ecarts in sorted(ECARTS_SOURCES_PAR_SCENARIO.items())
+     for k, v in ecarts.items()],
+    ids=str,
 )
-def test_d_horizons_lr_arbitrages(sid, cle, attendu):
+def test_c_ecarts_sources_valent_les_arbitrages(sid, cle, attendu):
     assert _params(SCENARIOS[sid]).get(cle) == attendu
 
 
 @_SCENARIOS
-def test_e_retrait_au_droit_vote_et_non_par_omission():
+def test_d_retrait_au_droit_vote_et_non_par_omission():
     """Poser les deux leviers au droit voté ≠ les omettre : l'omission décale la
     trajectoire RN (artefact du handler superprofits à intensité 0) — c'est ce qui
     interdit la forme « clé absente » pour un retrait.
@@ -195,5 +161,5 @@ def test_e_retrait_au_droit_vote_et_non_par_omission():
     df_omis, _, _ = BudgetSimulatorV45(periods=10, mesures=omis).simulate()
     assert not df_vote.equals(df_omis), (
         "l'omission est devenue neutre (artefact superprofits corrigé ?) : la "
-        "forme « clé absente » redevient admissible — mettre à jour (e) et (a)"
+        "forme « clé absente » redevient admissible — mettre à jour (d) et (a)"
     )
