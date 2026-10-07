@@ -450,14 +450,22 @@ def test_hygiene_entier_geant_ne_casse_pas_la_simulation_toleree(monkeypatch):
     """RED v0.6.6 : un entier JSON de 400 chiffres levait OverflowError dans
     ``detect_active_measures`` (journal des leviers déviés, appelé en 2026 HORS du
     ``try`` par mesure) : 500 en mode tolérant. Le journal ignore désormais la valeur
-    illisible ; l'anomalie ressort par la porte, qui la qualifie (échec du handler
-    tracé, mesure comptée à 0) — et les autres leviers déviés restent journalisés."""
+    illisible, et les autres leviers déviés restent journalisés.
+
+    Contrat de la porte d'entrée (arbitrage d'intégration v0.6.7 avec le lot API,
+    branche ``feat/v067-audit-api``) : un entier hors de la plage des flottants est
+    une ENTRÉE NON FINIE, traitée comme ``inf`` — clé retirée, défaut du levier
+    appliqué, correction tracée dans ``report['warnings']`` et ``valid: False``. Ce
+    n'est pas un échec de handler. ⚠️ Ce test n'est vert qu'une fois les deux
+    branches fusionnées (la porte d'entrée vient du lot API)."""
     from budget_simulator.constants import HANDLER_FAILED_KEY
     monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
     sim = BudgetSimulatorV45(periods=10, mesures={'recherche_publique': {'budget': 10 ** 400},
                                                   'defense': {'budget': 60}})
     _, _, rapport = sim.simulate()
-    assert rapport['measure_impacts_by_year'][1]['recherche_publique'][HANDLER_FAILED_KEY] is True
+    assert rapport['valid'] is False
+    assert any('recherche_publique.budget' in w for w in rapport['warnings'])
+    assert HANDLER_FAILED_KEY not in rapport['measure_impacts_by_year'][1].get('recherche_publique', {})
     assert 'defense.budget=60.00' in sim.detect_active_measures()
 
 
