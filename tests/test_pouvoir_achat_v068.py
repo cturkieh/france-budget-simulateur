@@ -65,6 +65,13 @@ def _conso(an):
     return (1 - TAUX_EPARGNE_MENAGES_2025) * an.rdb_base
 
 
+def _base_publique_reelle(t):
+    """Masse publique de base déflatée par le DÉFLATEUR (le coin fiscal indirect
+    est un effet prix des mesures, pas un effet sur la base)."""
+    deflateur = t.prix / (1 + t.coin_indirect / _conso(t))
+    return (t.rdb_base - t.rdb_prive) / deflateur
+
+
 # --- Les 9 défauts du diagnostic, re-testés en définition B -----------------
 
 def test_tva_taux_normal_repercussion_sourcee(statu_quo):
@@ -297,7 +304,7 @@ def test_inflation_neutre_sur_le_revenu_de_base(monkeypatch):
                 pub * volume ** i, rel=1e-12), (pi, an)
 
 
-def test_masse_publique_de_base_identique_entre_scenarios():
+def test_masse_publique_de_base_identique_entre_scenarios(statu_quo):
     """Arbitrage 2 : la masse salariale publique de base, en réel, ne dépend
     d'aucune mesure (ni de la croissance qu'elles induisent) — seuls les canaux
     de rémunération la déplacent. Vérifié sur les dix scénarios publiés."""
@@ -305,17 +312,11 @@ def test_masse_publique_de_base_identique_entre_scenarios():
     import sys
     sys.path.insert(0, str(pathlib.Path(__file__).parent / 'snapshots'))
     from run_scenarios_full import SCENARIOS
-    def reel(t):
-        # Déflatée par le DÉFLATEUR (le coin fiscal indirect est un effet prix
-        # des mesures, pas un effet sur la base).
-        deflateur = t.prix / (1 + t.coin_indirect / ((1 - TAUX_EPARGNE_MENAGES_2025) * t.rdb_base))
-        return (t.rdb_base - t.rdb_prive) / deflateur
-
-    sq = _run({})[0]._rdb_trace
     for nom, mesures in SCENARIOS.items():
         trace = _run(mesures)[0]._rdb_trace
         for an, t in trace.items():
-            assert reel(t) == pytest.approx(reel(sq[an]), rel=1e-12), (nom, an)
+            assert _base_publique_reelle(t) == pytest.approx(
+                _base_publique_reelle(statu_quo[an]), rel=1e-12), (nom, an)
 
 
 def test_ancrage_statu_quo_tendance_longue_insee():
@@ -367,12 +368,6 @@ def test_handler_sans_canaux_menages_echoue_bruyamment(monkeypatch, caplog):
 
 
 # --- Constats du réfuteur v0.6.8 et leviers dans les deux sens ---------------
-
-def _base_publique_reelle(t):
-    """Masse publique de base déflatée par le DÉFLATEUR (hors coin fiscal)."""
-    deflateur = t.prix / (1 + t.coin_indirect / ((1 - TAUX_EPARGNE_MENAGES_2025) * t.rdb_base))
-    return (t.rdb_base - t.rdb_prive) / deflateur
-
 
 @pytest.mark.parametrize('mesures', [
     {'rabot_uniforme': {'taux_reduction': 0.08, 'exclure_dette': 1,
