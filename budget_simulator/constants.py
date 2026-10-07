@@ -338,8 +338,10 @@ OUTPUT_GAP_INITIAL = -0.007  # −0,7 % — RAA 2026 T2 p. 20 / HCFP n° 2026-3 
 # modèles semi-structurels de projection du FMI : Berg, Karam & Laxton (2006),
 # « Practical Model-Based Monetary Policy Analysis—A How-To Guide », IMF WP/06/81,
 # éq. (1) ygap_t = β_ld·ygap_{t+1} + β_lag·ygap_{t−1} − β_RRgap·(RR−RR*)_{t−1} + …
-# (ici λ = 1 − β_lag). La valeur 0,2 est un ARBITRAGE déclaré (Cyril, 07/10/2026),
-# pas une estimation France. Sans ce terme, un gap en niveau ne se refermait
+# (ici λ = 1 − β_lag). La valeur 0,2 (persistance 0,8) est un CHOIX dans la
+# fourchette β_lag 0,5-0,9 des auteurs (WP/06/80), arbitré puis confirmé le
+# 07/10/2026 ; aucune source ne publie 0,8 pour la France : pas une estimation.
+# Sans ce terme, un gap en niveau ne se refermait
 # jamais : tout choc de demande devenait un écart permanent.
 OUTPUT_GAP_RAPPEL = 0.2
 
