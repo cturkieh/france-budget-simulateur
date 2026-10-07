@@ -227,6 +227,9 @@ class FiscalMultipliers:
                 'spending_based': -MULT_COUPE_DEPENSES, # Coupes dépenses hors investissement — bas de fourchette
                                          # (Ramey 2019 JEP « 0.6 to 1 » ; Gechert & Rannenberg 0.4-0.7 ;
                                          #  OFCE PB146 1.0). v0.5.1 : -0.40, sous le consensus.
+                'transferts': -MULT_TRANSFERTS,  # v0.6.7 (lot 3b) : coupe de TRANSFERT, symétrique de la hausse
+                                         # (Gechert 2015 classe par instrument, pas par signe ; avant :
+                                         #  coefficient « coupe générique » ÷1,10, +8 % à 4 ans).
                 'investissement': -MULT_INVESTISSEMENT,  # Coupe d'investissement public, SYMÉTRIQUE de la hausse
                                          # (Gechert 2015 et Mésange : linéarité en signe ; FMI WEO
                                          #  oct.2010 ch.3 : coupes d'investissement au haut de
@@ -317,8 +320,11 @@ class FiscalMultipliers:
             part_inv = composition.get('investissement', 0)
             part_rev = composition.get('recettes', 0)
             part_dep = composition.get('depenses', 0)
-            part_gen = max(0, part_dep - part_inv)
-            total = part_inv + part_gen + part_rev
+            # Transferts (v0.6.7, lot 3b) : hors de la coupe GÉNÉRIQUE, donc hors de
+            # l'atténuation « confiance » (AFG 2019) — même coefficient que la hausse.
+            part_transferts = min(composition.get('transferts', 0), max(0, part_dep - part_inv))
+            part_gen = max(0, part_dep - part_inv - part_transferts)
+            total = part_inv + part_transferts + part_gen + part_rev
             if total > 0:
                 m_gen = self.base_multipliers['consolidation']['spending_based']
                 # Effet confiance (AFG 2019, « mild recessionary » pour les plans
@@ -331,6 +337,7 @@ class FiscalMultipliers:
                     m_gen /= self.adjustments['confidence']
                 mult_base = (
                     (part_inv / total) * self.base_multipliers['consolidation']['investissement'] +
+                    (part_transferts / total) * self.base_multipliers['consolidation']['transferts'] +
                     (part_gen / total) * m_gen +
                     (part_rev / total) * self.base_multipliers['consolidation']['tax_based']
                 )
