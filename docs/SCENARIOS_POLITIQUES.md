@@ -104,7 +104,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 ### Programme Horizons Philippe 2027
 <!-- scenario:horizons_2027 -->
 
-- **Source** : Priorités É. Philippe — « Pour une France plus prospère » (site officiel) + AFP/débat Medef du 27 août 2026 + réforme des retraites du 29 septembre 2026
+- **Source** : Priorités É. Philippe — « Pour une France plus prospère » (site officiel) + AFP/débat Medef du 27 août 2026 + réforme des retraites du 29 septembre 2026 (https://www.edouardphilippe.fr/actualites/retraites-la-reforme-que-je-propose-aux-francais)
 - **Orientation** : compétitivité et maîtrise affichée des comptes : « pacte fiscal » avec les entreprises (forte baisse de la fiscalité de production intégralement compensée par la réduction des aides et niches, à somme nulle pour l'État), durcissement de l'assurance chômage (12 mois d'indemnisation maximum pour les moins de 50 ans, encodé au paramètre annoncé — le modèle applique la durée à tous les allocataires, donc chiffre en borne haute), fin de la surtaxe provisoire sur les grandes entreprises, et, depuis la réforme des retraites présentée le 29 septembre 2026, un relèvement de l'âge légal et de la durée de cotisation au-delà de la réforme de 2023 (encodés aux paramètres annoncés ; les départs anticipés et le pilier de capitalisation ne sont pas modélisés). La cible de déficit à 2 % du PIB en fin de quinquennat est un résultat annoncé, non une mesure : seules les mesures publiquement chiffrées sont paramétrées, l'écart entre la cible et la trajectoire calculée mesurant la part non ventilée du programme.
 
 ### Programme LR Retailleau 2027
@@ -151,58 +151,58 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.5 | 0.65 | 0.7 |
 | chomage_alloc | degressivite | false | false | false | false | false | false | false | false | false | false |
 | chomage_alloc | duree | 18 | 18 | 30 | 15 | 12 | 18 | 27 | 24 | 18 | 18 |
-| chomage_alloc | taux_remplacement | 0.6 | 0.6 | 0.7 | 0.6 | 0.6 | 0.57 | 0.65 | 0.6 | 0.6 | 0.55 |
-| collectivites | dotation | 116.6 | 109.2 | 140 | 116.6 | 116.6 | 110 | 130 | 130 | 110 | 95 |
+| chomage_alloc | taux_remplacement | 0.6 | 0.6 | 0.7 | 0.6 | 0.6 | 0.6 | 0.65 | 0.6 | 0.6 | 0.55 |
+| collectivites | dotation | 116.6 | 109.2 | 140 | 116.6 | 116.6 | 116.6 | 130 | 130 | 110 | 95 |
 | collectivites | investissement | 0 | 0 | 15 | 0 | 0 | 0 | 8 | 8 | 0 | 0 |
 | cotisations_patronales | taux | 0.27 | 0.27 | 0.3 | 0.27 | 0.27 | 0.2525 | 0.28 | 0.28 | 0.27 | 0.26 |
 | cotisations_salariales | baisse_points | 0 | 0 | 0 | 2.5 | 0 | 2.5 | 0 | 0 | 0 | 0 |
 | csg | progressive | 0 | 0 | 1 | 0 | 0 | 0 | 1 | 1 | 0 | 0 |
 | csg | taux | 0.098039 | 0.098039 | 0.105 | 0.098039 | 0.098039 | 0.098039 | 0.1 | 0.108039 | 0.098039 | 0.098039 |
-| defense | budget | 57 | 57 | 45 | 65 | 57 | 65 | 50 | 57 | 50 | 50 |
+| defense | budget | 57 | 57 | 45 | 65 | 57 | 57 | 50 | 57 | 50 | 50 |
 | education | budget | 65 | 65 | 85 | 65 | 65 | 65 | 75 | 75 | 65 | 80 |
-| education | enseignants | 0 | 0 | 60000 | 0 | 0 | -20000 | 30000 | 30000 | 0 | 10000 |
-| education | salaires | 0 | 0 | 15 | 6.5 | 0 | 1.5 | 8 | 15 | 0 | 8 |
+| education | enseignants | 0 | 0 | 60000 | 0 | 0 | 0 | 30000 | 30000 | 0 | 10000 |
+| education | salaires | 0 | 0 | 15 | 6.5 | 0 | 0 | 8 | 15 | 0 | 8 |
 | elargissement_ir | taux_contribuables_cible | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 |
 | exonerations_salaires | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0.5 | 0 | 0 | 0 |
 | fiscalite_patrimoine | intensite | 0 | 0 | 0.3 | 0 | 0 | 0 | 0.25 | 0.3 | 0 | 0 |
 | fonction_publique | effectifs | -3119 | -201000 | 60000 | -100000 | -3119 | -300000 | 20000 | 20000 | 0 | -120000 |
 | fonction_publique | point_indice | 0 | 0 | 10 | 0 | 0 | 0 | 3 | 10 | 0 | 0 |
-| fonction_publique_reforme | digitalisation | 0 | 0 | 10 | 50 | 20 | 50 | 15 | 0 | 0 | 50 |
-| fonction_publique_reforme | fusion_agences | 0 | 0 | 0 | 50 | 10 | 60 | 10 | 0 | 0 | 60 |
-| fraude_fiscale | effort | 0.14 | 1 | 1 | 0.14 | 0.14 | 0.8 | 0.9 | 1 | 0 | 0.8 |
-| fraude_sociale | effort | 0.1 | 0.1 | 0.5 | 0.1 | 0.1 | 1 | 0.6 | 0 | 0 | 0.8 |
-| immigration | ame | 1.2 | 0 | 1.5 | 1.2 | 1.2 | 0.3 | 1.4 | 1.5 | 1.1 | 0.8 |
-| immigration | integration | 0.8 | 0.8 | 1.2 | 0.8 | 0.8 | 0.4 | 1 | 1.2 | 0.7 | 0.6 |
+| fonction_publique_reforme | digitalisation | 0 | 0 | 10 | 50 | 20 | 0 | 15 | 0 | 0 | 50 |
+| fonction_publique_reforme | fusion_agences | 0 | 0 | 0 | 50 | 10 | 0 | 10 | 0 | 0 | 60 |
+| fraude_fiscale | effort | 0.14 | 1 | 1 | 0.14 | 0.14 | 0.14 | 0.9 | 1 | 0 | 0.8 |
+| fraude_sociale | effort | 0.1 | 0.1 | 0.5 | 0.1 | 0.1 | 0.1 | 0.6 | 0 | 0 | 0.8 |
+| immigration | ame | 1.2 | 0 | 1.5 | 1.2 | 1.2 | 1.2 | 1.4 | 1.5 | 1.1 | 0.8 |
+| immigration | integration | 0.8 | 0.8 | 1.2 | 0.8 | 0.8 | 0.8 | 1 | 1.2 | 0.7 | 0.6 |
 | impot_revenu | decote | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1.1 | 1 | 1 |
 | impot_revenu | taux_superieur | 0.45 | 0.45 | 0.6 | 0.45 | 0.45 | 0.45 | 0.5 | 0.6 | 0.45 | 0.45 |
 | impot_societes | niches | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | impot_societes | taux | 0.25 | 0.25 | 0.3 | 0.25 | 0.25 | 0.25 | 0.27 | 0.25 | 0.25 | 0.25 |
 | impots_production | montant | 97 | 80 | 97 | 87 | 47 | 83 | 97 | 97 | 97 | 90 |
-| is_exceptionnel_tge | montant | 7.3 | 7.3 | 15 | 0 | 0 | 8 | 12 | 15 | 8 | 8 |
+| is_exceptionnel_tge | montant | 7.3 | 7.3 | 15 | 0 | 0 | 7.3 | 12 | 15 | 8 | 8 |
 | isf_climatique | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0.6 | 1 | 0 | 0 |
-| niches_fiscales_tge | montant | 57 | 57 | 20 | 56 | 32 | 50 | 40 | 25 | 58 | 40 |
-| niches_sociales_tge | montant | 68 | 68 | 50 | 68 | 68 | 80 | 55 | 50 | 70 | 55 |
-| optimisation_dette | intensite | 0 | 0 | 0 | 0 | 0 | 0.6 | 0.2 | 0.3 | 0 | 0.5 |
+| niches_fiscales_tge | montant | 57 | 57 | 20 | 56 | 32 | 57 | 40 | 25 | 58 | 40 |
+| niches_sociales_tge | montant | 68 | 68 | 50 | 68 | 68 | 68 | 55 | 50 | 70 | 55 |
+| optimisation_dette | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0.2 | 0.3 | 0 | 0.5 |
 | prestations_indexation | taux_indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 1 | 1 | 1 |
 | rabot_uniforme | exclure_defense | — | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | exclure_dette | — | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | — | 1 | 1 |
 | rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | — | 0.08 | 0 |
-| recherche_publique | budget | 10 | 19 | 15 | 20 | 10 | 3 | 12 | 14 | 0 | 15 |
+| recherche_publique | budget | 10 | 19 | 15 | 20 | 10 | 10 | 12 | 14 | 0 | 15 |
 | retraites | age_depart | — | 62 | 60 | — | 65 | 65 | 62 | 62 | 64 | 65 |
 | retraites | duree_cotisation | 42.5 | 42 | 40 | 42.5 | 45 | 42.5 | 43 | 42.5 | 43 | 44 |
 | retraites | indexation | 1 | 1 | 1 | 0.9 | 1 | 1 | 1 | 1 | 1 | 0.8 |
-| sante | effort_ambu | 20 | 20 | 0 | 20 | 20 | 15 | 0 | 0 | 0 | 25 |
-| sante | effort_hopital | 15 | 15 | 0 | 15 | 15 | 20 | 0 | 0 | 0 | 30 |
+| sante | effort_ambu | 20 | 20 | 0 | 20 | 20 | 20 | 0 | 0 | 0 | 25 |
+| sante | effort_hopital | 15 | 15 | 0 | 15 | 15 | 15 | 0 | 0 | 0 | 30 |
 | sante | effort_prev_org | 10 | 10 | 0 | 20 | 10 | 10 | 0 | 0 | 0 | 15 |
-| sante | franchise_participation_taux | 100 | 100 | 0 | 100 | 100 | 120 | 50 | 100 | 100 | 110 |
+| sante | franchise_participation_taux | 100 | 100 | 0 | 100 | 100 | 100 | 50 | 100 | 100 | 110 |
 | sante | prevention_budget | 7.5 | 7.5 | 10.5 | 7.5 | 7.5 | 7.5 | 9.5 | 9.5 | 7.5 | 8.5 |
 | smic | montant_brut | 1800 | 1800 | 2050 | 1800 | 1800 | 1800 | 2150 | 2000 | 1800 | 1800 |
-| subventions_tge | montant | 33 | 33 | 20 | 33 | 8 | 45 | 25 | 20 | 32 | 25 |
+| subventions_tge | montant | 33 | 33 | 20 | 33 | 8 | 33 | 25 | 20 | 32 | 25 |
 | taxe_superprofits | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0.5 | 0.5 | 0 | 0 |
-| transition_ecologique | investissement | 0 | 0 | 50 | 0 | 0 | 8 | 25 | 7 | 0 | 20 |
-| transition_ecologique | renovation | 0 | 3.8 | 30 | 0 | 0 | 8 | 20 | 25 | 0 | 15 |
-| transition_ecologique | taxe_carbone | 44.6 | 30.5 | 120 | 44.6 | 44.6 | 100 | 100 | 44.6 | 100 | 110 |
+| transition_ecologique | investissement | 0 | 0 | 50 | 0 | 0 | 0 | 25 | 7 | 0 | 20 |
+| transition_ecologique | renovation | 0 | 3.8 | 30 | 0 | 0 | 0 | 20 | 25 | 0 | 15 |
+| transition_ecologique | taxe_carbone | 44.6 | 30.5 | 120 | 44.6 | 44.6 | 44.6 | 100 | 44.6 | 100 | 110 |
 | tva_energie | taux | 0.2 | 0.055 | 0.055 | 0.2 | 0.2 | 0.2 | 0.1 | 0.2 | 0.2 | 0.2 |
 | tva_rate | taux | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 |
 <!-- SCENARIO_PARAMS:END -->
