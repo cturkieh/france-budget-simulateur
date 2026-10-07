@@ -19,7 +19,18 @@ import pytest
 
 from budget_simulator.simulator import BudgetSimulatorV45, FiscalMultipliers
 
-logging.disable(logging.WARNING)
+
+
+@pytest.fixture(autouse=True)
+def _sans_warnings_moteur():
+    """Les sondes hors domaine font parler le moteur en WARNING : on le tait LE
+    TEMPS DU TEST seulement. Un `logging.disable` au niveau module fuyait sur toute
+    la suite (le test du rate-limit qui compte un WARNING devenait rouge)."""
+    logging.disable(logging.WARNING)
+    try:
+        yield
+    finally:
+        logging.disable(logging.NOTSET)
 
 LEVIERS_FISCAUX = ('tva_rate', 'impot_revenu', 'impots_production')
 

@@ -91,10 +91,12 @@ def test_sans_proxy_de_confiance_un_x_forwarded_for_force_ne_change_pas_la_cle(m
     assert api._adresse_cliente(_requete('203.0.113.1, 198.51.100.2'), 0) == '10.0.0.1'
 
 
-def test_avec_proxys_de_confiance_la_cle_est_lue_en_partant_de_la_fin():
+def test_avec_proxys_de_confiance_la_cle_est_lue_en_partant_de_la_fin(monkeypatch):
     """« a, b, c » : c avec un proxy de confiance (le dernier élément, ajouté par
-    lui), b avec deux ; liste trop courte ou élément invalide → le pair TCP."""
-    import api as module   # conftest : limites désactivées, aucune requête ici
+    lui), b avec deux ; liste trop courte ou élément invalide → le pair TCP.
+    Chargé par chemin : depuis le dépôt parent, `import api` désigne l'API de
+    prod, pas ce module."""
+    module = _api(monkeypatch, 0)   # limites désactivées, aucune requête ici
     xff = '203.0.113.1, 198.51.100.2, 192.0.2.3'
     assert module._adresse_cliente(_requete(xff), 1) == '192.0.2.3'
     assert module._adresse_cliente(_requete(xff), 2) == '198.51.100.2'

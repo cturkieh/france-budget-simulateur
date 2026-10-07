@@ -57,10 +57,10 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
-| Deficit 2026 | -5,30 % | **-5,17 %** (loi votee : -5,0 %) |
+| Deficit 2026 | -5,30 % | **-5,18 %** (loi votee : -5,0 %) |
 | Dette 2030 | 129,12 % | **128,64 %** (mission IGF : 130,5) |
-| Dette 2035 | 151,17 % | **149,75 %** |
-| Deficit 2035 | -9,05 % | **-8,68 %** |
+| Dette 2035 | 151,17 % | **149,77 %** |
+| Deficit 2035 | -9,05 % | **-8,69 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
@@ -1595,8 +1595,8 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
-- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,42 / 1,45 / 1,46 / 1,46%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,426%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
-- **Marge a declarer** : la moyenne du scenario servi est a 0,026 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
+- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,43 / 1,45 / 1,46 / 1,46%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,428%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
+- **Marge a declarer** : la moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -1990,9 +1990,9 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 
 | Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
 |---|---|---|---|---|---|---|
-| 2026 | 117,84 | 118,4 | −0,56 | −5,17 | −5,00 | 0,37 % |
+| 2026 | 117,85 | 118,4 | −0,55 | −5,18 | −5,00 | 0,37 % |
 | 2027 | 120,22 | 121,4 | −1,18 | −5,35 | −5,88 | 0,24 % |
-| 2028 | 122,77 | 124,2 | −1,43 | −5,57 | −6,21 | 0,01 % |
+| 2028 | 122,77 | 124,2 | −1,43 | −5,58 | −6,21 | 0,01 % |
 | 2029 | 125,56 | 127,3 | −1,74 | −5,85 | −6,57 | −0,05 % |
 | 2030 | 128,64 | 130,5 | −1,86 | −6,20 | −6,76 | −0,12 % |
 
@@ -2002,11 +2002,11 @@ Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,12 % de la
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | **-5,17 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30) |
+| Deficit | **-5,18 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30) |
 | Dette | **128,64 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,86 pt depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
 | Dette | **129,12 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **151,17 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,75) |
-| Deficit | **-9,05 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,68) |
+| Dette | **151,17 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,77) |
+| Deficit | **-9,05 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,69) |
 | Croissance potentielle | tendanciel 1,228 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,128 pt (-0,005 x (115,6 - 90) %) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
