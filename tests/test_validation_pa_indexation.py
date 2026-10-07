@@ -58,23 +58,32 @@ def test_autres_indicateurs_inchanges(statu_quo):
     assert -13.5 <= deficit_2035 <= 6.0, f"Déficit/PIB hors plage : {deficit_2035:.1f}%"
 
 
-def test_mesures_deltas_preserves(statu_quo):
+def test_mesures_deltas_preserves():
     """Test 3: Les mesures doivent avoir les mêmes deltas PA"""
-    pa_sq_2035 = statu_quo.iloc[10]['Pouvoir d\'Achat']
+    # v0.6.7 : écart lu en PLEINE PRÉCISION. Lu sur la colonne publiée (arrondie
+    # au dixième), la différence de deux arrondis porte ±0,1 pt : 0,436 rendait
+    # « 0,4 » sur 08810ad, 0,440 rend « 0,5 » sans le bruit tiré — la borne
+    # mordait sur l'arrondi, pas sur le modèle.
+    from unittest.mock import patch
+    from budget_simulator.engine import orchestrator as orchestrator_module
 
-    # CSG progressive (simulation dédiée — pas un statu quo)
-    sim_csg = BudgetSimulatorV45(mesures={'csg': {'taux': 0.097, 'progressive': 1}})
-    df_csg, _, _ = sim_csg.simulate()
+    with patch.object(orchestrator_module, 'round', lambda x, n=None: float(x), create=True):
+        df_sq, _, _ = BudgetSimulatorV45(mesures={}).simulate()
+        # CSG progressive (simulation dédiée — pas un statu quo)
+        df_csg, _, _ = BudgetSimulatorV45(
+            mesures={'csg': {'taux': 0.097, 'progressive': 1}}).simulate()
+    pa_sq_2035 = df_sq.iloc[10]['Pouvoir d\'Achat']
     pa_csg_2035 = df_csg.iloc[10]['Pouvoir d\'Achat']
 
     delta_csg = pa_csg_2035 - pa_sq_2035
-    print(f"\nPA SQ 2035: {pa_sq_2035:.1f} / PA CSG prog 2035: {pa_csg_2035:.1f} "
-          f"(delta {delta_csg:+.1f} pts)")
+    print(f"\nPA SQ 2035: {pa_sq_2035:.2f} / PA CSG prog 2035: {pa_csg_2035:.2f} "
+          f"(delta {delta_csg:+.3f} pts)")
 
-    # Delta CSG progressive est un effet ONE-TIME en 2026 (+0.4 pts) qui
-    # s'estompe avec l'indexation baseline → résiduel ~0.1 pts en 2035.
-    assert delta_csg > 0, f"Delta CSG ({delta_csg:.2f}) devrait être positif"
-    assert delta_csg < 0.5, f"Delta CSG ({delta_csg:.2f}) trop élevé"
+    # Delta CSG progressive : effet ONE-TIME en 2026 (+0,4 pt d'indice) qui,
+    # depuis v0.6.7 (lot 3E, indice = Π (1 + g)), persiste en NIVEAU au lieu de
+    # « s'estomper avec l'indexation baseline » (supprimée) : 0,44 pt en 2035.
+    assert delta_csg > 0, f"Delta CSG ({delta_csg:.3f}) devrait être positif"
+    assert delta_csg < 0.5, f"Delta CSG ({delta_csg:.3f}) trop élevé"
 
 
 def test_evolution_annuelle(statu_quo):

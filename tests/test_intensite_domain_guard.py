@@ -160,8 +160,7 @@ def test_tolerant_out_of_domain_runs_clamped_no_handler_failure():
     sim_oob.mesures = {'optimisation_dette': {'intensite': 1.5}}
     sim_bound = BudgetSimulatorV45(periods=3)
     sim_bound.mesures = {'optimisation_dette': {'intensite': 1.0}}
-    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}), \
-         patch('numpy.random.normal', return_value=0):
+    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}):
         res_oob, _, rep_oob = sim_oob.simulate()
         res_bound, _, _ = sim_bound.simulate()
 
@@ -179,7 +178,6 @@ def test_strict_out_of_domain_escalates_as_exceptiongroup_valueerror():
     sim = BudgetSimulatorV45(periods=2)
     sim.mesures = {'optimisation_dette': {'intensite': 1.5}}
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1'}), \
-         patch('numpy.random.normal', return_value=0), \
          pytest.raises(ExceptionGroup) as excinfo:
         sim.simulate()
     inner = excinfo.value.exceptions
@@ -199,7 +197,6 @@ def test_strict_str_intensite_still_typeerror_not_valueerror():
     sim = BudgetSimulatorV45(periods=2)
     sim.mesures = {'optimisation_dette': {'intensite': 'not-a-number'}}
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1'}), \
-         patch('numpy.random.normal', return_value=0), \
          pytest.raises(ExceptionGroup) as excinfo:
         sim.simulate()
     inner = excinfo.value.exceptions

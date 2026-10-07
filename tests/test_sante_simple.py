@@ -4,7 +4,6 @@ Test simple de la fonction _apply_sante() v2025.1
 """
 import sys
 import os
-from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -60,8 +59,7 @@ def test_simulation_complete():
     # Affecte les DEUX bruits en cascade : croissance (simulator.py:963, σ=0.003) ET
     # inflation (simulator.py:1020, σ=0.0005). Le moteur reste identique à la prod, on
     # neutralise uniquement les sources stochastiques.
-    with patch('numpy.random.normal', return_value=0):
-        projections, _, _ = sim.simulate()
+    projections, _, _ = sim.simulate()
 
     row_2035 = projections[projections['Année'] == 2035].iloc[0]
     dette_2035 = row_2035['Dette/PIB %']

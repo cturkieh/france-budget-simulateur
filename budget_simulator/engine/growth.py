@@ -6,7 +6,8 @@ Méthodes couvertes :
   keynésien à profils temporels différenciés (v0.6.7 : une impulsion par
   levier, par flux et par année où son effort varie, profil du levier
   INVEST/TRANSFERS/TAXES — ``_stocker_impulsions``), cicatrice austérité,
-  crowding-out, bruit stochastique, clamp [-3,5 % ; +2,5 %].
+  crowding-out, clamp [-3,5 % ; +2,5 %]. Déterministe (bruit tiré
+  retiré en v0.6.7).
 - ``update_potential_growth`` : ajuste la croissance POTENTIELLE
   (hystérèse conjoncturelle + effet d'offre structurel ``SUPPLY_EFFECTS``,
   cap +0,20 pt).
@@ -426,7 +427,13 @@ class GrowthMixin:
         #     n'a plus AUCUN slot recettes, la ligne naît du seul canal PIB.
         # Ne pas réintroduire de terme seniors dans ce bloc de DEMANDE.
 
-        croissance += np.random.normal(0, 0.003)
+        # Bruit stochastique RETIRÉ (v0.6.7, recalage du corridor) : un tirage
+        # N(0 ; 0,3 %) à graine fixe, identique pour tous les scénarios, ne porte
+        # aucune information. Avec l'output gap en NIVEAU il devenait un choc de
+        # demande persistant (+0,6 % de PIB en 2029) qui sortait à lui seul le
+        # scénario de référence du corridor de la mission (dette 2029 −2,26 pt ;
+        # sans lui −0,39). Ne pas réintroduire : une incertitude se publie en
+        # variante, pas en tirage caché dans la trajectoire centrale.
         croissance = np.clip(croissance, -0.035, 0.025)
         if croissance < -0.025:
             _log_debug(self.debug_logs, f"Y{year}: Récession profonde")

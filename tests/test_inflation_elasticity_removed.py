@@ -15,7 +15,6 @@ l'écriture in-méthode de `calculate_inflation` conservée volontairement)
 échoue bruyamment plutôt que de revenir au double-comptage silencieux.
 """
 import inspect
-from unittest.mock import patch
 
 from budget_simulator.engine import orchestrator as orchestrator_mod
 
@@ -40,8 +39,7 @@ def test_calculate_inflation_invariant_inflation_precedente_equals_return(simula
         'tva_impact': 0.0071,
     }
     simulator.inflation_precedente = 0.01
-    with patch('numpy.random.normal', return_value=0):
-        inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
+    inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
 
     assert simulator.inflation_precedente == inflation, (
         "calculate_inflation doit laisser self.inflation_precedente == valeur "

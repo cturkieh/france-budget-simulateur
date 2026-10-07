@@ -74,9 +74,10 @@ def default_values():
 def statu_quo():
     """DataFrame d'une simulation statu quo (aucune mesure), partagé.
 
-    Déterministe (``np.random.seed(42)`` dans ``_reset_state`` avant chaque
-    ``simulate()``), donc factorisable en une seule exécution. Dédup des 4
-    simulations identiques de ``test_validation_pa_indexation.py`` (Lot E).
+    Déterministe (le moteur ne tire aucun hasard depuis v0.6.7,
+    cf. ``tests/test_deterministe_v067.py``), donc factorisable en une seule
+    exécution. Dédup des 4 simulations identiques de
+    ``test_validation_pa_indexation.py`` (Lot E).
     LECTURE SEULE : ne pas muter le DataFrame (scope session)."""
     df, _, _ = BudgetSimulatorV45(mesures={}).simulate()
     return df

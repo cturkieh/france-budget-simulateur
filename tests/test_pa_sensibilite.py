@@ -6,26 +6,18 @@ Ou est-ce une coïncidence numérique ?
 from budget_simulator.simulator import BudgetSimulatorV45
 
 def test_pa_avec_seed_differents():
-    """Tester avec différentes seeds aléatoires"""
-    print("\n=== TEST SENSIBILITÉ PA (SEEDS ALÉATOIRES) ===\n")
-
+    """La graine globale de numpy ne déplace plus le PA (v0.6.7 : le moteur ne
+    tire plus aucun hasard, cf. tests/test_deterministe_v067.py). Ce test
+    imprimait le PA 2035 par graine pour juger « oscillation ou coïncidence » ;
+    la réponse est désormais une égalité stricte."""
     import numpy as np
 
-    print("Seed | PA 2035 | Variation vs 100")
-    print("-" * 45)
-
+    valeurs = []
     for seed in [42, 123, 456, 789, 999]:
         np.random.seed(seed)
-        sim = BudgetSimulatorV45(mesures={})
-        df, _, _ = sim.simulate()
-        pa_2035 = df.iloc[10]['Pouvoir d\'Achat']
-        delta = pa_2035 - 100.0
-
-        print(f"{seed:4d} | {pa_2035:6.2f} | {delta:+6.2f}")
-
-    print("\nConclusion:")
-    print("Si PA varie avec la seed => Oscillations aléatoires normales")
-    print("Si PA = 100.0 toujours => Calibration exacte (coïncidence)\n")
+        df, _, _ = BudgetSimulatorV45(mesures={}).simulate()
+        valeurs.append(df.iloc[10]['Pouvoir d\'Achat'])
+    assert len(set(valeurs)) == 1, valeurs
 
 def test_pa_calcul_theorique():
     """Calculer le PA théorique attendu"""

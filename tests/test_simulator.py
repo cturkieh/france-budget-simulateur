@@ -1,5 +1,4 @@
 import logging
-from unittest.mock import patch
 from budget_simulator import BudgetSimulatorV45, FiscalMultipliers, EconomicValidator
 
 # Fixtures 'simulator' and 'multipliers' are defined in conftest.py
@@ -59,8 +58,7 @@ def test_calculate_growth_austerity(simulator):
         'collectivites': {'depenses': -0.61 * 0.034 * 3000, 'recettes': 0.0},
         'tva_rate': {'depenses': 0.0, 'recettes': 0.39 * 0.034 * 3000},
     }
-    with patch('numpy.random.normal', return_value=0):
-        growth = simulator.calculate_growth(year=1, economic_state=economic_state)
+    growth = simulator.calculate_growth(year=1, economic_state=economic_state)
     # potentiel + traînée de dette + multiplicateurs (an 1 : pas d'atténuation
     # « confiance » ; dette > 110 % : ×0,95) + cicatrice (effort > 3 %).
     # v0.6.7 B3 : la traînée de dette est DANS le potentiel total (offre), et la
@@ -129,8 +127,7 @@ def test_calculate_inflation(simulator):
         'tva_impact': 0.0071  # TVA +0.71% / PIB
     }
     simulator.inflation_precedente = 0.01  # Inflation précédente 1.0%
-    with patch('numpy.random.normal', return_value=0):
-        inflation = simulator.calculate_inflation(year=2, economic_state=economic_state)
+    inflation = simulator.calculate_inflation(year=2, economic_state=economic_state)
     # Calcul exact (engine/inflation.py, v0.6.1 lot 8 : forme ANCRÉE
     # (1−ρ)·(π* + κ_LR·gap) + ρ·π_{t−1} avec π* = 1,6 % et κ_LR = 0,20,
     # pass-through TVA gaté year==2 — impacts t−1 —, random patché à 0) :
@@ -215,8 +212,9 @@ def test_calculate_growth_significant_recession(simulator):
         'collectivites': {'depenses': -0.3 * 0.08 * 3000, 'recettes': 0.0},
         'tva_rate': {'depenses': 0.0, 'recettes': 0.7 * 0.08 * 3000},
     }
-    with patch('numpy.random.normal', return_value=-0.01):  # Bruit négatif
-        growth = simulator.calculate_growth(year=1, economic_state=economic_state)
+    # v0.6.7 : plus de bruit tiré (l'ancien patch à −1 pt n'a plus d'objet) ;
+    # mesuré −3,5 %, le plancher du clip de croissance.
+    growth = simulator.calculate_growth(year=1, economic_state=economic_state)
 
     # Note 2026-05-07 : après triple-audit DG Trésor / COR / Bozio-Wasmer (commit c510c22),
     # la calibration produit des chocs plus modérés. Avec ces params, growth ≈ -0.018
@@ -249,8 +247,7 @@ def test_validate_year_high_interest():
 def test_simulate_full_run(default_simulator):
     """Uses default_simulator fixture (which has all base_params including croissance_2025)."""
     default_simulator.periods = 3  # Short run for speed
-    with patch('numpy.random.normal', return_value=0):
-        results, details, report = default_simulator.simulate()
+    results, details, report = default_simulator.simulate()
     assert len(results) == 4  # 4 années (2025-2028)
     assert results.iloc[0]['Dette/PIB %'] > 100  # Dette initiale > 100%
     assert 'valid' in report  # Report has validation result
@@ -393,8 +390,7 @@ def test_calculate_growth_no_synergy_bonus(simulator):
         'retraites': {'depenses': -20},
         'education': {'depenses': 20}
     }
-    with patch('numpy.random.normal', return_value=0):
-        growth = simulator.calculate_growth(year=3, economic_state=economic_state)
+    growth = simulator.calculate_growth(year=3, economic_state=economic_state)
     # Le bonus synergie NE DOIT PAS apparaître
     assert not any("Synergie" in s for s in simulator.debug_logs), "Bonus synergie devrait être supprimé"
 
@@ -417,8 +413,7 @@ def test_calculate_growth_zlb(simulator):
         'education': {'depenses': 0.4 * 0.01 * 3000, 'recettes': 0.0},
         'impot_revenu': {'depenses': 0.0, 'recettes': -0.6 * 0.01 * 3000},
     }
-    with patch('numpy.random.normal', return_value=0):
-        growth = simulator.calculate_growth(year=1, economic_state=economic_state)
+    growth = simulator.calculate_growth(year=1, economic_state=economic_state)
     # v0.6.7, forme fermée : potentiel − traînée de dette + flux par flux
     # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (dette = 100 %, seuil strict).
     from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT

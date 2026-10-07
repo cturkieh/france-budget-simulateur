@@ -4,8 +4,9 @@
 Jusqu'en v0.6.6 : ``gap = 0,8·gap + 0,2·(g − g*)`` — une moyenne mobile de
 l'écart de CROISSANCE, qui efface chaque année 20 % d'un écart de niveau réel.
 METHODOLOGIE justifiait ce choix par « au statu quo, croissance = potentielle »,
-prémisse fausse : au statu quo la croissance reste sous le potentiel (traînée de
-dette + bruit), de −0,13 pt en 2026 à −0,59 pt en 2035.
+prémisse fausse : au statu quo la croissance restait sous le potentiel (traînée de
+dette + bruit tiré, ce dernier retiré en v0.6.7), de −0,13 pt en 2026 à −0,59 pt
+en 2035.
 
 Définition retenue : gap_t = (PIB réel − PIB potentiel) / PIB potentiel, soit
     (1 + gap_t) = (1 + gap_{t−1}) × (1 + g_t) / (1 + g*_t)
@@ -19,7 +20,6 @@ du corridor mission (PIB nominal 2030 −0,661 % pour ±0,6 %) — parce que la
 traînée de dette (−2,0 pts cumulés) et le bruit (−0,56) s'accumulaient dans un
 écart que rien ne refermait.
 """
-import numpy as np
 import pytest
 
 from budget_simulator.simulator import BudgetSimulatorV45
@@ -48,17 +48,15 @@ def test_le_gap_est_l_ecart_de_niveau_au_potentiel(statu_quo):
         assert detail.loc[an, 'Output_Gap %'] / 100 == pytest.approx(gap, abs=1e-12), an
 
 
-def test_statu_quo_ecart_de_croissance_rappel_plus_bruit(statu_quo):
-    """Au statu quo, g − g* vaut EXACTEMENT le rappel (−0,2 × gap_{t−1}) plus le
-    bruit tiré (graine 42, premier tirage de chaque année) : plus de traînée de
-    dette dans l'écart (v0.6.6 : −0,13 à −0,32 pt/an), elle est dans g*."""
+def test_statu_quo_ecart_de_croissance_egal_au_rappel(statu_quo):
+    """Au statu quo, g − g* vaut EXACTEMENT le rappel (−0,2 × gap_{t−1}) : plus de
+    traînée de dette dans l'écart (v0.6.6 : −0,13 à −0,32 pt/an), elle est dans
+    g* ; plus de bruit tiré non plus (retiré en v0.6.7, recalage du corridor)."""
     df, detail = statu_quo
     from budget_simulator.constants import OUTPUT_GAP_RAPPEL
-    np.random.seed(42)
-    tirages = [(np.random.normal(0, 0.003), np.random.normal(0, 0.0005)) for _ in range(10)]
-    for k, an in enumerate(range(2026, 2036)):
+    for an in range(2026, 2036):
         ecart = (df.loc[an, 'Croissance %'] - detail.loc[an, 'Croissance_Potentielle_Totale %']) / 100
-        attendu = -OUTPUT_GAP_RAPPEL * detail.loc[an - 1, 'Output_Gap %'] / 100 + tirages[k][0]
+        attendu = -OUTPUT_GAP_RAPPEL * detail.loc[an - 1, 'Output_Gap %'] / 100
         assert ecart == pytest.approx(attendu, abs=1e-12), an
 
 

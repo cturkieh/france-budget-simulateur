@@ -3,8 +3,8 @@
 Méthode couverte :
 - ``calculate_inflation`` : inflation de l'année à partir de l'état
   économique (output gap, unemployment gap, impact TVA, effort
-  budgétaire), avec rappel de politique monétaire BCE et bruit
-  stochastique.
+  budgétaire), avec rappel de politique monétaire BCE. Déterministe
+  (bruit tiré retiré en v0.6.7).
 
 Forme retenue : Phillips augmentée en ``output_gap`` uniquement (pas
 de terme ``unemployment_gap`` direct, déjà corrélé via Okun → évite le
@@ -271,7 +271,8 @@ class InflationMixin:
             sens = "restrictive" if avant_bce > BCE_CIBLE_INFLATION else "accommodante"
             _log_debug(self.debug_logs, f"Y{year}: Politique monétaire {sens}")
 
-        inflation += np.random.normal(0, 0.0005)
+        # Bruit N(0 ; 0,05 %) RETIRÉ en v0.6.7, même raison que la croissance
+        # (engine/growth.py) : un tirage à graine fixe n'est pas une calibration.
         inflation = np.clip(inflation, -0.003, 0.030)
 
         self.inflation_precedente = inflation

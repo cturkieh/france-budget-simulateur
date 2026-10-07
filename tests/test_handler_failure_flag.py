@@ -44,8 +44,7 @@ def test_handler_failure_flag_set_on_error():
     """
     sim = BudgetSimulatorV45(periods=2)
     sim.mesures = {'csg': {'taux': 'not-a-number'}}  # Force un TypeError dans _apply_csg
-    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}), \
-         patch('numpy.random.normal', return_value=0):
+    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}):
         _, _, report = sim.simulate()
 
     # Year 0 (2025) est la baseline sans application des mesures (juste {'Année': 2025}).
@@ -78,8 +77,7 @@ def test_no_failure_flag_when_clean():
         'retraites': {'age_depart': 64.0},
         'education': {'budget': 70},
     }
-    with patch('numpy.random.normal', return_value=0):
-        _, _, report = sim.simulate()
+    _, _, report = sim.simulate()
 
     measures_seen = set()
     for year_impacts in report['measure_impacts_by_year']:
@@ -108,7 +106,6 @@ def test_strict_mode_raises_on_handler_error():
     sim = BudgetSimulatorV45(periods=2)
     sim.mesures = {'csg': {'taux': 'not-a-number'}}  # 'str' - float → TypeError
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1'}), \
-         patch('numpy.random.normal', return_value=0), \
          pytest.raises(ExceptionGroup) as excinfo:
         sim.simulate()
     _assert_single_typed_failure(excinfo, 'csg')
@@ -137,7 +134,6 @@ def test_strict_mode_collects_all_failures_without_prefix_collision():
         'fonction_publique_reforme': {'fusion_agences': 'not-a-number'},
     }
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1'}), \
-         patch('numpy.random.normal', return_value=0), \
          pytest.raises(ExceptionGroup) as excinfo:
         sim.simulate()
 
@@ -233,8 +229,7 @@ def test_mixin_handler_failure_flag_set_on_error(measure_id, bad_params):
     """Mode tolérant : un handler du mixin qui raise reçoit _handler_failed=True."""
     sim = BudgetSimulatorV45(periods=2)
     sim.mesures = {measure_id: bad_params}
-    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}), \
-         patch('numpy.random.normal', return_value=0):
+    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}):
         _, _, report = sim.simulate()
 
     records = [
@@ -261,7 +256,6 @@ def test_mixin_handler_strict_mode_raises(measure_id, bad_params):
     sim = BudgetSimulatorV45(periods=2)
     sim.mesures = {measure_id: bad_params}
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1'}), \
-         patch('numpy.random.normal', return_value=0), \
          pytest.raises(ExceptionGroup) as excinfo:
         sim.simulate()
     _assert_single_typed_failure(excinfo, measure_id)

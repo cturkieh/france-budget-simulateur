@@ -212,8 +212,7 @@ def test_simulate_asteval_error(default_simulator):
     """
     default_simulator.periods = 3
     default_simulator.mesures = {'csg': {'taux': 'invalid'}}
-    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}), \
-         patch('numpy.random.normal', return_value=0):
+    with patch.dict(os.environ, {'BUDGETLAB_STRICT': ''}):
         results, details, report = default_simulator.simulate()
     assert any("Erreur mesure csg" in s or "erreur" in s.lower() for s in default_simulator.debug_logs), "Log erreur manquant"
     assert len(results) == 4, "Simulation complète malgré erreur"
@@ -240,19 +239,18 @@ def test_calculate_inflation_deflation(simulator):
         'tva_impact': 0
     }
     simulator.inflation_precedente = 0.01
-    with patch('numpy.random.normal', return_value=-0.002):
-        inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
+    inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
     # v0.6.1 lot 8 — forme ANCRÉE, π* = 1,6 %, κ_LR = 0,20 :
     #   ancrage = 0.016 + 0.20*(-0.03)               = 0.0100
     #   base    = 0.5*0.0100 + 0.5*0.01              = 0.0100
     #   effort consolidation -0.12*0.02 (-0.0024)    = 0.0076
     #   pressions déflationnistes ×0.80              = 0.00608
     #   accommodant (<0,8 %) 0.70*0.00608+0.30*0.016 = 0.009056
-    #   bruit patché -0.002                          = 0.007056
     # Le déplacement vs v0.6.0 (0,0023) vient de la pente : à un gap de
     # -3 pt, l'ancienne pente effective 0,70 retirait 2,1 pt d'inflation,
     # la nouvelle en retire 0,6 — le régime ne plonge plus au plancher.
-    expected = 0.0071
+    # v0.6.7 : plus de bruit tiré (l'ancien patch à −0,002 n'a plus d'objet).
+    expected = 0.009056
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Pressions déflationnistes" in s for s in simulator.debug_logs), "Log déflation attendu manquant"
 
@@ -263,8 +261,7 @@ def test_simulate_multiple_measures(default_simulator):
         'tva_rate': {'taux': 0.21},
         'retraites': {'age_depart': 63.0, 'indexation': 0.7, 'duree_cotisation': 43.0},
     }
-    with patch('numpy.random.normal', return_value=0):
-        results, details, report = default_simulator.simulate()
+    results, details, report = default_simulator.simulate()
     assert len(results) == 4, "Simulation incomplète"
     assert any("Mesure tva_rate" in s for s in default_simulator.debug_logs), "Log tva_rate manquant"
     assert any("Mesure retraites" in s for s in default_simulator.debug_logs), "Log retraites manquant"
@@ -277,8 +274,7 @@ def test_calculate_inflation_restrictive(simulator):
         'tva_impact': 0
     }
     simulator.inflation_precedente = 0.02
-    with patch('numpy.random.normal', return_value=0):  # Pas de bruit
-        inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
+    inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
     # v0.6.1 lot 8 — forme ANCRÉE, π* = 1,6 %, κ_LR = 0,20 :
     #   ancrage = 0.016 + 0.20*0.03                  = 0.0220
     #   base    = 0.5*0.0220 + 0.5*0.02              = 0.0210
@@ -338,15 +334,17 @@ def test_apply_measures_plafond_10pct(simulator, monkeypatch):
     assert total_impact > 100, f"Expected significant total impact, got {total_impact:.1f}"
 
 def test_calculate_inflation_deflation_forte(simulator):
+    # v0.6.7 : sans bruit tiré, l'ancien état (gap −6 %, effort 6 %, π−1 = 0)
+    # donne +0,23 % : il n'atteignait le plancher que grâce au tirage patché
+    # à −0,6 pt. L'état ci-dessous l'atteint par le modèle seul.
     economic_state = {
-        'output_gap': -0.06,  # Déflation plus forte
+        'output_gap': -0.15,  # Déflation très forte
         'unemployment_gap': 0.05,
-        'effort_budgetaire': 0.06,  # Consolidation plus forte
+        'effort_budgetaire': 0.10,  # Consolidation très forte
         'tva_impact': 0
     }
-    simulator.inflation_precedente = 0.00  # Inertie faible
-    with patch('numpy.random.normal', return_value=-0.006):
-        inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
+    simulator.inflation_precedente = -0.003  # Déjà au plancher
+    inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
     expected = -0.003  # Clip à min
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Impact déflationniste" in s for s in simulator.debug_logs), "Log déflation forte manquant"
@@ -368,8 +366,7 @@ def test_simulate_domar_crisis(default_simulator, monkeypatch):
         'retraites': {'age_depart': 55.0, 'indexation': 2.0, 'duree_cotisation': 30.0},
         'chomage_alloc': {'montant': 60, 'duree': 36, 'degressivite': False}
     }
-    with patch('numpy.random.normal', return_value=0), \
-         patch.object(default_simulator, 'calculate_interest_rate', return_value=0.045):
+    with patch.object(default_simulator, 'calculate_interest_rate', return_value=0.045):
         results, details, report = default_simulator.simulate()
     r_minus_g = (details['Taux_Intérêt %'].iloc[-1] / 100) - (results['Croissance %'].iloc[-1] / 100)
     assert r_minus_g > 0.01, f"r - g = {r_minus_g:.4f} ne dépasse pas 0.01%"

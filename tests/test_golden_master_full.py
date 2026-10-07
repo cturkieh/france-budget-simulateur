@@ -9,7 +9,8 @@ Le snapshot de référence `tests/snapshots/golden_master_v1.json` doit être r�
 explicitement après chaque changement intentionnel de calibration :
     python tests/snapshots/run_scenarios_full.py --out tests/snapshots/golden_master_v1.json
 
-Le déterminisme est garanti par `np.random.seed(42)` dans simulator.py (lignes 363/627).
+Le déterminisme est structurel : le moteur ne tire aucun hasard depuis v0.6.7
+(bruits retirés, plus de `np.random.seed(42)`), cf. tests/test_deterministe_v067.py.
 Tolérance ε=1e-3 cohérente avec l'arrondi 3 décimales du snapshot.
 
 La boucle de comparaison et la détection de silent failure sont factorisées dans

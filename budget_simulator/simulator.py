@@ -2,7 +2,6 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
-import numpy as np
 import pandas as pd
 from asteval import Interpreter
 
@@ -436,7 +435,6 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
     def __init__(self, periods: int = 10, mesures: Dict = None):
 
-        np.random.seed(42)
         # Paramètres de base INSEE/Eurostat 2025 (from constants.py)
         self.base_params = {
             'pib_base': PIB_BASE_2025_MD_EUR,
@@ -751,8 +749,11 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # --- Debug logs (repartir propre) ---
         self.debug_logs = []
 
-        # --- Random seed (résultats reproductibles) ---
-        np.random.seed(42)
+        # (v0.6.7) Plus de `np.random.seed(42)` ici : le moteur ne tire plus
+        # aucun hasard (bruits de croissance et d'inflation retirés,
+        # engine/growth.py). Le déterminisme ne repose plus sur l'état global
+        # du générateur numpy, partagé par tout le processus :
+        # tests/test_deterministe_v067.py.
 
     def _load_measure_config(self):
         """Charge la configuration des mesures depuis JSON.
