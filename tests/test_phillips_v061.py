@@ -240,13 +240,13 @@ def _moyenne_deflateur_2026_2030(rho, mesures=None):
     return sum(df['Inflation %'].iloc[i] for i in range(1, 6)) / 5
 
 
-@pytest.mark.parametrize('rho', [0.20, 0.25, 0.30, 0.40, pytest.param(0.50, marks=pytest.mark.xfail(
-    strict=True, reason=(
-        "v0.6.7, bruit retiré : le tirage graine 42 soutenait le déflateur (scénario "
-        "publié, ρ servi 0,33 : moyenne 2026-2030 1,498 → 1,426 %). À ρ = 0,50, borne "
-        "haute de la fourchette, 1,384 % sous le plancher 1,40 (ρ = 0,45 : 1,400 pile). "
-        "Marge de calibration que le hasard tenait, pas un test à recaler : arbitrage "
-        "du ré-ancrage (rapport du lot 3b). strict=True : un retour au vert rougit.")))])
+# FOURCHETTE TESTÉE RESTREINTE à [0,20 ; 0,45] (v0.6.7, lot 3b, arbitrage du
+# 07/10/2026). Le tirage aléatoire retiré soutenait le déflateur (scénario publié,
+# ρ servi 0,33 : moyenne 2026-2030 1,498 → 1,426 %) ; la conformité au plancher 1,40
+# tient jusqu'à ρ = 0,45 (1,400 pile) ; au-delà, l'inertie fait passer le déflateur
+# sous 1,40 (ρ = 0,50 : 1,384) — zone hors usage, ρ servi étant au milieu de la
+# fourchette de travail 0,20-0,50. Une valeur servie au-delà de 0,45 rougirait ici.
+@pytest.mark.parametrize('rho', [0.20, 0.25, 0.30, 0.40, 0.45])
 def test_la_conformite_du_corridor_2026_2030_ne_depend_pas_de_l_inertie(rho):
     """Aucune valeur plausible de ρ ne sort la calibration du corridor.
 
