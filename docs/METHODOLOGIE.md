@@ -1273,6 +1273,10 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
   la branche « énergie seule » émettait -0,002 de compétitivité à intensité 0, sans
   taxe levée : poser le levier à 0 ou l'omettre ne donnait pas la même trajectoire
   (corrigé v0.6.7, `tests/test_audit_codex_v067.py`).
+- Bloc vide `{"taxe_superprofits": {}}` : sans clé `intensite`, le levier passe en mode
+  legacy, dont les défauts sont ceux du programme NFP (25 %, seuil 120 %, tous
+  secteurs) — il applique donc la taxe pleine (+15 Md EUR/an 2026-2028). Pour le
+  désactiver : `{"intensite": 0}` ou clé omise.
 
 ### TVA Energie Differenciee
 

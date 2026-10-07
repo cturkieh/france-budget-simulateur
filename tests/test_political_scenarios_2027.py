@@ -102,23 +102,42 @@ def test_scenario_simule_sans_erreur(name, measures):
     assert 2 < final["Chômage %"] < 20, f"{name}: chômage aberrant {final['Chômage %']:.2f}%"
 
 
-_SCENARIOS_JSX = (
-    Path(__file__).resolve().parents[1] / "frontend-react" / "src" / "pages" / "ScenariosPage.jsx"
-)
+def _front_src():
+    """``frontend-react/src`` du dépôt parent, localisé par la MÊME source que les
+    scénarios (``scenarios.json`` : ``BUDGETLAB_SCENARIOS_JSON``, exposée par le
+    conftest parent, ou résolution automatique de run_scenarios_full).
+
+    v0.6.7 : la garde cherchait ``Path(__file__).resolve().parents[1] /
+    "frontend-react"``. Lancée depuis le parent, ``resolve()`` suit le symlink
+    ``tests/`` et pointe vers le submodule, où ``frontend-react/`` n'existe pas :
+    elle sautait dans TOUTES les exécutions (piège symlink documenté)."""
+    from tests.snapshots.run_scenarios_full import _SCENARIOS_JSON
+    if _SCENARIOS_JSON is None:
+        return None
+    src = _SCENARIOS_JSON.resolve().parents[1]
+    return src if (src / "pages" / "ScenariosPage.jsx").exists() else None
 
 
 @pytest.mark.skipif(
-    not _SCENARIOS_JSX.exists(),
+    _front_src() is None,
     reason="frontend-react/ hors périmètre open source (repo privé) — "
     "garde-fou frontend non applicable à un fork du moteur seul",
 )
 def test_aucune_collision_id_lfi_2026():
-    """Garde-fou anti-régression : l'acronyme LFI désigne uniquement le parti, jamais la Loi Finances."""
-    content = _SCENARIOS_JSX.read_text()
-    assert "'LFI 2026" not in content, "Collision sémantique : 'LFI 2026' désigne la Loi Finances mais LFI = parti"
-    assert "lfi_2027" in content, "Le scénario lfi_2027 (LFI Mélenchon) doit être présent"
-    # La string 'nfp_2027' reste autorisée dans le mapping SCENARIO_RENAMES (migration localStorage)
-    assert "nfp_2027: {" not in content, "Le scénario nfp_2027 a été renommé en lfi_2027 — pas de définition résiduelle"
+    """Garde-fou anti-régression : l'acronyme LFI désigne uniquement le parti, jamais la Loi Finances.
+
+    Recible v0.6.7 : les identifiants ne vivent plus dans ``ScenariosPage.jsx``
+    mais dans ``scenarios.json`` (source unique, cf. run_scenarios_full) et leurs
+    libellés dans ``scenariosMeta.js``."""
+    src = _front_src()
+    assert "lfi_2027" in FULL_SCENARIOS, "Le scénario lfi_2027 (LFI Mélenchon) doit être présent"
+    assert "nfp_2027" not in FULL_SCENARIOS, (
+        "Le scénario nfp_2027 a été renommé en lfi_2027 — pas de définition résiduelle")
+    for fichier in ("data/scenarios.json", "data/scenariosMeta.js", "pages/ScenariosPage.jsx"):
+        contenu = (src / fichier).read_text(encoding="utf-8")
+        assert "LFI 2026" not in contenu, (
+            f"{fichier} : collision sémantique, « LFI 2026 » désignerait la Loi de finances "
+            "alors que LFI = le parti")
 
 
 # Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes (tous les scénarios × 35 leviers ; MAJ 30/08/2026 : 10 scénarios).

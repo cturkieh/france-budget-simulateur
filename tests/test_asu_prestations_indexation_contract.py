@@ -97,23 +97,38 @@ def test_predicate_matches_asu_phasing_non_zero():
     )
 
 
-def test_malformed_asu_fails_loudly_not_silently():
-    """DÉCISION verrouillée : un `asu` mal formé (non-dict, ex. raccourci
+def test_malformed_asu_fails_loudly_not_silently(monkeypatch):
+    """DÉCISION (révisée v0.6.7) : un `asu` mal formé (non-dict, ex. raccourci
     humain `{'asu': 1}` au lieu de `{'asu_activation': 1}`) DOIT échouer
-    bruyamment, PAS neutraliser/ignorer en silence.
+    bruyamment, PAS être neutralisé en silence — et il doit échouer SUR LE
+    LEVIER `asu`, pas sur ses lecteurs latéraux.
 
-    Cohérent avec la convention projet (MIXIN_BAD_PARAMS → _handler_failed
-    / ExceptionGroup STRICT) : un param malformé remonte, il n'est jamais
-    silencieusement absorbé. Ne PAS « durcir » `asu_is_active` en
-    `isinstance(asu, dict)` : cela (a) casserait la byte-identité de
-    `asu_phasing` (l'ancien code crashait aussi sur non-dict), (b)
-    transformerait un échec bruyant en neutralisation silencieuse —
-    l'inverse de la convention. Le trou « clé `asu` mal orthographiée →
-    pas de neutralisation » relève du contrat de params (Item 2)."""
-    with pytest.raises(AttributeError):
-        asu_is_active({'asu': 1})
-    with pytest.raises(AttributeError):
-        _prestations_ds({
-            'asu': 1,
-            'prestations_indexation': {'taux_indexation': 0.005},
-        })
+    Révision : la version d'origine exigeait que `asu_is_active` lève
+    (AttributeError), faute d'autre signal à l'époque. Depuis la porte du
+    05/10/2026 (Sentry FRANCE-BUDGET-Z), un bloc mal formé est qualifié par
+    `apply_measures` sur le levier lui-même (`logger.error` +
+    `HANDLER_FAILED_KEY` ; `ExceptionGroup` en STRICT), et les lecteurs
+    latéraux le traitent comme absent (`valeur_brute`). Lever DANS
+    `asu_is_active` faisait échouer à sa place prestations_indexation et
+    fraude_sociale : désindexation perdue, échec attribué au mauvais levier,
+    et une ASU en échec (donc non appliquée) neutralisait quand même les
+    prestations. Le contrat « bruyant » est conservé, déplacé à la porte ;
+    la byte-identité d'`asu_phasing` sur toute entrée valide est vérifiée par
+    le golden master. Le trou « clé `asu` mal orthographiée » relève toujours
+    du contrat de params (Item 2)."""
+    from budget_simulator.constants import HANDLER_FAILED_KEY
+    mesures = {'asu': 1, 'prestations_indexation': {'taux_indexation': 0.005}}
+    assert asu_is_active({'asu': 1}) is False
+    # Tolérant : échec tracé sur `asu`, prestations calculées (ASU non appliquée).
+    monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
+    _, _, rapport = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    an = rapport['measure_impacts_by_year'][4]
+    assert an['asu'][HANDLER_FAILED_KEY] is True
+    assert HANDLER_FAILED_KEY not in an['prestations_indexation']
+    assert _prestations_ds(mesures) < 0
+    # STRICT : la simulation lève, et le seul levier mis en cause est `asu`.
+    monkeypatch.setenv('BUDGETLAB_STRICT', '1')
+    with pytest.raises(ExceptionGroup) as exc:
+        BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    notes = [n for e in exc.value.exceptions for n in getattr(e, '__notes__', [])]
+    assert notes and all(n.startswith('measure_id=asu,') for n in notes), notes

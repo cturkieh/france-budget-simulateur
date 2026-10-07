@@ -159,7 +159,14 @@ class AdditionnelsMixin(_MixinBase):
 
     def _apply_taxe_superprofits(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """Taxe superprofits. NFP: 25% >120% moy → +15 Md€. Temporaire 3 ans (2026-2028). Effets NIVEAU one-time.
-        Sources: NFP 2027, OFCE 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
+        Sources: NFP 2027, OFCE 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027.
+
+        Contrat d'entrée (documenté v0.6.7) : sans clé ``intensite``, le handler est
+        en mode LEGACY, dont les défauts sont ceux du programme NFP (taux 25 %, seuil
+        120 %, tous secteurs). Un bloc VIDE ``{"taxe_superprofits": {}}`` applique
+        donc la taxe pleine (+15 Md€/an 2026-2028), pas la mesure inactive : pour
+        désactiver le levier, poser ``{"intensite": 0}`` (défaut du moteur) ou
+        omettre la clé — les deux sont neutres au bit depuis v0.6.7."""
         # Mode simplifié (slider unique d'intensité) sinon mode legacy.
         # Simplifié : taux = 0.25·i ; seuil = 1.0 + 0.20·i (NFP 100 % →
         # 25 % tous secteurs, seuil 120 %) ; tous_secteurs = i > 0.

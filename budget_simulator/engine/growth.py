@@ -68,7 +68,11 @@ adverse 2026-05-16) : le ``except Exception`` de
 aucune opération du bloc ne peut lever (``_get_default_values`` =
 return dict littéral pur ; ``.get`` sur dict ; ``isinstance`` neutralise
 les types tordus avant arithmétique ; ``np.log2(1+delta)`` avec
-``delta>0.1`` garanti ⇒ argument > 1.1, jamais d'exception). Le seul
+``delta>0.1`` garanti ⇒ argument > 1.1, jamais d'exception ; depuis v0.6.7
+la valeur passe par la porte ``validate_param_domains`` — non finie →
+défaut, hors domaine → clampée —, exactement comme côté handler). Exception
+connue : un entier hors de la plage des flottants (JSON de 400 chiffres)
+lève OverflowError, attrapée et tracée ci-dessous. Le seul autre
 vecteur (bloc non-dict dans ``self.mesures`` : ``null`` ou mal formé)
 n'est PAS arrêté en amont — ``apply_measures`` saute un bloc null et
 absorbe un bloc mal formé dans son ``try`` per-mesure — : il est
@@ -98,7 +102,7 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
-from ._param_domain import valeur_brute
+from ._param_domain import validate_param_domains, valeur_brute
 
 logger = logging.getLogger(__name__)
 
@@ -442,6 +446,17 @@ class GrowthMixin:
 
                 if not isinstance(current_val, (int, float)) or not isinstance(default_val, (int, float)):
                     continue
+                # v0.6.7 : la valeur passe par la MÊME porte que celle que lit le
+                # handler (apply_measures, mode tolérant) — non finie → défaut,
+                # hors domaine PARAM_DOMAINS → clampée. Lue brute, un
+                # `recherche_publique.budget = inf` retiré côté dépense donnait
+                # ici +0,2 pt de croissance potentielle, et un budget hors domaine
+                # un effet d'offre que la dépense clampée ne finance pas. En
+                # strict, la porte a déjà levé dans apply_measures la même année.
+                propre = validate_param_domains(
+                    cfg['measure_id'], {cfg['param']: current_val}, strict=False,
+                    warned=getattr(self, '_domain_clamp_warned', None))
+                current_val = propre.get(cfg['param'], default_val)
 
                 delta = current_val - default_val
 

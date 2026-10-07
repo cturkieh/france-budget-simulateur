@@ -116,7 +116,9 @@ def test_carte_de_la_dette_d_audit(motif):
     soit un bannissement au passage, les deux devant se voir)."""
     attendus, raison = _DETTE_D_AUDIT[motif]
     compile_ = re.compile(motif)
-    trouves = {str(f.relative_to(ROOT)) for f in _fichiers_publies()
+    # `.as_posix()` : la carte est écrite avec des « / » ; `str()` rendrait des « \ »
+    # sous Windows et ferait échouer la comparaison sans qu'aucune dette ait changé.
+    trouves = {f.relative_to(ROOT).as_posix() for f in _fichiers_publies()
                if compile_.search(f.read_text(encoding='utf-8'))}
     assert trouves == attendus, (
         f"carte de dette d'audit périmée pour {motif!r} — attendu {sorted(attendus)}, "

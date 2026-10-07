@@ -404,3 +404,89 @@ def test_lot2_prestations_inflation_constante_formule_inchangee():
         k = annee - 2026
         assert dep[annee] == pytest.approx(-PRESTATIONS_BASE_MD * (1 - (1 - 0.2 * 0.015) ** k),
                                            rel=1e-12, abs=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Hygiène — restes moteur du 05/10/2026 (backlog, item 1).
+# ---------------------------------------------------------------------------
+
+def _trajectoire(mesures):
+    df, sec, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    return df, sec
+
+
+@pytest.mark.parametrize('valeur', [float('inf'), float('-inf'), float('nan')])
+def test_hygiene_offre_non_finie_vaut_le_defaut(valeur, monkeypatch, pleine_precision):
+    """RED v0.6.6 : ``update_potential_growth`` lisait ``self.mesures`` BRUT. En mode
+    tolérant, la porte retire ``recherche_publique.budget = inf`` (le handler retombe
+    sur son défaut) mais le canal d'offre lisait ``inf`` : +0,2 pt de croissance
+    potentielle (dette 2035 158,42 au lieu de 161,79). Les deux lecteurs du même
+    paramètre doivent lire la même valeur."""
+    monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
+    df_v, sec_v = _trajectoire({'recherche_publique': {'budget': valeur}})
+    df_d, sec_d = _trajectoire({'recherche_publique': {}})
+    assert df_v.equals(df_d) and sec_v.equals(sec_d)
+
+
+def test_hygiene_offre_bornee_comme_le_handler(monkeypatch, pleine_precision):
+    """Même porte, deuxième étage : hors du domaine publié ([0 ; 20] Md€), le handler
+    lit la valeur CLAMPÉE ; le canal d'offre lisait la valeur brute. Le bonus de
+    recherche seul sature le plafond ±0,2 pt dès 0,74 Md€ d'écart : le défaut ne se
+    voit qu'en SOMME avec un effet d'offre de signe opposé (investissement de
+    transition), d'où la combinaison. RED v0.6.6 : bonus 2035 −0,20 pt au lieu de
+    +0,086, dette 2035 164,8 au lieu de 159,9."""
+    monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
+    from budget_simulator.constants import PARAM_DOMAINS
+    borne_basse = PARAM_DOMAINS['recherche_publique']['budget'][0]
+    transition = {'investissement': 26}   # défaut moteur 0
+    df_hors, sec_hors = _trajectoire({'transition_ecologique': transition,
+                                      'recherche_publique': {'budget': borne_basse - 30}})
+    df_borne, sec_borne = _trajectoire({'transition_ecologique': transition,
+                                        'recherche_publique': {'budget': borne_basse}})
+    assert df_hors.equals(df_borne) and sec_hors.equals(sec_borne)
+
+
+def test_hygiene_entier_geant_ne_casse_pas_la_simulation_toleree(monkeypatch):
+    """RED v0.6.6 : un entier JSON de 400 chiffres levait OverflowError dans
+    ``detect_active_measures`` (journal des leviers déviés, appelé en 2026 HORS du
+    ``try`` par mesure) : 500 en mode tolérant. Le journal ignore désormais la valeur
+    illisible ; l'anomalie ressort par la porte, qui la qualifie (échec du handler
+    tracé, mesure comptée à 0) — et les autres leviers déviés restent journalisés."""
+    from budget_simulator.constants import HANDLER_FAILED_KEY
+    monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
+    sim = BudgetSimulatorV45(periods=10, mesures={'recherche_publique': {'budget': 10 ** 400},
+                                                  'defense': {'budget': 60}})
+    _, _, rapport = sim.simulate()
+    assert rapport['measure_impacts_by_year'][1]['recherche_publique'][HANDLER_FAILED_KEY] is True
+    assert 'defense.budget=60.00' in sim.detect_active_measures()
+
+
+@pytest.mark.parametrize('bloc', ['oui', [1], 1, ('asu_activation', 1)])
+def test_hygiene_bloc_asu_mal_forme_n_emporte_pas_les_autres_leviers(bloc, monkeypatch):
+    """RED v0.6.6 : ``asu_is_active`` faisait ``.get`` sur tout bloc non vide — un
+    bloc ``asu`` mal formé levait DANS les handlers prestations et fraude sociale,
+    qui échouaient à sa place (désindexation perdue, échec attribué au mauvais
+    levier). Un bloc mal formé est inactif pour ses lecteurs latéraux, comme dans
+    ``valeur_brute`` ; seule la porte d'``asu`` le signale."""
+    from budget_simulator.constants import HANDLER_FAILED_KEY
+    from budget_simulator.handlers._phasing import asu_is_active, asu_phasing
+    monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
+    assert asu_is_active({'asu': bloc}) is False
+    assert asu_phasing({'asu': bloc}, 2030) == 0.0
+    mesures = {'asu': bloc, 'prestations_indexation': {'taux_indexation': 0.8},
+               'fraude_sociale': {'effort': 0.5}}
+    _, _, rapport = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    an_2030 = rapport['measure_impacts_by_year'][5]
+    for levier in ('prestations_indexation', 'fraude_sociale'):
+        assert HANDLER_FAILED_KEY not in an_2030[levier], levier
+    assert an_2030['prestations_indexation']['depenses'] < 0
+    assert an_2030['asu'][HANDLER_FAILED_KEY] is True   # l'anomalie reste signalée, sur asu
+
+
+def test_hygiene_bloc_superprofits_vide_contrat_documente():
+    """Contrat DOCUMENTÉ (docstring du handler, METHODOLOGIE § Taxe Superprofits) :
+    un bloc vide est le mode legacy à ses défauts NFP, donc la taxe pleine — pas la
+    mesure inactive. Si ce comportement change, la documentation doit changer avec."""
+    for annee, attendu in ((2026, 15.0), (2028, 15.0), (2029, 0.0)):
+        _, recettes, _ = _superprofits({}, annee)
+        assert recettes == pytest.approx(attendu), annee

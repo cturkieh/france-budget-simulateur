@@ -113,7 +113,11 @@ def asu_is_active(mesures: Dict) -> bool:
     lui aussi (``not asu``).
     """
     asu = mesures.get('asu')
-    if not asu:
+    # v0.6.7 : un bloc MAL FORMÉ non vide (str, liste, nombre) faisait lever le
+    # `.get` ci-dessous DANS les handlers lecteurs (prestations, fraude sociale),
+    # qui échouaient à la place de l'ASU. Inactif ici, comme dans `valeur_brute` :
+    # c'est la porte d'`apply_measures` sur `asu` qui signale l'anomalie.
+    if not asu or not isinstance(asu, dict):
         return False
     activation = asu.get('asu_activation', 0)
     if activation is None:

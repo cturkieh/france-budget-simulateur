@@ -138,8 +138,16 @@ class OrchestratorMixin:
                         active_measures.append(f"{measure_id}.{param_name}={value}")
                 elif isinstance(value, (int, float)):
                     threshold = 0.5 if isinstance(default_val, int) else 0.01
-                    if abs(value - default_val) > threshold:
-                        active_measures.append(f"{measure_id}.{param_name}={value:.2f}")
+                    # Même règle que pour un bloc illisible ci-dessus : un entier
+                    # hors de la plage des flottants (JSON de 400 chiffres) levait
+                    # OverflowError au formatage, hors du `try` per-mesure → 500
+                    # en tolérant (v0.6.7). La valeur est ignorée par ce journal ;
+                    # la porte d'apply_measures la qualifie (échec tracé).
+                    try:
+                        if abs(value - default_val) > threshold:
+                            active_measures.append(f"{measure_id}.{param_name}={value:.2f}")
+                    except (OverflowError, TypeError, ValueError):
+                        continue
 
         return active_measures
 
