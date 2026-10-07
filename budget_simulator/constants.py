@@ -475,6 +475,14 @@ COUT_MOYEN_AGENT_FP_EUR = 60000
 # curseur effectifs (anti-double-comptage v0.6.0 : l'objectif d'effectifs est
 # servi d'abord par les non-remplacements que la réforme réalise déjà).
 DEPARTS_ANNUELS_FP = 157000
+# Taux maximal de non-remplacement de ces départs, PARTAGÉ par la réforme de
+# l'État et le curseur effectifs (v0.6.7, réfutation des handlers) : celui de la
+# réforme à son intensité maximale (20 : 50 % + 10 × 1,7 point, cf.
+# handlers/efficience.py). Le curseur ne peut pas faire ce que la réforme ne peut
+# pas — réforme + curseur ≤ ce taux × les départs cumulés depuis la première
+# cohorte. Valeur de construction du moteur, pas une estimation sourcée (repère :
+# la RGPP 2007-2012 visait un départ sur deux, 50 %).
+FP_TAUX_NON_REMPLACEMENT_MAX = 0.67
 
 # Constantes RETIRÉES par la refonte « assemblage temporel » (2026-06,
 # cf. docs/plans/refonte-annee1-assemblage.md du repo parent) :

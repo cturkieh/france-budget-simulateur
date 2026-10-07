@@ -57,9 +57,9 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
-| Deficit 2026 | -5,28 % | **-5,15 %** (loi votee : -5,0 %) |
+| Deficit 2026 | -5,28 % | **-5,16 %** (loi votee : -5,0 %) |
 | Dette 2030 | 128,99 % | **128,52 %** (mission IGF : 130,5) |
-| Dette 2035 | 157,90 % | **156,48 %** |
+| Dette 2035 | 157,90 % | **156,50 %** |
 | Deficit 2035 | -10,60 % | **-10,23 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
@@ -694,7 +694,7 @@ et par un meilleur ciblage, pas par une depense additionnelle.
 
 | Parametre | Impact | Cout/Economie |
 |-----------|--------|---------------|
-| Effectifs | Ajustement ponctuel | 60 k EUR/agent/an |
+| Effectifs | Cible atteinte en 2032 (rampe 2027-2032) | 60 k EUR/agent/an |
 | Point d'indice | Hausse salaires | 2 Md EUR/point |
 | Fusion agences | Economies structurelles | Variable |
 
@@ -721,9 +721,43 @@ littérature, pas les montants du moteur. Jusqu'à v0.6.6, le stock valait
 `départs × taux × efficacité(année courante) × nombre d'années` : il réévaluait les
 cohortes passées, comptait une cohorte 2026 inexistante et pouvait croître de plus que
 les départs d'une année (intensité 20 : 525 950 postes en 2030 ; audit externe Codex,
-10/2026). Le curseur « effectifs » puise dans le **même vivier** : réforme + curseur ne
-suppriment jamais plus de postes que les départs cumulés depuis 2026 (v0.6.0). Propriétés
+10/2026). Le curseur « effectifs » puise dans le **même vivier** (ci-dessous). Propriétés
 verrouillées par `tests/test_audit_codex_v067.py` et `tests/test_fp_v060.py`.
+
+### Curseur « effectifs » : rampe 2027-2032 et vivier partagé (v0.6.7)
+
+**Règle** (arbitrage du 07/10/2026, la même pour tous les programmes et dans les deux
+sens). La valeur du curseur est une cible de **stock** de postes, atteinte par une rampe
+linéaire : rien en 2026 (budget voté, le mandat n'a pas commencé), un sixième de la cible
+par an de 2027 à 2032, la cible pleine en 2032 et au-delà. 2032 est l'année que donnent
+les sources du RN (« trajectoire 2027-2032 ») et de LR (« sur le quinquennat ») ; aucune
+source de programme n'annonce une cible plus rapide. Exemple : −201 000 postes donnent
+−33 500 en 2027 et −201 000 en 2032. Une création de postes suit la même rampe
+(+60 000 donnent +10 000 en 2027), et son effet de pouvoir d'achat est servi au même
+rythme, par incréments annuels.
+
+**Plafond partagé avec la réforme de l'État.** Une réduction opère par non-remplacement
+des départs (157 000 par an), le vivier de la réforme. Réforme + curseur ne suppriment
+jamais plus de **67 %** des départs cumulés depuis 2027 (`FP_TAUX_NON_REMPLACEMENT_MAX`),
+le taux maximal de la réforme elle-même (intensité 20) : le curseur ne peut pas faire ce
+que la réforme ne peut pas. C'est une valeur de construction du moteur, pas une
+estimation sourcée (repère : la RGPP 2007-2012 visait un départ sur deux). Sur les
+programmes publiés, la rampe seule demande au plus 50 000 postes par an (LR, 32 % des
+départs) ; le plafond ne mord que si une réforme de l'État intense s'y ajoute.
+
+**Ce que la règle corrige.** Jusqu'en v0.6.6, la cible était posée dès 2026 dans la seule
+limite de 100 % des départs cumulés depuis 2026 : RN et LR supprimaient 157 000 postes dès
+2026 (aucun départ remplacé dans toute la fonction publique) et atteignaient leur cible
+dès 2027 ; les créations de postes étaient instantanées. Effet de la correction sur la
+dette 2035 (réfutation des handlers, 07/10/2026) : LR +1,72 pt, RN +1,24, Renaissance
++0,67, IM-compétitivité +0,66 ; LFI −0,37, PS −0,24, Écologistes −0,13 (coût des
+créations étalé).
+
+**Conséquence assumée sur le scénario de référence.** `plf_2026` encode −3 119 postes
+pour 2026, et Horizons pose ce levier à la même valeur (droit en vigueur). La règle
+commune les fait monter de 2027 à 2032 au lieu de les appliquer en 2026 : 0,19 Md EUR
+d'économie de moins en 2026, rien au-delà de 2032 (déficit 2026 de référence −5,16 % au
+lieu de −5,15 %). Propriétés verrouillées par `tests/test_fp_rampe_v067.py`.
 
 ### SMIC et Fonction Publique (Correction v3.0)
 
@@ -1512,7 +1546,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
-- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,33 / 1,52 / 1,51 / 1,54 / 1,59%, ecart annuel <= 0,13 pt, **moyenne 2026-2030 = 1,498%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,33 / 1,53 / 1,55 / 1,60 / 1,67%. Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
+- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,33 / 1,52 / 1,51 / 1,54 / 1,60%, ecart annuel <= 0,13 pt, **moyenne 2026-2030 = 1,500%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,33 / 1,53 / 1,55 / 1,60 / 1,67%. Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
 - **Marge a declarer** : la moyenne du scenario servi est a 0,068 pt du plancher de la fourchette (contre 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` est tombee a 0,046 pt entre 0,25 et 0,50 (0,062 avant) — desormais SOUS le seuil < 0,05 demande par le brief : la calibration depend moins du seul parametre que personne ne publie. La conformite tient sur toute la plage plausible de `rho`, et c'est verrouille par un test. En sens inverse, la marge du corridor de DETTE s'est resserree (deviation annuelle max 1,51 pt pour une tolerance de 1,6) : declare ici plutot que tu.
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
@@ -1906,10 +1940,10 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | **-5,15 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,28) |
+| Deficit | **-5,16 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,28) |
 | Dette | **128,52 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,98 pt apres les recalages Phillips v4.1, sourcing v4.2 et impulsions v0.6.7 — la v4.0 affichait +2,4 pt) |
 | Dette | **128,99 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **157,90 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 156,48) |
+| Dette | **157,90 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 156,50) |
 | Deficit | **-10,60 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,23) |
 | Croissance potentielle | 1,1% | Sentier mission IGF 07/2026 (1,2/1,2/1,0/1,0), extensible a 1,3% |
 | Chomage NAIRU | ~7,5% | Structurel |

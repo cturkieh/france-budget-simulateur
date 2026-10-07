@@ -282,7 +282,9 @@ def test_lot2_fp_cohorte_bornee_par_le_vivier_annuel():
 @pytest.mark.parametrize('effectifs', [-60000, -300000, -900000])
 def test_lot2_fp_reforme_et_curseur_jamais_au_dela_des_departs_cumules(effectifs):
     """Anti-double-comptage v0.6.0 PRÉSERVÉ : réforme + curseur effectifs ne
-    suppriment jamais plus de postes que les départs cumulés depuis 2026."""
+    suppriment jamais plus de postes que les départs cumulés depuis 2026 (borne
+    resserrée en v0.6.7 à 67 % des départs depuis 2027, verrouillée par
+    tests/test_fp_rampe_v067.py ; celle-ci reste vraie a fortiori)."""
     from budget_simulator.constants import COUT_MOYEN_AGENT_FP_EUR
     mesures = {'fonction_publique_reforme': REFORME_MAX,
                'fonction_publique': {'effectifs': effectifs, 'point_indice': 0}}

@@ -15,6 +15,11 @@ une réduction ADDITIONNELLE ; l'anti-double-comptage plafonne le TOTAL des
 non-remplacements (réforme + curseur) aux départs CUMULÉS depuis 2026
 (DEPARTS_ANNUELS_FP × années) — on ne supprime pas plus de postes qu'il n'en
 part. Un objectif massif monte donc en charge au rythme des départs.
+v0.6.7 (réfutation des handlers) : la cible est atteinte par une rampe linéaire
+2027-2032 (0 en 2026), et le plafond partagé vaut FP_TAUX_NON_REMPLACEMENT_MAX
+(67 %, le taux maximal de la réforme) des départs cumulés depuis 2027 — détail
+et propriétés dans tests/test_fp_rampe_v067.py. Les cas ci-dessous sont posés
+en 2032 (rampe pleine) quand ils testent l'effet plein.
 Coût par agent UNIFIÉ au coût complet chargé (60 k€ = 330 Md€ / 5,5 M agents,
 DGAFP/INSEE). Périmètre distinct documenté : education.enseignants garde son
 coût propre (65 k€, poste enseignant chargé) — recouvrement possible avec le
@@ -27,7 +32,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 
 from budget_simulator.simulator import BudgetSimulatorV45
-from budget_simulator.constants import COUT_MOYEN_AGENT_FP_EUR, DEPARTS_ANNUELS_FP
+from budget_simulator.constants import (
+    COUT_MOYEN_AGENT_FP_EUR,
+    DEPARTS_ANNUELS_FP,
+    FP_TAUX_NON_REMPLACEMENT_MAX,
+)
 
 REFORME_MAX = {'fusion_agences': 100, 'digitalisation': 100}
 
@@ -57,32 +66,38 @@ def test_cout_agent_unifie():
 
 
 def test_effectifs_reste_additionnel_sous_le_vivier():
-    """Réforme max + objectif −60 000 en 2030 : le vivier cumulé (785 k) couvre
-    largement réforme (~289 k depuis v0.6.7) + curseur → le curseur garde son PLEIN effet
-    (le design « résiduel » v0.6.0-rc le rendait inerte — régression tuée)."""
+    """Réforme max + objectif −60 000 en 2032 : le vivier cumulé (67 % de six
+    cohortes, 631 k) couvre réforme (~500 k) + curseur → le curseur garde son
+    PLEIN effet (le design « résiduel » v0.6.0-rc le rendait inerte — régression
+    tuée)."""
     mesures = {'fonction_publique_reforme': REFORME_MAX,
                'fonction_publique': {'effectifs': -60000, 'point_indice': 0}}
-    _, d_eff = _deltas(mesures, year=2030)
+    _, d_eff = _deltas(mesures, year=2032)
     assert d_eff == pytest.approx(-60000 * COUT_MOYEN_AGENT_FP_EUR / 1e9, abs=1e-9)
 
 
 def test_plafond_vivier_annee_1():
-    """2026 : un objectif −200 000 ne peut pas dépasser les départs d'une seule
-    année (157 k) — montée en charge réaliste au rythme des départs."""
-    mesures = {'fonction_publique': {'effectifs': -200000, 'point_indice': 0}}
-    _, d_eff = _deltas(mesures, year=2026)
-    assert d_eff == pytest.approx(-DEPARTS_ANNUELS_FP * COUT_MOYEN_AGENT_FP_EUR / 1e9, abs=1e-9)
+    """2027, première cohorte : un objectif hors domaine (−900 000, appel direct)
+    dont la rampe demande 150 000 postes ne dépasse pas 67 % des départs d'une
+    seule année (105 190). v0.6.6 : 100 % des départs (157 000) dès 2026."""
+    mesures = {'fonction_publique': {'effectifs': -900000, 'point_indice': 0}}
+    assert _deltas(mesures, year=2026)[1] == 0.0
+    _, d_eff = _deltas(mesures, year=2027)
+    plafond = FP_TAUX_NON_REMPLACEMENT_MAX * DEPARTS_ANNUELS_FP
+    assert plafond < 900000 / 6
+    assert d_eff == pytest.approx(-plafond * COUT_MOYEN_AGENT_FP_EUR / 1e9, rel=1e-12)
 
 
 def test_plafond_vivier_avec_reforme():
     """Saturation : réforme max (~289 k en 2030 depuis v0.6.7, ~526 k avant) +
-    objectif −600 000 → seul le solde du vivier (785 k − 289 k ≈ 496 k) est
-    réalisable par le curseur."""
+    objectif −600 000 (rampe 2030 : 400 000) → seul le solde du vivier
+    (67 % de quatre cohortes, 421 k, − 289 k ≈ 131 k) est réalisable par le
+    curseur."""
     mesures = {'fonction_publique_reforme': REFORME_MAX,
                'fonction_publique': {'effectifs': -600000, 'point_indice': 0}}
     s = BudgetSimulatorV45(periods=10, mesures=mesures)
     deja = s._reforme_fp_reduction_cumulee(2030)
-    capacite = DEPARTS_ANNUELS_FP * 5 - deja
+    capacite = FP_TAUX_NON_REMPLACEMENT_MAX * DEPARTS_ANNUELS_FP * 4 - deja
     _, d_eff = _deltas(mesures, year=2030)
     assert 0 < capacite < 600000
     assert d_eff == pytest.approx(-capacite * COUT_MOYEN_AGENT_FP_EUR / 1e9, rel=1e-6)
@@ -102,10 +117,10 @@ def test_activer_la_reforme_ameliore_le_solde_en_regime():
 
 def test_hausse_effectifs_cout_plein():
     """Une CRÉATION de postes ne puise pas dans le vivier : coût plein,
-    réforme ou pas."""
+    réforme ou pas (2032, rampe pleine)."""
     mesures = {'fonction_publique_reforme': REFORME_MAX,
                'fonction_publique': {'effectifs': 50000, 'point_indice': 0}}
-    _, d_eff = _deltas(mesures, year=2030)
+    _, d_eff = _deltas(mesures, year=2032)
     assert d_eff == pytest.approx(50000 * COUT_MOYEN_AGENT_FP_EUR / 1e9, abs=1e-9)
 
 
