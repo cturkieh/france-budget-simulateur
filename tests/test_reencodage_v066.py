@@ -26,14 +26,15 @@ Propriétés verrouillées :
       « aucune économie ni dépense non sourcée » ;
   (c) RN, LR, Horizons : les écarts sourcés valent les arbitrages ;
   (d) pourquoi « retirer » = poser au droit voté et JAMAIS omettre la clé : une clé
-      absente vaut le DÉFAUT DU MOTEUR (config.py, année 2025), pas la loi votée —
-      et pour `taxe_superprofits` le handler à intensité 0 émet encore −0,002 de
-      compétitivité (branche `tous_secteurs` fausse, dette moteur tracée v0.6.7),
-      que portent les six autres scénarios à intensité 0 (trois autres sont à
-      intensité positive, cf. docstring du test). Omettre la clé chez le seul RN lui
-      retirerait cet artefact : traitement asymétrique. La propriété prouve qu'omettre
-      ces deux clés CHANGE la trajectoire (donc que l'omission n'est pas neutre) ;
-      c'est (a) qui vérifie que leur valeur est bien celle du droit voté.
+      absente vaut le DÉFAUT DU MOTEUR (config.py, année 2025), pas la loi votée.
+      Historique : en v0.6.6, `taxe_superprofits` à intensité 0 émettait encore
+      −0,002 de compétitivité (branche `tous_secteurs` fausse), si bien qu'omettre les
+      deux clés retirées du RN décalait SA trajectoire. Artefact corrigé en v0.6.7
+      (`tests/test_audit_codex_v067.py`) : (d1) prouve que, pour CES deux clés,
+      l'omission est désormais neutre au bit. La règle d'encodage ne change pas pour
+      autant, et (d2) la garde exécutable : pour un levier dont le défaut moteur
+      diffère du droit voté (`sante` du RN), omettre la clé change bien la
+      trajectoire. C'est toujours (a) qui vérifie la valeur des clés retirées.
 """
 import sys
 from pathlib import Path
@@ -148,21 +149,41 @@ def test_c_ecarts_sources_valent_les_arbitrages(sid, cle, attendu):
     assert _params(SCENARIOS[sid]).get(cle) == attendu
 
 
-@_SCENARIOS
-def test_d_retrait_au_droit_vote_et_non_par_omission():
-    """Poser les deux leviers au droit voté ≠ les omettre : l'omission décale la
-    trajectoire RN (artefact du handler superprofits à intensité 0) — c'est ce qui
-    interdit la forme « clé absente » pour un retrait.
+@pytest.fixture
+def pleine_precision(monkeypatch):
+    """Comparer les trajectoires AVANT l'arrondi de sortie de l'orchestrateur (un
+    écart de −0,002 point d'indice disparaît dans l'arrondi à 0,01 d'une colonne)."""
+    import budget_simulator.engine.orchestrator as orchestrator
+    monkeypatch.setattr(orchestrator, 'round', lambda x, n=None: x, raising=False)
 
-    État de `taxe_superprofits` dans scenarios.json (vérifié le 07/10/2026) : hors RN,
-    6 scénarios à intensité 0 (plf_2026, renaissance, horizons, lr, im_rabot,
-    im_competitivite) portent l'artefact ; 3 à intensité positive (lfi 1,0, ps 0,5,
-    ecologistes 0,5) portent la mesure elle-même."""
+
+def _trajectoires_identiques(a, b):
+    (df_a, sec_a, _), (df_b, sec_b, _) = (
+        BudgetSimulatorV45(periods=10, mesures=m).simulate() for m in (a, b))
+    return df_a.equals(df_b) and sec_a.equals(sec_b)
+
+
+@_SCENARIOS
+def test_d1_omission_des_cles_retirees_desormais_neutre(pleine_precision):
+    """v0.6.7 : l'artefact superprofits corrigé, omettre les deux clés retirées du RN
+    (posées au droit voté : intensité 0 et 0 point) ne change plus rien, au bit.
+
+    État de `taxe_superprofits` dans scenarios.json (vérifié le 07/10/2026) : 7
+    scénarios à intensité 0 (plf_2026, rn, renaissance, horizons, lr, im_rabot,
+    im_competitivite), 3 à intensité positive (lfi 1,0, ps 0,5, ecologistes 0,5).
+    Si ce test rougit, un handler a de nouveau un effet à intensité nulle."""
     rn = SCENARIOS['rn_2027']
     omis = {k: v for k, v in rn.items() if k not in RN_CLES_RETIREES}
-    df_vote, _, _ = BudgetSimulatorV45(periods=10, mesures=rn).simulate()
-    df_omis, _, _ = BudgetSimulatorV45(periods=10, mesures=omis).simulate()
-    assert not df_vote.equals(df_omis), (
-        "l'omission est devenue neutre (artefact superprofits corrigé ?) : la "
-        "forme « clé absente » redevient admissible — mettre à jour (d) et (a)"
-    )
+    assert _trajectoires_identiques(rn, omis)
+
+
+@_SCENARIOS
+def test_d2_omettre_une_cle_n_est_pas_poser_le_droit_vote(pleine_precision):
+    """La règle « retirer = poser au droit voté » reste nécessaire : `sante` du RN
+    vaut le droit voté (efforts 15 / 20 / 10), le défaut moteur vaut 0 / 0 / 0 —
+    omettre la clé changerait la trajectoire."""
+    from budget_simulator.config import load_default_values
+    rn = SCENARIOS['rn_2027']
+    assert rn['sante'] == SCENARIOS['plf_2026']['sante'] != load_default_values()['sante']
+    omis = {k: v for k, v in rn.items() if k != 'sante'}
+    assert not _trajectoires_identiques(rn, omis)

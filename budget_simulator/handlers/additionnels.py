@@ -173,6 +173,14 @@ class AdditionnelsMixin(_MixinBase):
             ),
         )
 
+        # Taxe nulle = mesure inactive, neutre sur TOUS les canaux (même garde
+        # précoce que les autres handlers). v0.6.7 : à intensité 0, le mode
+        # simplifié pose tous_secteurs = False, et la branche « énergie seule »
+        # de la compétitivité émettait −0,002 sans qu'aucune taxe soit levée —
+        # artefact porté par les 7 scénarios publiés à intensité 0.
+        if taux_taxe == 0:
+            return 0, 0, {}
+
         # Année de référence
         years_elapsed = year - POLICY_START_YEAR
 

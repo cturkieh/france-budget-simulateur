@@ -288,3 +288,47 @@ def test_lot2_fp_reforme_et_curseur_jamais_au_dela_des_departs_cumules(effectifs
         total = curseur + sim._reforme_fp_reduction_cumulee(annee)
         assert total <= DEPARTS_ANNUELS_FP * (annee - 2025) * (1 + 1e-12), annee
         assert curseur <= -effectifs * (1 + 1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Lot 2 — artefact ``taxe_superprofits`` à intensité 0 (backlog v0.6.6).
+# Le mode simplifié pose ``tous_secteurs = intensite > 0`` : à 0, la branche
+# « énergie seule » émettait une compétitivité CONSTANTE de −0,002 en 2026, sans
+# aucune taxe levée. Les 7 scénarios publiés à intensité 0 la portaient.
+# ---------------------------------------------------------------------------
+
+def _superprofits(params, year=2026):
+    sim = BudgetSimulatorV45(periods=10, mesures={'taxe_superprofits': params})
+    return sim._apply_taxe_superprofits({}, params, year, 3100.0, 0.015, 0.075)
+
+
+@pytest.mark.parametrize('params', [{'intensite': 0}, {'intensite': 0.0},
+                                    {'taux': 0}, {'taux': 0.0, 'tous_secteurs': False}])
+def test_lot2_superprofits_nul_a_intensite_zero(params):
+    """RED v0.6.6 : competitivite = −0,002 en 2026 à intensité 0. Une taxe qui ne
+    lève rien n'a aucun effet, sur aucun canal, aucune année."""
+    for annee in range(2026, 2031):
+        ds, dr, impacts = _superprofits(params, annee)
+        assert ds == dr == 0
+        assert all(v == 0 for v in impacts.values()), (annee, impacts)
+
+
+def test_lot2_superprofits_competitivite_continue_et_monotone():
+    """Propriété : l'effet compétitivité (année d'entrée) est continu en 0 et ne
+    remonte jamais quand l'intensité augmente (plus de taxe, pas moins de risque de
+    délocalisation). La falaise de v0.6.6 (−0,002 à 0, ~0 juste au-dessus) violait
+    les deux."""
+    grille = [i / 100 for i in range(0, 101)]
+    comp = [_superprofits({'intensite': i})[2].get('competitivite', 0.0) for i in grille]
+    assert comp[0] == 0.0
+    assert all(b <= a for a, b in zip(comp, comp[1:]))
+
+
+def test_lot2_superprofits_omis_ou_pose_a_zero_bit_identique(pleine_precision):
+    """Conséquence en simulation : poser le levier à 0 ou l'omettre donne la même
+    trajectoire, au bit (toutes colonnes, deux tableaux, AVANT l'arrondi de sortie :
+    −0,002 point d'indice disparaît dans l'arrondi à 0,01 de la colonne seule)."""
+    df_0, sec_0, _ = BudgetSimulatorV45(
+        periods=10, mesures={'taxe_superprofits': {'intensite': 0}}).simulate()
+    df_omis, sec_omis, _ = BudgetSimulatorV45(periods=10, mesures={}).simulate()
+    assert df_0.equals(df_omis) and sec_0.equals(sec_omis)

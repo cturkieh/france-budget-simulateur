@@ -1269,6 +1269,10 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
 - Gini : -0,01 pour 15 Md EUR (redistribution capital->Etat)
 - PA : Neutre (taxe entreprises)
 - Competitivite : -0,005 pour 15 Md EUR tous secteurs
+- Taux nul (intensité 0) : mesure inactive, neutre sur tous les canaux. Jusqu'à v0.6.6,
+  la branche « énergie seule » émettait -0,002 de compétitivité à intensité 0, sans
+  taxe levée : poser le levier à 0 ou l'omettre ne donnait pas la même trajectoire
+  (corrigé v0.6.7, `tests/test_audit_codex_v067.py`).
 
 ### TVA Energie Differenciee
 
