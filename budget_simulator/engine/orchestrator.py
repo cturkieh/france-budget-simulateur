@@ -337,6 +337,20 @@ class OrchestratorMixin:
                         delta_spending = result * 0.6
                         delta_revenue = result * 0.4
                         measure_impacts = {'depenses': delta_spending, 'recettes': delta_revenue}
+                    # Contrat v0.6.8 (revue passe 1, L2) : une formule ne pose
+                    # aucun canal ménages. Côté dépenses, zéro effet direct est
+                    # l'arbitrage 2 ; côté recettes, l'indice compterait la taxe
+                    # nulle SANS le dire → avis explicite (une fois par levier).
+                    if delta_revenue and (measure_id, 'FORMULE_MENAGES') not in self._domain_clamp_warned:
+                        self._domain_clamp_warned.add((measure_id, 'FORMULE_MENAGES'))
+                        logger.warning(
+                            "Formule %s côté recettes sans canal ménages : effet direct "
+                            "sur le pouvoir d'achat compté nul", measure_id)
+                        self._avis.setdefault(
+                            (measure_id, 'FORMULE_MENAGES'),
+                            f"{measure_id} : mesure « formule » côté recettes, sans "
+                            f"canal ménages — effet direct sur le pouvoir d'achat "
+                            f"compté nul (seul l'effet par la croissance), dès {year}")
                 else:
                     # No handler and no formula - skip
                     _log_debug(self.debug_logs, f"Mesure {measure_id}: ni handler Python ni formule ASTEVAL - ignoree")

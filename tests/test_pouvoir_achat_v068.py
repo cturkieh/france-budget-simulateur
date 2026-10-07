@@ -538,3 +538,29 @@ def test_rabot_dependance_seule_l_aah_est_un_revenu():
 
 def _chomage_base():
     return BudgetSimulatorV45(periods=1, mesures={}).spending_categories_base['chomage']
+
+
+@pytest.mark.parametrize('cible, avis_attendu', [
+    ('recettes', True), ('mixte', True), ('depenses', False)])
+def test_formule_hors_contrat_menages_avis_explicite(cible, avis_attendu):
+    """Revue passe 1, L2 : une mesure « formule » (ASTEVAL) ne pose aucun canal
+    ménages. Côté dépenses, zéro est l'arbitrage 2 ; côté recettes (une taxe),
+    zéro serait un oubli silencieux : avis explicite dans la réponse."""
+    sim = BudgetSimulatorV45(periods=2, mesures={'formule_test': {'x': 3.0}})
+    sim.measure_registry['formule_test'] = {
+        'type': 'formule', 'formule': "p.get('x', 0)", 'cible': cible, 'parametres': {}}
+    _, _, rapport = sim.simulate()
+    avis = [w for w in rapport['warnings']
+            if 'formule_test' in w and "pouvoir d'achat" in w]
+    assert bool(avis) is avis_attendu, rapport['warnings']
+    assert len(avis) <= 1
+
+
+def test_formules_du_registre_toutes_cote_depenses():
+    """État du registre publié : les mesures « formule » sont toutes côté
+    dépenses (zéro effet direct = arbitrage 2), aucun avis ne s'affiche."""
+    sim = BudgetSimulatorV45(periods=1, mesures={})
+    formules = {k: m for k, m in sim.measure_registry.items()
+                if m.get('type') == 'formule' and k not in sim.measure_handlers}
+    assert formules, 'aucune formule : test sans objet'
+    assert {m.get('cible') for m in formules.values()} == {'depenses'}
