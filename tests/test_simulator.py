@@ -141,7 +141,9 @@ def test_validate_trajectory():
         'Chômage %': [7.6] * 11  # Constant pour Okun cohérent
     })
     report = validator.validate_trajectory(df)
-    assert report['valid'] is False  # CRITIQUE pour dette>160%
+    # v0.6.7 : `valid` ne juge plus la dette (porté par `critical`) ; il dit
+    # si le résultat se lit tel quel — posé par l'orchestrateur, pas ici.
+    assert report['valid'] is True
     assert "Croissance moyenne: 0.8%" in report['tests'][0]
     assert "Dette: 115.6% → 161.9%" in report['tests'][1]  # Match arrondi .1f
     assert "Test Okun: 10/10 années cohérentes" in report['tests']  # Okun dans la liste

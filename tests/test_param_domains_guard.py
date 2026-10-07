@@ -29,10 +29,16 @@ from budget_simulator.simulator import BudgetSimulatorV45
 # --------------------------------------------------------------------------
 
 def test_noop_for_measure_without_named_domains():
-    """Mesure hors registre : params rendus tels quels (objet identique)."""
-    params = {'taux': 999.0}
-    out = validate_param_domains('tva_rate', params, strict=True)
-    assert out is params
+    """Paramètre sans domaine déclaré : rendu tel quel (objet identique).
+
+    v0.6.7 : `tva_rate.taux` n'est plus l'exemple — les 55 paramètres bornés
+    par `policy_measures.json` sont tous au registre. Restent sans domaine les
+    paramètres que le registre public ne déclare pas (`sante.effort_hopital`)
+    et les `intensite` portées par leur porte dédiée (INTENSITE_DOMAINS)."""
+    for measure_id, params in (('sante', {'effort_hopital': 999.0}),
+                               ('optimisation_dette', {'intensite': 999.0})):
+        out = validate_param_domains(measure_id, params, strict=True)
+        assert out is params
 
 
 def test_noop_when_param_absent_or_none():
@@ -246,7 +252,8 @@ def test_les_deux_parametres_rendus_porteurs_par_le_lot_9_sont_bornes():
     Sans borne, `csg.taux = True` (soit 1,0 — 100 % de CSG) était accepté en
     silence et rendait la dette 2030 à 112,9 % au lieu de 129,6 %."""
     assert PARAM_DOMAINS['csg']['taux'] == (0.08, 0.12)
-    assert PARAM_DOMAINS['collectivites']['dotation'] == (95.0, 140.0)
+    # 150 (v0.6.7) : max du curseur réel, au-delà du max publié (140).
+    assert PARAM_DOMAINS['collectivites']['dotation'] == (95.0, 150.0)
     with pytest.raises(ValueError, match='hors domaine'):
         validate_param_domains('csg', {'taux': True}, strict=True)
 

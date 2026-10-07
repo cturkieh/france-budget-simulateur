@@ -78,6 +78,7 @@ pose ``HANDLER_FAILED_KEY`` dans ``impacts`` + escalade si
 Sink de logs : ``self.debug_logs`` via ``_log_debug``.
 Tous attributs d'instance de ``BudgetSimulatorV45``.
 """
+import functools
 import logging
 import os
 from typing import Dict, List, Tuple
@@ -92,10 +93,14 @@ from ..constants import (
     GINI_HARD_CEILING,
     GINI_IMPACT_SCALE,
     GINI_SOFT_FLOOR,
+    COMPETITIVITE_VARIATION_ANNUELLE_MAX,
     HANDLER_FAILED_KEY,
     INDEXATION_BASELINE_RATIO,
+    PA_VARIATION_ANNUELLE_MAX,
 )
 from ._param_domain import (
+    EntreeInvalide,
+    assainir_mesures,
     leviers_presents,
     tracer_si_levier_null,
     validate_intensite_domain,
@@ -103,6 +108,34 @@ from ._param_domain import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _mode_strict() -> bool:
+    """BUDGETLAB_STRICT (CI/calibration) : escalade au lieu d'absorber."""
+    return os.environ.get('BUDGETLAB_STRICT', '').strip().lower() in ('1', 'true', 'yes')
+
+
+def _entree_retablie(simulate):
+    """Porte d'ENTRÉE (v0.6.7) : le temps de la simulation, ``self.mesures``
+    est la version corrigée de l'entrée (``assainir_mesures``), pour que les
+    lecteurs latéraux lisent les valeurs corrigées et non les brutes. L'entrée
+    de l'appelant est rétablie ensuite (y compris sur exception), pour qu'un
+    second ``simulate()`` re-signale les mêmes corrections."""
+    @functools.wraps(simulate)
+    def enveloppe(self):
+        brutes = self.mesures
+        try:
+            return simulate(self)
+        finally:
+            self.mesures = brutes
+    return enveloppe
+
+
+def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
+    """Variation annuelle bornée à ±``borne`` — rend aussi si la borne a mordu."""
+    if -borne <= valeur <= borne:
+        return valeur, False
+    return float(np.clip(valeur, -borne, borne)), True
 
 _BUDGET_KEYS = frozenset({'depenses', 'recettes'})
 
@@ -190,19 +223,23 @@ class OrchestratorMixin:
         # BUDGETLAB_STRICT (CI/calibration) : collecter toutes les mesures en
         # échec d'une même année et lever un ExceptionGroup APRÈS la boucle,
         # plutôt qu'un fail-fast sur la première (qui masquerait les suivantes).
-        strict_mode = os.environ.get('BUDGETLAB_STRICT', '').strip().lower() in ('1', 'true', 'yes')
+        strict_mode = _mode_strict()
         strict_failures: list[Exception] = []
+        # `warned` : dédup des WARNING de la porte sur la durée d'une
+        # simulation (reset dans _reset_state) — le clamp/retrait reste
+        # appliqué chaque année, seule la journalisation est dédupliquée.
+        # Initialisés ici si apply_measures est appelée hors simulate()
+        # (tests unitaires).
+        if not hasattr(self, '_domain_clamp_warned'):
+            self._domain_clamp_warned = set()
+        if not hasattr(self, '_corrections'):
+            self._corrections, self._avis = {}, {}
         for measure_id, parameters in self.mesures.items():
             if measure_id not in self.measure_registry:
                 _log_debug(self.debug_logs, f"⚠ Mesure {measure_id} inconnue - ignorée")
                 continue
             measure = self.measure_registry[measure_id]
             delta_spending, delta_revenue = 0, 0
-            # `warned` : dédup des WARNING de la porte sur la durée d'une
-            # simulation (reset dans _reset_state) — le clamp/retrait reste
-            # appliqué chaque année, seule la journalisation est dédupliquée.
-            if not hasattr(self, '_domain_clamp_warned'):
-                self._domain_clamp_warned = set()
             # Bloc `null` = levier ABSENT : sauté, absent de `impacts` (≠ `{}` ;
             # un bloc mal formé, lui, échoue bruyamment ci-dessous).
             if tracer_si_levier_null(measure_id, parameters,
@@ -215,7 +252,9 @@ class OrchestratorMixin:
                 # (synergie Item 3). No-op (objet identique) hors registre
                 # ou intensite valide → golden master byte-identique.
                 parameters = validate_intensite_domain(
-                    measure_id, parameters, strict=strict_mode
+                    measure_id, parameters, strict=strict_mode,
+                    warned=self._domain_clamp_warned,
+                    corrections=self._corrections,
                 )
                 # Même porte pour les paramètres NOMMÉS des handlers
                 # symétrisés (PARAM_DOMAINS, revue 2026-08-04) : ferme la
@@ -224,7 +263,8 @@ class OrchestratorMixin:
                 # handler, Sentry FRANCE-BUDGET-Z).
                 parameters = validate_param_domains(
                     measure_id, parameters, strict=strict_mode,
-                    warned=self._domain_clamp_warned
+                    warned=self._domain_clamp_warned,
+                    corrections=self._corrections,
                 )
                 if measure_id in self.measure_handlers:
                     # Python handler takes precedence over ASTEVAL formula
@@ -246,10 +286,15 @@ class OrchestratorMixin:
                     self.aeval.symtable = context
                     result = self.aeval(measure['formule'])
                     if self.aeval.error:
+                        # v0.6.7 : l'échec d'une formule suit le chemin d'un
+                        # handler qui lève (except ci-dessous : ERROR,
+                        # HANDLER_FAILED_KEY, escalade stricte). Avant : ERROR
+                        # puis `result = 0`, levier compté nul SANS drapeau
+                        # dans la réponse et sans escalade même en strict.
                         error_msgs = [str(e.get_error()) for e in self.aeval.error]
-                        logger.error("ASTEVAL formule %s: %s", measure_id, '; '.join(error_msgs))
                         self.aeval.error = []
-                        result = 0
+                        raise RuntimeError(
+                            f"formule ASTEVAL en échec : {'; '.join(error_msgs)}")
                     elif result is None:
                         result = 0
                     # Post-traitement pour ajustements spécifiques (ex. effet Laffer CSG)
@@ -271,10 +316,18 @@ class OrchestratorMixin:
                 max_impact = 0.05 * gdp
                 # Detection clip : signal une mesure aux ordres de grandeur suspects (calibration ou bug)
                 if abs(delta_spending) > max_impact or abs(delta_revenue) > max_impact:
-                    logger.warning(
-                        "CLIP 5%% PIB Y%d %s : delta_spending=%.1f delta_revenue=%.1f (max=%.1f)",
-                        year, measure_id, delta_spending, delta_revenue, max_impact,
-                    )
+                    # Une ligne par levier et par simulation (v0.6.7) : le
+                    # plafond mord en général chaque année, à l'identique.
+                    if (measure_id, 'CLIP_5') not in self._domain_clamp_warned:
+                        self._domain_clamp_warned.add((measure_id, 'CLIP_5'))
+                        logger.warning(
+                            "CLIP 5%% PIB Y%d %s : delta_spending=%.1f delta_revenue=%.1f (max=%.1f)",
+                            year, measure_id, delta_spending, delta_revenue, max_impact,
+                        )
+                    self._avis.setdefault(
+                        (measure_id, 'CLIP_5'),
+                        f"{measure_id} : impact plafonné à 5 % du PIB par "
+                        f"mesure (plafond du modèle, FMI 2010), dès {year}")
                 delta_spending = np.clip(delta_spending, -max_impact, max_impact)
                 delta_revenue = np.clip(delta_revenue, -max_impact, max_impact)
                 # Propager le clip aux measure_impacts (sinon multiplicateur calculé sur valeur
@@ -302,7 +355,27 @@ class OrchestratorMixin:
                             f"Δrec={delta_revenue:.1f} Md€"
                         )
             except Exception as e:
-                logger.error("Mesure %s échouée: %s", measure_id, e, exc_info=True)
+                # Une ligne par levier et par simulation (v0.6.7 : avant, une
+                # par année simulée — 50 événements Sentry pour periods=50).
+                # Faute de l'APPELANT (valeur non numérique, hors domaine en
+                # strict) → WARNING ; tout le reste est un bug moteur → ERROR.
+                if isinstance(e, EntreeInvalide):
+                    if (measure_id, 'PARAM_INVALIDE') not in self._domain_clamp_warned:
+                        self._domain_clamp_warned.add((measure_id, 'PARAM_INVALIDE'))
+                        logger.warning(
+                            "PARAM_INVALIDE %s : %s — levier en échec, effet "
+                            "compté nul (entrée appelante à corriger)", measure_id, e,
+                        )
+                    cause = str(e)
+                elif (measure_id, 'ECHEC') not in self._domain_clamp_warned:
+                    self._domain_clamp_warned.add((measure_id, 'ECHEC'))
+                    logger.error("Mesure %s échouée: %s", measure_id, e, exc_info=True)
+                    cause = "erreur interne du moteur"
+                else:
+                    cause = "erreur interne du moteur"
+                self._corrections.setdefault(
+                    (measure_id, 'ECHEC'),
+                    f"{measure_id} : levier en échec ({cause}), effet compté nul")
                 _log_debug(self.debug_logs, f"⚠ Erreur mesure {measure_id}: {e}")
                 # _handler_failed évite qu'une régression silencieuse passe quand la mesure
                 # était à default (delta=0 attendu == 0 obtenu sur crash). Voir
@@ -339,11 +412,19 @@ class OrchestratorMixin:
             # Plafond systémique (FMI 2010) : signal visible hors mode debug —
             # cohérent avec le CLIP 5 % PIB par mesure (un total >10 % PIB
             # traduit une calibration agrégée aberrante, pas un cas nominal).
-            logger.warning(
-                "CLIP 10%% PIB TOTAL Y%d : impact total %.1f Md€ > 10%% PIB "
-                "(plafond=%.1f Md€) → scaling ×%.4f",
-                year, total_impact, 0.10 * gdp, scaling_factor,
-            )
+            # Une ligne par simulation (v0.6.7) : le plafond mord en général
+            # chaque année — avant, 10 WARNING par requête sur 10 ans.
+            if ('*', 'CLIP_10') not in self._domain_clamp_warned:
+                self._domain_clamp_warned.add(('*', 'CLIP_10'))
+                logger.warning(
+                    "CLIP 10%% PIB TOTAL Y%d : impact total %.1f Md€ > 10%% PIB "
+                    "(plafond=%.1f Md€) → scaling ×%.4f",
+                    year, total_impact, 0.10 * gdp, scaling_factor,
+                )
+            self._avis.setdefault(
+                ('*', 'CLIP_10'),
+                f"impact total des mesures plafonné à 10 % du PIB (plafond du "
+                f"modèle, FMI 2010), dès {year}")
             delta_spending_total *= scaling_factor
             delta_revenue_total *= scaling_factor
             for measure_id in impacts:
@@ -364,6 +445,7 @@ class OrchestratorMixin:
 
         return spending, revenues, impacts
 
+    @_entree_retablie
     def simulate(self) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
         """
         Simulation principale V4.5 avec OUTPUT_GAP DYNAMIQUE CORRIGÉ
@@ -371,6 +453,13 @@ class OrchestratorMixin:
         # Réinitialiser TOUT l'état mutable avant chaque simulation
         # Sans cela, un second appel démarre depuis l'état final du premier
         self._reset_state()
+        # Porte d'ENTRÉE (v0.6.7), cf. _entree_retablie. Objet identique si
+        # tout est valide (golden master byte-identique).
+        self.mesures = assainir_mesures(
+            self.mesures, strict=_mode_strict(),
+            warned=self._domain_clamp_warned,
+            corrections=self._corrections, avis=self._avis,
+        )
 
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
@@ -598,6 +687,17 @@ class OrchestratorMixin:
 
                 # Calcul principal - équation comptable
                 debt = debt - deficit  # Déficit négatif = augmentation de dette
+                # Borne 0 (v0.6.7) : une dette brute négative serait un stock
+                # d'ACTIFS nets, que le modèle ne représente pas (ni intérêts
+                # reçus, ni rendement : la courbe de taux n'a pas de plancher).
+                # Inatteignable sur l'horizon servi par l'API (10 ans) ; un
+                # appel direct sur 50 ans y arrivait (−37,7 % du PIB en 2075).
+                if debt < 0:
+                    self._corrections.setdefault(
+                        ('Dette', 'SORTIE'),
+                        f"Dette brute bornée à 0 dès {year} : excédents "
+                        f"accumulés, actifs nets non modélisés")
+                    debt = 0.0
 
                 # Analyse Domar complémentaire (pour logs uniquement)
                 if year_idx > 0:
@@ -714,6 +814,12 @@ class OrchestratorMixin:
                         f"Y{year_idx}: Gini cible={gini_cible:.4f} pas={step:+.5f}",
                     )
                 self.gini_courant += step
+                if not GINI_SOFT_FLOOR <= self.gini_courant <= GINI_HARD_CEILING:
+                    self._corrections.setdefault(
+                        ('Gini', 'SORTIE'),
+                        f"Gini borné à [{GINI_SOFT_FLOOR}, {GINI_HARD_CEILING}] "
+                        f"dès {year} (filet ultime du modèle : résultat hors "
+                        f"de son domaine de validité)")
                 self.gini_courant = np.clip(self.gini_courant, GINI_SOFT_FLOOR, GINI_HARD_CEILING)
 
             # Pouvoir d'achat (macro + micro) - Mise à jour INCRÉMENTALE
@@ -749,7 +855,18 @@ class OrchestratorMixin:
                         pa_micro *= 0.5
 
                 # PA total = Macro net (après indexation baseline) + Micro (mesures)
-                purchasing_power *= (1 + pa_macro_net + pa_micro)
+                # Borne physique (v0.6.7, PA_VARIATION_ANNUELLE_MAX) : sans
+                # elle, une variation ≤ −100 % inversait le signe de l'indice
+                # (TVA à 2 000 % → PA −296). Ne mord sur aucun scénario publié.
+                variation_pa, bornee = _borner_variation(
+                    pa_macro_net + pa_micro, PA_VARIATION_ANNUELLE_MAX)
+                if bornee:
+                    self._corrections.setdefault(
+                        ('Pouvoir d\'Achat', 'SORTIE'),
+                        f"Pouvoir d'achat : variation annuelle bornée à "
+                        f"±{PA_VARIATION_ANNUELLE_MAX:.0%} dès {year} "
+                        f"(résultat hors du domaine de validité du modèle)")
+                purchasing_power *= (1 + variation_pa)
 
                 if abs(pa_micro) > 0.001:
                     _log_debug(self.debug_logs,
@@ -760,6 +877,16 @@ class OrchestratorMixin:
             # IMPORTANT : Appliqué CHAQUE ANNÉE pour cumuler impacts RÉCURRENT (éducation, transition)
             # Les impacts ONE-TIME sont automatiquement filtrés par _is_first_year_change()
             competitivite_delta = self.calculate_competitivite(impacts, gdp_nominal, year)
+            # Même borne physique que le PA (v0.6.7) : l'indice était sans
+            # aucune borne, et une variation ≤ −100 points inversait son signe.
+            competitivite_delta, bornee = _borner_variation(
+                competitivite_delta, COMPETITIVITE_VARIATION_ANNUELLE_MAX)
+            if bornee:
+                self._corrections.setdefault(
+                    ('Competitivite', 'SORTIE'),
+                    f"Compétitivité : variation annuelle bornée à "
+                    f"±{COMPETITIVITE_VARIATION_ANNUELLE_MAX:.0f} % dès {year} "
+                    f"(résultat hors du domaine de validité du modèle)")
             if abs(competitivite_delta) > 0.0001:
                 # Conversion points d'indice → pourcentage : 0.795 pts = 0.795% = 0.00795
                 competitivite_index *= (1 + competitivite_delta / 100)  # Application multiplicative
@@ -857,6 +984,21 @@ class OrchestratorMixin:
             _log_debug(self.debug_logs, "TESTS ÉCONOMIQUES")
             for test in trajectory_report['tests']:
                 _log_debug(self.debug_logs, f"📊 {test}")
+
+        # Rapport d'entrée/sortie (v0.6.7). `valid` = le résultat se lit TEL
+        # QUEL : aucune entrée corrigée (clamp, retrait d'un non-fini), aucun
+        # levier en échec, aucune borne de sortie atteinte. Avant : `valid`
+        # valait « dette finale < 160 % » (jugement macro, déjà porté par
+        # `critical`) — le statu quo sortait `false`, une TVA à 2 000 % `true`.
+        # Les avis (bloc vide, plafond 5 % PIB du modèle) informent sans
+        # invalider : l'entrée a été lue telle quelle.
+        corrections = list(self._corrections.values())
+        trajectory_report['valid'] = not corrections
+        trajectory_report['warnings'] = (
+            [f"Entrée ou sortie corrigée — {texte}" for texte in corrections]
+            + [f"Avis — {texte}" for texte in self._avis.values()]
+            + trajectory_report['warnings']
+        )
 
         # NOUVEAU: Ajouter les impacts détaillés au rapport
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year

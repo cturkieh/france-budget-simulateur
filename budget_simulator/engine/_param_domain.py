@@ -39,6 +39,68 @@ from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
 
 logger = logging.getLogger(__name__)
 
+# Nombre de paramètres détaillés dans UN WARNING agrégé (au-delà : « +N
+# autres »). Un bloc de milliers de clés fautives ne produit plus qu'une ligne
+# par levier et par catégorie (volume Sentry Logs, backlog 2026-10-05 (2)).
+_DETAILS_MAX = 5
+
+
+class EntreeInvalide(Exception):
+    """Faute de l'APPELANT sur la valeur d'un paramètre déclaré (hors domaine,
+    non finie, non numérique) — v0.6.7. Base commune qui permet à l'API de
+    répondre 422 en mode strict (faute client), et à l'orchestrateur de tracer
+    un WARNING au lieu d'un ERROR (bug moteur) quand le levier échoue."""
+
+
+class ValeurInvalide(EntreeInvalide, ValueError):
+    """Valeur numérique hors domaine ou non finie (mode BUDGETLAB_STRICT)."""
+
+
+class ValeurNonNumerique(EntreeInvalide, TypeError):
+    """Valeur non numérique (``"bad"``, liste…) sur un paramètre numérique
+    déclaré. Sous-classe de ``TypeError`` : le contrat MIXIN_BAD_PARAMS (une
+    ``str`` remonte en TypeError, levier en échec, ExceptionGroup en strict)
+    est préservé, la faute est seulement QUALIFIÉE."""
+
+
+def _est_fini(value) -> bool:
+    """``math.isfinite`` qui ne lève pas sur un entier JSON trop grand pour un
+    float (``10**400`` → OverflowError) : un tel entier est traité comme non
+    fini, au lieu de faire échouer le levier (ou, hors porte, la requête)."""
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
+
+
+def _apercu(value) -> str:
+    """``repr`` borné — un entier de 400 chiffres ne s'imprime pas en entier
+    dans un log ni dans un rapport."""
+    texte = repr(value)
+    return texte if len(texte) <= 40 else texte[:37] + '...'
+
+
+def _noter(corrections: dict | None, measure_id: str, key, texte: str) -> None:
+    """Consigne une correction d'entrée pour le rapport de simulation
+    (``report['warnings']``, ``report['valid']``) — dédupliquée par
+    (levier, paramètre) : la porte tourne chaque année simulée."""
+    if corrections is not None:
+        corrections.setdefault((measure_id, key), texte)
+
+
+def _avertir_agrege(warned: set | None, measure_id: str, jeton: str,
+                    details: list, consequence: str) -> None:
+    """UN ``logger.warning`` par (levier, catégorie) et par simulation, qui
+    liste les paramètres concernés (au plus ``_DETAILS_MAX``). Avant v0.6.7 :
+    une ligne par clé, soit des milliers pour un bloc de milliers de clés."""
+    if not details:
+        return
+    resume = ', '.join(details[:_DETAILS_MAX])
+    if len(details) > _DETAILS_MAX:
+        resume += f" (+{len(details) - _DETAILS_MAX} autres)"
+    _avertir_une_fois(warned, (measure_id, jeton), "%s %s — %s",
+                      jeton, resume, consequence)
+
 
 def _avertir_une_fois(warned: set | None, cle: tuple, msg: str, *args) -> None:
     """``logger.warning`` dédupliqué sur la simulation via ``warned`` (set
@@ -115,7 +177,8 @@ def valeur_brute(mesures: Dict, measure_id: str, param: str, defaut):
 
 
 def _refuser_non_finis(measure_id: str, params: Dict, *,
-                       strict: bool, warned: set | None) -> Dict:
+                       strict: bool, warned: set | None,
+                       corrections: dict | None = None) -> Dict:
     """Porte de FINITUDE — universelle, indépendante de tout domaine déclaré.
 
     Pourquoi elle est séparée de la boucle de domaines (clôture de la revue
@@ -181,36 +244,42 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     # Clés à retirer, accumulées puis retirées en UNE reconstruction : un
     # retrait clé par clé recopiait le dict à chaque fois (quadratique sur un
     # bloc de milliers de null, payload JSON standard sous la limite de taille).
+    # v0.6.7 : journalisation AGRÉGÉE par levier (une ligne par catégorie, et
+    # non une par clé) ; un entier trop grand pour un float (10**400) est non
+    # fini, comme inf.
     retirees = set()
+    nulls, non_finis = [], []
     for key, value in params.items():
         if value is None:
-            _tracer_null(f"{measure_id}.{key}",
-                         "retiré, le handler applique son défaut",
-                         (measure_id, key, 'null'), warned)
+            nulls.append(f"{measure_id}.{key}=None")
         elif (isinstance(value, bool) or not isinstance(value, (int, float))
-              or math.isfinite(value)):
+              or _est_fini(value)):
             continue
         elif strict:
-            raise ValueError(
-                f"{measure_id}.{key}={value!r} non fini (NaN/inf) — "
+            raise ValeurInvalide(
+                f"{measure_id}.{key}={_apercu(value)} non fini (NaN/inf) — "
                 f"empoisonnerait toute la trajectoire (mode BUDGETLAB_STRICT)"
             )
         else:
-            _avertir_une_fois(
-                warned, (measure_id, key),
-                "PARAM_NON_FINI %s.%s=%r — clé retirée, le handler retombe "
-                "sur son défaut (mode tolérant : service préservé, entrée "
-                "appelante à corriger)",
-                measure_id, key, value,
-            )
+            non_finis.append(f"{measure_id}.{key}={_apercu(value)}")
+            _noter(corrections, measure_id, key,
+                   f"{measure_id}.{key}={_apercu(value)} : valeur non finie, "
+                   f"retirée — le levier applique son défaut pour ce paramètre")
         retirees.add(key)
+    _avertir_agrege(warned, measure_id, 'PARAM_NULL', nulls,
+                    "retiré, le handler applique son défaut (null = pas de "
+                    "valeur ; l'appelant devrait omettre la clé)")
+    _avertir_agrege(warned, measure_id, 'PARAM_NON_FINI', non_finis,
+                    "clé retirée, le handler retombe sur son défaut (mode "
+                    "tolérant : service préservé, entrée appelante à corriger)")
     if not retirees:
         return params  # chemin nominal : objet identique, aucune copie
     return {k: v for k, v in params.items() if k not in retirees}
 
 
 def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
-                           warned: set | None = None) -> Dict:
+                           warned: set | None = None,
+                           corrections: dict | None = None) -> Dict:
     """Valide/borne les paramètres NOMMÉS de ``measure_id`` selon
     ``PARAM_DOMAINS`` (revue 2026-08-04) — même contrat dual que
     ``validate_intensite_domain`` : no-op (objet identique) pour toute
@@ -240,14 +309,28 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
     exacte : il rendait la fonction aveugle aux valeurs dès que la mesure
     n'était pas au registre.
     """
-    out = _refuser_non_finis(measure_id, params, strict=strict, warned=warned)
+    # Notes locales, versées au rapport seulement si la porte aboutit : un
+    # levier qui échoue plus bas (valeur non numérique) est consigné par
+    # l'orchestrateur comme « en échec », pas comme « clampé ».
+    notes = {} if corrections is not None else None
+    out = _refuser_non_finis(measure_id, params, strict=strict, warned=warned,
+                             corrections=notes)
     domains = PARAM_DOMAINS.get(measure_id)
-    if not domains:
-        return out
-    for key, (low, high) in domains.items():
+    clamps = []
+    for key, (low, high) in (domains or {}).items():
         if out.get(key) is None:
             continue
         value = out[key]
+        # Type qualifié AVANT la comparaison (v0.6.7) : une `str` levait déjà
+        # TypeError au comparateur ; elle lève désormais ValeurNonNumerique,
+        # sous-classe de TypeError (contrat MIXIN_BAD_PARAMS inchangé), pour
+        # que l'appelant sache que la faute est l'ENTRÉE et non le moteur. Un
+        # booléen reste comparé comme 0/1, comme avant.
+        if not isinstance(value, (int, float)):
+            raise ValeurNonNumerique(
+                f"{measure_id}.{key}={_apercu(value)} : valeur non numérique "
+                f"(domaine [{low}, {high}])"
+            )
         # `value != value` n'est vrai que pour NaN — même piège que pour
         # intensite : NaN passe `< low` ET `> high` (les deux False). Ce
         # filet est désormais un SECOND filet : l'étage de finitude a déjà
@@ -256,23 +339,28 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
         # silence — la seule forme de code mort qui se justifie ici.
         if value != value or value < low or value > high:
             if strict:
-                raise ValueError(
-                    f"{measure_id}.{key}={value!r} hors domaine "
+                raise ValeurInvalide(
+                    f"{measure_id}.{key}={_apercu(value)} hors domaine "
                     f"[{low}, {high}] (mode BUDGETLAB_STRICT)"
                 )
             clamped = high if value > high else low  # < low → borne basse
-            _avertir_une_fois(
-                warned, (measure_id, key),
-                "PARAM_DOMAIN_CLAMP %s.%s=%r hors domaine [%s, %s] "
-                "→ clampé à %s (mode tolérant : service préservé, "
-                "calibration à vérifier)",
-                measure_id, key, value, low, high, clamped,
-            )
+            clamps.append(f"{measure_id}.{key}={_apercu(value)} hors domaine "
+                          f"[{low}, {high}] → clampé à {clamped}")
+            _noter(notes, measure_id, key,
+                   f"{measure_id}.{key}={_apercu(value)} hors du domaine "
+                   f"[{low}, {high}] : ramené à {clamped}")
             out = {**out, key: clamped}
+    _avertir_agrege(warned, measure_id, 'PARAM_DOMAIN_CLAMP', clamps,
+                    "mode tolérant : service préservé, calibration à vérifier")
+    if notes:
+        for cle, texte in notes.items():
+            corrections.setdefault(cle, texte)
     return out
 
 
-def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool) -> Dict:
+def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool,
+                              warned: set | None = None,
+                              corrections: dict | None = None) -> Dict:
     """Valide/borne ``params['intensite']`` selon le domaine du levier.
 
     No-op (objet ``params`` rendu tel quel, sans copie) si le levier
@@ -296,28 +384,103 @@ def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool) ->
         return params
     low, high = domain
     value = params['intensite']
-    # Comparaison numérique SANS garde : une str lève TypeError ici
-    # (contrat MIXIN_BAD_PARAMS — surtout NE PAS intercepter ; `value !=
-    # value` est False pour une str, le TypeError tombe bien sur `< low`).
+    # Une str lève TypeError ici (contrat MIXIN_BAD_PARAMS — surtout NE PAS
+    # l'avaler) ; v0.6.7 la qualifie en ValeurNonNumerique (sous-classe de
+    # TypeError) au lieu de laisser le comparateur lever un TypeError anonyme.
+    if not isinstance(value, (int, float)):
+        raise ValeurNonNumerique(
+            f"{measure_id}.intensite={_apercu(value)} : valeur non numérique "
+            f"(domaine [{low}, {high}])"
+        )
     # `value != value` n'est vrai que pour NaN : sans ce test un NaN passe
     # `< low` ET `> high` (les deux False) et empoisonne silencieusement
     # TOUTE la trajectoire — exactement la classe d'échec silencieux que
-    # ce garde-fou existe pour fermer (pire qu'un clamp tracé).
+    # ce garde-fou existe pour fermer (pire qu'un clamp tracé). Un entier
+    # trop grand pour un float (10**400) se compare sans lever : clampé.
     if value != value or value < low or value > high:
         if strict:
-            raise ValueError(
-                f"{measure_id}.intensite={value!r} hors domaine "
+            raise ValeurInvalide(
+                f"{measure_id}.intensite={_apercu(value)} hors domaine "
                 f"[{low}, {high}] (mode BUDGETLAB_STRICT)"
             )
         clamped = high if value > high else low  # NaN / < low → borne basse
         # Token stable INTENSITE_DOMAIN_CLAMP : rend le clamp filtrable/
         # alertable dans Sentry Logs (enable_logs=True expédie les warning),
         # à l'instar de HANDLER_FAILED_KEY pour les crashs.
-        logger.warning(
-            "INTENSITE_DOMAIN_CLAMP %s.intensite=%r hors domaine [%s, %s] "
+        _avertir_une_fois(
+            warned, (measure_id, 'INTENSITE_DOMAIN_CLAMP'),
+            "INTENSITE_DOMAIN_CLAMP %s.intensite=%s hors domaine [%s, %s] "
             "→ clampé à %s (mode tolérant : service préservé, calibration "
             "à vérifier)",
-            measure_id, value, low, high, clamped,
+            measure_id, _apercu(value), low, high, clamped,
         )
+        _noter(corrections, measure_id, 'intensite',
+               f"{measure_id}.intensite={_apercu(value)} hors du domaine "
+               f"[{low}, {high}] : ramené à {clamped}")
         return {**params, 'intensite': clamped}
     return params
+
+
+def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
+                     corrections: dict | None,
+                     avis: dict | None = None) -> Dict:
+    """Porte d'ENTRÉE, appliquée UNE fois par simulation à tout le dict de
+    mesures (v0.6.7), en amont de la porte annuelle d'``apply_measures``.
+
+    Pourquoi une seconde porte : la porte annuelle ne protège que les
+    handlers. Les lecteurs LATÉRAUX de ``self.mesures`` (effets d'offre de
+    ``growth.py``, chômage seniors, phasing ASU, point d'indice…) lisaient la
+    valeur BRUTE : ``education.budget = 10**6`` était clampé pour le handler
+    mais ajoutait toujours ~2 pts de croissance potentielle par l'offre. Ici,
+    tolérant, chaque bloc passe les deux portes (intensité puis paramètres
+    nommés) et ``self.mesures`` devient la version corrigée — que TOUS les
+    lecteurs partagent.
+
+    Contrat :
+    - entrée valide → objet IDENTIQUE (golden master byte-identique) ;
+    - bloc ``null`` ou mal formé → laissé tel quel (la porte annuelle le
+      qualifie : levier absent, ou échec bruyant) ;
+    - valeur non numérique → bloc laissé tel quel : la porte annuelle lève
+      ``ValeurNonNumerique`` et le levier échoue BRUYAMMENT (contrat
+      MIXIN_BAD_PARAMS) — jamais un retrait silencieux ;
+    - ``strict`` → aucune correction (la porte annuelle lève à la première
+      année, ``ExceptionGroup`` inchangé) ; seul le bloc vide est signalé.
+    - bloc vide ``{}`` → signalé (WARNING ``PARAM_BLOC_VIDE``, entrée dans
+      ``avis``) : il applique le levier à TOUS ses défauts, ce qui est un statu
+      quo pour la plupart des leviers mais pas pour ``taxe_superprofits``
+      (choix de conception antérieur). Ce n'est pas une CORRECTION (l'entrée
+      est lue telle quelle) : ``corrections`` reste vide, ``avis`` le dit.
+    """
+    propre = None
+    for measure_id, bloc in mesures.items():
+        if not isinstance(bloc, dict):
+            continue
+        if not bloc:
+            _avertir_une_fois(
+                warned, (measure_id, 'PARAM_BLOC_VIDE'),
+                "PARAM_BLOC_VIDE %s={} — levier appliqué avec tous ses "
+                "défauts (l'appelant devrait omettre le levier ou poser ses "
+                "paramètres)", measure_id,
+            )
+            if avis is not None:
+                avis.setdefault(
+                    (measure_id, 'PARAM_BLOC_VIDE'),
+                    f"{measure_id}={{}} : bloc vide, levier appliqué avec "
+                    f"tous ses défauts")
+            continue
+        if strict:
+            continue
+        try:
+            nouveau = validate_intensite_domain(
+                measure_id, bloc, strict=False, warned=warned,
+                corrections=corrections)
+            nouveau = validate_param_domains(
+                measure_id, nouveau, strict=False, warned=warned,
+                corrections=corrections)
+        except TypeError:
+            continue
+        if nouveau is not bloc:
+            if propre is None:
+                propre = dict(mesures)
+            propre[measure_id] = nouveau
+    return mesures if propre is None else propre
