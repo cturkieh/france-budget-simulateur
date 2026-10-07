@@ -6,7 +6,8 @@ réfutée sur échantillon corrigé (FMI WEO oct. 2010 ch. 3 : « the opposite i
 true » ; Guajardo, Leigh & Pescatori 2014 ; Jordà & Taylor 2016), et la
 position finale de l'école Alesina (AFG 2019) ne défend plus que la
 composition (« mild recessionary » — capté par adjustments['confidence']=1,10,
-conservé). Le canal confiance restant vit sur la prime de taux (debt.py).
+lui-même RETIRÉ en v0.6.7 : cf. tests/test_symetrie_v060.py). Le canal
+confiance restant vit sur la prime de taux (debt.py).
 
 P1-B · Stabilisateurs en escalier : SUPPRIMÉS. Erreur de nature — un
 stabilisateur automatique joue sur le SOLDE, jamais sur le taux de croissance

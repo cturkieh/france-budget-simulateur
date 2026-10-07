@@ -65,8 +65,8 @@ def test_calculate_growth_austerity(simulator):
         'tva_rate': {'depenses': 0.0, 'recettes': 0.39 * 0.034 * 3000},
     }
     growth = simulator.calculate_growth(year=1, economic_state=economic_state)
-    # potentiel + traînée de dette + multiplicateurs (an 1 : pas d'atténuation
-    # « confiance » ; dette > 110 % : ×0,95) + cicatrice (effort > 3 %).
+    # potentiel + traînée de dette + multiplicateurs (dette > 110 % : ×0,95)
+    # + cicatrice (effort > 3 %).
     # v0.6.7 B3 : la traînée de dette est DANS le potentiel total (offre), et la
     # croissance corrige 20 % de l'output gap de t−1 (rappel, +0,2 × 1,5 %).
     pot = simulator.croissance_potentielle_totale()

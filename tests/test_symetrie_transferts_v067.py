@@ -6,8 +6,8 @@ rapporte. Jusqu'ici, une consolidation d'un levier de ``TRANSFER_MEASURES``
 prenait le coefficient de la COUPE GÉNÉRIQUE (MULT_COUPE_DEPENSES, atténué ÷1,10
 « confiance » AFG 2019) quand sa hausse prenait MULT_TRANSFERTS : couper 1 % du PIB
 de pensions coûtait 0,707 point de PIB à 4 ans, la hausse en rapportait 0,653
-(+8,2 %). Désormais même coefficient dans les deux sens ; l'atténuation
-« confiance » reste propre à la coupe générique.
+(+8,2 %). Désormais même coefficient dans les deux sens (l'atténuation
+« confiance » de la coupe générique est elle-même retirée depuis, v0.6.7).
 
 Asymétrie RÉSIDUELLE, mesurée et déclarée (hors périmètre) : en moteur complet le
 rapport vaut 1,044 — c'est l'ÉVICTION (engine/growth.py, « crowding-out »), qui
@@ -24,7 +24,7 @@ ETAT_NEUTRE = {'output_gap': 0.0, 'unemployment_gap': 0.0, 'debt_ratio': 1.15, '
 
 @pytest.mark.parametrize('levier', sorted(BudgetSimulatorV45.TRANSFER_MEASURES - {'smic'}))
 def test_coefficient_identique_dans_les_deux_sens(levier):
-    """Après l'an 1 (où l'atténuation « confiance » jouerait sur une coupe générique)."""
+    """À l'an 3 (année quelconque : plus aucun coefficient ne dépend de l'année)."""
     fm = FiscalMultipliers()
     hausse = fm.get_multiplier('expansion', COMPO_TRANSFERT, ETAT_NEUTRE, 3, levier)
     coupe = FiscalMultipliers().get_multiplier('consolidation', COMPO_TRANSFERT, ETAT_NEUTRE, 3, levier)

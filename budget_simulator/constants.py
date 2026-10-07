@@ -396,7 +396,7 @@ REGIME_DEMI_LARGEUR_INFLATION = 0.003
 #    centrale pour la France, Gechert l'est).
 MULT_CIBLE_NIVEAU_4ANS = {
     'investissement': 1.5,   # WEO 2014 ch. 3 (1,5 à 4 ans) ; Gechert ≈ 1 + 0,5
-    'coupe_depenses': 0.8,   # Ramey 2019 : milieu de 0,6-1 (Gechert ≈ 1 : borne prudente)
+    'coupe_depenses': 0.8,   # Ramey 2019 : milieu de 0,6-1 (Gechert ≈ 1 : borne prudente) — sans facteur « confiance »
     'transferts': 0.65,      # Gechert 2015 : ≈ 1 − 0,35
     'hausse_impots': 0.65,   # Gechert 2015 : ≈ 1 − 0,35
     'baisse_impots': 0.65,   # = hausse : aucune asymétrie de signe sourcée (cf. ci-dessous)
@@ -417,7 +417,8 @@ MULT_CIBLE_NIVEAU_4ANS = {
 # Coefficients d'impact k (FiscalMultipliers.base_multipliers) qui réalisent ces
 # cibles dans le moteur, mesurés le 07/10/2026 (niveau à 4 ans avant → après) :
 MULT_INVESTISSEMENT = 1.2     # inchangé : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %)
-MULT_COUPE_DEPENSES = 0.81    # 0,60 → 0,81 : 0,58 → 0,79
+MULT_COUPE_DEPENSES = 0.74    # 0,60 → 0,81 (÷1,10 « confiance ») → 0,74 sans ce facteur : 0,58 → 0,80
+                              # (0,7963 → 0,8004). k = 0,81/1,10 sans le facteur : 44 cas au bit.
 MULT_TRANSFERTS = 0.71        # 0,50 → 0,71 : 0,44 → 0,65
 MULT_HAUSSE_IMPOTS = 0.615    # 0,50 → 0,615 : 0,52 → 0,65
 MULT_BAISSE_IMPOTS = 0.63     # 0,35 → 0,455 → 0,63 : 0,33 → 0,45 → 0,65. k > k hausse :

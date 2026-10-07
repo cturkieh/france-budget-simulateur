@@ -15,7 +15,8 @@ v0.6.0 :
   de l'atténuation confiance (Alesina-Favero-Giavazzi 2019 : « almost no
   austerity plans where the main component is a cut in public investment » —
   leur résultat d'atténuation ne couvre pas ce cas ; le FMI WEO oct. 2010
-  place au contraire ces coupes au haut de l'échelle de coût) ;
+  place au contraire ces coupes au haut de l'échelle de coût) — atténuation
+  retirée de TOUTES les coupes en v0.6.7 (cf. test ci-dessous) ;
 - générique consolidation-dépense relevé −0,40 → −0,60 (bas de fourchette
   Ramey 2019 « 0,6 to 1 » ; Gechert & Rannenberg 0,4-0,7 ; OFCE PB146 1,0) ;
 - la seule non-linéarité conservée est le RÉGIME (récession ×1,15).
@@ -51,22 +52,27 @@ def test_symetrie_canal_investissement(sim):
     assert hausse == pytest.approx(1.2 * 0.95, abs=1e-9)  # high_debt s'applique aux deux
 
 
-def test_generique_consolidation_releve(sim):
-    """Coupe de dépense NON-investissement : base −0,60 (bas de fourchette
-    Ramey/Gechert), × high_debt 0,95 ÷ confiance 1,10 (atténuation conservée,
-    AFG 2019)."""
-    coupe = sim.multipliers.get_multiplier('consolidation', COMPO_DEPENSE, ETAT_NEUTRE, 3, 'aide_sociale')
+@pytest.mark.parametrize('annee', [1, 2, 3, 9])
+def test_generique_consolidation_sans_attenuation_confiance(sim, annee):
+    """Coupe de dépense NON-investissement : MULT_COUPE_DEPENSES × high_debt 0,95,
+    la même à toute année. v0.6.7 : l'atténuation « confiance » (÷1,10 dès l'an 2,
+    AFG 2019) est RETIRÉE — elle frappait 100 % des coupes génériques, donc la
+    calibration sur l'effectif (cible 0,8) l'absorbait par construction, et elle
+    affichait un effet de composition que la table par famille contredit (coupe
+    0,8 > hausse d'impôts 0,65, Gechert 2015)."""
+    coupe = sim.multipliers.get_multiplier('consolidation', COMPO_DEPENSE, ETAT_NEUTRE, annee, 'aide_sociale')
     from budget_simulator.constants import MULT_COUPE_DEPENSES
-    assert coupe == pytest.approx(-MULT_COUPE_DEPENSES * 0.95 / 1.10, abs=1e-9)
+    assert coupe == pytest.approx(-MULT_COUPE_DEPENSES * 0.95, abs=1e-9)
+    assert 'confidence' not in sim.multipliers.adjustments
 
 
-def test_confiance_pas_sur_investissement(sim):
-    """L'atténuation confiance (÷1,10) ne s'applique qu'à la part
-    non-investissement d'une consolidation mixte."""
+def test_consolidation_mixte_sans_attenuation(sim):
+    """Une consolidation mixte investissement / générique est la moyenne pondérée
+    des deux coefficients, sans facteur de composition."""
     compo_mixte = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.5}
     mixte = sim.multipliers.get_multiplier('consolidation', compo_mixte, ETAT_NEUTRE, 3, 'mix')
     from budget_simulator.constants import MULT_COUPE_DEPENSES
-    attendu = (0.5 * -1.2 + 0.5 * (-MULT_COUPE_DEPENSES / 1.10)) * 0.95
+    attendu = (0.5 * -1.2 + 0.5 * -MULT_COUPE_DEPENSES) * 0.95
     assert mixte == pytest.approx(attendu, abs=1e-9)
 
 

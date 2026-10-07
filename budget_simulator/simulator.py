@@ -224,9 +224,9 @@ class FiscalMultipliers:
         self.base_multipliers = {
             'consolidation': {
                 'tax_based': -MULT_HAUSSE_IMPOTS,      # Hausse impôts anticipée (Blanchard & Leigh 2013: 0.3-0.5 ; OCDE France IR 0.6)
-                'spending_based': -MULT_COUPE_DEPENSES, # Coupes dépenses hors investissement — bas de fourchette
-                                         # (Ramey 2019 JEP « 0.6 to 1 » ; Gechert & Rannenberg 0.4-0.7 ;
-                                         #  OFCE PB146 1.0). v0.5.1 : -0.40, sous le consensus.
+                'spending_based': -MULT_COUPE_DEPENSES, # Coupes dépenses hors investissement — effectif 0,8
+                                         # (Ramey 2019 JEP « 0.6 to 1 »), sans atténuation « confiance »
+                                         # depuis v0.6.7. v0.5.1 : -0.40, sous le consensus.
                 'transferts': -MULT_TRANSFERTS,  # v0.6.7 (lot 3b) : coupe de TRANSFERT, symétrique de la hausse
                                          # (Gechert 2015 classe par instrument, pas par signe ; avant :
                                          #  coefficient « coupe générique » ÷1,10, +8 % à 4 ans).
@@ -246,7 +246,6 @@ class FiscalMultipliers:
             'recession': 1.15,
             'expansion': 0.85,
             'high_debt': 0.95,
-            'confidence': 1.10,
         }
 
     def _facteur_conjoncturel(self, economic_state: Dict) -> float:
@@ -320,25 +319,22 @@ class FiscalMultipliers:
             part_inv = composition.get('investissement', 0)
             part_rev = composition.get('recettes', 0)
             part_dep = composition.get('depenses', 0)
-            # Transferts (v0.6.7, lot 3b) : hors de la coupe GÉNÉRIQUE, donc hors de
-            # l'atténuation « confiance » (AFG 2019) — même coefficient que la hausse.
+            # Transferts (v0.6.7, lot 3b) : hors de la coupe GÉNÉRIQUE — même
+            # coefficient que la hausse (symétrie par instrument, Gechert 2015).
             part_transferts = min(composition.get('transferts', 0), max(0, part_dep - part_inv))
             part_gen = max(0, part_dep - part_inv - part_transferts)
             total = part_inv + part_transferts + part_gen + part_rev
             if total > 0:
-                m_gen = self.base_multipliers['consolidation']['spending_based']
-                # Effet confiance (AFG 2019, « mild recessionary » pour les plans
-                # dépense) : atténue la coupe GÉNÉRIQUE, jamais le canal
-                # investissement — leur échantillon n'en contient quasiment pas
-                # (« almost no austerity plans where the main component is a cut
-                # in public investment ») et le FMI (WEO oct. 2010 ch. 3) place
-                # ces coupes au HAUT de l'échelle de coût.
-                if part_dep > 0.5 and year > 1:
-                    m_gen /= self.adjustments['confidence']
+                # Plus d'atténuation « confiance » (÷1,10 dès l'an 2, AFG 2019) depuis
+                # v0.6.7 : elle frappait 100 % des coupes génériques, donc la calibration
+                # sur l'EFFECTIF (cible 0,8) l'absorbait dans k par construction, et elle
+                # affichait un effet de composition que la table par famille contredit
+                # (coupe 0,8 > hausse d'impôts 0,65, Gechert 2015) — METHODOLOGIE
+                # § Multiplicateurs. Verrouillé par tests/test_symetrie_v060.py.
                 mult_base = (
                     (part_inv / total) * self.base_multipliers['consolidation']['investissement'] +
                     (part_transferts / total) * self.base_multipliers['consolidation']['transferts'] +
-                    (part_gen / total) * m_gen +
+                    (part_gen / total) * self.base_multipliers['consolidation']['spending_based'] +
                     (part_rev / total) * self.base_multipliers['consolidation']['tax_based']
                 )
             else:
@@ -366,9 +362,6 @@ class FiscalMultipliers:
         # Effet Ricardo-Barro
         if economic_state.get('debt_ratio', 0) > 1.10:
             multiplier *= self.adjustments['high_debt']
-
-        # Effet confiance : appliqué en amont, sur la seule part générique de la
-        # branche consolidation (v0.6.0) — plus jamais sur le blend entier.
 
         # Effet ZLB — la condition de gap suit la même transition continue que la
         # récession (v0.6.7). Inerte dans le moteur : le taux lu ici est

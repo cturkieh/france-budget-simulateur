@@ -384,8 +384,10 @@ class GrowthMixin:
         # L'austérité expansionniste est réfutée sur échantillon corrigé (FMI
         # WEO oct. 2010 ch. 3 : « the opposite is true » ; Guajardo, Leigh &
         # Pescatori 2014 ; Jordà & Taylor 2016) ; la position finale de l'école
-        # Alesina (AFG 2019) ne défend que la composition — captée par
-        # adjustments['confidence'] = 1,10 (simulator.py, conservé). Le canal
+        # Alesina (AFG 2019) ne défend que la composition — dont l'atténuation
+        # ÷1,10 des coupes (simulator.py) est RETIRÉE à son tour en v0.6.7 :
+        # absorbée par la calibration sur l'effectif, et contredite par la table
+        # par famille (METHODOLOGIE § Multiplicateurs). Le canal
         # confiance mesurable vit sur la prime de taux (engine/debt.py) :
         # consolidation → prime plus basse → charge d'intérêts plus faible.
         # Ne PAS réintroduire de bonus sur le taux de croissance, même réduit.

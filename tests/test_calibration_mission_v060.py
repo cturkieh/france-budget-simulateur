@@ -160,12 +160,12 @@ CIBLE_PRIMAIRE = [-2.45, -3.05, -3.08, -3.19, -3.11]
 TOL_DEFICIT = 0.9   # pt de PIB (mesuré 0,72 ; lot 8 : 1,10 pour 1,00 mesuré)
 # TOL_DETTE REVUE 1,6 → 2,0 (v0.6.7, lot 3b, arbitrage du 07/10/2026) : le PIB
 # nominal est désormais honnête (tendanciel DÉRIVÉ, niveau 2030 à −0,12 % de la
-# mission) ; l'écart de dette du statu quo publié (−1,87 pt en 2030 : 128,63 % vs
+# mission) ; l'écart de dette du statu quo publié (−1,86 pt en 2030 : 128,64 % vs
 # 130,5) révèle un solde primaire légèrement trop favorable — le résidu (b) décrit
 # plus haut, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert
 # v0.6.8 (bloc dépenses). La tolérance est élargie parce que la COMPENSATION a
 # disparu, pas pour absorber une erreur nouvelle.
-TOL_DETTE = 2.0     # pt de PIB (mesuré 1,87 en 2030 ; lot 9 : 1,27 ; lot 8 : 2,20 pour 1,68)
+TOL_DETTE = 2.0     # pt de PIB (mesuré 1,86 en 2030 ; lot 9 : 1,27 ; lot 8 : 2,20 pour 1,68)
 TOL_CHARGE = 3.5    # Md€ (mesuré 3,00 ; lot 8 : 5,0 pour 4,4)
 TOL_TAUX = 0.22     # pt (mesuré 0,18 ; lot 8 : 0,25 pour 0,22)
 # Le déflateur est la SEULE borne non resserrée : mesuré 0,18 contre 0,17 au
@@ -247,7 +247,7 @@ def test_corridor_deficit(trajectoire):
 def test_corridor_dette(trajectoire):
     # v0.6.7 : l'écart 2029 (125,0 vs 127,3) venait du bruit tiré, devenu choc
     # persistant avec le gap en niveau. Après ré-ancrage du potentiel (lot 3b) :
-    # écart max −1,87 pt (2030 : 128,63 vs 130,5), sous TOL_DETTE = 2,0 (raison
+    # écart max −1,86 pt (2030 : 128,64 vs 130,5), sous TOL_DETTE = 2,0 (raison
     # ci-dessus : résidu (b) révélé).
     df, _ = trajectoire
     for i in range(1, 6):
