@@ -1822,30 +1822,46 @@ inchangee », la trajectoire est insoutenable.
 
 ### Règle d'encodage des programmes politiques
 
-Appliquée symétriquement aux scénarios de parti depuis le re-encodage du 30/08/2026,
-écrite ici le 07/10/2026 :
+Règle écrite le 07/10/2026. Elle est appliquée à ce jour à RN, Horizons et LR
+(re-encodage du 07/10/2026), ainsi qu'à Renaissance et Horizons (re-encodage du
+30/08/2026). PS, LFI et Écologistes seront passés au crible à leur prochain
+re-sourcing (17/10, 6-7/11 et 10-13/12/2026).
 
-1. **Coût annoncé par le candidat.** Une mesure est encodée au paramètre ou au
-   montant que publie le candidat ou sa formation. Le simulateur calcule ensuite son
-   propre chiffrage ; l'écart avec celui du candidat est signalé dans la fiche du
-   programme, jamais comblé en ajustant un paramètre.
-2. **Jamais d'autofinancement comportemental.** Un effet retour annoncé (« la mesure
-   se finance d'elle-même », « neutre pour les finances publiques ») n'est pas
-   crédité d'office ; seuls les canaux macroéconomiques du moteur, les mêmes pour
-   tous les scénarios, produisent des effets retour.
-3. **Aucune économie ni dépense non sourcée.** Un paramètre qu'aucune source vivante
-   ne chiffre ni ne fixe est posé au droit voté (scénario « Budget 2026 (voté) »).
-4. **Un levier absent de la source vivante est retiré.** Quand un document plus
+Référence commune : le **droit en vigueur (budget 2026 voté)**, c'est-à-dire les
+paramètres du scénario « Budget 2026 (voté) » (`plf_2026`). Ci-dessous, « droit en
+vigueur » désigne toujours cette référence.
+
+1. **Coût annoncé par le candidat.** Une mesure est encodée au paramètre publié
+   par le candidat ou sa formation. À défaut de paramètre, elle est encodée au
+   montant qu'il annonce. Exemple : la TVA sur l'énergie du RN est encodée à son
+   taux publié de 5,5 %.
+2. **Le simulateur chiffre lui-même.** L'écart entre ce chiffrage et celui du
+   candidat est signalé dans la fiche du programme. Il n'est jamais comblé en
+   ajustant un paramètre.
+3. **Jamais d'autofinancement comportemental.** Un effet retour annoncé (« la
+   mesure se finance d'elle-même », « neutre pour les finances publiques ») n'est
+   pas crédité d'office. Seuls les canaux macroéconomiques du moteur, les mêmes
+   pour tous les scénarios, produisent des effets retour.
+4. **Aucune économie ni dépense non sourcée.** Un paramètre qu'aucune source
+   vivante ne chiffre ni ne fixe est posé au droit en vigueur.
+5. **Exception : mesure annoncée mais non chiffrée.** Quand le candidat annonce
+   une mesure sans la chiffrer, elle est encodée sur des bornes de tiers
+   documentées dans sa fiche. Exemple : le « droit au brut » de Renaissance.
+6. **Un levier absent de la source vivante est retiré.** Quand un document plus
    récent (contre-budget, projet chiffré) remplace la source d'un programme, une
-   mesure de l'ancien document qui n'y figure plus revient au droit voté ; elle
-   n'est pas conservée par inertie.
-5. **Les cibles ne sont pas des paramètres.** Un déficit, une dette ou une enveloppe
-   d'économies annoncés sont des résultats ; l'écart entre ces cibles et la
-   trajectoire calculée mesure la part non modélisée ou non ventilée du programme.
+   mesure de l'ancien document qui n'y figure plus revient au droit en vigueur.
+   Elle n'est pas conservée par inertie.
+7. **Les cibles ne sont pas des paramètres.** Un déficit, une dette ou une
+   enveloppe d'économies annoncés sont des résultats. L'écart entre ces cibles et
+   la trajectoire calculée mesure la part non modélisée ou non ventilée du
+   programme.
 
-Mise en œuvre : retirer une mesure, c'est poser son levier à la valeur du droit
-voté, pas omettre la clé. Une clé absente vaut le défaut du moteur (année 2025),
-qui diffère de la loi votée pour plusieurs leviers. Garde exécutable :
+En résumé, chaque scénario porte ce que sa source chiffre, ni plus ni moins, et
+ses hypothèses de modélisation sont écrites dans sa fiche.
+
+**Mise en œuvre : un levier retiré se pose à la valeur de `plf_2026`, il n'est
+jamais omis.** Une clé absente vaut le défaut du moteur (année 2025). Ce défaut
+diffère du droit en vigueur pour plusieurs leviers. Garde exécutable :
 `tests/test_reencodage_v066.py`.
 
 ---
@@ -1878,7 +1894,7 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 | `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 |
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | -5,6 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 |
 | `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 |
 | `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 |
@@ -1889,10 +1905,10 @@ aucune ligne de moteur modifiée.** Les sept autres scénarios ont des trajectoi
 bit-identiques à la v0.6.4. Ce qui bouge vient des programmes eux-mêmes, encodés
 sous la règle de la section « Règle d'encodage des programmes politiques » :
 Horizons (-0,8 vers -8,8) intègre sa réforme des retraites du 29/09/2026 (âge légal
-et durée de cotisation relevés) ; LR (-3,3 vers -5,6) passe au projet chiffré de son
+et durée de cotisation relevés) ; LR (-3,3 vers +8,0) passe au projet chiffré de son
 site de campagne (baisse des cotisations patronales ramenée au coût annoncé par le
 candidat, baisse des cotisations salariales ajoutée, effectifs portés à la cible
-annoncée) ; RN (+7,1 vers +6,7) passe au contre-budget du 06/10/2026 : les
+annoncée) et ses leviers sans source publique sont ramenés au droit en vigueur ; RN (+7,1 vers +6,7) passe au contre-budget du 06/10/2026 : les
 paramètres hérités sans source (taxe sur les superprofits, baisse des cotisations
 salariales, fiscalité du patrimoine, optimisation de la dette, assurance chômage,
 efforts de santé et de fraude sociale, défense) reviennent au droit voté, les
