@@ -684,12 +684,30 @@ et par un meilleur ciblage, pas par une depense additionnelle.
 
 ### Montee en Puissance
 
+Efficacité de la cohorte de départs de l'année (non-remplacement réellement réalisé) :
+
 - 2027 : 30% efficacite
 - 2028 : 60% efficacite
 - 2029 : 85% efficacite
 - 2030+ : 100% efficacite (plein effet)
 
-**Base de calcul** : 157k departs/an x 40k EUR = 6,3 Md EUR/an economisables max
+**Base de calcul (v0.6.7)** : le stock de postes non remplacés est la **somme de cohortes
+annuelles** de départs, `157 000 × taux × efficacité(année de la cohorte)`, à partir de
+2027 (2026 = préparation, coûts seuls), huit cohortes au plus (2027-2034). Le taux de
+non-remplacement vaut 5 % par point d'intensité jusqu'à 10 (50 %), puis 1,7 point de plus
+par point (67 % à l'intensité 20), borné à [0 ; 1] : une cohorte ne dépasse jamais les
+départs de son année. Chaque poste vaut le coût complet chargé `COUT_MOYEN_AGENT_FP_EUR`
+(60 k EUR, euros 2025 non indexés). Ordres de grandeur calculés : intensité 10 →
+215 875 postes en 2030 (13,0 Md EUR/an), 529 875 au plateau (31,8 Md EUR/an) ; intensité
+20 → 289 272 postes en 2030 (17,4 Md EUR/an), 710 032 au plateau (42,6 Md EUR/an). Les
+« potentiels » cités plus haut pour les deux axes sont des ordres de grandeur de la
+littérature, pas les montants du moteur. Jusqu'à v0.6.6, le stock valait
+`départs × taux × efficacité(année courante) × nombre d'années` : il réévaluait les
+cohortes passées, comptait une cohorte 2026 inexistante et pouvait croître de plus que
+les départs d'une année (intensité 20 : 525 950 postes en 2030 ; audit externe Codex,
+10/2026). Le curseur « effectifs » puise dans le **même vivier** : réforme + curseur ne
+suppriment jamais plus de postes que les départs cumulés depuis 2026 (v0.6.0). Propriétés
+verrouillées par `tests/test_audit_codex_v067.py` et `tests/test_fp_v060.py`.
 
 ### SMIC et Fonction Publique (Correction v3.0)
 

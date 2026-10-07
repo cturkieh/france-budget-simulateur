@@ -204,3 +204,87 @@ def test_lot1_is_monotone_et_continu_en_25():
     assert all(b > a for a, b in zip(deltas, deltas[1:]))
     assert _delta_is(0.25) == 0
     assert abs(_delta_is(0.2501)) < 0.05 and abs(_delta_is(0.2499)) < 0.05
+
+
+# ---------------------------------------------------------------------------
+# Lot 2 — cohortes de la réforme de l'État (bloc B, constat 1).
+# ``efficience._reforme_fp_reduction_cumulee`` calculait
+# départs × taux × efficacité(année COURANTE) × nombre d'années : chaque année
+# réévaluait toutes les cohortes passées à l'efficacité du jour, comptait une
+# cohorte 2026 qui n'existe pas (2 cohortes dès 2027), et pouvait faire croître le
+# stock de plus que les départs d'une année. Intensité 20 (taux 67 %) : 63 114 /
+# 525 950 postes en 2027 / 2030 au lieu de 31 557 / 289 272 (chiffres de l'audit).
+# ---------------------------------------------------------------------------
+
+from budget_simulator.constants import DEPARTS_ANNUELS_FP  # noqa: E402
+
+EFFICACITE_COHORTE = {2027: 0.3, 2028: 0.6, 2029: 0.85}   # 2030+ : 1,0 (handler)
+REFORME_MAX = {'fusion_agences': 100, 'digitalisation': 100}   # intensité 20 → 67 %
+
+
+def _stock_reforme(params, annees=range(2025, 2041)):
+    sim = BudgetSimulatorV45(periods=10, mesures={'fonction_publique_reforme': params})
+    return {a: sim._reforme_fp_reduction_cumulee(a) for a in annees}
+
+
+def test_lot2_fp_chiffres_de_l_audit():
+    """RED v0.6.6 : 63 114 postes en 2027 et 525 950 en 2030 ; attendu 31 557 et
+    289 272 (somme des cohortes 2027-2030 à leur propre efficacité), 710 032 au
+    plateau de 8 cohortes (2034-2035)."""
+    stock = _stock_reforme(REFORME_MAX)
+    flux = DEPARTS_ANNUELS_FP * 0.67
+    assert stock[2027] == pytest.approx(flux * 0.3)
+    assert stock[2030] == pytest.approx(flux * (0.3 + 0.6 + 0.85 + 1.0))
+    assert round(stock[2030]) == 289272
+    assert stock[2034] == stock[2035] == pytest.approx(flux * (0.3 + 0.6 + 0.85 + 5 * 1.0))
+
+
+@pytest.mark.parametrize('params', [
+    REFORME_MAX,
+    {'fusion_agences': 50, 'digitalisation': 50},    # renaissance_2027 (intensité 10)
+    {'fusion_agences': 60, 'digitalisation': 50},    # im_competitivite_2029 (11)
+    {'fusion_agences': 10, 'digitalisation': 20},    # horizons_2027 (3)
+    {'fusion_agences': 0, 'digitalisation': 10},     # lfi_2027 (1)
+])
+def test_lot2_fp_somme_de_cohortes_historique_conserve(params):
+    """Propriétés durables : pas de cohorte 2026 ; chaque année ajoute UNE cohorte,
+    à l'efficacité de SON année (les cohortes passées ne sont jamais réévaluées) ;
+    huit cohortes au plus (2027-2034) ; l'incrément annuel ne dépasse jamais le
+    vivier d'une année de départs."""
+    stock = _stock_reforme(params)
+    assert stock[2025] == stock[2026] == 0.0
+    taux = stock[2030] - stock[2029]          # cohorte à efficacité 1,0 = départs × taux
+    for annee in range(2027, 2041):
+        increment = stock[annee] - stock[annee - 1]
+        attendu = taux * EFFICACITE_COHORTE.get(annee, 1.0) if annee <= 2034 else 0.0
+        assert increment == pytest.approx(attendu, abs=1e-6), annee
+        assert 0.0 <= increment <= DEPARTS_ANNUELS_FP
+    assert stock[2034] == stock[2040]
+
+
+def test_lot2_fp_cohorte_bornee_par_le_vivier_annuel():
+    """Hors du domaine publié (curseurs > 100 %), le taux de non-remplacement
+    implicite dépasse 1 : une cohorte ne peut pas pour autant excéder les départs de
+    son année, ni devenir négative (un non-remplacement n'est pas une embauche)."""
+    for params in ({'fusion_agences': 1000, 'digitalisation': 1000},
+                   {'fusion_agences': -100, 'digitalisation': 0}):
+        stock = _stock_reforme(params)
+        for annee in range(2027, 2041):
+            assert 0.0 <= stock[annee] - stock[annee - 1] <= DEPARTS_ANNUELS_FP, (params, annee)
+
+
+@pytest.mark.parametrize('effectifs', [-60000, -300000, -900000])
+def test_lot2_fp_reforme_et_curseur_jamais_au_dela_des_departs_cumules(effectifs):
+    """Anti-double-comptage v0.6.0 PRÉSERVÉ : réforme + curseur effectifs ne
+    suppriment jamais plus de postes que les départs cumulés depuis 2026."""
+    from budget_simulator.constants import COUT_MOYEN_AGENT_FP_EUR
+    mesures = {'fonction_publique_reforme': REFORME_MAX,
+               'fonction_publique': {'effectifs': effectifs, 'point_indice': 0}}
+    sim = BudgetSimulatorV45(periods=10, mesures=mesures)
+    for annee in range(2026, 2036):
+        d_eff, _, _ = sim._apply_fonction_publique(
+            {}, mesures['fonction_publique'], annee, 3100, 0.015, 0.075)
+        curseur = -d_eff * 1e9 / COUT_MOYEN_AGENT_FP_EUR
+        total = curseur + sim._reforme_fp_reduction_cumulee(annee)
+        assert total <= DEPARTS_ANNUELS_FP * (annee - 2025) * (1 + 1e-12), annee
+        assert curseur <= -effectifs * (1 + 1e-12)

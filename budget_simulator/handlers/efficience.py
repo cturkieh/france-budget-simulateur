@@ -14,9 +14,11 @@ Mesures couvertes (5 handlers) :
   (cf section Couplages).
 - ``fonction_publique_reforme`` : réforme structurelle FP (fusion agences
   + digitalisation). Coûts initiaux 2026-2029 (0,15 Md€/point/an) puis
-  gains via non-remplacement (157 k départs/an × 40 k€, taux non-remplacé
-  fonction de l'intensité, montée 0,3 → 1,0). Pénalité dégradation
-  service si ``fusion`` > 7 et ``digitalisation`` < 3.
+  gains via non-remplacement : somme de cohortes annuelles de départs
+  (157 k/an × taux fonction de l'intensité × efficacité de l'année de la
+  cohorte, 0,3 → 1,0, huit cohortes au plus), valorisées au coût complet
+  ``COUT_MOYEN_AGENT_FP_EUR``. Pénalité dégradation service si ``fusion``
+  > 7 et ``digitalisation`` < 3.
 - ``fonction_publique`` : effectifs (±) et point d'indice. Base 5,5 M
   agents, masse salariale 330 Md€, coût moyen 60 k€/agent. Impact
   ``pouvoir_achat`` one-time, asymétrie volontaire (suppressions =
@@ -97,6 +99,13 @@ if TYPE_CHECKING:
     _MixinBase = _SimulatorState
 else:
     _MixinBase = object
+
+# Réforme de l'État : une cohorte de départs non remplacés par année à partir de
+# 2027 (2026 = préparation, coûts seuls), chacune à l'efficacité de SON année,
+# huit cohortes au plus (2027-2034). Cf. ``_reforme_fp_reduction_cumulee``.
+REFORME_FP_PREMIERE_COHORTE = 2027
+REFORME_FP_MONTEE_EN_CHARGE = (0.3, 0.6, 0.85, 1.0)
+REFORME_FP_COHORTES_MAX = 8
 
 
 class EfficienceMixin(_MixinBase):
@@ -315,9 +324,18 @@ class EfficienceMixin(_MixinBase):
         réforme de l'État à l'année donnée — fonction déterministe des
         paramètres actifs, SOURCE UNIQUE du vivier de départs partagé entre le
         handler réforme et le curseur effectifs (anti-double-comptage v0.6.0,
-        audit 08/2026 constat 4). Formule héritée v0.5.1 inchangée : taux de
-        non-remplacement selon l'intensité (0-50 % jusqu'à 10, 50-67 %
-        au-delà), montée en charge 2027-2030, cumul de cohortes plafonné à 8."""
+        audit 08/2026 constat 4). Taux de non-remplacement selon l'intensité
+        (0-50 % jusqu'à 10, 50-67 % au-delà, borné à [0 ; 1]) ; une cohorte de
+        départs par année à partir de 2027, chacune à l'efficacité de SON année
+        (0,3 / 0,6 / 0,85 puis 1,0) ; huit cohortes au plus (2027-2034).
+
+        v0.6.7 (audit Codex, bloc B constat 1) : le stock valait
+        départs × taux × efficacité(année COURANTE) × nombre d'années. Chaque
+        année réévaluait donc toutes les cohortes passées, comptait une cohorte
+        2026 inexistante (deux cohortes dès 2027) et pouvait croître de plus que
+        les départs d'une année (intensité 20 : 525 950 postes en 2030 au lieu de
+        289 272, +14 Md€/an d'économies). Un poste non remplacé reste non
+        remplacé : le stock est la SOMME des cohortes."""
         params = self.mesures.get('fonction_publique_reforme', {})
         # Bloc null (levier absent, sauté par apply_measures) ou mal formé →
         # 0.0, le même résultat que la clé absente (intensité nulle).
@@ -337,30 +355,27 @@ class EfficienceMixin(_MixinBase):
         fusion = _num(params.get('fusion_agences', 0)) / 10
         digitalisation = _num(params.get('digitalisation', 0)) / 10
         intensite_totale = fusion + digitalisation
-        year_idx = year - 2025
-        if intensite_totale == 0 or year_idx < 2:
+        if intensite_totale == 0 or year < REFORME_FP_PREMIERE_COHORTE:
             return 0.0
         if intensite_totale <= 10:
             taux_non_remplacement = intensite_totale * 0.05  # 0-50%
         else:
             taux_non_remplacement = 0.50 + (intensite_totale - 10) * 0.017  # 50-67%
-        # Montée en puissance progressive
-        if year_idx == 2:  # 2027
-            efficacite = 0.3
-        elif year_idx == 3:  # 2028
-            efficacite = 0.6
-        elif year_idx == 4:  # 2029
-            efficacite = 0.85
-        else:  # 2030+
-            efficacite = 1.0
-        postes_annuels = DEPARTS_ANNUELS_FP * taux_non_remplacement * efficacite
-        annees_ecoulees = min(year_idx - 1, 8)
-        return postes_annuels * min(annees_ecoulees + 1, 8)
+        # Borne du vivier : une cohorte ne dépasse pas les départs de son année
+        # (taux > 1 hors du domaine publié des curseurs) et n'est jamais une
+        # embauche (taux < 0).
+        taux_non_remplacement = min(max(taux_non_remplacement, 0.0), 1.0)
+        derniere = min(year, REFORME_FP_PREMIERE_COHORTE + REFORME_FP_COHORTES_MAX - 1)
+        efficacites = sum(
+            _year_phasing(cohorte - REFORME_FP_PREMIERE_COHORTE, REFORME_FP_MONTEE_EN_CHARGE)
+            for cohorte in range(REFORME_FP_PREMIERE_COHORTE, derniere + 1))
+        return DEPARTS_ANNUELS_FP * taux_non_remplacement * efficacites
 
     def _apply_fonction_publique_reforme(self, measure: Dict, params: Dict, year: int,
                                          gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
-        """Réforme structurelle FP (fusion agences, digitalisation). Phasing 2026-2030. Base 157k départs/an × 40k€.
-        Voir METHODOLOGIE.md § Fonction Publique."""
+        """Réforme structurelle FP (fusion agences, digitalisation). Coûts 2026-2029, puis
+        non-remplacement par cohortes de départs (157 k/an) au coût complet chargé
+        COUT_MOYEN_AGENT_FP_EUR. Voir METHODOLOGIE.md § Fonction Publique."""
         # Les sliders sont maintenant en % (0-100), on les convertit en 0-10
         fusion = params.get('fusion_agences', 0) / 10
         digitalisation = params.get('digitalisation', 0) / 10
