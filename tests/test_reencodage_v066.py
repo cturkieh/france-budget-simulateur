@@ -20,7 +20,8 @@ Entrées (arbitrages du 07/10/2026 sur le dossier de sourcing du même jour) :
 Propriétés verrouillées :
   (a) RN : les deux mesures retirées sont posées au droit voté (pas omises), et
       rn_2027 porte exactement le jeu de leviers de plf_2026 ;
-  (b) RN : chaque paramètre hors écarts sourcés vaut EXACTEMENT le droit voté —
+  (b) RN (puis LR/Horizons une fois activés, cf. ECARTS_SOURCES_A_ACTIVER) : chaque
+      paramètre hors écarts sourcés vaut EXACTEMENT le droit voté —
       c'est la forme exécutable de « aucune économie ni dépense non sourcée » ;
   (c) RN : les écarts sourcés valent les arbitrages ;
   (d) Horizons / LR : les paramètres re-encodés valent les arbitrages ;
@@ -28,7 +29,8 @@ Propriétés verrouillées :
       absente vaut le DÉFAUT DU MOTEUR (config.py, année 2025), pas la loi votée —
       et pour `taxe_superprofits` le handler à intensité 0 émet encore −0,002 de
       compétitivité (branche `tous_secteurs` fausse, dette moteur tracée v0.6.7),
-      que portent les neuf autres scénarios. Omettre la clé chez le seul RN lui
+      que portent les six autres scénarios à intensité 0 (trois autres sont à
+      intensité positive, cf. docstring du test). Omettre la clé chez le seul RN lui
       retirerait cet artefact : traitement asymétrique. La propriété vérifie que la
       trajectoire RN est celle du droit voté pour ces deux leviers, à l'identique.
 """
@@ -78,8 +80,59 @@ LR_ATTENDU = {
 }
 
 
+# Invariant « droit en vigueur sauf écart sourcé », appliqué par scénario. Clé = id
+# du scénario, valeur = liste EXPLICITE de ses écarts sourcés à plf_2026.
+# LR et Horizons : audit levier par levier du 07/10/2026 (tableau au CHANGELOG parent).
+LR_ECARTS_SOURCES = {
+    ('cotisations_patronales', 'taux'): 0.2525,      # > 25 Md€ coût du travail (avecretailleau.fr)
+    ('cotisations_salariales', 'baisse_points'): 2.5,  # ~15 Md€ rendus aux salariés
+    ('impots_production', 'montant'): 83,            # 97 − 14 (C3S, CVAE, forfait social, CFE ind.)
+    ('fonction_publique', 'effectifs'): -300000,     # ~300 000 postes sur le quinquennat
+    ('retraites', 'age_depart'): 65.0,               # taux plein à 65 ans
+    ('asu', 'asu_activation'): 1,                    # compte social unique
+    ('asu', 'asu_plafonnement'): 0.7,                # plafonné à 70 % du SMIC net
+}
+
+HORIZONS_ECARTS_SOURCES = {
+    ('retraites', 'age_depart'): 65.0,               # réforme du 29/09/2026
+    ('retraites', 'duree_cotisation'): 45.0,
+    ('chomage_alloc', 'duree'): 12,                  # 12 mois (sourcé le 30/08/2026)
+    ('impots_production', 'montant'): 47,            # pacte fiscal à somme nulle (30/08/2026)
+    ('niches_fiscales_tge', 'montant'): 32,
+    ('subventions_tge', 'montant'): 8,
+    ('is_exceptionnel_tge', 'montant'): 0,           # fin de la surtaxe IS
+    ('fonction_publique_reforme', 'fusion_agences'): 10,  # mesure annoncée, intensité = hypothèse écrite à la fiche
+    ('fonction_publique_reforme', 'digitalisation'): 20,
+}
+
+ECARTS_SOURCES_PAR_SCENARIO = {
+    'rn_2027': RN_ECARTS_SOURCES,
+    'lr_2027': LR_ECARTS_SOURCES,
+    'horizons_2027': HORIZONS_ECARTS_SOURCES,
+}
+
+# Scénarios dont les paramètres hérités ne sont pas encore passés au crible (PS, LFI,
+# Écologistes, Renaissance : à leurs prochains re-sourcings).
+ECARTS_SOURCES_A_ACTIVER = {}
+
+
 def _params(scenario):
     return {(lev, p): v for lev, ps in scenario.items() for p, v in ps.items()}
+
+
+def _ecarts_au_droit_en_vigueur(sid, ecarts_sources):
+    """Écarts de `sid` à plf_2026 hors liste sourcée : (1) leviers en trop ou
+    manquants, (2) paramètres différents. Itère sur l'UNION des clés : un paramètre
+    présent dans plf_2026 et absent du scénario (= défaut moteur) est un écart."""
+    scn, ref = SCENARIOS[sid], SCENARIOS['plf_2026']
+    leviers = {'en_trop': set(scn) - set(ref), 'manquants': set(ref) - set(scn)}
+    p_scn, p_ref = _params(scn), _params(ref)
+    params = {
+        k: (p_ref.get(k, '<absent>'), p_scn.get(k, '<absent>'))
+        for k in set(p_ref) | set(p_scn)
+        if k not in ecarts_sources and p_scn.get(k, '<absent>') != p_ref.get(k, '<absent>')
+    }
+    return leviers, params
 
 
 @_SCENARIOS
@@ -90,20 +143,23 @@ def test_a_rn_mesures_retirees_au_droit_vote_et_meme_jeu_de_leviers():
             f"{cle} : {rn.get(cle)!r} dans rn_2027, droit voté {ref[cle]!r} — "
             "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (e))"
         )
-    assert set(rn) == set(ref), (
-        f"leviers rn_2027 ≠ plf_2026 : en trop={set(rn) - set(ref)} ; "
-        f"manquants={set(ref) - set(rn)}"
+    leviers, _ = _ecarts_au_droit_en_vigueur('rn_2027', RN_ECARTS_SOURCES)
+    assert not leviers['en_trop'] and not leviers['manquants'], (
+        f"leviers rn_2027 ≠ plf_2026 : {leviers}"
     )
 
 
 @_SCENARIOS
-def test_b_rn_tout_parametre_non_source_vaut_le_droit_vote():
-    rn, ref = _params(SCENARIOS['rn_2027']), _params(SCENARIOS['plf_2026'])
-    ecarts = {
-        k: (ref.get(k), v) for k, v in rn.items()
-        if k not in RN_ECARTS_SOURCES and v != ref.get(k)
-    }
-    assert not ecarts, f"paramètres RN hérités sans source (droit voté, RN) : {ecarts}"
+@pytest.mark.parametrize('sid', sorted(ECARTS_SOURCES_PAR_SCENARIO))
+def test_b_tout_parametre_non_source_vaut_le_droit_en_vigueur(sid):
+    leviers, params = _ecarts_au_droit_en_vigueur(sid, ECARTS_SOURCES_PAR_SCENARIO[sid])
+    assert not leviers['en_trop'] and not leviers['manquants'], f"{sid} leviers : {leviers}"
+    assert not params, f"paramètres {sid} hérités sans source (droit en vigueur, {sid}) : {params}"
+
+
+def test_b_bis_aucun_scenario_a_activer_en_double():
+    """Garde de cohérence : un scénario ne peut être à la fois actif et en attente."""
+    assert not set(ECARTS_SOURCES_PAR_SCENARIO) & set(ECARTS_SOURCES_A_ACTIVER)
 
 
 @_SCENARIOS
@@ -127,7 +183,12 @@ def test_d_horizons_lr_arbitrages(sid, cle, attendu):
 def test_e_retrait_au_droit_vote_et_non_par_omission():
     """Poser les deux leviers au droit voté ≠ les omettre : l'omission décale la
     trajectoire RN (artefact du handler superprofits à intensité 0) — c'est ce qui
-    interdit la forme « clé absente » pour un retrait."""
+    interdit la forme « clé absente » pour un retrait.
+
+    État de `taxe_superprofits` dans scenarios.json (vérifié le 07/10/2026) : hors RN,
+    6 scénarios à intensité 0 (plf_2026, renaissance, horizons, lr, im_rabot,
+    im_competitivite) portent l'artefact ; 3 à intensité positive (lfi 1,0, ps 0,5,
+    ecologistes 0,5) portent la mesure elle-même."""
     rn = SCENARIOS['rn_2027']
     omis = {k: v for k, v in rn.items() if k not in RN_CLES_RETIREES}
     df_vote, _, _ = BudgetSimulatorV45(periods=10, mesures=rn).simulate()
