@@ -140,6 +140,26 @@ _BUDGET_KEYS = frozenset({'depenses', 'recettes'})
 class OrchestratorMixin:
     """Bloc moteur — Orchestrateur (boucle de simulation + dispatch des mesures)."""
 
+    @staticmethod
+    def prochain_output_gap(gap: float, croissance: float, croissance_potentielle: float) -> float:
+        """Output gap en NIVEAU (v0.6.7, audit Codex 10/2026, bloc A constat 3).
+
+        Définition BCE / OCDE / FMI / Commission européenne : écart du PIB réel
+        à son potentiel, rapporté au potentiel. Les deux niveaux croissant à g
+        et g*, (1 + gap_t) = (1 + gap_{t−1}) × (1 + g_t) / (1 + g*_t) — une
+        identité, sans paramètre.
+
+        Jusqu'en v0.6.6 : ``0,8·gap + 0,2·(g − g*)``, moyenne mobile de l'écart
+        de CROISSANCE qui effaçait chaque année 20 % d'un écart de niveau réel
+        (statu quo 2034 : −0,40 % servi contre −2,68 % mesuré en niveau). Le
+        gap ne se referme plus par décret : seulement si la croissance dépasse
+        le potentiel. Aucun terme de fermeture n'est ajouté ici — une fermeture
+        dans la seule statistique de gap la rendrait différente de l'écart de
+        niveau effectivement simulé (le PIB, lui, ne revient pas au potentiel) ;
+        un retour au potentiel est une propriété de l'équation de CROISSANCE.
+        """
+        return (1 + gap) * (1 + croissance) / (1 + croissance_potentielle) - 1
+
     def detect_active_measures(self) -> List[str]:
         """Détecte les mesures activement modifiées"""
         defaults = self._get_default_values()
@@ -738,7 +758,8 @@ class OrchestratorMixin:
                 # Le seul appel qui vient APRÈS est `update_potential_growth`
                 # (ligne suivante), qui clôt l'année : il mute le tendanciel
                 # pour l'année d'après, et ne doit donc pas être lu ici.
-                output_gap = 0.8 * output_gap + 0.2 * (growth - self.croissance_potentielle_totale())
+                output_gap = self.prochain_output_gap(
+                    output_gap, growth, self.croissance_potentielle_totale())
                 _log_debug(self.debug_logs, f"Y{year_idx}: Nouveau output gap = {output_gap:.3f}")
 
                 # Mise à jour croissance potentielle

@@ -122,12 +122,14 @@ def test_offre_plancher_symetrique():
 
 
 def test_balayage_education_monotone_et_directionnel(monkeypatch):
-    """Le balayage de l'audit (constat 2) : la dette 2035 est STRICTEMENT
-    monotone DÉCROISSANTE le long du curseur éducation (couper coûte, investir
-    améliore le ratio — direction documentée : multiplicateur investissement
-    1,2 FMI/OFCE + dénominateur, symétrique en coupe). Et en EUROS : couper
-    RÉDUIT la dette, dépenser l'AUGMENTE — pas d'autofinancement magique en
-    niveau sur ce curseur (revue adverse 24/08).
+    """Le balayage de l'audit (constat 2), monotone et directionnel. En EUROS :
+    couper RÉDUIT la dette, dépenser l'AUGMENTE. En RATIO, depuis v0.6.7 (B3 :
+    l'écart de production se referme, les effets de demande sont transitoires),
+    dépenser AUGMENTE aussi la dette 2035 rapportée au PIB : l'investissement
+    ne s'autofinance plus, même en ratio. Jusqu'en v0.6.6 le ratio DÉCROISSAIT
+    (multiplicateur cumulé permanent 1,2 × Σ profil 1,98 = 2,38 : la hausse du
+    dénominateur l'emportait), ce que la règle « aucun investissement ne
+    s'autofinance » exclut.
 
     Sondé au-delà du curseur (45 < 60, min publié) : la porte PARAM_DOMAINS
     (v0.6.7) est retirée pour que la coupe soit réellement simulée."""
@@ -138,7 +140,7 @@ def test_balayage_education_monotone_et_directionnel(monkeypatch):
         df, _, _ = BudgetSimulatorV45(periods=10, mesures={'education': {'budget': v}}).simulate()
         dettes.append(df['Dette/PIB %'].iloc[-1])
         euros.append(df['Dette'].iloc[-1])
-    assert dettes[0] > dettes[1] > dettes[2], f"ratio non décroissant : {dettes}"
+    assert dettes[0] < dettes[1] < dettes[2], f"ratio non croissant : {dettes}"
     assert euros[0] < euros[1] < euros[2], f"euros non croissants : {euros}"
 
 

@@ -449,6 +449,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         self.economic_coeffs = {
             'okun': -0.35,
+            # Traînée de dette, effet d'OFFRE depuis v0.6.7 (B3) : abaisse la croissance
+            # POTENTIELLE (engine/growth.py). Kumar & Woo 2010, IMF WP/10/174 : « long-run
+            # growth », −0,2 pt/an par +10 pts de dette initiale (moindre en économies
+            # avancées), via investissement et stock de capital. −0,005 = −0,05 pt / 10 pts.
             'debt_drag': -0.005,  # Compromis entre -0.008 (Reinhart-Rogoff) et -0.003 (Herndon et al. 2014)
             'inflation_inertia': INFLATION_INERTIE,  # source unique constants.py (v0.6.3 : 0,50 littéral nu → 0,33 encadré)
             # FIX: ancien 0.40 (positif) signifiait "chômage élevé → plus de croissance"
@@ -656,6 +660,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # cet état, un effet de NIVEAU serait relu comme un effet de TAUX et
         # composerait année après année (l'erreur retirée de la v0.6.0).
         self._labour_supply_level = 0.0
+        # Traînée de dette de l'année (v0.6.7, B3) : composante d'OFFRE de la
+        # croissance potentielle totale, posée par calculate_growth.
+        self._debt_drag = 0.0
         # Bosse de chômage seniors appliquée l'année précédente. Retirée de
         # l'état reporté par calculate_unemployment avant la récurrence : un
         # écart de NIVEAU laissé dans l'état s'accumulerait vers ~16,7 fois
@@ -719,6 +726,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._labour_supply_bonus = 0.0
         self._labour_supply_level = 0.0
         self._chomage_seniors_prev = 0.0
+        self._debt_drag = 0.0
 
         # --- Spending baseline et compound itératif ---
         self.spending_categories_base = dict(self._spending_categories_base_initial)

@@ -263,7 +263,7 @@ def _bloc_de_commentaire_avant_output_gap(source: str) -> str:
     """Commentaires contigus qui précèdent la récurrence de l'output gap."""
     lignes = source.splitlines()
     cible = next(i for i, l in enumerate(lignes)
-                 if l.strip().startswith('output_gap = 0.8 * output_gap'))
+                 if l.strip().startswith('output_gap = self.prochain_output_gap('))
     bloc = []
     i = cible - 1
     while i >= 0 and lignes[i].strip().startswith('#'):
@@ -290,7 +290,7 @@ def test_l_offre_de_travail_est_bien_posee_avant_l_output_gap():
             positions.setdefault(noeud.func.attr, noeud.lineno)
     ligne_output_gap = next(
         i + 1 for i, l in enumerate(source.splitlines())
-        if l.strip().startswith('output_gap = 0.8 * output_gap'))
+        if l.strip().startswith('output_gap = self.prochain_output_gap('))
 
     assert positions['update_labour_supply'] < positions['calculate_growth']
     assert positions['update_labour_supply'] < positions['calculate_unemployment']

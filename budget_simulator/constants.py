@@ -332,6 +332,17 @@ PHILLIPS_PENTE_MT = 0.20  # pente de moyen terme sur l'output gap (fourchette de
 # documentée et reste dans l'encadrement testé.
 OUTPUT_GAP_INITIAL = -0.007  # −0,7 % — RAA 2026 T2 p. 20 / HCFP n° 2026-3 (variante FMI : −0,4)
 
+# OUTPUT_GAP_RAPPEL (v0.6.7, B3 — arbitrage de Cyril) : fraction de l'output
+# gap (en NIVEAU) de fin d'année t−1 que la croissance de t corrige, soit une
+# persistance de 1 − λ = 0,8 par an. Forme de l'équation d'output gap des
+# modèles semi-structurels de projection du FMI : Berg, Karam & Laxton (2006),
+# « Practical Model-Based Monetary Policy Analysis—A How-To Guide », IMF WP/06/81,
+# éq. (1) ygap_t = β_ld·ygap_{t+1} + β_lag·ygap_{t−1} − β_RRgap·(RR−RR*)_{t−1} + …
+# (ici λ = 1 − β_lag). La valeur 0,2 est un ARBITRAGE déclaré (Cyril, 07/10/2026),
+# pas une estimation France. Sans ce terme, un gap en niveau ne se refermait
+# jamais : tout choc de demande devenait un écart permanent.
+OUTPUT_GAP_RAPPEL = 0.2
+
 # BCE_PLANCHER_ACCOMMODANT : seuil bas de la règle monétaire du moteur, pendant
 # symétrique de BCE_CIBLE_INFLATION (seuil haut) — nommé en v0.6.1 pour que la
 # règle monétaire ne porte plus un seuil en littéral quand l'autre est une

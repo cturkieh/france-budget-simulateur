@@ -103,6 +103,7 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
+from ..constants import OUTPUT_GAP_RAPPEL
 from ._param_domain import validate_param_domains, valeur_brute
 
 logger = logging.getLogger(__name__)
@@ -145,6 +146,15 @@ class GrowthMixin:
           v0.6.1) : INCRÉMENT annuel d'un effet de NIVEAU de PIB, produit par
           ``update_labour_supply``.
 
+        - ``_debt_drag`` (v0.6.7, B3) — traînée de dette, effet d'OFFRE :
+          ``debt_drag × (dette/PIB − 0,9)`` au-delà de 90 %, posé par
+          ``calculate_growth`` en tête d'année (premier des trois lecteurs).
+          Jusqu'en v0.6.6 il frappait la croissance EFFECTIVE sans toucher le
+          potentiel : la loi d'Okun le lisait comme un choc de demande et, avec
+          un output gap en niveau, il ouvrait un écart permanent (−2,0 pts
+          cumulés au statu quo en 2035). La littérature le place sur la
+          croissance de long terme (cf. constants.py, DEBT_DRAG_*).
+
         Les deux bonus vivent hors du tendanciel À DESSEIN : les reverser
         dans ``base_params['croissance_potentielle']`` les ferait écrêter par
         le clip ET figer par l'hystérèse, alors qu'ils sont transitoires.
@@ -152,7 +162,8 @@ class GrowthMixin:
         """
         return (self.base_params['croissance_potentielle']
                 + self._potential_growth_bonus
-                + self._labour_supply_bonus)
+                + self._labour_supply_bonus
+                + self._debt_drag)
 
     def update_labour_supply(self, year: int) -> None:
         """Canal d'offre de travail seniors → croissance potentielle (v0.6.1, I7).
@@ -294,13 +305,27 @@ class GrowthMixin:
         unemployment = economic_state.get('unemployment', 0.076)
         deficit_ratio = economic_state.get('deficit_ratio', -0.054)
 
+        # Traînée de dette = effet d'OFFRE (v0.6.7, B3) : elle abaisse le
+        # POTENTIEL de l'année, que lisent ensuite les trois lecteurs (croissance,
+        # Okun, output gap) — elle n'ouvre donc ni écart d'Okun ni output gap.
+        self._debt_drag = (self.economic_coeffs['debt_drag'] * (debt_ratio - 0.9)
+                           if debt_ratio > 0.9 else 0.0)
+        if self._debt_drag:
+            _log_debug(self.debug_logs, f"Y{year}: Debt drag {self._debt_drag*100:.2f}% (potentiel)")
+
         croissance = self.croissance_potentielle_totale()
         croissance += self.economic_coeffs['chomage_gap_weight'] * unemployment_gap
 
-        if debt_ratio > 0.9:
-            debt_impact = self.economic_coeffs['debt_drag'] * (debt_ratio - 0.9)
-            croissance += debt_impact
-            _log_debug(self.debug_logs, f"Y{year}: Debt drag {debt_impact*100:.2f}%")
+        # Rappel vers le potentiel (v0.6.7, B3) : avec un output gap en NIVEAU,
+        # rien ne ramenait le PIB vers son potentiel — un choc de demande restait
+        # un écart permanent. La croissance de l'année corrige une fraction
+        # OUTPUT_GAP_RAPPEL de l'écart de fin d'année précédente : persistance
+        # 1 − λ = 0,8 par an, la forme des modèles semi-structurels du FMI
+        # (cf. constants.py). Vitesse de croisière = potentiel ; écart → rappel.
+        rappel = -OUTPUT_GAP_RAPPEL * output_gap
+        croissance += rappel
+        if abs(rappel) > 0.0005:
+            _log_debug(self.debug_logs, f"Y{year}: Rappel vers le potentiel {rappel*100:+.2f}% (gap {output_gap*100:+.2f}%)")
 
         # === MULTIPLICATEUR KEYNÉSIEN — IMPULSIONS PAR LEVIER (v0.6.7) ===
         # effet(t) = Σ_levier Σ_âge −k × impulsion(t − âge) × profil(âge), où

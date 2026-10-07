@@ -377,8 +377,12 @@ def test_choc_offre_ne_contamine_pas_la_croissance_potentielle_tendancielle(etat
 def test_croissance_potentielle_totale_publiee_inclut_les_deux_termes(etat):
     """La colonne publiée ``Croissance_Potentielle_Totale %`` doit être la
     somme réellement consommée par le moteur, sinon la trajectoire exportée
-    ne se raccorde plus à la croissance simulée."""
-    (_, sans), (_, avec) = _paire_avec_sans(etat)
+    ne se raccorde plus à la croissance simulée.
+
+    v0.6.7 (B3) : la traînée de dette est le quatrième terme du potentiel
+    total ; elle dépend de la dette, que le bonus fait bouger — elle est
+    neutralisée ici pour que l'écart isole le seul bonus injecté."""
+    (_, sans), (_, avec) = _paire_avec_sans(etat, debt_drag=0.0)
 
     ecarts = [a - b for a, b in zip(
         avec['Croissance_Potentielle_Totale %'], sans['Croissance_Potentielle_Totale %'])]

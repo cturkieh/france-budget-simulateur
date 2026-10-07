@@ -60,10 +60,13 @@ def test_calculate_growth_austerity(simulator):
         growth = simulator.calculate_growth(year=1, economic_state=economic_state)
     # potentiel + traînée de dette + multiplicateurs (an 1 : pas d'atténuation
     # « confiance » ; dette > 110 % : ×0,95) + cicatrice (effort > 3 %).
+    # v0.6.7 B3 : la traînée de dette est DANS le potentiel total (offre), et la
+    # croissance corrige 20 % de l'output gap de t−1 (rappel, +0,2 × 1,5 %).
     pot = simulator.croissance_potentielle_totale()
+    assert pot == simulator.base_params['croissance_potentielle'] - 0.005 * (1.156 - 0.9)
     keynes = -0.95 * (0.60 * 0.61 + 0.50 * 0.39) * 0.034 * 0.90
     cicatrice = max(-0.10 * (0.034 - 0.03), -0.003)
-    expected = pot - 0.005 * (1.156 - 0.9) + keynes + cicatrice
+    expected = pot + 0.2 * 0.015 + keynes + cicatrice
     assert abs(growth - expected) < 1e-12, f"{growth:.6f} vs {expected:.6f}"
     assert any("[IMPULSION]" in s and "consolidation" in s for s in simulator.debug_logs), \
         "Log consolidation manquant"
@@ -414,7 +417,8 @@ def test_calculate_growth_zlb(simulator):
     # v0.6.7, forme fermée : potentiel − traînée de dette + flux par flux
     # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (dette = 100 %, seuil strict).
     keynes = 1.15 * 1.3 * (1.2 * 0.004 * 0.45 + 0.35 * 0.006 * 0.90)
-    exact = simulator.croissance_potentielle_totale() - 0.005 * (1.0 - 0.9) + keynes
+    # v0.6.7 B3 : traînée de dette dans le potentiel total, rappel +0,2 × 3 %.
+    exact = simulator.croissance_potentielle_totale() + 0.2 * 0.03 + keynes
     assert abs(growth - exact) < 1e-12, f"{growth:.6f} vs {exact:.6f}"
     # Historique (weighted blend v0.6.6, conservé pour lecture) :
     # Base: 0.01

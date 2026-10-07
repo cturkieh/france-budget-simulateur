@@ -84,11 +84,15 @@ def test_simulation_complete():
     # décalage d'indexation pendant la transition d'inflation (biais I17
     # déclaré). Ce recalage joue dans le MÊME sens pour tous les scénarios :
     # cf. le paragraphe « sens des corrections » du CHANGELOG v0.6.1.
-    assert abs(dette_2035 - 163.5) <= 4.0, (
-        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~163,5% (v0.6.1, déflateur recalé)"
+    # RECALIBRAGE v0.6.7 B3 (mesuré sans bruit 157,8 % / -10,23 %) : output
+    # gap en niveau refermé à 20 %/an (le gap initial −0,7 % se résorbe, +0,7 %
+    # de PIB), traînée de dette passée dans le potentiel (Okun ne la lit plus :
+    # chômage plus bas, moindres dépenses). Sens commun à tous les scénarios.
+    assert abs(dette_2035 - 157.8) <= 4.0, (
+        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~157,8% (v0.6.7, B3)"
     )
-    assert abs(deficit_2035 - (-11.2)) <= 2.0, (
-        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-11,2% (v0.6.1, boule de neige)"
+    assert abs(deficit_2035 - (-10.2)) <= 2.0, (
+        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-10,2% (v0.6.7, B3)"
     )
 
 

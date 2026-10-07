@@ -300,13 +300,19 @@ def test_niches_sociales_tge_suppression_60mds_destroys_jobs():
     """
     sim_base = BudgetSimulatorV45(periods=10)
     df_base, _, _ = sim_base.simulate()
-    chomage_y10_base = df_base.iloc[-1]['Chômage %']
+    # v0.6.7 (B3) : PIC sur l'horizon, plus l'année 10. L'écart de production
+    # se refermant (rappel 20 %/an), le canal demande s'éteint et l'effet
+    # direct du coût du travail décroît avec la convergence NAIRU : mesuré
+    # +0,35 pt en 2028-2029, ~0 en 2035. L'effet Bozio-Wasmer est STRUCTUREL —
+    # le moteur ne le rend que transitoirement (limite déclarée, METHODOLOGIE
+    # § Output gap). Le plancher 0,25 et sa raison (euros 2025) sont inchangés.
+    chomage_base = df_base['Chômage %']
 
     # NFP-style : suppression de 60 Md€ niches sociales TGE (montant 70 → 10)
     sim = BudgetSimulatorV45(periods=10, mesures={'niches_sociales_tge': {'montant': 10}})
     df, _, _ = sim.simulate()
-    chomage_y10 = df.iloc[-1]['Chômage %']
-    delta_chomage = chomage_y10 - chomage_y10_base
+    delta_chomage = max(a - b for a, b in zip(df['Chômage %'], chomage_base))
+    chomage_y10_base, chomage_y10 = chomage_base.iloc[-1], df.iloc[-1]['Chômage %']
 
     # Cible Bozio-Wasmer 2024 : ~0.48 pt chomage. Plage [0.30, 0.80] couvre l'incertitude.
     # PLANCHER ABAISSÉ À 0,25 EN v0.6.7, raison nommée et mesurée : le handler

@@ -223,15 +223,15 @@ Deficit = Depenses - Recettes
 ```
 
 **Calibration baseline — statu quo NU, mesure sur l'etat livre (26/08/2026) :**
-- Deficit 2026 : -5,37% du PIB
-- Dette 2030 : 130,41% du PIB (HCFP : >125% sans ajustement)
-- Deficit 2035 : -11,26% du PIB
-- Dette 2035 : 161,79% du PIB
+- Deficit 2026 : -5,28% du PIB
+- Dette 2030 : 128,99% du PIB (HCFP : >125% sans ajustement)
+- Deficit 2035 : -10,60% du PIB
+- Dette 2035 : 157,90% du PIB
 
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 (vote) »**, qui encode la loi de
-> finances et rend -5,25 % de deficit 2026, 129,91 % de dette 2030 et 160,69 %
+> finances et rend -5,15 % de deficit 2026, 128,42 % de dette 2030 et 156,20 %
 > en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -640,15 +640,15 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 | Croissance | 0,90% | 0,78% | 0,51% |
 | Inflation | 1,00% | 1,57% | 1,45% |
 | Chomage | 7,60% | 7,63% | 8,33% |
-| Dette/PIB | 115,60% | 130,41% | 161,79% |
-| Deficit/PIB | -5,08% | -6,79% | -11,26% |
+| Dette/PIB | 115,60% | 128,99% | 157,90% |
+| Deficit/PIB | -5,08% | -6,79% | -10,60% |
 
 Les lignes Inflation de ce tableau affichaient ~1,1% en 2030 comme en 2035
 jusqu'au 26/08/2026 — c'est-a-dire precisement la variable que le recalage de
 la courbe de Phillips existe pour corriger, laissee a sa valeur d'avant.
 
 **Analyse :**
-- La dette monte a 161,79% d'ici 2035 sans aucune mesure (130,41% des 2030 — HCFP : >125% sans ajustement)
+- La dette monte a 157,90% d'ici 2035 sans aucune mesure (128,99% des 2030 — HCFP : >125% sans ajustement)
 - Le deficit se creuse sous l'effet des depenses (vieillissement, defense, sante) et de la boule de neige des interets
 - La croissance s'erode lentement via le debt drag
 - L'inflation effective reste sous le point fixe 1,6% (output gap negatif)
@@ -669,7 +669,7 @@ la courbe de Phillips existe pour corriger, laissee a sa valeur d'avant.
 - Deficit/PIB passe de 5% a ~3,5%
 
 **Impact sur trajectoire :**
-- Debt drag reduit (trajectoire de dette tres en-dessous du statu quo NU, 161,79% en 2035)
+- Debt drag reduit (trajectoire de dette tres en-dessous du statu quo NU, 157,90% en 2035)
 - Croissance maintenue a ~1,0%
 - PA legerement inferieur au statu quo a court terme (effort budgetaire), ecart resorbe ensuite
 
@@ -725,7 +725,7 @@ Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 **IL FAUT CHOISIR :**
 - Accepter un PA qui stagne (~+0,3 pt/an en statu quo : croissance faible, gains quasi nuls en fin d'horizon)
 - OU reformer (fiscal, structurel)
-- OU laisser filer la dette (insoutenable : 130,41% des 2030, 161,79% en 2035 sans aucune mesure)
+- OU laisser filer la dette (insoutenable : 128,99% des 2030, 157,90% en 2035 sans aucune mesure)
 
 ### Points Cles du Modele v4.0
 
@@ -745,9 +745,9 @@ Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les trajectoires baseline sont coherentes :
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
-- Deficit 2026 : -5,37% PIB en statu quo NU ; **-5,25% pour le scenario de reference** « Budget 2026 (vote) », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 130,41% PIB en statu quo NU ; 129,91% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 161,79% PIB en statu quo NU ; 160,69% pour le scenario de reference. Deficit 2035 : -11,26% / -10,99%
+- Deficit 2026 : -5,28% PIB en statu quo NU ; **-5,15% pour le scenario de reference** « Budget 2026 (vote) », qui est ce que le site sert (loi votee : -5,0%)
+- Dette 2030 : 128,99% PIB en statu quo NU ; 128,42% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 157,90% PIB en statu quo NU ; 156,20% pour le scenario de reference. Deficit 2035 : -10,60% / -10,19%
 - Croissance potentielle : 1,0% (extensible a 1,2% avec investissement soutenu)
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

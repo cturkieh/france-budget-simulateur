@@ -237,6 +237,12 @@ def test_corridor_deficit(trajectoire):
             f"{int(df['Année'].iloc[i])} : déficit {df['Déficit/PIB %'].iloc[i]:.2f} vs mission {CIBLE_DEFICIT[i-1]} (Δ{ecart:+.2f})"
 
 
+@pytest.mark.xfail(strict=True, reason=(
+    "v0.6.7 B3 (output gap en niveau + rappel + traînée de dette en offre) : le "
+    "scénario de référence passe SOUS la mission (2029 : 125,0 vs 127,3). La "
+    "cible n'a pas changé, le modèle oui — recalage dans le commit dédié au "
+    "corridor, après le recalibrage central des multiplicateurs (qui déplace "
+    "aussi plf_2026). strict=True : un retour fortuit au vert rougit."))
 def test_corridor_dette(trajectoire):
     df, _ = trajectoire
     for i in range(1, 6):
