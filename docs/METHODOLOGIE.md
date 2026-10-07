@@ -1445,6 +1445,18 @@ du coût brut d'une impulsion permanente d'investissement revient au solde publi
 l'autofinancement (2,38 × 0,51 > 1), masqué par l'impulsion unique. Le recalibrage RELÈVE trois familles
 sur quatre : la v0.6.6 était sous la valeur centrale pour les impôts, les transferts et les coupes.
 
+**Incertitude et poids du canal keynésien (v0.6.7, GO de Cyril du 07/10/2026).** Le classement entre
+programmes dépend d'abord de ce canal. Mesure du 07/10/2026 (moteur v0.6.7, les cinq multiplicateurs
+`MULT_*` à zéro, toutes les autres équations inchangées) : la dette 2035 de LFI passerait de 151,8 % à
+176,3 % du PIB, celle d'IM Rabot de 134,4 % à 106,1 % ; selon les programmes, le canal déplace la dette
+2035 de −24,5 à +28,3 points. La valeur centrale retenue est celle de la table ci-dessus (FMI WEO
+oct. 2014, Ramey 2019, Gechert 2015), mais la littérature ne tranche pas pour la France. Le site publie
+donc, sur chaque fiche programme, une fourchette : la même trajectoire avec les cinq multiplicateurs
+(`MULT_INVESTISSEMENT`, `MULT_COUPE_DEPENSES`, `MULT_TRANSFERTS`, `MULT_HAUSSE_IMPOTS`,
+`MULT_BAISSE_IMPOTS`) ×0,75 et ×1,25 — coefficients propres du SMIC et de la fraude fiscale et
+ajustements conjoncturels inchangés. Exemple, dette 2035 : LFI 148,1 à 155,9 %, IM Rabot 125,4 à
+144,5 % ; le statu quo, sans impulsion, ne bouge pas (151,2 %).
+
 **Perimetre du canal investissement (v0.6.0)** : education, recherche publique,
 transition ecologique UNIQUEMENT (`INVESTMENT_CORE_MEASURES`). La sante courante
 et la reforme de l'Etat sont de la consommation/optimisation publique : canaux
@@ -2158,17 +2170,17 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) |
-|---|---|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 |
+|---|---|---|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 |
 
 **Mise à jour du 07/10/2026 — sixième colonne : re-encodage de trois scénarios,
 aucune ligne de moteur modifiée.** Les sept autres scénarios ont des trajectoires
@@ -2186,6 +2198,21 @@ mesures chiffrées du contre-budget entrent, et la part de son plan sans levier
 dans le simulateur (« priorité nationale », contribution européenne, économies non
 ventilées) n'est pas encodée. Chaque scénario porte ce que sa source chiffre, ni
 plus ni moins.
+
+**Mise à jour v0.6.7 (07/10/2026) — septième colonne : corrections d'équations issues
+d'un audit externe, aucun paramètre de scénario modifié.** Les écarts au scénario de
+référence se resserrent, dans les deux sens : les programmes qui creusaient la dette
+par rapport au budget voté la creusent moins (LFI +17,7 vers +2,0, LR +8,0 vers +6,4,
+RN +6,7 vers +2,9), ceux qui la réduisaient la réduisent moins (IM Rabot -26,8 vers
+-15,4, IM Compétitivité -25,0 vers -22,2, Horizons -8,8 vers -4,8) ; deux
+programmes changent de côté (PS +3,7 vers -5,0, Renaissance -0,9 vers +1,9) et
+l'écart des Écologistes s'accentue (-5,8 vers -12,7). Le moteur principal est le
+canal keynésien : impulsions comptées levier par levier et multiplicateurs recalés sur
+la valeur centrale de la littérature (§ « Multiplicateurs et Mecanismes Macro ») — une
+relance y regagne en croissance une part de son coût, une consolidation y perd une
+part de son rendement. Ce canal étant le plus incertain du modèle, chaque fiche
+publie la fourchette ×0,75 / ×1,25 (même §, « Incertitude et poids du canal
+keynésien »).
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,
