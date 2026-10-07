@@ -3,6 +3,7 @@ Economic constants for BudgetLab France simulator.
 All values documented with sources.
 """
 
+import json
 from pathlib import Path
 from typing import NamedTuple
 
@@ -564,22 +565,22 @@ INTENSITE_DOMAINS = {
 # s'auto-référencer).
 _CHOMAGE_TAUX_DOMAINE = (0.45, 0.80)
 
-PARAM_DOMAINS = {
-    'fraude_sociale': {
-        'effort': (0.0, 1.0),
-    },
-    'fraude_fiscale': {
-        'effort': (0.0, 1.0),
-    },
-    # v0.6.3 (revue silent-failure) : depuis la fin du double comptage, la
-    # durée est LE paramètre le plus porteur du moteur (elle seule produit
-    # les euros que deux fiches publient comme « calculés ») et elle n'avait
-    # AUCUNE borne hors-UI : duree=240 valait +166 Md€/an (rattrapé par le
-    # seul clip générique 5 % PIB), duree<=0 était réinterprété « statu quo »
-    # par un clamp muet du handler (supprimé — c'était l'ex-garde d'une
-    # division legacy qui n'existe plus). Bornes = policy_measures.json.
+# v0.6.7 (audit externe, oct. 2026) : le registre ne couvrait que 16 des 55
+# paramètres auxquels `policy_measures.json` publie un min/max — `tva_rate.taux
+# = 20` (TVA à 2 000 %) passait sans borne et sortait un pouvoir d'achat de
+# −296. Il est désormais DÉRIVÉ du registre public (source unique : les bornes
+# d'UI qu'il publie), et ce dict-ci ne porte plus que ce que le registre ne
+# peut pas dire : un paramètre qu'il ne publie pas, ou un domaine qu'il publie
+# trop étroit pour les scénarios servis. Règle inchangée : domaine = union des
+# bornes d'UI et des valeurs des scénarios publiés, jamais plus étroit
+# (verrouillé par test_les_bornes_contiennent_ui_et_scenarios_publies et
+# test_les_bornes_couvrent_tous_les_scenarios_publies). Les `intensite` des
+# leviers d'INTENSITE_DOMAINS restent à leur porte dédiée (sémantique legacy
+# `intensite: None` = slider non posé), jamais bornés deux fois.
+_PARAM_DOMAINS_MOTEUR = {
     'chomage_alloc': {
-        'duree': (12.0, 36.0),
+        # Non publié par le registre (l'UI pose `taux_remplacement`, le
+        # registre ne décrit que le mode legacy `montant`).
         'taux_remplacement': _CHOMAGE_TAUX_DOMAINE,
         # v0.6.4 : le mode legacy `montant` est une représentation du taux
         # (taux = TAUX_REF × montant/base) — son domaine se DÉRIVE de celui du
@@ -590,17 +591,6 @@ PARAM_DOMAINS = {
             CHOMAGE_MONTANT_REF_MD * _CHOMAGE_TAUX_DOMAINE[1] / CHOMAGE_TAUX_REF,
         ),
     },
-    'retraites': {
-        'age_depart': (60.0, 67.0),
-        'indexation': (0.0, 1.2),
-        'duree_cotisation': (40.0, 45.0),
-    },
-    'prestations_indexation': {
-        'taux_indexation': (0.0, 1.2),
-    },
-    'csg': {
-        'taux': (0.08, 0.12),
-    },
     'collectivites': {
         # 95 et non 100 : `im_competitivite_2029` pose 95, SOUS le min publié
         # par le registre (100). Divergence PRÉ-EXISTANTE entre un scénario
@@ -608,15 +598,75 @@ PARAM_DOMAINS = {
         # accueillie, pas tranchée ici : borner à 100 clamperait un scénario
         # servi en production (−4,0 Md€ de dotation effacés en silence), et
         # « corriger » le scénario serait changer un chiffrage à l'occasion
-        # d'une garde. La règle du registre — union des bornes d'UI et des
-        # scénarios publiés — est appliquée telle quelle, et l'écart est
-        # verrouillé par test_les_bornes_contiennent_ui_et_scenarios_publies.
-        'dotation': (95.0, 140.0),
+        # d'une garde. 150 et non 140 : c'est le max du curseur réel (cf.
+        # infra).
+        'dotation': (95.0, 150.0),
     },
-    'recherche_publique': {
-        'budget': (0.0, 20.0),
+    # Deux classes d'écart, constatées en v0.6.7 en dérivant les 55 domaines.
+    # (1) Des scénarios publiés posent des valeurs au-delà du curseur d'UI
+    # (effectifs, point d'indice, fusions et numérisation des agences,
+    # recrutements d'enseignants, rénovation). (2) Le curseur RÉEL du site
+    # (`LEVER_META`, relu par generate_measure_registry dans
+    # tests/snapshots/measure_registry.json) dépasse le max que le registre
+    # publie pour 5 paramètres (dotation 150, AME 2,5, fusions et numérisation
+    # 100, rénovation 40) : avant v0.6.7, un visiteur qui posait la dotation à
+    # 150 était clampé à 140 (WARNING serveur, rien côté client). Le domaine
+    # est élargi à la valeur extrême servie ou posable, pas au-delà (garde :
+    # test_les_curseurs_reels_tiennent_dans_les_domaines).
+    'fonction_publique': {
+        'effectifs': (-300_000.0, 60_000.0),
+        'point_indice': (-2.0, 10.0),
+    },
+    'fonction_publique_reforme': {
+        'fusion_agences': (0.0, 100.0),
+        'digitalisation': (0.0, 100.0),
+    },
+    'education': {
+        'enseignants': (-20_000.0, 60_000.0),
+    },
+    'transition_ecologique': {
+        'renovation': (0.0, 40.0),
+    },
+    'immigration': {
+        'ame': (0.0, 2.5),
     },
 }
+
+
+def _deriver_param_domains() -> dict:
+    """Domaines publiés par `policy_measures.json` (min/max de chaque paramètre
+    numérique), surchargés par `_PARAM_DOMAINS_MOTEUR`. Lu une fois à l'import :
+    un registre absent ou illisible empêche le moteur de démarrer, comme il
+    l'empêcherait de simuler (config.load_policy_config)."""
+    registre = json.loads(POLICY_MEASURES_PATH.read_text(encoding='utf-8'))
+    domaines: dict = {}
+    for mesure in registre.get('mesures', []):
+        for param, spec in (mesure.get('parametres') or {}).items():
+            if spec.get('min') is None or spec.get('max') is None:
+                continue
+            if param == 'intensite' and mesure['id'] in INTENSITE_DOMAINS:
+                continue
+            domaines.setdefault(mesure['id'], {})[param] = (
+                float(spec['min']), float(spec['max']))
+    for measure_id, params in _PARAM_DOMAINS_MOTEUR.items():
+        domaines.setdefault(measure_id, {}).update(params)
+    return domaines
+
+
+PARAM_DOMAINS = _deriver_param_domains()
+
+# === BORNES PHYSIQUES DES INDICES DE SORTIE (v0.6.7, audit externe) ===
+# Garde-fous de PLAUSIBILITÉ, pas des calibrations : variation annuelle
+# maximale des indices base 100 (pouvoir d'achat, compétitivité), au-delà de
+# laquelle le résultat sort du domaine de validité du modèle. Sans elles, une
+# variation ≤ −100 % inversait le signe de l'indice (TVA à 2 000 % → pouvoir
+# d'achat −296). Maximum mesuré sur les scénarios publiés (v0.6.7) : 7,3 %/an
+# pour le pouvoir d'achat, 2,2 %/an pour la compétitivité — les bornes ne
+# mordent sur aucun (verrouillé par test_bornes_de_sortie_ne_mordent_sur_aucun_scenario_publie).
+# Quand une borne mord : valeur bornée, `report['valid'] = False`, mention
+# dans `report['warnings']`.
+PA_VARIATION_ANNUELLE_MAX = 0.15            # ±15 % de l'indice par an
+COMPETITIVITE_VARIATION_ANNUELLE_MAX = 10.0  # ±10 points de % par an
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés

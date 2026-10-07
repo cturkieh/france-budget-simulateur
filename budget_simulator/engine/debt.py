@@ -28,12 +28,14 @@ marginal_rate``. Pour ``debt_total == 0`` (dette éteinte) c'est un
 anti-division-zéro sain, pas un fallback masquant : sans dette, taux
 moyen = taux marginal courant (cohérent avec le réamorçage
 ``_reset_state``). Le garde ``> 0`` route aussi ``debt_total < 0`` vers
-la même branche, mais ``debt < 0`` est **INATTEIGNABLE dans les bornes
-du modèle** (re-analyse adverse 2026-05-16) : ``debt`` part de ~3461 Md€,
-le désendettement est borné par le plafond de mesures 10 % PIB (FMI
-2010) + la charge d'intérêts toujours soustraite ; plancher empirique
-mesuré = 2238 Md€ sur 8 scénarios + 1 scénario austérité maximale (90
-trajectoires-années, jamais ≤ 0). Branche défensive inerte, MÊME statut
+la même branche, et ``debt < 0`` n'arrive JAMAIS ici : sur l'horizon
+servi par l'API (10 ans) il est inatteignable (re-analyse adverse
+2026-05-16 : plancher mesuré 2238 Md€ ; consolidation maximale de
+l'audit v0.6.7 : 2 114 Md€ en 2035), et au-delà — un appel direct sur
+50 ans y arrivait dès 2056 — l'orchestrateur borne la dette à 0 et le
+signale (``report['valid'] = False``, actifs nets non modélisés, v0.6.7).
+L'ancienne mention « inatteignable dans les bornes du modèle » ne valait
+que pour 10 ans. Branche défensive inerte, MÊME statut
 que le garde ``gdp <= 0`` de ``ExpendituresMixin`` (variable strictement
 positive par construction) — **aucune dette Phase 2**, documentation
 seule. Préservé byte-for-byte.

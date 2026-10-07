@@ -118,8 +118,19 @@ class EconomicValidator:
         return violations
 
     def validate_trajectory(self, results: pd.DataFrame) -> Dict:
-        """Valide la trajectoire complète avec tests économiques"""
+        """Valide la trajectoire complète avec tests économiques.
+
+        Libellés dérivés de l'horizon RÉEL (v0.6.7) : année de fin lue dans
+        `results`, comptes « x/n » sur les n années simulées (avant : « 2035 »
+        et « /10 » en dur, faux pour tout horizon ≠ 10 ans — « Années
+        excédent budgétaire : 50/10 » sur 50 ans). `valid` n'est plus posé ici :
+        l'orchestrateur le dérive des corrections d'entrée/sortie ; la dette
+        finale au-delà de 160 % reste une alerte `critical`.
+        """
         report = {'valid': True, 'warnings': [], 'critical': [], 'tests': []}
+        annee_fin = int(results.iloc[-1]['Année']) if 'Année' in results.columns else None
+        fin = f" {annee_fin}" if annee_fin is not None else " finale"
+        n_annees = len(results) - 1  # années simulées après l'année de base
 
         # Tests existants...
         croissance_moy = results['Croissance %'].iloc[1:].mean()
@@ -129,28 +140,27 @@ class EconomicValidator:
             report['warnings'].append(f"Croissance moyenne irréaliste: {croissance_moy:.1f}%")
         report['tests'].append(f"Croissance moyenne: {croissance_moy:.1f}%")
 
-        dette_2035 = results.iloc[-1]['Dette/PIB %']
+        dette_fin = results.iloc[-1]['Dette/PIB %']
         dette_2025 = results.iloc[0]['Dette/PIB %']
-        delta_dette = dette_2035 - dette_2025
+        delta_dette = dette_fin - dette_2025
 
-        if dette_2035 > 160:
-            report['critical'].append(f"CRITIQUE: Dette 2035 insoutenable: {dette_2035:.1f}%")
-            report['valid'] = False
+        if dette_fin > 160:
+            report['critical'].append(f"CRITIQUE: Dette{fin} insoutenable: {dette_fin:.1f}%")
         elif delta_dette > 30:
             report['warnings'].append(f"Forte hausse dette: +{delta_dette:.0f} pts")
-        report['tests'].append(f"Dette: {dette_2025:.1f}% → {dette_2035:.1f}% (Δ{delta_dette:+.1f}pts)")
+        report['tests'].append(f"Dette: {dette_2025:.1f}% → {dette_fin:.1f}% (Δ{delta_dette:+.1f}pts)")
         # Analyse solde budgétaire
         # Solde budgétaire total (intérêts inclus dans Dépenses/PIB)
         total_balance = (results['Recettes/PIB %'] - results['Dépenses/PIB %'])
         balance_final = total_balance.iloc[-1]
-        surplus_years = (total_balance > 0).sum()
+        surplus_years = int((total_balance.iloc[1:] > 0).sum())
 
-        report['tests'].append(f"Solde budgétaire 2035: {balance_final:.1f}% PIB")
-        report['tests'].append(f"Années excédent budgétaire: {surplus_years}/10")
+        report['tests'].append(f"Solde budgétaire{fin}: {balance_final:.1f}% PIB")
+        report['tests'].append(f"Années excédent budgétaire: {surplus_years}/{n_annees}")
 
         if surplus_years < 3:
             report['warnings'].append(
-                f"Solde budgétaire déficitaire {10-surplus_years}/10 ans - "
+                f"Solde budgétaire déficitaire {n_annees-surplus_years}/{n_annees} ans - "
                 f"stabilisation dette compromise"
             )
 
@@ -171,13 +181,13 @@ class EconomicValidator:
 
         if okun_violations > 3:
             report['warnings'].append(f"Incohérences Okun: {okun_violations} années")
-        report['tests'].append(f"Test Okun: {10-okun_violations}/10 années cohérentes")
+        report['tests'].append(f"Test Okun: {n_annees-okun_violations}/{n_annees} années cohérentes")
 
         deficit_col = 'Déficit/PIB %' if 'Déficit/PIB %' in results.columns else None
         if deficit_col:
             deficit_final = results.iloc[-1][deficit_col]
             if deficit_final < -5:
-                report['warnings'].append(f"Déficit 2035 élevé: {deficit_final:.1f}% PIB")
+                report['warnings'].append(f"Déficit{fin} élevé: {deficit_final:.1f}% PIB")
             report['tests'].append(f"Déficit final: {deficit_final:.1f}% PIB")
         else:
             report['warnings'].append("Colonne Déficit/PIB % manquante")
@@ -681,6 +691,11 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # Dédup des WARNING PARAM_DOMAIN_CLAMP : portée = une simulation
         # (ré-armé ici pour qu'un second simulate() ré-alerte).
         self._domain_clamp_warned = set()
+        # Rapport d'entrée/sortie (v0.6.7), même portée : corrections
+        # (entrée clampée/retirée, levier en échec, sortie bornée → `valid`
+        # faux) et avis (bloc vide, plafond 5 % PIB : lus tels quels).
+        self._corrections = {}
+        self._avis = {}
         self._last_measures_hash = None
         self._fiscal_impulses = {}  # Reset profils temporels multiplicateurs
         self._potential_growth_bonus = 0.0

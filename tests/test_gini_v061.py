@@ -393,12 +393,18 @@ def test_education_gini_nul_dans_les_deux_sens(budget, enseignants, salaires):
 
 
 @pytest.mark.parametrize("delta", [5.0, 15.0, 25.0])
-def test_symetrie_stricte_education_sur_simulation_complete(delta):
+def test_symetrie_stricte_education_sur_simulation_complete(delta, monkeypatch):
     """+X et −X Md€ d'éducation ⇒ ΔGini == 0 dans les DEUX cas.
 
     C'est le test-propriété central de I27. Avant correction, +15 Md€
     donnaient −0,000197 par an tandis que −15 Md€ donnaient exactement 0 :
-    un avantage silencieux aux programmes de coupe."""
+    un avantage silencieux aux programmes de coupe.
+
+    Propriété d'ÉQUATION sondée au-delà du curseur (65 − 25 = 40 < 60, min
+    publié) : depuis v0.6.7, `education.budget` est borné par PARAM_DOMAINS ;
+    la porte est retirée ici pour que la coupe soit réellement simulée."""
+    from budget_simulator.constants import PARAM_DOMAINS
+    monkeypatch.delitem(PARAM_DOMAINS, 'education')
     statu_quo = _cumul_gini({})
     hausse = _cumul_gini({'education': {'budget': 65.0 + delta}})
     baisse = _cumul_gini({'education': {'budget': 65.0 - delta}})

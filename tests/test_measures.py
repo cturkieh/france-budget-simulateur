@@ -308,10 +308,11 @@ def test_apply_measures_plafond_10pct(simulator, monkeypatch):
     # 2026-08-04) — sans ce bypass, la porte rejette (strict) ou clampe
     # (tolérant) les valeurs avant que le plafond ne soit exercé.
     from budget_simulator.constants import PARAM_DOMAINS
-    monkeypatch.delitem(PARAM_DOMAINS, 'retraites')
-    # `csg` est entré au registre le 2026-08-26 (le lot 9 en a fait un
-    # paramètre porteur du scénario de référence) : même bypass, même motif.
-    monkeypatch.delitem(PARAM_DOMAINS, 'csg')
+    # v0.6.7 : les 55 paramètres bornés par policy_measures.json sont au
+    # registre (tva_rate, impot_societes… compris) — le bypass porte donc sur
+    # tout le registre, pas levier par levier.
+    for measure_id in list(PARAM_DOMAINS):
+        monkeypatch.delitem(PARAM_DOMAINS, measure_id)
     simulator.mesures = {
         'tva_rate': {'taux': 0.35},
         'retraites': {'age_depart': 70.0, 'indexation': 0.0, 'duree_cotisation': 50.0},
@@ -396,5 +397,7 @@ def test_validate_trajectory_critical_debt():
         'Chômage %': [7.6] * 11
     })
     report = validator.validate_trajectory(df)
-    assert report['valid'] is False, "Valid = True malgré dette > 160%"
+    # v0.6.7 : la dette > 160 % est une alerte `critical`, plus un `valid`
+    # faux (le statu quo lui-même sortait invalide) — cf. orchestrator.simulate.
+    assert report['valid'] is True
     assert any("CRITIQUE: Dette 2035 insoutenable" in s for s in report['critical']), "Log critique manquant"

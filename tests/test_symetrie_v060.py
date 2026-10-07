@@ -121,13 +121,18 @@ def test_offre_plancher_symetrique():
     assert s._potential_growth_bonus >= -0.002 - 1e-12
 
 
-def test_balayage_education_monotone_et_directionnel():
+def test_balayage_education_monotone_et_directionnel(monkeypatch):
     """Le balayage de l'audit (constat 2) : la dette 2035 est STRICTEMENT
     monotone DÉCROISSANTE le long du curseur éducation (couper coûte, investir
     améliore le ratio — direction documentée : multiplicateur investissement
     1,2 FMI/OFCE + dénominateur, symétrique en coupe). Et en EUROS : couper
     RÉDUIT la dette, dépenser l'AUGMENTE — pas d'autofinancement magique en
-    niveau sur ce curseur (revue adverse 24/08)."""
+    niveau sur ce curseur (revue adverse 24/08).
+
+    Sondé au-delà du curseur (45 < 60, min publié) : la porte PARAM_DOMAINS
+    (v0.6.7) est retirée pour que la coupe soit réellement simulée."""
+    from budget_simulator.constants import PARAM_DOMAINS
+    monkeypatch.delitem(PARAM_DOMAINS, 'education')
     dettes, euros = [], []
     for v in (45, 65, 85):
         df, _, _ = BudgetSimulatorV45(periods=10, mesures={'education': {'budget': v}}).simulate()
@@ -146,11 +151,15 @@ def test_balayage_defense_direction():
     assert df_def['Dette'].iloc[-1] > df_base['Dette'].iloc[-1] + 100
 
 
-def test_residu_pompe_a_pib_borne():
+def test_residu_pompe_a_pib_borne(monkeypatch):
     """Séquence hausse-puis-coupe de même montant : le résidu de PIB 2035
     (différence seconde) reste borné — mesuré ~0,58 % du PIB (v0.5.1 : ~2 %).
     Un moteur dynamique à états ne peut pas être exactement nul ; le contrat
-    borne la régression (revue adverse 24/08)."""
+    borne la régression (revue adverse 24/08).
+
+    Même sonde hors curseur (45) : porte PARAM_DOMAINS retirée (v0.6.7)."""
+    from budget_simulator.constants import PARAM_DOMAINS
+    monkeypatch.delitem(PARAM_DOMAINS, 'education')
     def pib35(mes):
         df, _, _ = BudgetSimulatorV45(periods=10, mesures=mes).simulate()
         return df['PIB'].iloc[-1]
