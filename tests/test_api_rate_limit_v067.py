@@ -4,7 +4,7 @@ réfutation des handlers ; clé d'adresse durcie après la revue de sécurité).
 Contrat : seaux à jetons en mémoire, portés par le ROUTEUR (un déploiement qui
 l'inclut, comme la production, en hérite) — BUDGETLAB_RATE_LIMIT_PER_MIN par
 adresse (défaut 120) et BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN toutes adresses
-confondues (défaut 1 200), 0 = désactivé. Au-delà : 429 avec `Retry-After`
+confondues (défaut 3 000, délestage de dernier ressort), 0 = désactivé. Au-delà : 429 avec `Retry-After`
 (secondes entières) et les en-têtes CORS, sans quoi le navigateur lirait le refus
 comme une panne réseau. Adresse = le pair TCP ; `X-Forwarded-For` n'est lu que si
 BUDGETLAB_TRUST_PROXY = N déclare N proxys de confiance, et alors au N-ième
@@ -170,10 +170,10 @@ def test_desactivable(monkeypatch):
 
 
 def test_defauts(monkeypatch):
-    """120/min par adresse, 1 200/min au total, pair TCP (aucun proxy de confiance)."""
+    """120/min par adresse, 3 000/min au total, pair TCP (aucun proxy de confiance)."""
     api = _api(monkeypatch, None, proxys=None, globale=None)
     assert api.RATE_LIMIT_PAR_MIN_DEFAUT == 120 and api._limiteur.capacite == 120
-    assert api.RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT == 1200 and api._limiteur_global.capacite == 1200
+    assert api.RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT == 3000 and api._limiteur_global.capacite == 3000
     assert api._proxys_de_confiance == 0
 
 
@@ -221,3 +221,61 @@ def test_nombre_de_cles_borne(monkeypatch):
     for cle in 'abcde':
         seau.prendre(cle)
     assert list(seau._seaux) == ['c', 'd', 'e']
+
+
+# ---------------------------------------------------------------------------
+# Plafond global = délestage de l'instance, pas un vecteur de déni de service
+# (revue de sécurité n° 2) : dimensionné sur la capacité (ordre de 3 000/min),
+# jamais un bannissement — le seau se recharge au débit annoncé, qu'on le
+# martèle ou non pendant le refus — et un refus global ne coûte rien à la
+# limite par adresse de l'utilisateur refusé.
+# ---------------------------------------------------------------------------
+
+def test_un_refus_ne_prolonge_jamais_l_attente(monkeypatch):
+    """Marteler pendant le refus ne consomme rien : la capacité revient en une
+    fenêtre (60 s), comme sans martelage."""
+    api = _api(monkeypatch, 0)
+    horloge = [0.0]
+    seau = api._LimiteurDebit(60, horloge=lambda: horloge[0])
+    for _ in range(60):
+        seau.prendre('*')
+    for t in range(1000):                 # 1 000 refus en moins d'une seconde
+        horloge[0] = t / 1000
+        assert seau.prendre('*')[0] > 0
+    horloge[0] = 1.0
+    assert seau.prendre('*') == (0.0, False)   # le jeton de la 1re seconde est là
+    horloge[0] = 61.0
+    assert all(seau.prendre('*')[0] == 0.0 for _ in range(60))
+
+
+def test_un_refus_global_rembourse_le_jeton_par_adresse(monkeypatch):
+    """Refusé par le plafond global, un visiteur ne perd pas pour autant un jeton
+    de sa propre limite."""
+    api = _api(monkeypatch, 2, proxys=1, globale=1)
+    client = TestClient(api.app)
+    assert _post(client, '203.0.113.1').status_code == 200      # vide le global
+    assert _post(client, '198.51.100.1').status_code == 429     # refus global
+    jetons, _, _ = api._limiteur._seaux['198.51.100.1']
+    assert jetons == pytest.approx(2.0, abs=1e-3)               # rien consommé
+
+
+def test_cinq_adresses_ne_bloquent_pas_une_sixieme(monkeypatch):
+    """Tant que la capacité globale dépasse ce que cinq adresses peuvent obtenir
+    (5 × limite par adresse), cinq adresses qui martèlent bien au-delà de leur
+    limite ne bloquent pas une sixième : leurs requêtes refusées ne consomment
+    rien du plafond global."""
+    api = _api(monkeypatch, 3, proxys=1, globale=16)
+    client = TestClient(api.app)
+    for i in range(1, 6):
+        codes = [_post(client, f'203.0.113.{i}').status_code for _ in range(20)]
+        assert codes[:3] == [200, 200, 200] and set(codes[3:]) == {429}
+    assert _post(client, '198.51.100.6').status_code == 200
+
+
+def test_defauts_il_faut_vingt_cinq_adresses_saturees_pour_delester(monkeypatch):
+    """Avec les défauts, cinq adresses à leur limite (5 × 120) ne prennent que le
+    cinquième de la capacité globale : il en faut 25, saturées en continu, pour
+    déclencher le délestage — que seule une limite par adresse VÉRIFIÉE
+    (BUDGETLAB_TRUST_PROXY) rend vraie."""
+    api = _api(monkeypatch, None, proxys=None, globale=None)
+    assert api.RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT / api.RATE_LIMIT_PAR_MIN_DEFAUT == 25

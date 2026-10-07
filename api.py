@@ -15,8 +15,13 @@
 #   - par adresse cliente : BUDGETLAB_RATE_LIMIT_PER_MIN (défaut 120 ; 0 =
 #     désactivé, comme dans les tests) ; mémoire bornée (_RATE_LIMIT_CLES_MAX) ;
 #   - toutes adresses confondues : BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN (défaut
-#     1 200 ; 0 = désactivé) — la borne que ni une usurpation d'adresse ni un
-#     réseau d'adresses ne contournent.
+#     3 000 ; 0 = désactivé), un DÉLESTAGE DE DERNIER RESSORT dimensionné sur la
+#     capacité de l'instance. Le plafond global protège l'instance, pas les
+#     utilisateurs : quiconque l'épuise coupe le service à tous, et la protection
+#     par utilisateur exige une limite par adresse dont la clé est vérifiée
+#     (BUDGETLAB_TRUST_PROXY, ci-dessous). Jamais de bannissement : un refus ne
+#     consomme aucun jeton, le seau se recharge en une fenêtre (60 s) qu'on le
+#     martèle ou non, et un refus global rend son jeton à la limite par adresse.
 # Adresse cliente : le pair TCP, sauf si BUDGETLAB_TRUST_PROXY = N ≥ 1 déclare N
 # proxys de confiance devant l'app ; la clé est alors le N-ième élément de
 # `X-Forwarded-For` EN PARTANT DE LA FIN (1 = le dernier, celui qu'ajoute le
@@ -69,12 +74,14 @@ PERIODS_MAX = 10
 # simulateur du site relance un calcul au plus une fois par seconde de réglage
 # (anti-rebond d'1 s), soit ~60/min pour un visiteur actif ; le double laisse
 # passer deux visiteurs derrière la même adresse (établissement, rédaction, NAT
-# d'opérateur) et borne un client automatisé à 2 calculs par seconde. 1 200/min
-# au total : 20 calculs par seconde pour l'instance (~7 ms le calcul en local),
-# au-delà desquels on refuse plutôt que de laisser saturer le service pour tous —
-# un délestage, pas une défense contre une attaque distribuée.
+# d'opérateur) et borne un client automatisé à 2 calculs par seconde. 3 000/min
+# au total : 50 calculs par seconde, l'ordre de la capacité d'un cœur (~7 ms le
+# calcul en local, plus sur l'instance de production) — au-delà, refuser vaut
+# mieux que laisser saturer le service ; en deçà, le plafond ne doit jamais
+# mordre sur un usage réel. Il faut 25 adresses saturées en continu pour
+# l'atteindre (3 000 / 120).
 RATE_LIMIT_PAR_MIN_DEFAUT = 120
-RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT = 1200
+RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT = 3000
 _RATE_LIMIT_CLES_MAX = 10_000
 _CLE_GLOBALE = "*"
 
@@ -136,6 +143,14 @@ class _LimiteurDebit:
             while len(self._seaux) > self._cles_max:
                 self._seaux.popitem(last=False)
         return resultat
+
+    def rendre(self, cle: str) -> None:
+        """Rend le jeton d'une requête acceptée ici puis refusée plus loin
+        (plafond global) : ce refus ne coûte rien à la clé."""
+        with self._verrou:
+            if cle in self._seaux:
+                jetons, dernier, en_refus = self._seaux[cle]
+                self._seaux[cle] = (min(self.capacite, jetons + 1.0), dernier, en_refus)
 
 
 _xff_ignore_signale = False
@@ -209,6 +224,7 @@ def _limiter_debit(request: Request) -> None:
     plafond global (cf. en-tête). Le refus passe par le gestionnaire d'exceptions
     de FastAPI, donc par le CORS de l'app : le navigateur le lit comme un refus,
     pas comme une panne réseau."""
+    cle = None
     if _limiteur is not None:
         cle = _adresse_cliente(request, _proxys_de_confiance)
         attente, nouveau_refus = _limiteur.prendre(cle)
@@ -221,6 +237,8 @@ def _limiter_debit(request: Request) -> None:
     if _limiteur_global is not None:
         attente, nouveau_refus = _limiteur_global.prendre(_CLE_GLOBALE)
         if attente:
+            if cle is not None:
+                _limiteur.rendre(cle)
             if nouveau_refus:
                 # Systémique (pic d'audience ou attaque distribuée) : ERROR, donc
                 # remonté par l'observabilité de la production, une fois par épisode.
@@ -303,7 +321,7 @@ async def simulate(request: SimulationRequest):
       Préférer omettre la clé ; le serveur trace un WARNING `PARAM_NULL`.
     - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` requêtes par minute
       (défaut 120) depuis la même adresse cliente, ou plus de
-      `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` (défaut 1 200) toutes adresses
+      `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` (défaut 3 000, délestage de l'instance) toutes adresses
       confondues ; `Retry-After` donne le délai en secondes. Limites par
       processus, désactivées à 0 ; adresse = pair TCP, ou élément de fin de
       `X-Forwarded-For` si `BUDGETLAB_TRUST_PROXY` déclare des proxys de
