@@ -59,11 +59,23 @@ def _dette(mesures):
     return float(_simuler(mesures)[0]['Dette/PIB %'].iloc[-1])
 
 
-def _balayer(args):
-    mesures, sid, levier, param, lo, hi, n = args
-    logging.disable(logging.WARNING)
+def pleine_precision():
+    """Sorties pleine précision : l'arrondi d'affichage de l'orchestrateur créerait
+    de faux sauts de 0,01 pt. Effet global : à n'appeler que dans un processus de
+    balayage (le test, lui, passe par monkeypatch)."""
     import budget_simulator.engine.orchestrator as orch
-    orch.round = lambda x, nd=None: float(x)  # sorties pleine précision (arrondi d'affichage seul)
+    orch.round = lambda x, nd=None: float(x)
+
+
+def _balayer(args):
+    logging.disable(logging.WARNING)
+    pleine_precision()
+    return balayer(*args)
+
+
+def balayer(mesures, sid, levier, param, lo, hi, n):
+    """Balaye un paramètre sur [lo ; hi] en n points ; renvoie les sauts survivant à
+    la bissection (tous, sans seuil). Suppose les sorties en pleine précision."""
     xs = [lo + (hi - lo) * i / (n - 1) for i in range(n)]
     ds = [_dette(_avec(mesures, levier, param, x)) for x in xs]
     deltas = [b - a for a, b in zip(ds, ds[1:])]
