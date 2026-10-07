@@ -15,11 +15,14 @@ def test_get_multiplier_consolidation(multipliers):
     # v0.6.0 : générique consolidation relevé à -0.60 (Ramey 2019, bas de fourchette).
     # Weighted blend: (0.7/1.0)*(-0.50) + (0.3/1.0)*(-0.60) = -0.53
     # part_dep 0.3 ≤ 0.5 → pas d'atténuation confiance
-    # output_gap=-0.02 is NOT < -0.02, ug=0.02 NOT > 0.02 → no recession adj
-    # high_debt (1.2 > 1.10): *0.95 → -0.53 * 0.95 = -0.5035
+    # v0.6.7 (lot 3b) : régimes à transition CONTINUE (engine/_regimes.py).
+    # gap = −2 % et écart = +2 pts sont PILE aux seuils historiques : poids de
+    # récession 0,5 → ×(1 + 0,15 × 0,5) = ×1,075 (avant : marche, « −0,02 n'est
+    # pas < −0,02 », aucun ajustement) ; ZLB (taux 1 % < 2 %) même poids 0,5 →
+    # ×(1 + 0,3 × 0,5) = ×1,15. high_debt (1,2 > 1,10) : ×0,95.
     # v0.6.7 : coefficients recalibrés « centraux » (constants.MULT_*).
     from budget_simulator.constants import MULT_COUPE_DEPENSES, MULT_HAUSSE_IMPOTS
-    expected = -(0.7 * MULT_HAUSSE_IMPOTS + 0.3 * MULT_COUPE_DEPENSES) * 0.95
+    expected = -(0.7 * MULT_HAUSSE_IMPOTS + 0.3 * MULT_COUPE_DEPENSES) * 1.075 * 0.95 * 1.15
     assert abs(multiplier - expected) < 1e-9, f"Expected ~{expected:.3f}, got {multiplier:.2f}"
 
 def test_get_multiplier_expansion(multipliers):
@@ -33,10 +36,13 @@ def test_get_multiplier_expansion(multipliers):
     multiplier = multipliers.get_multiplier('expansion', composition, economic_state, year=3)
     # Weighted blend: part_inv=0.6, part_transfers=max(0,0.2-0.6)=0, part_rev=0.2, total=0.8
     # base = (0.6/0.8)*1.2 + (0/0.8)*0.50 + (0.2/0.8)*0.35 = 0.90 + 0 + 0.0875 = 0.9875
-    # Expansion adjustment: *0.85 = 0.8394
+    # Expansion : v0.6.7 (lot 3b), transition CONTINUE — gap 2,1 % et écart
+    # −1,1 pt sont à 0,1 pt au-delà des seuils (zone ±1 pt) : poids
+    # min(0,55 ; 0,55) = 0,55 → ×(1 − 0,15 × 0,55) = ×0,9175 (avant : marche,
+    # ×0,85 plein dès 2,0001 %).
     # No Ricardo-Barro (debt < 1.10)
     from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT
-    expected = ((0.6 / 0.8) * MULT_INVESTISSEMENT + (0.2 / 0.8) * MULT_BAISSE_IMPOTS) * 0.85
+    expected = ((0.6 / 0.8) * MULT_INVESTISSEMENT + (0.2 / 0.8) * MULT_BAISSE_IMPOTS) * (1 - 0.15 * 0.55)
     assert abs(multiplier - expected) < 1e-9, f"Expected {expected:.2f}, got {multiplier:.2f}"
 
 def test_calculate_growth_austerity(simulator):
@@ -66,7 +72,10 @@ def test_calculate_growth_austerity(simulator):
     pot = simulator.croissance_potentielle_totale()
     assert pot == simulator.base_params['croissance_potentielle'] - 0.005 * (1.156 - 0.9)
     from budget_simulator.constants import MULT_COUPE_DEPENSES, MULT_HAUSSE_IMPOTS
-    keynes = -0.95 * (MULT_COUPE_DEPENSES * 0.61 + MULT_HAUSSE_IMPOTS * 0.39) * 0.034 * 0.90
+    # v0.6.7 (lot 3b) : gap −1,5 % est dans la zone de transition du régime
+    # récession (−3 % → −1 %) : poids 0,25 → ×(1 + 0,15 × 0,25).
+    keynes = (-0.95 * (MULT_COUPE_DEPENSES * 0.61 + MULT_HAUSSE_IMPOTS * 0.39) * 0.034 * 0.90
+              * (1 + 0.15 * 0.25))
     cicatrice = max(-0.10 * (0.034 - 0.03), -0.003)
     expected = pot + 0.2 * 0.015 + keynes + cicatrice
     assert abs(growth - expected) < 1e-12, f"{growth:.6f} vs {expected:.6f}"

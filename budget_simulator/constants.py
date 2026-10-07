@@ -343,6 +343,36 @@ OUTPUT_GAP_INITIAL = -0.007  # −0,7 % — RAA 2026 T2 p. 20 / HCFP n° 2026-3 
 # jamais : tout choc de demande devenait un écart permanent.
 OUTPUT_GAP_RAPPEL = 0.2
 
+# === RÉGIMES CONJONCTURELS — transition CONTINUE (v0.6.7, lot 3b) ===
+# Chaque dépendance du moteur à la conjoncture (multiplicateurs récession /
+# expansion / ZLB, dépenses en volume, inflation déflation / tensions, hystérèses
+# du chômage et du potentiel) passe par un POIDS de régime w ∈ [0 ; 1] : rampe
+# linéaire centrée sur le seuil historique (w = 0,5 au seuil), nulle à seuil − h,
+# pleine à seuil + h (engine/_regimes.py). Jusqu'en v0.6.6 c'étaient des MARCHES :
+# une variation infinitésimale d'un paramètre déplaçait la dette 2035 de 0,2 à
+# 1,9 pt (scanner, tests/test_continuite_regimes_v067.py).
+# Forme : modèles à transition lisse d'Auerbach & Gorodnichenko (2012),
+# « Measuring the Output Responses to Fiscal Policy », AEJ: Economic Policy 4(2),
+# 1-27, DOI 10.1257/pol.4.2.1 — « using regime-switching models, we find large
+# differences in the size of spending multipliers in recessions and expansions »
+# (résumé vérifié en ligne le 07/10/2026) ; leur STVAR (« smooth transition »)
+# pondère les réponses des deux régimes par un poids F(z) continu de l'état. A&G
+# emploient une logistique ; la rampe à support compact garde le régime NORMAL
+# exactement neutre (poids nul au bit) et le plein régime exactement inchangé.
+# Demi-largeurs = CHOIX déclarés, pas des estimations :
+#  - ±1 pt sur l'output gap et l'écart de chômage (zone −3 % → −1 % autour du
+#    seuil −2 % ; arbitrage de la session, 07/10/2026) ;
+#  - ±0,5 pt sur la croissance : avec ±1 pt, la zone du seuil +2 % commencerait à
+#    +1 % et engloberait la croissance NORMALE (0,9-1,2 % au statu quo) ;
+#  - ±0,3 pt sur l'inflation (plancher accommodant BCE à 0,8 %, engine/inflation.py) :
+#    l'ancienne marche faisait REMONTER π de 0,80 à 1,04 % ; étalé sur ±0,2 pt la
+#    règle resterait décroissante par endroits, ±0,3 pt est la plus petite valeur
+#    ronde qui la garde croissante avec marge (pente minimale +0,15), et la zone
+#    0,5-1,1 % reste sous l'inflation la plus basse du statu quo (1,34 %).
+REGIME_DEMI_LARGEUR_ECART = 0.01
+REGIME_DEMI_LARGEUR_CROISSANCE = 0.005
+REGIME_DEMI_LARGEUR_INFLATION = 0.003
+
 # === MULTIPLICATEURS BUDGÉTAIRES — recalibrage « central » (v0.6.7, GO Cyril 07/10/2026) ===
 # Règle : chaque famille est calée sur la valeur CENTRALE de la littérature, mesurée
 # dans le MOTEUR COMPLET (rappel vers le potentiel, Phillips, Okun, dette compris) :

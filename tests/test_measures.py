@@ -244,13 +244,16 @@ def test_calculate_inflation_deflation(simulator):
     #   ancrage = 0.016 + 0.20*(-0.03)               = 0.0100
     #   base    = 0.5*0.0100 + 0.5*0.01              = 0.0100
     #   effort consolidation -0.12*0.02 (-0.0024)    = 0.0076
-    #   pressions déflationnistes ×0.80              = 0.00608
-    #   accommodant (<0,8 %) 0.70*0.00608+0.30*0.016 = 0.009056
+    #   pressions déflationnistes, poids 0,75        = 0.00646
+    #     (v0.6.7, lot 3b : transition CONTINUE — gap −3 % est à 0,5 pt au-delà
+    #     du seuil −2,5 %, zone ±1 pt ; écart +2 pts au plein régime ;
+    #     facteur 1 − 0,2 × 0,75 = 0,85. Avant : ×0,80 plein, 0,00608)
+    #   accommodant (<0,8 %) 0.70*0.00646+0.30*0.016 = 0.009322
     # Le déplacement vs v0.6.0 (0,0023) vient de la pente : à un gap de
     # -3 pt, l'ancienne pente effective 0,70 retirait 2,1 pt d'inflation,
     # la nouvelle en retire 0,6 — le régime ne plonge plus au plancher.
     # v0.6.7 : plus de bruit tiré (l'ancien patch à −0,002 n'a plus d'objet).
-    expected = 0.009056
+    expected = 0.009322
     assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
     assert any("Y1: Pressions déflationnistes" in s for s in simulator.debug_logs), "Log déflation attendu manquant"
 

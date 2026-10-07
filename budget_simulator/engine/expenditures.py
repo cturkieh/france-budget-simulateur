@@ -53,6 +53,7 @@ Tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 from .._logging import _log_debug
 from ..constants import INDEXATION_DEPENSES_INFLATION_PASSEE
+from ._regimes import au_dessus, en_dessous
 
 
 class ExpendituresMixin:
@@ -118,11 +119,13 @@ class ExpendituresMixin:
                 elif category == 'transition_eco':
                     real_growth *= 1.5 if year <= 5 else 0.5
 
-                # AJUSTEMENT CYCLIQUE (neutre en régime normal)
-                if output_gap < -0.02:
-                    real_growth *= 0.90  # Récession : dépenses comprimées
-                elif output_gap > 0.02:
-                    real_growth *= 1.02  # Surchauffe : dépenses en hausse
+                # AJUSTEMENT CYCLIQUE (neutre en régime normal) — récession :
+                # dépenses comprimées ×0,90 ; surchauffe : ×1,02. Transition
+                # CONTINUE autour de gap ∓2 % (v0.6.7, engine/_regimes.py) :
+                # c'était une marche, au même seuil que le régime récession des
+                # multiplicateurs.
+                real_growth *= ((1 + (0.90 - 1) * en_dessous(output_gap, -0.02))
+                                * (1 + (1.02 - 1) * au_dessus(output_gap, 0.02)))
 
                 self._spending_factors[category] = max(
                     self._spending_factors[category] * (1 + real_growth), 0.5

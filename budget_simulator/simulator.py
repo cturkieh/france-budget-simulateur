@@ -37,6 +37,7 @@ from .engine.expenditures import ExpendituresMixin
 from .engine.micro_impacts import MicroImpactsMixin
 from .engine.growth import GrowthMixin
 from .engine.orchestrator import OrchestratorMixin
+from .engine._regimes import en_dessous, poids_expansion, poids_recession
 from .engine._param_domain import leviers_presents
 
 logger = logging.getLogger(__name__)
@@ -244,6 +245,18 @@ class FiscalMultipliers:
             'confidence': 1.10,
         }
 
+    def _facteur_conjoncturel(self, economic_state: Dict) -> float:
+        """Ajustement récession (×1,15) / expansion (×0,85), à transition CONTINUE
+        (v0.6.7, lot 3b ; engine/_regimes.py). Jusqu'en v0.6.6 : marches à gap
+        −2 % / écart de chômage +2 pts et à gap +2 % ET écart −1 pt — un millième
+        de point de gap valait jusqu'à 1,9 pt de dette 2035. Les deux poids ne
+        sont jamais non nuls ensemble (gap < −1 % ou écart > 1 pt contre gap > 1 %
+        et écart < 0)."""
+        gap = economic_state.get('output_gap', 0)
+        ecart = economic_state.get('unemployment_gap', 0)
+        return ((1 + (self.adjustments['recession'] - 1) * poids_recession(gap, ecart))
+                * (1 + (self.adjustments['expansion'] - 1) * poids_expansion(gap, ecart)))
+
     def get_multiplier(self, effort_type: str, composition: Dict,
                        economic_state: Dict, year: int, measure_id: str = None) -> float:
         """Calcule le multiplicateur ajusté selon le contexte"""
@@ -271,10 +284,7 @@ class FiscalMultipliers:
         if measure_id == 'smic':
             mult_base = 0.15
             multiplier = mult_base
-            if economic_state.get('output_gap', 0) < -0.02 or economic_state.get('unemployment_gap', 0) > 0.02:
-                multiplier *= self.adjustments['recession']
-            elif economic_state.get('output_gap', 0) > 0.02 and economic_state.get('unemployment_gap', 0) < -0.01:
-                multiplier *= self.adjustments['expansion']
+            multiplier *= self._facteur_conjoncturel(economic_state)
             if economic_state.get('debt_ratio', 0) > 1.10:
                 multiplier *= self.adjustments['high_debt']
             self._multiplier_cache[cache_key] = multiplier
@@ -289,10 +299,7 @@ class FiscalMultipliers:
             multiplier = mult_base
 
             # Ajustements contextuels conservés
-            if economic_state.get('output_gap', 0) < -0.02 or economic_state.get('unemployment_gap', 0) > 0.02:
-                multiplier *= self.adjustments['recession']
-            elif economic_state.get('output_gap', 0) > 0.02 and economic_state.get('unemployment_gap', 0) < -0.01:
-                multiplier *= self.adjustments['expansion']
+            multiplier *= self._facteur_conjoncturel(economic_state)
 
             if economic_state.get('debt_ratio', 0) > 1.10:
                 multiplier *= self.adjustments['high_debt']
@@ -345,11 +352,8 @@ class FiscalMultipliers:
 
         multiplier = mult_base
 
-        # Ajustement conjoncturel
-        if economic_state.get('output_gap', 0) < -0.02 or economic_state.get('unemployment_gap', 0) > 0.02:
-            multiplier *= self.adjustments['recession']
-        elif economic_state.get('output_gap', 0) > 0.02 and economic_state.get('unemployment_gap', 0) < -0.01:
-            multiplier *= self.adjustments['expansion']
+        # Ajustement conjoncturel (transition continue, v0.6.7)
+        multiplier *= self._facteur_conjoncturel(economic_state)
 
         # Effet Ricardo-Barro
         if economic_state.get('debt_ratio', 0) > 1.10:
@@ -358,9 +362,11 @@ class FiscalMultipliers:
         # Effet confiance : appliqué en amont, sur la seule part générique de la
         # branche consolidation (v0.6.0) — plus jamais sur le blend entier.
 
-        # Effet ZLB
-        if economic_state.get('interest_rate', 0.023) < 0.02 and economic_state.get('output_gap', 0) < -0.02:
-            multiplier *= 1.3
+        # Effet ZLB — la condition de gap suit la même transition continue que la
+        # récession (v0.6.7). Inerte dans le moteur : le taux lu ici est
+        # `taux_interet_base` (2,00 %, constant), jamais < 2 %.
+        if economic_state.get('interest_rate', 0.023) < 0.02:
+            multiplier *= 1 + (1.3 - 1) * en_dessous(economic_state.get('output_gap', 0), -0.02)
 
         # Stocker dans le cache avant de retourner
         self._multiplier_cache[cache_key] = multiplier

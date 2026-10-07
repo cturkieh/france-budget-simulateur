@@ -61,7 +61,8 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import chomage_seniors_ecart
-from ..constants import CHOMAGE_CLIP_MAX, CHOMAGE_CLIP_MIN
+from ..constants import CHOMAGE_CLIP_MAX, CHOMAGE_CLIP_MIN, REGIME_DEMI_LARGEUR_CROISSANCE
+from ._regimes import au_dessus, en_dessous
 
 
 class UnemploymentMixin:
@@ -113,11 +114,22 @@ class UnemploymentMixin:
         unemployment = 0.94 * unemployment + 0.06 * nairu
 
         # ===== AJUSTEMENTS STRUCTURELS =====
-        if growth < -0.015:
-            unemployment += 0.002
-            _log_debug(self.debug_logs, f"Y{year}: Hystérèse chômage")
-        elif growth > 0.020 and unemployment > nairu:
-            unemployment -= 0.001
+        # Hystérèse (+0,2 pt si croissance < −1,5 %) et rebond (−0,1 pt si
+        # croissance > 2 %), à transition CONTINUE sur la croissance (v0.6.7,
+        # engine/_regimes.py, ±0,5 pt). C'étaient des marches : im_rabot_2029
+        # passait à −1,50 % de croissance en 2028, et un millionième de levier y
+        # valait +0,2 pt de chômage d'un coup (−0,28 pt de dette 2035).
+        # La condition « chômage au-dessus du NAIRU » du rebond n'est pas un
+        # régime mais un PLANCHER : le rebond s'arrête au NAIRU (continu en u ;
+        # l'ancienne marche retirait 0,1 pt entier dès u > NAIRU, donc pouvait
+        # passer jusqu'à 0,1 pt sous le NAIRU).
+        w_hysterese = en_dessous(growth, -0.015, REGIME_DEMI_LARGEUR_CROISSANCE)
+        w_rebond = au_dessus(growth, 0.020, REGIME_DEMI_LARGEUR_CROISSANCE)
+        if w_hysterese > 0:
+            unemployment += 0.002 * w_hysterese
+            _log_debug(self.debug_logs, f"Y{year}: Hystérèse chômage (poids {w_hysterese:.2f})")
+        if w_rebond > 0:
+            unemployment -= min(0.001 * w_rebond, max(unemployment - nairu, 0.0))
 
         # ===== BOSSE DE CHÔMAGE SENIORS (v0.6.1, I8) =====
         # Une mesure d'âge fait entrer dans la population active des seniors

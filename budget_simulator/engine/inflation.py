@@ -137,11 +137,13 @@ from typing import Dict
 import numpy as np
 
 from .._logging import _log_debug
+from ._regimes import au_dessus, en_dessous, poids_expansion
 from ..constants import (
     BCE_CIBLE_INFLATION,
     BCE_PLANCHER_ACCOMMODANT,
     INFLATION_STRUCTURELLE,
     PHILLIPS_PENTE_MT,
+    REGIME_DEMI_LARGEUR_INFLATION,
 )
 
 
@@ -194,10 +196,15 @@ def rappel_bce(inflation: float) -> float:
         # de thermostat permanent (l'ancien couple attracteur 3 % / seuil
         # 2,3 % stabilisait à 2,33 % à perpétuité).
         return 0.50 * inflation + 0.50 * BCE_CIBLE_INFLATION
-    if inflation < BCE_PLANCHER_ACCOMMODANT:
-        # Plancher accommodant : tiré vers la TENDANCIELLE (et non plus 2 %,
-        # qui contredisait le point fixe du régime).
-        return 0.70 * inflation + 0.30 * INFLATION_STRUCTURELLE
+    # Plancher accommodant : tiré vers la TENDANCIELLE (et non plus 2 %, qui
+    # contredisait le point fixe du régime). À transition CONTINUE depuis la
+    # v0.6.7 (lot 3b, engine/_regimes.py, ±0,3 pt autour de 0,8 %) : c'était une
+    # marche qui faisait REMONTER l'inflation de 0,80 à 1,04 % au franchissement
+    # (curseur rabot de « Budget 2026 (voté) » : −0,66 pt de dette 2035 pour un
+    # millionième de taux). Plein régime (π ≤ 0,5 %) inchangé au bit.
+    w = en_dessous(inflation, BCE_PLANCHER_ACCOMMODANT, REGIME_DEMI_LARGEUR_INFLATION)
+    if w > 0:
+        return (1 - w) * inflation + w * (0.70 * inflation + 0.30 * INFLATION_STRUCTURELLE)
     return inflation
 
 
@@ -243,12 +250,19 @@ class InflationMixin:
                 if abs(inflation_impact) > 0.002:
                     _log_debug(self.debug_logs, f"Y{year}: Impact inflationniste: {inflation_impact*100:.2f}%")
 
-        if output_gap < -0.025 and unemployment_gap > 0.01:
-            inflation *= 0.80
-            _log_debug(self.debug_logs, f"Y{year}: Pressions déflationnistes")
-        elif output_gap > 0.020 and unemployment_gap < -0.01:
-            inflation = min(inflation * 1.08, 0.030)
-            _log_debug(self.debug_logs, f"Y{year}: Tensions inflationnistes")
+        # Régimes déflation (×0,80 : gap < −2,5 % ET écart de chômage > 1 pt) et
+        # tensions (×1,08 plafonné à 3 % : gap > 2 % ET écart < −1 pt), à
+        # transition CONTINUE (v0.6.7, engine/_regimes.py) : la réponse est la
+        # moyenne des deux régimes pondérée par w. C'étaient des marches (LFI :
+        # jusqu'à +0,55 pt de dette 2035 pour un SMIC déplacé d'un millionième).
+        w_deflation = min(en_dessous(output_gap, -0.025), au_dessus(unemployment_gap, 0.01))
+        w_tensions = poids_expansion(output_gap, unemployment_gap)
+        if w_deflation > 0:
+            inflation *= 1 + (0.80 - 1) * w_deflation
+            _log_debug(self.debug_logs, f"Y{year}: Pressions déflationnistes (poids {w_deflation:.2f})")
+        if w_tensions > 0:
+            inflation = (1 - w_tensions) * inflation + w_tensions * min(inflation * 1.08, 0.030)
+            _log_debug(self.debug_logs, f"Y{year}: Tensions inflationnistes (poids {w_tensions:.2f})")
 
         # Pass-through TVA — gate temporel UNIQUE (l'orchestrateur transmet la
         # valeur sans condition d'année). Depuis la refonte 2026-06, l'inflation

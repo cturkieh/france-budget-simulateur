@@ -104,7 +104,8 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
-from ..constants import OUTPUT_GAP_RAPPEL
+from ..constants import OUTPUT_GAP_RAPPEL, REGIME_DEMI_LARGEUR_CROISSANCE
+from ._regimes import au_dessus, en_dessous
 from ._param_domain import validate_param_domains, valeur_brute
 
 logger = logging.getLogger(__name__)
@@ -457,13 +458,18 @@ class GrowthMixin:
         Cap total +0.20pt. Dépréciation différenciée par type si dépense coupée."""
 
         # --- Hystérèse conjoncturelle ---
-        if growth < -0.020:
-            self.base_params['croissance_potentielle'] *= 0.997
-            _log_debug(self.debug_logs, f"Y{year}: Hystérèse négative")
-        elif growth > 0.020 and year > 3:
-            if self.base_params['croissance_potentielle'] < 0.012:
-                self.base_params['croissance_potentielle'] *= 1.002
-                _log_debug(self.debug_logs, f"Y{year}: Rebond potentiel")
+        # ×0,997 si croissance < −2 %, ×1,002 si > 2 % (après l'an 3), à
+        # transition CONTINUE (v0.6.7, engine/_regimes.py, ±0,5 pt) : c'étaient
+        # des marches. Seul im_rabot_2029 effleure la zone négative (+0,01 pt de
+        # dette 2035, mesuré au lot 3b).
+        w_negative = en_dessous(growth, -0.020, REGIME_DEMI_LARGEUR_CROISSANCE)
+        w_rebond = au_dessus(growth, 0.020, REGIME_DEMI_LARGEUR_CROISSANCE) if year > 3 else 0.0
+        if w_negative > 0:
+            self.base_params['croissance_potentielle'] *= 1 + (0.997 - 1) * w_negative
+            _log_debug(self.debug_logs, f"Y{year}: Hystérèse négative (poids {w_negative:.2f})")
+        if w_rebond > 0 and self.base_params['croissance_potentielle'] < 0.012:
+            self.base_params['croissance_potentielle'] *= 1 + (1.002 - 1) * w_rebond
+            _log_debug(self.debug_logs, f"Y{year}: Rebond potentiel (poids {w_rebond:.2f})")
 
         # --- Effet d'offre structurel ---
         try:
