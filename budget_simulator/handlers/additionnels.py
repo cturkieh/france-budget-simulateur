@@ -85,10 +85,12 @@ class AdditionnelsMixin(_MixinBase):
         hausse_pct = delta_brut / smic_actuel
 
         # 1. DÉPENSES FONCTION PUBLIQUE
-        # 15% des agents FP cat. C concernés (masse salariale ~50 Md€)
+        # 15% des agents FP cat. C concernés (masse salariale ~50 Md€ en euros
+        # 2025, exprimée en euros de l'année par l'indice de prix des dépenses —
+        # v0.6.7, le même que toute masse FP, cf. handlers/efficience.py)
         # Correction double-comptage : si le point d'indice augmente aussi,
         # la hausse FP est déjà partiellement couverte. Surcoût SMIC net = max(0, hausse - PI).
-        masse_salariale_fp_concernee = 50  # Md€
+        masse_salariale_fp_concernee = 50 * self.indice_prix_depenses()  # Md€
         hausse_pi_pct = _point_indice_fp_brut(self.mesures) / 100
         delta_fp = masse_salariale_fp_concernee * max(0, hausse_pct - hausse_pi_pct)
 

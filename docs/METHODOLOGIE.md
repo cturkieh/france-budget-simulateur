@@ -136,7 +136,7 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 |-----------|-----------|--------|
 | Age legal | le DROIT EN VIGUEUR de l'annee simulee : 62,75 ans (62 ans 9 mois) en 2026-2027, puis +3 mois par an jusqu'a 64,0 ans en 2032 | bareme PLAT et SYMETRIQUE : +/-6,0 Md EUR par annee d'age d'ecart a la reference, sur tout le domaine 60-67 ans ; phasing cohortes 5 ans |
 | Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre (+/-4 Md EUR par annee, phasing 5 ans) |
-| Indexation | 100% inflation | v0.6.7 : écart de niveau composé des revalorisations évitées (chacune à l'inflation de son année) sur 0,86 de la masse nominale des pensions, SYMETRIQUE au premier ordre, plateau 7 ans |
+| Indexation | 100% inflation | v0.6.7 : écart de niveau composé des revalorisations évitées (chacune à l'inflation de l'année précédente, N−1) sur 0,86 de la masse nominale des pensions, SYMETRIQUE au premier ordre, plateau 7 ans |
 
 ### Hypotheses Economiques
 
@@ -440,10 +440,24 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 - Base : 17 millions de retraites x pension moyenne
 - Indexation 100% = maintien pouvoir d'achat (statu quo legal, impact budgetaire nul)
 - Erosion CUMULATIVE (v0.6.7, audit externe Codex 10/2026) : `économie(t) = 0,86 de la masse
-  nominale des pensions de l'année × [1 − Π_s (1 − δ × max(π_s, 0))]`, δ = 1 − indexation, une
-  revalorisation par an dès 2026, chacune à l'inflation de SON année, sept au plus (plateau 7 ans) —
-  le stock de pensions erode se renouvelle (nouvelles pensions liquidees sur les salaires,
-  extinction des cohortes anciennes) ; l'écart constitué subsiste ensuite, sans se rembourser.
+  nominale des pensions de l'année × [1 − Π_s (1 − δ × max(π_{s−1}, 0))]`, δ = 1 − indexation, une
+  revalorisation par an dès 2026, sept au plus (plateau 7 ans) — le stock de pensions erode se
+  renouvelle (nouvelles pensions liquidees sur les salaires, extinction des cohortes anciennes) ;
+  l'écart constitué subsiste ensuite, sans se rembourser.
+- Calendrier N−1 (réfutation des handlers, 07/10/2026) : chaque revalorisation porte l'inflation de
+  l'ANNÉE PRÉCÉDENTE, comme la loi (pensions au 1er janvier, prestations au 1er avril, sur l'inflation
+  passée) et comme la baseline du moteur (part indexée de `pi_idx`, ci-dessus). Les revalorisations
+  à partir de 2027 portent l'inflation que le moteur calcule pour l'année d'avant. Celle du 1er janvier
+  2026 a déjà eu lieu : c'est un fait, `REVALORISATION_PENSIONS_2026` = **0,9 %** (coefficient 1,009,
+  art. L161-25 CSS, gel du PLFSS rejeté — service-public.fr, « Pensions de retraite de base : quelle
+  revalorisation au 1er janvier 2026 ? » ; circulaire Cnav 2025/29). Un gel total 2026 évite donc
+  0,9 % de la masse indexée : **3,0 Md EUR**. La part indexée 0,86 ne change pas : elle reste déduite du
+  point OFCE avec l'hypothèse de l'OFCE (1,1 % → 3,7 Md EUR, soit 336 Md EUR), seul le taux évité
+  diffère. Le moteur revalorisait à l'inflation de l'année COURANTE (1,33 % en 2026) : le même gel
+  valait 4,48 Md EUR. Les prestations, revalorisées au 1er avril, gardent pour 2026 l'inflation 2025
+  réalisée (`INFLATION_BASE`, 1,1 %) : leur taux effectif n'a pas été vérifié. Effet de la correction
+  sur la dette 2035 : Renaissance +0,07 pt (inflation N−1) puis +0,02 (taux 2026 effectif),
+  IM-compétitivité +0,04 puis +0,02.
 - Part indexée 0,86 : la masse que porte une désindexation décidée par la loi (régimes de base
   et pensions publiques ; l'Agirc-Arrco est revalorisé par les partenaires sociaux), calée sur
   l'OFCE — P. Madec, « Impôts et prestations : quels effets attendre d'une « année blanche » ? »,
@@ -696,8 +710,8 @@ et par un meilleur ciblage, pas par une depense additionnelle.
 
 | Parametre | Impact | Cout/Economie |
 |-----------|--------|---------------|
-| Effectifs | Ajustement ponctuel | 60 k EUR/agent/an |
-| Point d'indice | Hausse salaires | 2 Md EUR/point |
+| Effectifs | Cible atteinte en 2032 (rampe 2027-2032) | 60 k EUR/agent/an en euros 2025, indexé |
+| Point d'indice | Hausse salaires | 3,3 Md EUR par point de % (330 Md EUR en euros 2025), indexé |
 | Fusion agences | Economies structurelles | Variable |
 
 ### Montee en Puissance
@@ -715,7 +729,18 @@ annuelles** de départs, `157 000 × taux × efficacité(année de la cohorte)`,
 non-remplacement vaut 5 % par point d'intensité jusqu'à 10 (50 %), puis 1,7 point de plus
 par point (67 % à l'intensité 20), borné à [0 ; 1] : une cohorte ne dépasse jamais les
 départs de son année. Chaque poste vaut le coût complet chargé `COUT_MOYEN_AGENT_FP_EUR`
-(60 k EUR, euros 2025 non indexés). Ordres de grandeur calculés : intensité 10 →
+(60 k EUR en euros 2025), exprimé en euros de l'année par l'indice de prix des dépenses
+du moteur depuis v0.6.7 — celui qui fait croître la masse salariale du statu quo (~70 k
+EUR en 2035). Figé jusqu'en v0.6.6, il sous-estimait les économies d'une réduction comme le
+coût d'une création, d'environ 15 % en fin d'horizon. Le curseur « effectifs » applique le
+même coût, la même année : un poste vaut autant pour les deux leviers. Toutes les masses de
+la fonction publique suivent ce même indice : la masse salariale du point d'indice (330 Md
+EUR), la part FP d'une hausse du SMIC (50 Md EUR), les coûts de la réforme (0,15 Md EUR par
+point d'intensité, 2026-2029) et sa pénalité de dégradation du service (0,3 Md EUR), tous
+calés en euros 2025. Indexer les économies d'une réduction d'effectifs sans indexer le coût
+d'une hausse de rémunération aurait laissé une asymétrie (effet sur la dette 2035 : LFI
++0,73 pt, PS +0,47, Écologistes +0,35). Ordres de grandeur
+calculés (au coût 2025) : intensité 10 →
 215 875 postes en 2030 (13,0 Md EUR/an), 529 875 au plateau (31,8 Md EUR/an) ; intensité
 20 → 289 272 postes en 2030 (17,4 Md EUR/an), 710 032 au plateau (42,6 Md EUR/an). Les
 « potentiels » cités plus haut pour les deux axes sont des ordres de grandeur de la
@@ -723,9 +748,43 @@ littérature, pas les montants du moteur. Jusqu'à v0.6.6, le stock valait
 `départs × taux × efficacité(année courante) × nombre d'années` : il réévaluait les
 cohortes passées, comptait une cohorte 2026 inexistante et pouvait croître de plus que
 les départs d'une année (intensité 20 : 525 950 postes en 2030 ; audit externe Codex,
-10/2026). Le curseur « effectifs » puise dans le **même vivier** : réforme + curseur ne
-suppriment jamais plus de postes que les départs cumulés depuis 2026 (v0.6.0). Propriétés
+10/2026). Le curseur « effectifs » puise dans le **même vivier** (ci-dessous). Propriétés
 verrouillées par `tests/test_audit_codex_v067.py` et `tests/test_fp_v060.py`.
+
+### Curseur « effectifs » : rampe 2027-2032 et vivier partagé (v0.6.7)
+
+**Règle** (arbitrage du 07/10/2026, la même pour tous les programmes et dans les deux
+sens). La valeur du curseur est une cible de **stock** de postes, atteinte par une rampe
+linéaire : rien en 2026 (budget voté, le mandat n'a pas commencé), un sixième de la cible
+par an de 2027 à 2032, la cible pleine en 2032 et au-delà. 2032 est l'année que donnent
+les sources du RN (« trajectoire 2027-2032 ») et de LR (« sur le quinquennat ») ; aucune
+source de programme n'annonce une cible plus rapide. Exemple : −201 000 postes donnent
+−33 500 en 2027 et −201 000 en 2032. Une création de postes suit la même rampe
+(+60 000 donnent +10 000 en 2027), et son effet de pouvoir d'achat est servi au même
+rythme, par incréments annuels.
+
+**Plafond partagé avec la réforme de l'État.** Une réduction opère par non-remplacement
+des départs (157 000 par an), le vivier de la réforme. Réforme + curseur ne suppriment
+jamais plus de **67 %** des départs cumulés depuis 2027 (`FP_TAUX_NON_REMPLACEMENT_MAX`),
+le taux maximal de la réforme elle-même (intensité 20) : le curseur ne peut pas faire ce
+que la réforme ne peut pas. C'est une valeur de construction du moteur, pas une
+estimation sourcée (repère : la RGPP 2007-2012 visait un départ sur deux). Sur les
+programmes publiés, la rampe seule demande au plus 50 000 postes par an (LR, 32 % des
+départs) ; le plafond ne mord que si une réforme de l'État intense s'y ajoute.
+
+**Ce que la règle corrige.** Jusqu'en v0.6.6, la cible était posée dès 2026 dans la seule
+limite de 100 % des départs cumulés depuis 2026 : RN et LR supprimaient 157 000 postes dès
+2026 (aucun départ remplacé dans toute la fonction publique) et atteignaient leur cible
+dès 2027 ; les créations de postes étaient instantanées. Effet de la correction sur la
+dette 2035 (réfutation des handlers, 07/10/2026) : LR +1,72 pt, RN +1,24, Renaissance
++0,67, IM-compétitivité +0,66 ; LFI −0,37, PS −0,24, Écologistes −0,13 (coût des
+créations étalé).
+
+**Conséquence assumée sur le scénario de référence.** `plf_2026` encode −3 119 postes
+pour 2026, et Horizons pose ce levier à la même valeur (droit en vigueur). La règle
+commune les fait monter de 2027 à 2032 au lieu de les appliquer en 2026 : 0,19 Md EUR
+d'économie de moins en 2026, rien au-delà de 2032 (déficit 2026 de référence −5,16 % au
+lieu de −5,15 %). Propriétés verrouillées par `tests/test_fp_rampe_v067.py`.
 
 ### SMIC et Fonction Publique (Correction v3.0)
 
@@ -737,9 +796,12 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
 
 ### Impacts Macroeconomiques
 
-- **Gini effectifs** : -10k effectifs = +0,001 Gini
-- **Gini indice** : +1% point indice = -0,0005 Gini
-- **Pouvoir d'achat** : +1% point indice = +0,0005 PA
+- **Gini** : aucun effet (le handler pose 0 : salaires de la fonction publique déjà
+  compressés). Les règles « −10k effectifs = +0,001 » et « +1 % de point d'indice = −0,0005 »
+  publiées ici jusqu'au 07/10/2026 n'étaient pas celles du moteur.
+- **Pouvoir d'achat** : +1 % de point d'indice = +0,003 PA, une fois (l'année d'entrée en
+  vigueur) ; créations de postes : +10 000 postes = +0,00025 PA, servi au rythme de la rampe
+  2027-2032 ; suppressions : aucun effet (attrition naturelle, pas de licenciement).
 
 ---
 
@@ -1218,7 +1280,7 @@ deployee — hypothese conservatrice assumee).
 
 **Parametres economiques :**
 - Salaries concernes : 3,2 millions (DARES 2024)
-- Masse salariale FP : 15% agents cat. C = ~50 Md EUR
+- Masse salariale FP : 15% agents cat. C = ~50 Md EUR (euros 2025, indexée par l'indice de prix des dépenses depuis v0.6.7)
 - Cotisations sociales : +20% de la hausse brute
 
 **Multiplicateur specifique (v3.0)** : 0,15
@@ -1674,7 +1736,8 @@ Liste exhaustive PA one-time :
   SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir. Formule
   (v0.6.7) : `écart = masse nominale minima_sociaux de l'année × [1 − Π (1 − δ × max(π_s, 0))]`,
   δ = 1 − taux_indexation, produit sur les revalorisations écoulées (2026 → année, dix au plus),
-  chacune à l'inflation de SON année. Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
+  chacune à l'inflation de l'année précédente (calendrier N−1, même règle que les pensions,
+  § Retraites). Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
   l'écart passé à l'inflation du jour (gel total : −1,8 Md EUR en 2027 à 2 %, 0 en 2028
   si l'inflation tombait à 0 ; audit externe Codex, 10/2026). À inflation constante, les
   deux formules coïncident. Les deux limites signalées au lot 2 sont levées au lot 3C, par

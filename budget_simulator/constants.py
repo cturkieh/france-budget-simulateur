@@ -559,13 +559,23 @@ SEMI_ELASTICITE_SOLDE_PIB_FRANCE = 0.55
 # d'agents — DGAFP 2024, INSEE 2024). SOURCE UNIQUE v0.6.0 : les deux handlers
 # fonction publique (réforme ET effectifs) valorisent un poste au même coût ;
 # v0.5.1 utilisait 40 k€ dans l'un et 60 k€ dans l'autre sans périmètre
-# documenté (audit 08/2026, constat 4).
+# documenté (audit 08/2026, constat 4). En euros 2025 : les deux handlers
+# l'expriment en euros de l'année par l'indice de prix des dépenses du moteur
+# (v0.6.7 — figé, il valorisait un poste 60 k€ en 2035 comme en 2026).
 COUT_MOYEN_AGENT_FP_EUR = 60000
 # Départs naturels annuels dans la fonction publique (retraites) — le vivier
 # UNIQUE dans lequel puisent le non-remplacement de la réforme de l'État et le
 # curseur effectifs (anti-double-comptage v0.6.0 : l'objectif d'effectifs est
 # servi d'abord par les non-remplacements que la réforme réalise déjà).
 DEPARTS_ANNUELS_FP = 157000
+# Taux maximal de non-remplacement de ces départs, PARTAGÉ par la réforme de
+# l'État et le curseur effectifs (v0.6.7, réfutation des handlers) : celui de la
+# réforme à son intensité maximale (20 : 50 % + 10 × 1,7 point, cf.
+# handlers/efficience.py). Le curseur ne peut pas faire ce que la réforme ne peut
+# pas — réforme + curseur ≤ ce taux × les départs cumulés depuis la première
+# cohorte. Valeur de construction du moteur, pas une estimation sourcée (repère :
+# la RGPP 2007-2012 visait un départ sur deux, 50 %).
+FP_TAUX_NON_REMPLACEMENT_MAX = 0.67
 
 # Constantes RETIRÉES par la refonte « assemblage temporel » (2026-06,
 # cf. docs/plans/refonte-annee1-assemblage.md du repo parent) :
@@ -891,8 +901,11 @@ RETRAITES_COEFF_AGE_MD_EUR = 6.0
 RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
 # --- Désindexation des pensions (v0.6.7, audit Codex 10/2026, bloc B constat 2) ---
 # Économie = PART × masse nominale de la catégorie `retraites` de l'année ×
-# [1 − Π (1 − δ × max(π_s, 0))], δ = 1 − indexation, une revalorisation par an
-# dès POLICY_START_YEAR, chacune à l'inflation de SON année (handlers/depenses.py).
+# [1 − Π (1 − δ × max(π_{s−1}, 0))], δ = 1 − indexation, une revalorisation par
+# an dès POLICY_START_YEAR, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE — 2026 au
+# taux légal effectif REVALORISATION_PENSIONS_2026 (handlers/depenses.py,
+# réfutation des handlers : c'était l'inflation de l'année courante, gel 2026 =
+# 4,48 Md€).
 # Remplace RETRAITES_EROSION_INDEXATION_MD_EUR = 1,5 Md€/an par année et par
 # point d'écart, indépendant de l'inflation et non sourcé : sur 380 Md€ de
 # pensions, une inflation implicite de 0,39 % — quatre fois moins qu'une
@@ -906,6 +919,18 @@ RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 
 # catégorie du moteur au statu quo (390,7 Md€) : 336 / 390,7 = 0,86.
 # Verrouillé par tests/test_desindexation_v067.py (ancrage OFCE à 0,05 Md€).
 RETRAITES_PART_MASSE_INDEXEE = 0.86
+# REVALORISATION DES PENSIONS AU 1ER JANVIER 2026 : un FAIT, pas une sortie du
+# moteur — 0,9 % (coefficient 1,009, art. L161-25 CSS : prix hors tabac sur douze
+# mois ; le gel du PLFSS 2026 a été rejeté). Sources : service-public.fr,
+# « Pensions de retraite de base : quelle revalorisation au 1er janvier 2026 ? »
+# (https://www.service-public.fr/particuliers/actualites/A17919) ; circulaire
+# Cnav 2025/29 du 22/12/2025. C'est la revalorisation 2026 qu'évite un programme
+# qui gèle ou sous-indexe les pensions ; les suivantes portent l'inflation du
+# moteur de l'année précédente. La part indexée ci-dessus reste déduite du point
+# OFCE avec SON hypothèse (1,1 % → 3,7 Md€, soit 336 Md€) : au taux effectif, le
+# même gel vaut 3,0 Md€. Les prestations (revalorisées au 1er avril) gardent
+# INFLATION_BASE pour 2026 : leur taux effectif n'a pas été vérifié.
+REVALORISATION_PENSIONS_2026 = 0.009
 RETRAITES_EROSION_PLATEAU_ANS = 7        # revalorisations comptées au plus : renouvellement des cohortes, l'écart au statu quo cesse de croître
 
 # --- Canal redistributif du levier d'âge -----------------------------------

@@ -77,6 +77,19 @@ class ExpendituresMixin:
         return (self.spending_categories_base[categorie] * self._spending_factors[categorie]
                 * self.depenses_primaires_precedentes / volume)
 
+    def indice_prix_depenses(self) -> float:
+        """Indice de prix cumulé des dépenses depuis 2025, Π (1 + π_idx) (v0.6.7).
+
+        Le rapport de ``masse_categorie_nominale`` (niveau nominal chaîné /
+        Σ base × facteur), seul : 1,0 hors simulation, l'année en cours après
+        ``calculate_expenditures``. Exprime en euros de l'année un coût unitaire
+        calé en euros 2025 (le coût complet d'un agent public, qui valorisait un
+        poste à 60 k€ en 2035 comme en 2026).
+        """
+        volume = sum(base * self._spending_factors[cat]
+                     for cat, base in self.spending_categories_base.items())
+        return self.depenses_primaires_precedentes / volume
+
     def calculate_expenditures(self, gdp: float, inflation: float, inflation_prev: float,
                                unemployment: float, year: int, output_gap: float) -> float:
         """Dépenses primaires nominales de l'année (récurrence unique, toutes années ≥ 1).

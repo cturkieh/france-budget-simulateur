@@ -12,6 +12,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # (DEBUG_MODE is read at module level)
 os.environ['BUDGET_DEBUG'] = 'true'
 
+# Limite de débit de /simulate (api.py, lue à l'import) : désactivée pour les
+# tests, qui ne doivent pas dépendre de leur propre rythme d'appels ;
+# tests/test_api_rate_limit_v067.py la règle explicitement.
+os.environ.setdefault('BUDGETLAB_RATE_LIMIT_PER_MIN', '0')
+os.environ.setdefault('BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN', '0')
+
 from budget_simulator import BudgetSimulatorV45, FiscalMultipliers, load_default_values
 
 

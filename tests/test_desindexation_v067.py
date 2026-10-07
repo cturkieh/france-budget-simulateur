@@ -8,8 +8,10 @@ soit une inflation implicite de 0,39 % sur la masse des pensions. Prestations
 
 Contrat : économie(t) = masse indexée(t) × [1 − Π_s (1 − δ × max(π_s, 0))],
 δ = 1 − indexation, une revalorisation par an dès POLICY_START_YEAR, chacune à
-l'inflation de SON année ; masse indexée = masse NOMINALE de la catégorie du
-moteur l'année t (× part indexée pour les pensions, calée sur l'OFCE).
+l'inflation de l'ANNÉE PRÉCÉDENTE (2026 : l'inflation 2025 réalisée, INFLATION_BASE
+— réfutation des handlers, v0.6.7 ; c'était l'inflation de l'année courante) ;
+masse indexée = masse NOMINALE de la catégorie du moteur l'année t (× part indexée
+pour les pensions, calée sur l'OFCE).
 """
 import pytest
 
@@ -28,16 +30,19 @@ def _pension(indexation, year, inflation):
 
 
 def test_pensions_economie_proportionnelle_a_l_inflation():
-    """RED v0.6.6 : −1,50 Md€ en 2026 à π = 0 %, 1,5 % ou 3 %. Désormais nulle
-    sans inflation, doublée quand l'inflation double, et égale à masse indexée ×
-    π la première année d'un gel total."""
-    nul, _ = _pension(0.0, POLICY_START_YEAR, 0.0)
-    a, sim = _pension(0.0, POLICY_START_YEAR, 0.015)
-    b, _ = _pension(0.0, POLICY_START_YEAR, 0.030)
-    assert nul == 0.0
-    assert b == pytest.approx(2 * a, rel=1e-12)
+    """RED v0.6.6 : −1,50 Md€ en 2026 à π = 0 %, 1,5 % ou 3 %. Désormais :
+    2026 = masse indexée × la revalorisation légale effective du 1er janvier 2026
+    (un fait, REVALORISATION_PENSIONS_2026), quelle que soit l'inflation du moteur ;
+    la revalorisation 2027 porte l'inflation 2026 — nulle sans inflation,
+    proportionnelle sinon (hors simulation : l'inflation de l'appel)."""
+    from budget_simulator.constants import REVALORISATION_PENSIONS_2026 as r26
+    gels_2026 = {pi: _pension(0.0, POLICY_START_YEAR, pi)[0] for pi in (0.0, 0.015, 0.03)}
+    _, sim = _pension(0.0, POLICY_START_YEAR, 0.0)
     masse = RETRAITES_PART_MASSE_INDEXEE * sim.masse_categorie_nominale('retraites')
-    assert a == pytest.approx(-masse * 0.015, rel=1e-12)
+    assert all(g == pytest.approx(-masse * r26, rel=1e-12) for g in gels_2026.values())
+    for pi in (0.0, 0.015, 0.03):
+        d, _ = _pension(0.0, POLICY_START_YEAR + 1, pi)
+        assert d == pytest.approx(-masse * (1 - (1 - r26) * (1 - pi)), rel=1e-12), pi
 
 
 def test_pensions_ancrage_ofce_annee_blanche_2026():
@@ -78,12 +83,16 @@ def _trajectoire(levier, params, script):
     return dep, sim.masses
 
 
-def _ecart(delta, script, annee, n_max):
-    f = 1.0
-    for s in range(POLICY_START_YEAR, min(annee, POLICY_START_YEAR + n_max - 1) + 1):
-        f *= 1 - delta * max(script[s], 0.0)
-    return 1 - f
+def _ecart(delta, script, annee, n_max, levier='retraites'):
+    """Revalorisation de s à l'inflation de s − 1 ; celle de 2026 est un fait que
+    le script n'impose pas : le taux légal effectif pour les pensions, l'inflation
+    2025 réalisée (INFLATION_BASE) pour les prestations."""
+    return _ecart_n_moins_1(delta, script, annee, n_max, _TAUX_2026[levier])
 
+
+from budget_simulator.constants import INFLATION_BASE, REVALORISATION_PENSIONS_2026  # noqa: E402
+
+_TAUX_2026 = {'retraites': REVALORISATION_PENSIONS_2026, 'prestations': INFLATION_BASE}
 
 PIS = [0.011, 0.01, 0.03, 0.005, -0.01, 0.02, 0.0, 0.015, 0.04, 0.012, 0.018]
 SCRIPT = dict(zip(range(2025, 2036), PIS))
@@ -91,7 +100,7 @@ SCRIPT = dict(zip(range(2025, 2036), PIS))
 
 def test_pensions_historique_et_plateau_de_cohortes():
     """Inflation quelconque (déflation comprise) : l'écart de niveau vaut le produit
-    des revalorisations écoulées, chacune à SON inflation ; il cesse de croître après
+    des revalorisations écoulées, chacune à l'inflation N−1 ; il cesse de croître après
     RETRAITES_EROSION_PLATEAU_ANS revalorisations (renouvellement des cohortes), sans
     jamais se rembourser."""
     dep, masses = _trajectoire('retraites', {'indexation': 0.8}, SCRIPT)
@@ -105,23 +114,27 @@ def test_pensions_historique_et_plateau_de_cohortes():
 
 
 def test_pensions_l_ecart_constitue_ne_disparait_pas():
-    """π = 2 % jusqu'en 2027 puis 0 : l'écart de 2026-2027 subsiste ensuite, en
-    part de la masse."""
+    """π = 2 % jusqu'en 2027 puis 0 : l'écart constitué subsiste ensuite, en part
+    de la masse — revalorisations 2026 (taux légal effectif), 2027 et 2028 (les
+    2 % de 2026 et 2027), rien au-delà."""
+    from budget_simulator.constants import REVALORISATION_PENSIONS_2026 as r26
     script = {a: (0.02 if a <= 2027 else 0.0) for a in range(2025, 2036)}
     dep, masses = _trajectoire('retraites', {'indexation': 0.0}, script)
-    for annee in range(2027, 2036):
-        assert dep[annee] / masses['retraites'][annee] == pytest.approx(-(1 - 0.98 ** 2), rel=1e-12)
+    for annee in range(2028, 2036):
+        assert dep[annee] / masses['retraites'][annee] == pytest.approx(
+            -(1 - (1 - r26) * 0.98 ** 2), rel=1e-12)
 
 
 def test_prestations_alignees_masse_nominale_et_premiere_revalorisation_2026():
     """RED lot 2 : base 90 Md€ en euros 2025 et 2026 = 0 (un gel voté pour 2026 ne
     rapportait rien en 2026). Désormais même convention que les pensions : masse
     NOMINALE de la catégorie `minima_sociaux` de l'année (90 Md€ en 2025), première
-    revalorisation en 2026, dix au plus."""
+    revalorisation en 2026 (à l'inflation 2025 réalisée), dix au plus."""
+    from budget_simulator.constants import INFLATION_BASE
     dep, masses = _trajectoire('prestations_indexation', {'taux_indexation': 0.8}, SCRIPT)
-    assert dep[2026] == pytest.approx(-masses['prestations'][2026] * 0.2 * SCRIPT[2026], rel=1e-12)
+    assert dep[2026] == pytest.approx(-masses['prestations'][2026] * 0.2 * INFLATION_BASE, rel=1e-12)
     for annee in range(2026, 2036):
-        attendu = -masses['prestations'][annee] * _ecart(0.2, SCRIPT, annee, 10)
+        attendu = -masses['prestations'][annee] * _ecart(0.2, SCRIPT, annee, 10, 'prestations')
         assert dep[annee] == pytest.approx(attendu, rel=1e-12, abs=1e-12), annee
     assert masses['prestations'][2030] > 90.0   # masse nominale, plus des euros 2025
 
@@ -139,3 +152,52 @@ def test_pensions_symetrie_au_premier_ordre(annee):
         n = min(annee - POLICY_START_YEAR + 1, RETRAITES_EROSION_PLATEAU_ANS)
         assert abs(sur + eco) <= abs(eco) * n * 0.2 * 0.02 * 1.01
         assert sur > 0 > eco
+
+
+# ---------------------------------------------------------------------------
+# Revalorisation à l'inflation N−1 (v0.6.7, réfutation des handlers, angle 3).
+# La loi revalorise les pensions au 1er janvier, et les prestations au 1er avril,
+# sur l'inflation PASSÉE ; c'est elle que l'OFCE chiffre (gel 2026 : 1,1 %,
+# l'inflation 2025, 3,7 Md€) et sur elle qu'est calée la part indexée 0,86. Le
+# moteur revalorisait à l'inflation de l'année COURANTE (π₂₀₂₆ = 1,33 %) : gel
+# 2026 = 4,48 Md€, 21 % de trop sur l'ancrage même de la calibration.
+# ---------------------------------------------------------------------------
+
+def test_gel_des_pensions_2026_en_simulation_porte_la_revalorisation_legale():
+    """RED : 4,48 Md€ (inflation 2026 du moteur), puis 3,70 (inflation 2025, 1,1 %,
+    l'hypothèse de l'OFCE). La revalorisation du 1er janvier 2026 a eu lieu : 0,9 %
+    (service-public.fr, circulaire Cnav 2025/29). Le gel 2026 vaut la masse indexée
+    calée sur l'OFCE (336 Md€ = 3,7 / 1,1 %) × 0,9 % = 3,0 Md€ — la part indexée ne
+    bouge pas, seul le taux évité change."""
+    from budget_simulator.constants import REVALORISATION_PENSIONS_2026 as r26
+    _, _, rapport = BudgetSimulatorV45(periods=10, mesures={'retraites': {'indexation': 0.0}}).simulate()
+    gel_2026 = -rapport['measure_impacts_by_year'][1]['retraites']['depenses']
+    assert r26 == 0.009
+    assert gel_2026 == pytest.approx(3.7 * r26 / 0.011, rel=0.03)
+
+
+def _ecart_n_moins_1(delta, script, annee, n_max, pi_2025):
+    # pi_2025 : le taux de la revalorisation 2026 (un fait, jamais le script)
+    """Revalorisation de l'année s à l'inflation de s − 1 ; celle de 2026 à
+    l'inflation 2025 réalisée (constante INSEE du moteur, pas le script)."""
+    f = 1.0
+    for s in range(POLICY_START_YEAR, min(annee, POLICY_START_YEAR + n_max - 1) + 1):
+        pi = pi_2025 if s == POLICY_START_YEAR else script[s - 1]
+        f *= 1 - delta * max(pi, 0.0)
+    return 1 - f
+
+
+@pytest.mark.parametrize('levier, params, n_max, cle', [
+    ('retraites', {'indexation': 0.8}, RETRAITES_EROSION_PLATEAU_ANS, 'retraites'),
+    ('prestations_indexation', {'taux_indexation': 0.8}, 10, 'prestations'),
+])
+def test_revalorisation_a_l_inflation_de_l_annee_precedente(levier, params, n_max, cle):
+    """Inflation scriptée quelconque (déflation comprise) : chaque revalorisation
+    porte l'inflation de l'année PRÉCÉDENTE ; celle de 2026 est un fait,
+    indépendant du script — le taux légal effectif pour les pensions, l'inflation
+    2025 réalisée pour les prestations."""
+    script = {**SCRIPT, 2025: 0.5}   # 2025 scripté absurde : jamais lu
+    dep, masses = _trajectoire(levier, params, script)
+    for annee in range(2026, 2036):
+        attendu = -masses[cle][annee] * _ecart_n_moins_1(0.2, script, annee, n_max, _TAUX_2026[cle])
+        assert dep[annee] == pytest.approx(attendu, rel=1e-12, abs=1e-12), annee

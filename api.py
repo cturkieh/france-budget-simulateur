@@ -4,17 +4,45 @@
 # local uniquement.
 #
 # Le contrat de simulation (/simulate, /scenarios) vit dans `router` : c'est la
-# SOURCE unique. Un déploiement qui ajoute sa propre infrastructure (monitoring,
-# CORS de production, limitation de débit) inclut ce routeur dans son app au
-# lieu de recopier les endpoints — une copie diverge (constaté en v0.6.6 : un
-# levier inconnu rendait 200 sur une copie, 422 ici).
+# SOURCE unique, limitation de débit de /simulate comprise (v0.6.7). Un
+# déploiement qui ajoute sa propre infrastructure (monitoring, CORS de
+# production) inclut ce routeur dans son app au lieu de recopier les endpoints —
+# une copie diverge (constaté en v0.6.6 : un levier inconnu rendait 200 sur une
+# copie, 422 ici).
+#
+# Limitation de débit de POST /simulate : seaux à jetons EN MÉMOIRE, PAR
+# PROCESSUS (plusieurs workers = autant de seaux). Au-delà : 429 + `Retry-After`.
+#   - par adresse cliente : BUDGETLAB_RATE_LIMIT_PER_MIN (défaut 120 ; 0 =
+#     désactivé, comme dans les tests) ; mémoire bornée (_RATE_LIMIT_CLES_MAX) ;
+#   - toutes adresses confondues : BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN (défaut
+#     1 200 ; 0 = désactivé) — la borne que ni une usurpation d'adresse ni un
+#     réseau d'adresses ne contournent.
+# Adresse cliente : le pair TCP, sauf si BUDGETLAB_TRUST_PROXY = N ≥ 1 déclare N
+# proxys de confiance devant l'app ; la clé est alors le N-ième élément de
+# `X-Forwarded-For` EN PARTANT DE LA FIN (1 = le dernier, celui qu'ajoute le
+# proxy le plus proche). Chaque proxy AJOUTE l'adresse de son pair à la fin de
+# la liste : les éléments de tête sont écrits par le client, qui peut les forger
+# à volonté (une clé lue en tête rendrait la limite inopérante). Derrière Render,
+# seuls les éléments de fin ajoutés par son infrastructure sont fiables : le bon
+# N se vérifie au déploiement (une adresse forgée ne doit jamais apparaître dans
+# le WARNING de refus). Sans proxy de confiance, ne posez pas la variable. Une
+# adresse IPv6 compte pour son /64. Le « pair TCP » est `request.client`, qu'uvicorn
+# réécrit LUI-MÊME depuis X-Forwarded-For quand le pair figure dans ses adresses de
+# confiance (FORWARDED_ALLOW_IPS, 127.0.0.1 par défaut : c'est le cas en local,
+# pas derrière Render) ; un client local peut donc y choisir sa clé, ce qui est sans
+# enjeu hors production.
+import ipaddress
 import json
 import logging
+import math
 import os
+import threading
+import time
+from collections import OrderedDict
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -36,6 +64,170 @@ logger = logging.getLogger(__name__)
 # Au-delà, la trajectoire sort du domaine de validité (v0.6.7 : sur 50 ans, une
 # consolidation maximale rendait une dette négative avec `valid: true`).
 PERIODS_MAX = 10
+
+# Limitation de débit de /simulate (cf. en-tête). 120/min par adresse : le
+# simulateur du site relance un calcul au plus une fois par seconde de réglage
+# (anti-rebond d'1 s), soit ~60/min pour un visiteur actif ; le double laisse
+# passer deux visiteurs derrière la même adresse (établissement, rédaction, NAT
+# d'opérateur) et borne un client automatisé à 2 calculs par seconde. 1 200/min
+# au total : 20 calculs par seconde pour l'instance (~7 ms le calcul en local),
+# au-delà desquels on refuse plutôt que de laisser saturer le service pour tous —
+# un délestage, pas une défense contre une attaque distribuée.
+RATE_LIMIT_PAR_MIN_DEFAUT = 120
+RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT = 1200
+_RATE_LIMIT_CLES_MAX = 10_000
+_CLE_GLOBALE = "*"
+
+
+def _lire_limite_par_min(nom: str, defaut: float) -> float:
+    """Variable d'environnement `nom` (requêtes par minute), ou `defaut` si
+    absente ou vide. Une valeur invalide fait échouer le démarrage : une limite
+    mal écrite ne se replie pas en silence sur une autre."""
+    brut = os.getenv(nom, "").strip()
+    if not brut:
+        return float(defaut)
+    valeur = float(brut)
+    if not math.isfinite(valeur) or valeur < 0:
+        raise ValueError(f"{nom}={brut!r} : nombre fini ≥ 0 attendu (0 = désactivé)")
+    return valeur
+
+
+def _lire_proxys_de_confiance() -> int:
+    """BUDGETLAB_TRUST_PROXY : nombre de proxys de confiance devant l'app (0 si
+    absente). Un booléen (« true ») ou tout autre texte fait échouer le
+    démarrage : le nombre de proxys décide de l'élément lu, il ne se devine pas."""
+    brut = os.getenv("BUDGETLAB_TRUST_PROXY", "").strip()
+    if not brut:
+        return 0
+    if not brut.isdigit():
+        raise ValueError(f"BUDGETLAB_TRUST_PROXY={brut!r} : nombre de proxys de confiance "
+                         "attendu (0, 1, 2…) — 1 = dernier élément de X-Forwarded-For")
+    return int(brut)
+
+
+class _LimiteurDebit:
+    """Seau à jetons par clé : `capacite` jetons au plus, rechargés au débit de
+    `capacite` par minute ; une requête consomme un jeton. Au-delà de `cles_max`
+    clés, la moins récemment vue est oubliée — l'équivalent d'un seau plein, donc
+    sans effet pour une clé restée inactive une minute."""
+
+    def __init__(self, par_minute: float, cles_max: int = _RATE_LIMIT_CLES_MAX,
+                 horloge=time.monotonic):
+        self.capacite = float(par_minute)
+        self._debit = self.capacite / 60.0  # jetons par seconde
+        self._cles_max = cles_max
+        self._horloge = horloge
+        self._seaux: OrderedDict[str, tuple[float, float, bool]] = OrderedDict()
+        self._verrou = threading.Lock()
+
+    def prendre(self, cle: str) -> tuple[float, bool]:
+        """(0.0, False) si la requête passe ; sinon (secondes avant le prochain
+        jeton, True au premier refus d'un épisode — pour le tracer une fois)."""
+        maintenant = self._horloge()
+        with self._verrou:
+            jetons, dernier, en_refus = self._seaux.pop(cle, (self.capacite, maintenant, False))
+            jetons = min(self.capacite, jetons + (maintenant - dernier) * self._debit)
+            if jetons >= 1.0:
+                resultat, en_refus = (0.0, False), False
+                jetons -= 1.0
+            else:
+                resultat, en_refus = ((1.0 - jetons) / self._debit, not en_refus), True
+            self._seaux[cle] = (jetons, maintenant, en_refus)
+            while len(self._seaux) > self._cles_max:
+                self._seaux.popitem(last=False)
+        return resultat
+
+
+_xff_ignore_signale = False
+
+
+def _adresse_cliente(request: Request, proxys: int) -> str:
+    """Clé du seau. Sans proxy de confiance (`proxys` = 0) : le pair TCP,
+    `X-Forwarded-For` n'est jamais lu (le client l'écrit). Avec N proxys : le
+    N-ième élément EN PARTANT DE LA FIN, celui qu'a ajouté le plus lointain des
+    proxys de confiance — jamais un élément de tête, que le client contrôle ;
+    liste trop courte ou élément invalide → le pair TCP. IPv6 regroupée par /64
+    (l'unité qu'un abonné reçoit)."""
+    global _xff_ignore_signale
+    candidats = []
+    valeurs = request.headers.getlist("x-forwarded-for")
+    if proxys > 0:
+        elements = [e.strip() for e in ",".join(valeurs).split(",")]
+        if len(elements) >= proxys:
+            candidats.append(elements[-proxys])
+    elif valeurs and not _xff_ignore_signale:
+        _xff_ignore_signale = True
+        logger.warning("X-Forwarded-For reçu sans BUDGETLAB_TRUST_PROXY : la limite de débit "
+                       "porte sur le pair TCP — derrière un proxy, c'est LE PROXY, donc une "
+                       "seule clé pour tous les visiteurs (cf. en-tête d'api.py)")
+    if request.client is not None:
+        candidats.append(request.client.host)
+    for brut in candidats:
+        try:
+            ip = ipaddress.ip_address(brut)
+        except ValueError:
+            continue
+        if ip.version == 6 and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        if ip.version == 6:
+            return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+        return str(ip)
+    return request.client.host if request.client is not None else "inconnu"
+
+
+def _cle_masquee(cle: str) -> str:
+    """La clé tronquée pour les journaux (IPv4 /24, IPv6 /48) : pas d'adresse
+    complète dans les logs."""
+    try:
+        reseau = ipaddress.ip_network(cle, strict=False)
+    except ValueError:
+        return cle
+    return str(reseau.supernet(new_prefix=24 if reseau.version == 4 else 48))
+
+
+_limite_par_min = _lire_limite_par_min("BUDGETLAB_RATE_LIMIT_PER_MIN", RATE_LIMIT_PAR_MIN_DEFAUT)
+_limite_globale_par_min = _lire_limite_par_min("BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN",
+                                               RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT)
+_proxys_de_confiance = _lire_proxys_de_confiance()
+_limiteur = _LimiteurDebit(_limite_par_min) if _limite_par_min > 0 else None
+_limiteur_global = (_LimiteurDebit(_limite_globale_par_min, cles_max=1)
+                    if _limite_globale_par_min > 0 else None)
+logger.info("Limite de débit /simulate : %s par adresse (%s), %s au total",
+            f"{_limite_par_min:g}/min" if _limiteur else "désactivée",
+            f"X-Forwarded-For[-{_proxys_de_confiance}]" if _proxys_de_confiance else "pair TCP",
+            f"{_limite_globale_par_min:g}/min" if _limiteur_global else "désactivée")
+
+
+def _refus(attente: float, detail: str) -> HTTPException:
+    secondes = max(1, math.ceil(attente))
+    return HTTPException(status_code=429, detail=detail.format(secondes=secondes),
+                         headers={"Retry-After": str(secondes)})
+
+
+def _limiter_debit(request: Request) -> None:
+    """Dépendance de POST /simulate : 429 au-delà de la limite par adresse, puis du
+    plafond global (cf. en-tête). Le refus passe par le gestionnaire d'exceptions
+    de FastAPI, donc par le CORS de l'app : le navigateur le lit comme un refus,
+    pas comme une panne réseau."""
+    if _limiteur is not None:
+        cle = _adresse_cliente(request, _proxys_de_confiance)
+        attente, nouveau_refus = _limiteur.prendre(cle)
+        if attente:
+            if nouveau_refus:
+                logger.warning("Limite de débit /simulate atteinte (%s, %g/min) : 429",
+                               _cle_masquee(cle), _limiteur.capacite)
+            raise _refus(attente, "Trop de simulations en peu de temps depuis cette "
+                                  "connexion : réessayez dans {secondes} s.")
+    if _limiteur_global is not None:
+        attente, nouveau_refus = _limiteur_global.prendre(_CLE_GLOBALE)
+        if attente:
+            if nouveau_refus:
+                # Systémique (pic d'audience ou attaque distribuée) : ERROR, donc
+                # remonté par l'observabilité de la production, une fois par épisode.
+                logger.error("Plafond global de /simulate atteint (%g/min, toutes adresses) : "
+                             "429 pour tous les visiteurs", _limiteur_global.capacite)
+            raise _refus(attente, "Le simulateur reçoit trop de demandes en ce moment : "
+                                  "réessayez dans {secondes} s.")
 
 
 class SimulationRequest(BaseModel):
@@ -72,7 +264,7 @@ def _erreurs_d_entree(groupe: BaseExceptionGroup) -> list[str] | None:
     return messages
 
 
-@router.post("/simulate")
+@router.post("/simulate", dependencies=[Depends(_limiter_debit)])
 async def simulate(request: SimulationRequest):
     """Lance une simulation budgétaire.
 
@@ -109,6 +301,13 @@ async def simulate(request: SimulationRequest):
         requête sans cette clé. Un levier INCONNU reste rejeté en 422, même à
         `null`.
       Préférer omettre la clé ; le serveur trace un WARNING `PARAM_NULL`.
+    - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` requêtes par minute
+      (défaut 120) depuis la même adresse cliente, ou plus de
+      `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` (défaut 1 200) toutes adresses
+      confondues ; `Retry-After` donne le délai en secondes. Limites par
+      processus, désactivées à 0 ; adresse = pair TCP, ou élément de fin de
+      `X-Forwarded-For` si `BUDGETLAB_TRUST_PROXY` déclare des proxys de
+      confiance (cf. en-tête du module).
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
       Le nom d'un paramètre n'est pas validé : une faute de frappe
       (`{"tva_rate": {"tauxx": 0.25}}`) applique le défaut du levier.

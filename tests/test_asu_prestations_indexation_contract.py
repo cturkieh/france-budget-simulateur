@@ -132,3 +132,39 @@ def test_malformed_asu_fails_loudly_not_silently(monkeypatch):
         BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
     notes = [n for e in exc.value.exceptions for n in getattr(e, '__notes__', [])]
     assert notes and all(n.startswith('measure_id=asu,') for n in notes), notes
+
+
+@pytest.mark.parametrize('activation', ['0', '1', [1]])
+def test_asu_activation_non_numerique_ne_neutralise_pas_les_prestations(activation, monkeypatch):
+    """RED réfutation v0.6.7 (angle 8) : une activation NON NUMÉRIQUE (« 0 »,
+    « 1 », [1]) fait échouer `_apply_asu` à la porte (signalé, ASU non
+    appliquée), mais le prédicat la déclarait ACTIVE (`'0' != 0`) : la
+    désindexation des prestations était neutralisée en silence pour une ASU
+    jamais appliquée (taux 0,8 : −1,53 Md€ effacés en 2030, aucun avis sur
+    `prestations_indexation`). Active ssi réel fini non nul, comme la porte."""
+    from budget_simulator.constants import HANDLER_FAILED_KEY
+    monkeypatch.delenv('BUDGETLAB_STRICT', raising=False)
+    base = {'prestations_indexation': {'taux_indexation': 0.8}}
+    assert asu_is_active({'asu': {'asu_activation': activation}}) is False
+    _, _, ref = BudgetSimulatorV45(periods=10, mesures=base).simulate()
+    _, _, rap = BudgetSimulatorV45(periods=10, mesures={
+        **base, 'asu': {'asu_activation': activation, 'asu_plafonnement': 0.65}}).simulate()
+    an, an_ref = rap['measure_impacts_by_year'][5], ref['measure_impacts_by_year'][5]
+    assert an['asu'][HANDLER_FAILED_KEY] is True
+    assert an['prestations_indexation']['depenses'] == pytest.approx(
+        an_ref['prestations_indexation']['depenses'], rel=1e-12)
+    assert an['prestations_indexation']['depenses'] < -1.0
+
+
+@pytest.mark.parametrize('activation, actif', [
+    (1, True), (0.5, True), (True, True), (1e-9, True),
+    (0, False), (0.0, False), (False, False), (None, False),
+    (float('nan'), False), (float('inf'), False),
+    pytest.param(10 ** 400, False, id='entier-trop-grand'),
+    ('1', False), ('0', False), ([1], False), ({'v': 1}, False),
+])
+def test_predicat_asu_actif_ssi_reel_fini_non_nul(activation, actif):
+    """Le prédicat suit la porte : un booléen est un 0/1 (la porte le compare
+    comme tel et `_apply_asu` l'applique), tout le reste du non-numérique est
+    inactif, comme le non-fini et `None`."""
+    assert asu_is_active({'asu': {'asu_activation': activation}}) is actif

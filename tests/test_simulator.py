@@ -112,7 +112,7 @@ def test_validate_year():
 def test_apply_fonction_publique(simulator):
     measure = {'id': 'fonction_publique', 'type': 'fonction', 'cible': 'depenses'}
     params = {'effectifs': -30000, 'point_indice': -1.0}
-    year = 2026
+    year = 2032  # v0.6.7 : cible d'effectifs atteinte en 2032 (rampe 2027-2032)
     gdp = 2994
     inflation = 0.01
     unemployment = 0.076

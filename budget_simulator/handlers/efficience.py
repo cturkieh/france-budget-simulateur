@@ -20,9 +20,12 @@ Mesures couvertes (5 handlers) :
   ``COUT_MOYEN_AGENT_FP_EUR``. Pénalité dégradation service si ``fusion``
   > 7 et ``digitalisation`` < 3.
 - ``fonction_publique`` : effectifs (±) et point d'indice. Base 5,5 M
-  agents, masse salariale 330 Md€, coût moyen 60 k€/agent. Impact
-  ``pouvoir_achat`` one-time, asymétrie volontaire (suppressions =
-  attrition naturelle, pas d'effet PA sur les actifs). ``int(...)`` sur
+  agents, masse salariale 330 Md€, coût moyen 60 k€/agent. La cible
+  d'effectifs est atteinte par une rampe linéaire 2027-2032 (v0.6.7) ; une
+  réduction puise dans le vivier de départs partagé avec la réforme, au même
+  taux maximal de non-remplacement (67 %). Impact ``pouvoir_achat`` de
+  niveau, asymétrie volontaire (suppressions = attrition naturelle, pas
+  d'effet PA sur les actifs). ``int(...)`` sur
   ``variation_effectifs`` au logging : le frontend JSON peut envoyer un
   float (25000.0) là où ``{:+d}`` exige un int — garde-fou Phase 0.8 à
   préserver tel quel.
@@ -81,6 +84,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 from ..constants import (
     COUT_MOYEN_AGENT_FP_EUR,
     DEPARTS_ANNUELS_FP,
+    FP_TAUX_NON_REMPLACEMENT_MAX,
     FRAUDE_SOCIALE_EFFICACITE_RECUPERATION,
     FRAUDE_SOCIALE_ROI,
     POLICY_START_YEAR,
@@ -106,6 +110,24 @@ else:
 REFORME_FP_PREMIERE_COHORTE = 2027
 REFORME_FP_MONTEE_EN_CHARGE = (0.3, 0.6, 0.85, 1.0)
 REFORME_FP_COHORTES_MAX = 8
+
+# Curseur « effectifs » (v0.6.7, réfutation des handlers, arbitrage de Cyril du
+# 07/10/2026) : la cible est un STOCK atteint par une rampe LINÉAIRE, même règle
+# pour tous les programmes et dans les deux sens — 0 en 2026 (budget voté, le
+# mandat n'a pas commencé), un sixième de la cible par an de 2027 à 2032, cible
+# pleine en 2032 (fin du quinquennat, l'année que RN et LR annoncent ; aucune
+# source de programme ne donne plus vite). Même première année que la réforme :
+# les deux puisent dans le même vivier de départs.
+FP_EFFECTIFS_PREMIERE_ANNEE = REFORME_FP_PREMIERE_COHORTE
+FP_EFFECTIFS_ANNEE_CIBLE = 2032
+_FP_EFFECTIFS_DUREE_RAMPE = FP_EFFECTIFS_ANNEE_CIBLE - FP_EFFECTIFS_PREMIERE_ANNEE + 1
+
+
+def _fp_effectifs_annees_de_rampe(year: int) -> int:
+    """Années de rampe écoulées à ``year`` (0 avant 2027, 6 dès 2032) : la cible
+    réalisée vaut cible × ce nombre / ``_FP_EFFECTIFS_DUREE_RAMPE``, en entiers
+    pour que la cible tombe juste (−201 000 / 6 = −33 500 exactement)."""
+    return min(max(year - FP_EFFECTIFS_PREMIERE_ANNEE + 1, 0), _FP_EFFECTIFS_DUREE_RAMPE)
 
 
 class EfficienceMixin(_MixinBase):
@@ -386,11 +408,15 @@ class EfficienceMixin(_MixinBase):
 
         delta_spending = 0
 
+        # Montants calés en euros 2025 → euros de l'année (v0.6.7) : coûts,
+        # pénalité et économies au même indice de prix des dépenses.
+        indice = self.indice_prix_depenses()
+
         # PHASE 1: COÛTS INITIAUX (2026-2029)
         if 1 <= year_idx <= 4:
             # Coûts: audits, formation, systèmes IT
-            # Formule: 0.15 Md€ par point d'intensité/an
-            cout_annuel = intensite_totale * 0.15
+            # Formule: 0.15 Md€ (euros 2025) par point d'intensité/an
+            cout_annuel = intensite_totale * 0.15 * indice
             delta_spending += cout_annuel
             _log_debug(self.debug_logs, f"Y{year}: Réforme FP - Coûts investissement: +{cout_annuel:.1f} Md€")
 
@@ -398,10 +424,11 @@ class EfficienceMixin(_MixinBase):
         # v0.6.0 : formule extraite dans _reforme_fp_reduction_cumulee (vivier
         # partagé avec le curseur effectifs, anti-double-comptage) et poste
         # valorisé au coût complet chargé COUT_MOYEN_AGENT_FP_EUR (source
-        # unique constants.py — le 40 k€ v0.5.1 était sans périmètre).
+        # unique constants.py — le 40 k€ v0.5.1 était sans périmètre), en euros
+        # de l'année depuis v0.6.7 (indice de prix des dépenses, comme le curseur).
         if year_idx >= 2:
             postes_cumules = self._reforme_fp_reduction_cumulee(year)
-            economie_cumulee = postes_cumules * COUT_MOYEN_AGENT_FP_EUR / 1e9
+            economie_cumulee = postes_cumules * COUT_MOYEN_AGENT_FP_EUR * indice / 1e9
             delta_spending -= economie_cumulee
 
             _log_debug(self.debug_logs,
@@ -411,7 +438,7 @@ class EfficienceMixin(_MixinBase):
 
         # Impact qualité service si intensité excessive sans digitalisation
         if fusion > 7 and digitalisation < 3 and year_idx >= 3:
-            penalite = 0.3  # Dégradation service public
+            penalite = 0.3 * indice  # Dégradation service public (0,3 Md€ en euros 2025)
             delta_spending += penalite
             _log_debug(self.debug_logs, f"Y{year}: Pénalité dégradation service: +{penalite:.1f} Md€")
 
@@ -437,48 +464,63 @@ class EfficienceMixin(_MixinBase):
             return 0, 0, {}
 
         # Constantes FP
-        masse_salariale_base = 330  # Md€
-        cout_moyen_agent = COUT_MOYEN_AGENT_FP_EUR  # source unique v0.6.0
+        masse_salariale_base = 330  # Md€, euros 2025 (exprimée en euros de l'année ci-dessous)
+        # Source unique v0.6.0, calée en euros 2025 ; v0.6.7 : en euros de
+        # l'année (indice de prix des dépenses, celui de la masse salariale du
+        # statu quo) — figé, il valorisait un poste 60 k€ en 2035 comme en 2026.
+        cout_moyen_agent = COUT_MOYEN_AGENT_FP_EUR * self.indice_prix_depenses()
 
         delta_spending = 0
 
         # 1. VARIATION EFFECTIFS
-        # Coût/économie = variation × coût moyen agent.
-        # v0.6.0 anti-double-comptage « plafond de vivier » (audit 08/2026
-        # constat 4, redesign revue adverse 24/08) : une RÉDUCTION d'effectifs
-        # opère par non-remplacement des départs (pas de licenciement dans la
-        # FP) — le MÊME vivier que la réforme de l'État. Le curseur reste une
-        # réduction ADDITIONNELLE et cumulable avec la réforme (design produit
-        # validé) ; le garde-fou plafonne le TOTAL des non-remplacements
-        # (réforme + curseur) aux départs CUMULÉS depuis 2026 : on ne peut pas
-        # supprimer plus de postes qu'il n'en part. Conséquence réaliste : un
-        # objectif massif (−200 k) monte en charge au rythme des départs
-        # (~157 k/an) au lieu d'être instantané. Une CRÉATION de postes ne
-        # puise pas dans le vivier : coût plein.
+        # Coût/économie = postes réalisés de l'année × coût moyen agent.
+        # v0.6.7 (réfutation des handlers, arbitrage de Cyril du 07/10/2026) :
+        # la cible est un STOCK atteint par une rampe linéaire 2027-2032
+        # (FP_EFFECTIFS_*), dans les deux sens. Jusqu'en v0.6.6, elle était posée
+        # dès 2026 dans la seule limite des départs cumulés : RN et LR
+        # supprimaient 157 000 postes dès 2026 et atteignaient leur cible dès
+        # 2027, quand leurs sources annoncent une trajectoire 2027-2032 ; les
+        # créations étaient instantanées.
+        # Anti-double-comptage « plafond de vivier » (v0.6.0, audit 08/2026
+        # constat 4) : une RÉDUCTION opère par non-remplacement des départs (pas
+        # de licenciement dans la FP), le MÊME vivier que la réforme de l'État.
+        # Le curseur reste ADDITIONNEL et cumulable avec la réforme ; le TOTAL
+        # (réforme + curseur) ne dépasse jamais FP_TAUX_NON_REMPLACEMENT_MAX des
+        # départs cumulés depuis la première cohorte (v0.6.7 : 100 % des départs
+        # depuis 2026 auparavant, ce que la réforme, plafonnée à 67 %, ne pouvait
+        # pas faire). Une CRÉATION de postes ne puise pas dans le vivier.
         if variation_effectifs != 0:
-            if variation_effectifs < 0:
-                annees_departs = max(0, year - 2025)
-                vivier_cumule = DEPARTS_ANNUELS_FP * annees_departs
+            cible_annee = (variation_effectifs * _fp_effectifs_annees_de_rampe(year)
+                           / _FP_EFFECTIFS_DUREE_RAMPE)
+            if cible_annee < 0:
+                cohortes = max(0, year - FP_EFFECTIFS_PREMIERE_ANNEE + 1)
+                vivier_cumule = FP_TAUX_NON_REMPLACEMENT_MAX * DEPARTS_ANNUELS_FP * cohortes
                 deja_reforme = self._reforme_fp_reduction_cumulee(year)
                 capacite = max(0.0, vivier_cumule - deja_reforme)
-                variation_residuelle = -min(abs(variation_effectifs), capacite)
-                if variation_residuelle != variation_effectifs:
+                variation_residuelle = -min(-cible_annee, capacite)
+                if variation_residuelle != cible_annee:
                     _log_debug(self.debug_logs,
-                        f"Y{year}: FP Effectifs - objectif {int(variation_effectifs):+d} "
-                        f"plafonné par le vivier (départs cumulés {vivier_cumule:,.0f}, "
-                        f"réforme {deja_reforme:,.0f}) → réalisé {variation_residuelle:,.0f}")
+                        f"Y{year}: FP Effectifs - cible de l'année {cible_annee:,.0f} "
+                        f"plafonnée par le vivier ({FP_TAUX_NON_REMPLACEMENT_MAX:.0%} des "
+                        f"départs cumulés {vivier_cumule:,.0f}, réforme {deja_reforme:,.0f}) "
+                        f"→ réalisé {variation_residuelle:,.0f}")
             else:
-                variation_residuelle = variation_effectifs
+                variation_residuelle = cible_annee
             impact_effectifs = variation_residuelle * cout_moyen_agent / 1e9  # en Md€
             delta_spending += impact_effectifs
             # Cast int explicite : JSON frontend peut envoyer 25000.0 (float), `{:+d}` exige int.
             _log_debug(self.debug_logs,
-                f"Y{year}: FP Effectifs - {int(variation_effectifs):+d} agents = {impact_effectifs:+.1f} Md€")
+                f"Y{year}: FP Effectifs - objectif {int(variation_effectifs):+d} agents, "
+                f"réalisé {variation_residuelle:+,.0f} = {impact_effectifs:+.1f} Md€")
 
         # 2. POINT D'INDICE
-        # Hausse de X% = X% × masse salariale
+        # Hausse de X% = X% × masse salariale de l'année. v0.6.7 : même indice
+        # que le coût d'un agent — figée en euros 2025, la masse sous-estimait
+        # le coût d'une hausse de rémunération quand les économies d'une
+        # réduction d'effectifs, elles, étaient indexées.
         if hausse_point_indice != 0:
-            impact_point_indice = (hausse_point_indice / 100) * masse_salariale_base
+            impact_point_indice = ((hausse_point_indice / 100) * masse_salariale_base
+                                   * self.indice_prix_depenses())
             delta_spending += impact_point_indice
             _log_debug(self.debug_logs,
                 f"Y{year}: FP Point indice - {hausse_point_indice:+.1f}% = {impact_point_indice:+.1f} Md€")
@@ -495,13 +537,21 @@ class EfficienceMixin(_MixinBase):
 
         if self._is_first_year_change('fonction_publique', params_fp):
             pouvoir_achat = hausse_point_indice * 0.003
-            # Asymétrie volontaire : suppressions de postes = non-remplacement de départs en retraite
-            # (attrition naturelle, pas de licenciements), donc pas d'effet PA direct sur les actifs.
-            # Création : 10k postes × 60k€ × 70% net = 0.4 Md€ → +0.025% PA (calibration INSEE).
-            if variation_effectifs > 0:
-                pouvoir_achat += variation_effectifs / 40000 * 0.001
         else:
             pouvoir_achat = 0.0
+        # Asymétrie volontaire : suppressions de postes = non-remplacement de départs en retraite
+        # (attrition naturelle, pas de licenciements), donc pas d'effet PA direct sur les actifs.
+        # Création : 10k postes × 60k€ × 70% net = 0.4 Md€ → +0.025% PA (calibration INSEE).
+        # v0.6.7 : effet de NIVEAU servi au rythme de la rampe — chaque année émet
+        # l'INCRÉMENT de postes créés (convention de l'ASU), la somme vaut le
+        # niveau atteint ; il était servi en entier en 2026 pour des postes qui
+        # ne sont plus créés qu'à partir de 2027.
+        if variation_effectifs > 0:
+            increment = (variation_effectifs
+                         * (_fp_effectifs_annees_de_rampe(year)
+                            - _fp_effectifs_annees_de_rampe(year - 1))
+                         / _FP_EFFECTIFS_DUREE_RAMPE)
+            pouvoir_achat += increment / 40000 * 0.001
 
         # Compétitivité : PAS D'IMPACT DIRECT
         # Lien masse salariale FP → compétitivité entreprises trop indirect
