@@ -27,10 +27,11 @@ def _impacts_sante(params, year=2027):
 
 def test_efficience_sante_reellement_neutre():
     """Efficience pure (hôpital + ambulatoire + organisation) : Gini 0, PA 0,
-    compétitivité 0 — le code fait enfin ce que la doc promet."""
+    compétitivité 0 — le code fait enfin ce que la doc promet. (v0.6.8 : PA =
+    canaux ménages, tous nuls.)"""
     imp = _impacts_sante({'effort_hopital': 1.0, 'effort_ambu': 1.0, 'effort_prev_org': 1.0})
     assert imp['gini'] == 0.0
-    assert imp['pouvoir_achat'] == 0.0
+    assert set(imp['menages'].values()) == {0.0}
     assert imp['competitivite'] == 0.0
     # Et l'économie budgétaire, elle, existe bien.
     assert imp['depenses'] < 0
@@ -38,7 +39,10 @@ def test_efficience_sante_reellement_neutre():
 
 def test_franchises_gardent_leurs_impacts_sources():
     """Franchises doublées : impacts conservés car sourcés (OFCE/INSEE 2024) —
-    régressif sur le Gini, négatif sur le pouvoir d'achat."""
+    régressif sur le Gini, négatif sur le pouvoir d'achat. v0.6.8 : le reste
+    à charge supplémentaire est le montant des franchises (canal
+    ``prestations``), plus un coefficient de −0,001."""
     imp = _impacts_sante({'franchise_participation_taux': 200})
     assert imp['gini'] == pytest.approx(0.003, abs=1e-9)
-    assert imp['pouvoir_achat'] == pytest.approx(-0.001, abs=1e-9)
+    assert imp['menages']['prestations'] == pytest.approx(imp['franchise_forfaits'], abs=1e-12)
+    assert imp['menages']['prestations'] < 0

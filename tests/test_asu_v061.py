@@ -88,6 +88,7 @@ from budget_simulator.constants import (
     ASU_TRANSITION_ANNEES,
     GINI_BASE,
     POLICY_START_YEAR,
+    RDB_MENAGES_2025_MD_EUR,
     RDB_MENAGES_MD_EUR,
     asu_cout_transition_md_eur,
     asu_effort_perenne_md_eur,
@@ -404,13 +405,12 @@ def test_asu_no_free_lunch(year):
     # v0.6.3 : le pouvoir d'achat n'est plus nul à effort de barème nul —
     # mais il n'est PAS gratuit : c'est le recours résorbé (2,4 Md€/an,
     # DGALN), désormais FACTURÉ au budget de façon pérenne. La propriété
-    # « no free lunch » devient : chaque point de PA est payé, au centime.
-    ph = asu_phasing({'asu': {'asu_activation': 1}}, year)
-    ph_prev = asu_phasing({'asu': {'asu_activation': 1}}, year - 1)
-    attendu_pa = (ASU_COUT_RECOURS_MD_EUR / RDB_MENAGES_MD_EUR) * (ph - ph_prev)
-    assert impacts.get('pouvoir_achat', 0.0) == pytest.approx(attendu_pa, abs=1e-12), (
-        f"Y{year}: PA ≠ transfert de recours facturé — "
-        f"{impacts.get('pouvoir_achat')!r}")
+    # « no free lunch » devient : chaque euro rendu aux ménages est payé.
+    # v0.6.8 : transfert aux ménages en NIVEAU de l'année (canal
+    # `prestations`, lu par l'indice RDB-moteur), plus un incrément / RDB.
+    attendu = (asu_effort_perenne_md_eur(ASU_PLAFONNEMENT_MIN) + ASU_COUT_RECOURS_MD_EUR) * ph
+    assert impacts['menages']['prestations'] == pytest.approx(attendu, abs=1e-12), (
+        f"Y{year}: transfert ≠ recours facturé — {impacts['menages']!r}")
 
 
 @pytest.mark.parametrize("plafonnement", _GRILLE_FINE)
@@ -566,22 +566,25 @@ def test_gini_et_pa_sont_des_niveaux_atteints_pendant_la_montee_en_charge():
     """Une réforme de barème déplace le niveau des transferts UNE FOIS ; elle
     ne réduit pas les inégalités un peu plus chaque année pour toujours.
 
-    Le moteur cumule les impacts Gini (`gini_cible_cumul += …`) et multiplie
-    l'indice de pouvoir d'achat (`purchasing_power *= …`) : émettre le même
-    delta chaque année en ferait un flux composé. Les deux canaux émettent
-    donc l'INCRÉMENT de montée en charge, dont la somme vaut exactement le
-    niveau — et zéro une fois le régime permanent atteint.
+    Le moteur cumule les impacts Gini (`gini_cible_cumul += …`) : émettre le
+    même delta chaque année en ferait un flux. Le Gini émet donc l'INCRÉMENT
+    de montée en charge, dont la somme vaut exactement le niveau — et zéro
+    une fois le régime permanent atteint. Le pouvoir d'achat (v0.6.8) est un
+    indice de NIVEAU (engine/rdb.py) : le canal `prestations` émet le niveau
+    du transfert de l'année, constant une fois le régime atteint.
     """
     annees_regime = [y for y in range(2030, 2051)]
+    niveau = asu_effort_perenne_md_eur(ASU_PLAFONNEMENT_MAX) + ASU_COUT_RECOURS_MD_EUR
     for year in annees_regime:
         impacts = _impacts(ASU_PLAFONNEMENT_MAX, year)[2]
         assert impacts.get('gini', 0.0) == 0.0, f"Y{year}: Gini encore en flux"
-        assert impacts.get('pouvoir_achat', 0.0) == 0.0, (
-            f"Y{year}: pouvoir d'achat encore en flux")
+        assert impacts['menages']['prestations'] == pytest.approx(niveau, rel=1e-12), (
+            f"Y{year}: le transfert n'est pas au niveau du régime")
 
 
 def test_pouvoir_achat_egale_l_effort_rapporte_au_revenu_disponible():
-    """`pouvoir_achat ≈ effort budgétaire / RDB` (§ I26).
+    """Transfert aux ménages = effort budgétaire (§ I26) ; l'indice le rapporte
+    au RDB (v0.6.8 : en niveau, canal `prestations`).
 
     Dérivation DREES/Igas : 4,6 M de gagnants à +110 €/mois moins 2,9 M de
     perdants à −110 €/mois ≈ +2,3 Md€ nets — c'est-à-dire l'effort budgétaire
@@ -590,22 +593,20 @@ def test_pouvoir_achat_egale_l_effort_rapporte_au_revenu_disponible():
     """
     for plafonnement in _POSITIONS_UI:
         effort = asu_effort_perenne_md_eur(plafonnement)
-        cumul = sum(_impacts(plafonnement, y)[2].get('pouvoir_achat', 0.0)
-                    for y in range(2025, 2051))
+        regime = _impacts(plafonnement, 2035)[2]['menages']['prestations']
         # v0.6.3 : + le recours résorbé (2,4 Md€/an), transfert aux ménages
         # au même titre que l'effort de barème — et facturé au budget.
-        assert cumul == pytest.approx(
-            (effort + ASU_COUT_RECOURS_MD_EUR) / RDB_MENAGES_MD_EUR, rel=1e-9)
+        assert regime == pytest.approx(effort + ASU_COUT_RECOURS_MD_EUR, rel=1e-9)
 
 
 def test_pouvoir_achat_maximal_reste_sous_quatre_dixiemes_de_point():
     """Ordre de grandeur publiable : même à +2 Md€/an de barème + 2,4 Md€/an
     de recours résorbé (v0.6.3), le gain de pouvoir d'achat agrégé reste sous
     +0,4 % ((2,0 + 2,4)/1380 ≈ +0,32 % — l'ancienne borne 0,2 % datait du
-    monde sans recours pérenne, re-déclarée en acte le 30/08/2026)."""
-    cumul = sum(_impacts(ASU_PLAFONNEMENT_MAX, y)[2].get('pouvoir_achat', 0.0)
-                for y in range(2025, 2051))
-    assert 0.0 < cumul < 0.004
+    monde sans recours pérenne, re-déclarée en acte le 30/08/2026 ; v0.6.8 :
+    rapporté au RDB INSEE 2025, 1 870 Md€, ≈ +0,24 %)."""
+    regime = _impacts(ASU_PLAFONNEMENT_MAX, 2035)[2]['menages']['prestations']
+    assert 0.0 < regime / RDB_MENAGES_2025_MD_EUR < 0.004
 
 
 # ---------------------------------------------------------------------------
@@ -767,7 +768,7 @@ def test_meta_garde_aucun_canal_emploi_dans_la_source():
     assert 'competitivite' not in cles, (
         "canal compétitivité réintroduit dans _apply_asu — aucune source ne "
         "chiffre cet effet")
-    assert {'depenses', 'gini', 'pouvoir_achat'} <= cles, (
+    assert {'depenses', 'gini', 'menages'} <= cles, (
         f"le handler doit toujours écrire ses trois canaux réels : {cles}")
 
 

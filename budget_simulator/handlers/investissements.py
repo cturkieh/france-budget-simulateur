@@ -11,8 +11,15 @@ Mesures couvertes :
 Convention d'application :
 - Effet ``competitivite`` PROGRESSIF (capital humain / innovation = long terme),
   pas gated sur ``years_elapsed == 0`` mais avec un ``phasing`` croissant.
-- Effets ``pouvoir_achat`` et ``gini`` en mode NIVEAU one-time, gated par
+- Effet ``gini`` en mode NIVEAU one-time, gated par
   ``self._is_first_year_change(<measure>, params)``.
+- Pouvoir d'achat (v0.6.8, arbitrage du mainteneur) : la dépense publique
+  (budget, recrutements, investissement, rénovation, recherche) n'a AUCUN
+  effet direct, elle passe par la croissance. Deux canaux ménages seulement :
+  la revalorisation des salaires des enseignants en place
+  (``remunerations_publiques``) et la taxe carbone (``prelevements_indirects``,
+  via les prix). Les primes de rénovation sont des aides à l'investissement,
+  hors du RDB au sens de l'INSEE.
 - Effet ``recettes`` (transition_ecologique uniquement) : taxe carbone récurrente
   + retours fiscaux phase-in dès 2027 (5-8 % selon OECD/Cour des comptes).
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de gating.
@@ -38,7 +45,7 @@ from ..constants import (
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -80,14 +87,11 @@ class InvestissementsMixin(_MixinBase):
 
         years_elapsed = max(0, year - POLICY_START_YEAR)
 
-        # === POUVOIR D'ACHAT : EFFET EMPLOI (ONE-TIME) ===
-        # - Salaires enseignants : +1% = +0.0002 PA (première année uniquement)
-        # - Recrutements : +10k postes = +0.001 PA (emplois publics stables)
-        params_education = {'budget': budget, 'teachers': teachers, 'salaries': salaries}
-        if self._is_first_year_change('education', params_education):
-            pouvoir_achat = 0.0002 * salaries + 0.0001 * (teachers / 1000)
-        else:
-            pouvoir_achat = 0.0
+        # === POUVOIR D'ACHAT (v0.6.8) ===
+        # Seule la revalorisation des enseignants en place est un revenu direct
+        # (canal ``remunerations_publiques``, au coût de l'année) ; budget et
+        # recrutements passent par la croissance.
+        revalorisation_salaires = salaries * 0.01 * 50
 
         # === COMPÉTITIVITÉ : EFFET CAPITAL HUMAIN (PROGRESSIF LONG TERME) ===
         # Éducation = investissement dans le capital humain (effet différé 5-15 ans)
@@ -143,8 +147,8 @@ class InvestissementsMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(remunerations_publiques=revalorisation_salaires),
         }
 
         _log_debug(self.debug_logs,
@@ -184,7 +188,8 @@ class InvestissementsMixin(_MixinBase):
         # Recettes taxe carbone : ~6 Md€ pour 100€/tCO2, proportionnel
         # Référence : CARBONE_PRIX_REFERENCE_EUR_T = statu quo (composante
         # carbone française gelée depuis 2018), donc delta = (taxe - réf) * 0.06
-        delta_revenue = (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) * 0.06
+        recettes_carbone = (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) * 0.06
+        delta_revenue = recettes_carbone
         if year >= 2027:
             # [FIX] Retours fiscaux de la transition — 5-8% avec phase-in.
             # L'ancien taux de 20% impliquait 16 Md€/an de retour pour 80 Md€ de dépense,
@@ -241,16 +246,12 @@ class InvestissementsMixin(_MixinBase):
         else:
             gini = 0.0
 
-        # === POUVOIR D'ACHAT ===
-        # Rénovation = vrai flux annuel récurrent (primes versées chaque année aux ménages bénéficiaires)
-        # Taxe carbone = ONE-TIME (changement de niveau de prix relatif, comme tva_energie déjà gated)
-        pouvoir_achat_renovation = 0.001 * renovation / 5
-        if self._is_first_year_change('transition_carbone_pa', {'carbon_tax': carbon_tax}):
-            pouvoir_achat_carbone = -0.0005 * (
-                carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) / 50
-        else:
-            pouvoir_achat_carbone = 0.0
-        pouvoir_achat = pouvoir_achat_renovation + pouvoir_achat_carbone
+        # === POUVOIR D'ACHAT (v0.6.8) ===
+        # Taxe carbone : prélèvement indirect, via les prix (montant de l'année,
+        # hors retours fiscaux de l'investissement, qui ne sont pas un impôt
+        # nouveau sur les ménages). Rénovation : aide à l'investissement des
+        # ménages, transfert en capital hors RDB (INSEE) — par la croissance.
+        # L'ancien « 0,001 × Md€ / 5 » était réémis chaque année et composé.
 
         # === COMPÉTITIVITÉ : INNOVATION VERTE (PROGRESSIF) vs TAXE CARBONE (ONE-TIME) ===
         #
@@ -287,8 +288,8 @@ class InvestissementsMixin(_MixinBase):
             'depenses': delta_spending,
             'recettes': delta_revenue,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(prelevements_indirects=recettes_carbone),
         }
 
         _log_debug(self.debug_logs,
@@ -342,17 +343,8 @@ class InvestissementsMixin(_MixinBase):
         # Coefficient calibré sur élasticité OECD 0.17, ajusté pour notre échelle
         competitivite = delta_spending * 0.0015 * phasing_rd
 
-        # === POUVOIR D'ACHAT : EFFET EMPLOI R&D ===
-        # Recrutements chercheurs = emplois qualifiés (+10 Md€ ≈ +50k emplois)
-        # Impact ONE-TIME première année
-        params_rd = {'budget': budget}
-        if self._is_first_year_change('recherche_publique', params_rd):
-            # Calibration empirique (MESR/SIES "État de l'ESR" 2024 : ~100k chercheurs publics,
-            # salaire moyen 3500€) : +10 Md€ R&D ≈ 50k chercheurs × 3500€ × 12 = 2.1 Md€ masse
-            # salariale ≈ 0.13% RDB. Coefficient 0.0001 → +0.1% PA Y1, conservatif (net ~70%).
-            pouvoir_achat = 0.0001 * delta_spending
-        else:
-            pouvoir_achat = 0.0
+        # === POUVOIR D'ACHAT (v0.6.8) : aucun effet direct ===
+        # Recrutements de chercheurs = dépense publique : par la croissance.
 
         # === GINI : ZÉRO ASSUMÉ ET ARGUMENTÉ (v0.6.1, item I30) ===
         # Aucune étude, française ou internationale, n'estime l'incidence
@@ -375,9 +367,9 @@ class InvestissementsMixin(_MixinBase):
 
         impacts = {
             'depenses': delta_spending,
-            'pouvoir_achat': pouvoir_achat,
             'gini': gini,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(),
         }
 
         _log_debug(self.debug_logs,

@@ -119,29 +119,34 @@ def test_creation_de_postes_hors_vivier():
     assert avec == sans == pytest.approx(40_000, rel=1e-12)
 
 
-def _pa_fp(mesures):
+def _fp(mesures):
+    """{année: impacts du levier fonction_publique} (canaux ménages v0.6.8)."""
     _, _, rapport = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
-    return {an['Année']: an.get('fonction_publique', {}).get('pouvoir_achat', 0.0)
+    return {an['Année']: an.get('fonction_publique', {})
             for an in rapport['measure_impacts_by_year'] if an['Année'] >= 2026}
 
 
-def test_pouvoir_achat_des_creations_suit_la_rampe():
-    """L'effet NIVEAU des créations (+10 000 postes = +0,00025) n'est plus servi
-    en 2026 pour des postes créés de 2027 à 2032 : chaque année émet l'INCRÉMENT
-    de la rampe (convention de l'ASU), la somme vaut le niveau atteint."""
-    pa = _pa_fp({'fonction_publique': {'effectifs': 60_000, 'point_indice': 0}})
-    assert pa[2026] == 0.0
-    for annee in range(2027, 2033):
-        assert pa[annee] == pytest.approx(10_000 / 40_000 * 0.001, rel=1e-12), annee
-    assert all(pa[a] == 0.0 for a in (2033, 2034, 2035))
-    assert sum(pa.values()) == pytest.approx(60_000 / 40_000 * 0.001, rel=1e-12)
+def test_creations_de_postes_sans_effet_direct_sur_le_pouvoir_d_achat():
+    """v0.6.8 (arbitrage du mainteneur) : les embauches publiques n'ont aucun
+    effet DIRECT sur le pouvoir d'achat — elles passent par la croissance, qui
+    contient la production publique de ces agents. Remplace le test v0.6.7
+    « l'incrément de la rampe × 0,001 / 40 000 postes »."""
+    fp = _fp({'fonction_publique': {'effectifs': 60_000, 'point_indice': 0}})
+    assert any(imp.get('depenses', 0.0) > 0 for imp in fp.values())
+    for annee, imp in fp.items():
+        if imp:
+            assert set(imp['menages'].values()) == {0.0}, annee
 
 
-def test_pouvoir_achat_du_point_d_indice_inchange():
-    """Le point d'indice reste un effet one-time immédiat (2026), sans rampe."""
-    pa = _pa_fp({'fonction_publique': {'effectifs': 0, 'point_indice': 3.0}})
-    assert pa[2026] == pytest.approx(3.0 * 0.003, rel=1e-12)
-    assert all(pa[a] == 0.0 for a in range(2027, 2036))
+def test_point_d_indice_canal_remunerations_publiques_en_niveau():
+    """Le point d'indice est un revenu des agents en place : canal
+    ``remunerations_publiques`` au coût de l'ANNÉE, chaque année (niveau lu par
+    l'indice RDB-moteur, plus d'effet one-time 2026 de 0,003/point)."""
+    fp = _fp({'fonction_publique': {'effectifs': 0, 'point_indice': 3.0}})
+    for annee in range(2026, 2036):
+        assert fp[annee]['menages']['remunerations_publiques'] == pytest.approx(
+            fp[annee]['depenses'], rel=1e-12), annee
+        assert fp[annee]['depenses'] > 0
 
 
 def test_scenario_rn_trajectoire_publiee():

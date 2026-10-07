@@ -9,8 +9,13 @@ Mesures couvertes :
 
 Convention d'application :
 - Tous les handlers de ce mixin appliquent les effets micro
-  (``pouvoir_achat``, ``gini``, ``competitivite``, ``chomage``) en mode
-  NIVEAU one-time, gated sur ``years_elapsed == 0``.
+  (``gini``, ``competitivite``, ``chomage``) en mode NIVEAU one-time, gated
+  sur ``years_elapsed == 0``.
+- Pouvoir d'achat (v0.6.8) : canaux ménages en euros de l'année (clé
+  ``menages``). ``smic`` : salaires nets privés, rémunérations publiques et
+  prestations indexées ; ``taxe_superprofits`` et ``exonerations_salaires``
+  (cotisations PATRONALES) : aucun effet direct, par la croissance et
+  l'emploi (arbitrage du mainteneur).
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de gating.
 
 Sources principales :
@@ -26,11 +31,11 @@ import logging
 import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import POLICY_START_YEAR
+from ..constants import PART_NETTE_DU_BRUT_SALAIRES_PRIVES, POLICY_START_YEAR
 from .._logging import _log_debug
 from ..engine._param_domain import valeur_brute
 from ._phasing import _one_time_level, _resolve_intensite_or_legacy, _year_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 logger = logging.getLogger(__name__)
 
@@ -112,11 +117,14 @@ class AdditionnelsMixin(_MixinBase):
         delta_revenue = delta_cotisations
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
-        # Pouvoir achat : Effet NIVEAU one-time appliqué l'année de mise en œuvre.
-        # Élasticité 0.06 : +10% SMIC → +0.6% PA agrégé (OFCE Plane 2014, IPP Bozio 2018,
-        # 15% pop active directe + diffusion partielle 20-30% au-dessus du SMIC).
-        # Cohérent avec règle METHODOLOGIE "+100€ SMIC ≈ +0.5% PA" (≈ +7% hausse → élasticité ~0.07).
-        impact_pa = _one_time_level(years_elapsed, hausse_pct * 0.06)
+        # Pouvoir d'achat (v0.6.8) : trois canaux en euros de l'année — salaires
+        # NETS des salariés privés au SMIC (même assiette que les cotisations
+        # ci-dessus, sans diffusion : limitation assumée), surcoût FP
+        # (rémunérations publiques) et prestations indexées sur le SMIC.
+        # L'ancien « +10 % de SMIC = +0,6 % de PA » portait la diffusion que le
+        # budget, lui, ne chiffre pas.
+        salaires_nets_prives = (salaries_prives_smic * 12 * delta_brut / 1000
+                                * PART_NETTE_DU_BRUT_SALAIRES_PRIVES)
 
         # Compétitivité : -0.25% pour +10% SMIC (coût travail entreprises)
         # Impact permanent sur coût travail, mais appliqué une fois (structure de coûts)
@@ -145,10 +153,12 @@ class AdditionnelsMixin(_MixinBase):
             'fp': delta_fp,
             'aides_sociales': delta_aides,
             'cotisations': delta_cotisations,
-            'pouvoir_achat': impact_pa,
             'competitivite': impact_competitivite,
             'gini': impact_gini,
-            'chomage': impact_chomage
+            'chomage': impact_chomage,
+            'menages': canaux_menages(salaires_prives=salaires_nets_prives,
+                                      remunerations_publiques=delta_fp,
+                                      prestations=delta_aides),
         }
 
         _log_debug(self.debug_logs,
@@ -231,7 +241,7 @@ class AdditionnelsMixin(_MixinBase):
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # IMPORTANT : Effets NIVEAU (one-time), pas FLUX (recurring)
         # Gini : -0.01 (redistribution capital → État)
-        # PA : neutre (taxe entreprises, pas ménages)
+        # PA : aucun effet direct (taxe entreprises, pas ménages)
         # Compétitivité : -0.005 (risque délocalisation marginale)
         impact_gini = _one_time_level(
             years_elapsed, -0.01 * (delta_revenue / 15) * phasing
@@ -240,13 +250,11 @@ class AdditionnelsMixin(_MixinBase):
             years_elapsed,
             -0.005 * (delta_revenue / 15) * phasing if tous_secteurs else -0.002,
         )
-        impact_pa = 0.0
-
         impacts = {
             'recettes': delta_revenue,
             'gini': impact_gini,
-            'pouvoir_achat': impact_pa,
-            'competitivite': impact_competitivite
+            'competitivite': impact_competitivite,
+            'menages': canaux_menages(),
         }
 
         _log_debug(self.debug_logs,
@@ -309,17 +317,17 @@ class AdditionnelsMixin(_MixinBase):
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # IMPORTANT : Effets NIVEAU (one-time), pas FLUX (recurring)
-        # PA : +0.15% pour 12 Md€ exonérations (Trésor-Éco 97 calibration emploi)
+        # PA (v0.6.8) : aucun effet direct — cotisations PATRONALES, l'emploi
+        #   créé passe par le chômage puis la croissance.
         # Gini : PAS D'IMPACT MICRO (incitation entreprises, pas transfert direct garanti)
         # Les hausses de salaires ne sont PAS garanties, seulement incitées
         # Impact Gini vient UNIQUEMENT de l'effet macro (si hausses effectives)
         # Compétitivité : +0.003 (coût travail stable malgré hausses)
         # Tous one-time (NIVEAU) l'année d'entrée en vigueur :
-        # PA/Compét — calibration Trésor-Éco 97 (2012) : 22 Md€ allègements
-        #   → ~250k emplois par 12 Md€ × 1500€/mois × 12 ≈ ~0.15% RDB → +0.15% PA / 12 Md€.
+        # Compét — calibration Trésor-Éco 97 (2012) : 22 Md€ allègements
+        #   → ~250k emplois par 12 Md€.
         # Chômage — Cahuc & Carcillo 2014 (allègements ciblés), DARES 2019 :
         #   ciblage bas salaires, -0.03 pt par Md€ (12 Md€ → -0.36 pt).
-        impact_pa = _one_time_level(years_elapsed, 0.0015 * (cout_total / 12) * phasing)
         impact_competitivite = _one_time_level(
             years_elapsed, 0.003 * (cout_total / 12) * phasing
         )
@@ -327,14 +335,14 @@ class AdditionnelsMixin(_MixinBase):
 
         impacts = {
             'recettes': delta_revenue,
-            'pouvoir_achat': impact_pa,
             'competitivite': impact_competitivite,
-            'chomage': impact_chomage
+            'chomage': impact_chomage,
+            'menages': canaux_menages(),
         }
 
         _log_debug(self.debug_logs,
             f"Y{year}: Exonérations salaires - Taux {taux_exo*100:.0f}%, Seuil {seuil*100:.1f}%, "
-            f"Coût {cout_total:.1f} Md€, PA {impact_pa:+.2%}"
+            f"Coût {cout_total:.1f} Md€"
         )
 
         return 0, delta_revenue, impacts

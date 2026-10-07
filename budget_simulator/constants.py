@@ -621,7 +621,8 @@ ELASTICITE_PO_PIB = 1.0
 # Conclusion : aucun signal direct nécessaire. Constantes conservées à 0 pour traçabilité
 # de la décision et possibilité de réactiver si la modélisation du multiplicateur évolue.
 COEFF_CHOMAGE_NICHES_SOCIALES_TGE = 0.0
-COEFF_PA_NICHES_SOCIALES_TGE = 0.0
+# (COEFF_PA_NICHES_SOCIALES_TGE, à 0, supprimée en v0.6.8 : un impôt sur les
+# entreprises n'a plus aucun canal direct vers le pouvoir d'achat, engine/rdb.py.)
 
 # === COEFFICIENTS COMPÉTITIVITÉ TGE (DG Trésor 2019, OCDE 2024) ===
 # Impact one-time sur indice compétitivité par Md€ supprimé.
@@ -1026,19 +1027,19 @@ RETRAITES_GINI_PAR_ANNEE_ECART = 0.001 / 1.25
 # résidu de 1,0 elle dériverait linéairement avec l'horizon.
 RETRAITES_GINI_RESIDU_FLUX = 0.10
 
-# --- Canal indexation : effets redistributif et pouvoir d'achat ------------
+# --- Canal indexation : effet redistributif ---------------------------------
 # Désindexer les pensions paupérise les retraités, dont le revenu est
 # concentré dans les déciles médians : l'effet est RÉGRESSIF.
 # Règle : indexation 100 % → 90 % = +0,005 de Gini.
-# Effet pouvoir d'achat agrégé : −0,7 %/an pour un gel TOTAL (indexation = 0),
-# proportionnel à l'écart à la pleine indexation ; les retraités pèsent ~26 %
-# du revenu disponible brut des ménages.
-# Source des deux : OFCE, *Policy Brief* n° 124, 15/02/2024.
+# Source : OFCE, *Policy Brief* n° 124, 15/02/2024.
 # Valeurs INCHANGÉES depuis la v0.5.1 ; nommées ici au lot 7 pour la même
 # raison que les deux constantes ci-dessus — un coefficient anonyme au milieu
 # d'un handler est intraçable pour un auditeur externe.
 RETRAITES_GINI_PAR_POINT_DESINDEXATION = 0.005
-RETRAITES_PA_GEL_TOTAL = 0.007
+# (RETRAITES_PA_GEL_TOTAL = 0,007, « −0,7 %/an de pouvoir d'achat pour un gel
+# total », SUPPRIMÉE en v0.6.8 : réémise chaque année, elle composait un niveau
+# en croissance. Les pensions non versées entrent désormais au RDB des ménages
+# en euros — canal prestations, engine/rdb.py.)
 
 # === PROFILS DE PHASING (montée en charge progressive) ===
 # Format : tableau indexé par year_idx (0=Y1=2026, 1=Y2=2027, ...), borné à la dernière valeur.
@@ -1540,6 +1541,9 @@ ASU_TRANSITION_ANNEES = 4                    # durée de la montée en charge (A
 # les deux assiettes n'est pas arbitré : avec 1 700 Md€ l'effet PA serait 19 %
 # plus faible. Sensibilité à publier, pas à masquer.
 RDB_MENAGES_MD_EUR = 1380.0   # assiette « revenus des ménages » du moteur (INSEE 2024, RDB)
+# v0.6.8 : ne sert PLUS qu'à la borne Gini ci-dessous (l'indice de pouvoir
+# d'achat lit RDB_MENAGES_2025_MD_EUR, 1 870 Md€, INSEE). L'aligner
+# changerait le Gini : passe dédiée (colonne Gini figée en v0.6.8).
 #
 # GINI — ⚠️ AUCUNE SOURCE NE PUBLIE L'EFFET GINI DE L'ASU (§ B.3-25). Les
 # scénarios officiels donnent un TAUX DE PAUVRETÉ ; convertir −1,1 pt de

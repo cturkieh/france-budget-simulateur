@@ -37,7 +37,7 @@ PURES (aucun état d'instance) : l'orchestrateur leur passe les grandeurs de
 l'année.
 """
 from dataclasses import dataclass
-from typing import Iterable, Mapping
+from typing import Dict, Iterable, Mapping
 
 from ..constants import (
     CROISSANCE_UC_ANNUELLE,
@@ -59,6 +59,7 @@ REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR = (PART_NETTE_REMUNERATIONS_APU
 class RdbAnnee:
     """Décomposition de l'indice d'une année (Md€ courants, prix base 2025 = 1)."""
     rdb_base: float        # RDB sans effet direct des mesures
+    rdb_prive: float       # dont part « privée et de base », au PIB nominal
     effet_mesures: float   # Σ canaux de revenu des mesures
     coin_indirect: float   # Σ τ × part ménages × fiscalité indirecte (Md€)
     prix: float            # prix de la consommation des ménages
@@ -88,6 +89,16 @@ def coin_indirect_md_eur(canaux: Mapping[str, float]) -> float:
     return repercussion(montant) * PART_MENAGES_FISCALITE_INDIRECTE * montant
 
 
+def borner_canaux(canaux: Mapping[str, float], facteur_depenses: float,
+                  facteur_recettes: float) -> Dict[str, float]:
+    """Canaux d'une mesure dont le budget a été plafonné (5 % / 10 % du PIB) :
+    même facteur que le côté budgétaire dont chaque canal est issu."""
+    cote_depenses = ('prestations', 'remunerations_publiques')
+    return {canal: float(montant) * (facteur_depenses if canal in cote_depenses
+                                     else facteur_recettes)
+            for canal, montant in canaux.items()}
+
+
 def canaux_des_mesures(impacts: Mapping[str, object]) -> Iterable[Mapping[str, float]]:
     """Canaux ``menages`` émis par les mesures de l'année (les autres : aucun)."""
     for donnees in impacts.values():
@@ -113,10 +124,12 @@ def rdb_annee(impacts: Mapping[str, object], pib_nominal: float, pib_nominal_202
               deflateur: float, indice_masse_publique: float, annees: int) -> RdbAnnee:
     """Indice de l'année à partir des grandeurs de l'année (aucun état)."""
     base = rdb_base_md_eur(pib_nominal, pib_nominal_2025, indice_masse_publique)
+    prive = base - REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR * indice_masse_publique
     canaux = list(canaux_des_mesures(impacts))
     effet = sum(effet_revenu_md_eur(c) for c in canaux)
     coin = sum(coin_indirect_md_eur(c) for c in canaux)
     consommation = (1 - TAUX_EPARGNE_MENAGES_2025) * base
     prix = deflateur * (1 + coin / consommation)
-    return RdbAnnee(rdb_base=base, effet_mesures=effet, coin_indirect=coin, prix=prix,
+    return RdbAnnee(rdb_base=base, rdb_prive=prive, effet_mesures=effet,
+                    coin_indirect=coin, prix=prix,
                     indice=indice_pouvoir_achat(base + effet, prix, annees))

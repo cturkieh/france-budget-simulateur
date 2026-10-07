@@ -2,14 +2,14 @@
 
 Mesures couvertes (8 handlers) :
 - ``tva_rate`` : taux de TVA général (base 20 %). Élasticité conso, effet Laffer
-  au-delà de 22 %. Effets gini/PA/compétitivité one-time.
+  au-delà de 22 %. Effets gini/compétitivité one-time.
 - ``tva_energie`` : taux de TVA énergie (gaz + électricité, base 20 %). Slider
   unique vers 5,5 % (NFP/RN). Phasing 1 an, effets NIVEAU one-time.
 - ``impot_revenu`` : barème IR — taux 5e tranche + décote. Assiette MARGINALE
   (au-dessus de 160 950 €), effet Laffer via ETI tranche supérieure.
 - ``csg`` : taux global CSG (base 9,7 %) + option progressivité par décile
-  (neutre recettes, forte réduction Gini). Recettes RÉCURRENTES, PA/Gini one-time.
-- ``cotisations_salariales`` : baisse en points (0-5), -6 Md€/pt. PA/Gini one-time.
+  (neutre recettes, forte réduction Gini). Recettes RÉCURRENTES, Gini one-time.
+- ``cotisations_salariales`` : baisse en points (0-5), -6 Md€/pt. Gini one-time.
 - ``elargissement_ir`` : % de foyers imposables cible (0,45 → 0,70). Recettes
   classes moyennes D4-D6.
 - ``fiscalite_patrimoine`` : IFI + succession + foncière regroupés, slider
@@ -18,13 +18,18 @@ Mesures couvertes (8 handlers) :
   remplace l'IFI (croissance +2 %/an). Phasing 2 ans (cadastre), plafond 18 Md€.
 
 Convention d'application :
-- Effets ``gini`` / ``pouvoir_achat`` / ``competitivite`` en mode NIVEAU
+- Pouvoir d'achat (v0.6.8) : chaque handler émet ses montants par canal
+  ménages (clé ``menages``, ``handlers/_types.canaux_menages``) — prélèvements
+  DIRECTS (IR, CSG, cotisations salariales, patrimoine) ou INDIRECTS (TVA) ;
+  l'indice RDB-moteur (``engine/rdb.py``) les lit chaque année, en niveau.
+  Les coefficients forfaitaires ``pouvoir_achat`` (non sourcés) ont disparu.
+- Effets ``gini`` / ``competitivite`` en mode NIVEAU
   one-time, gated selon DEUX idiomes distincts coexistant dans le monolithe :
   - ``self._is_first_year_change(<measure>, params)`` : tva_rate,
     impot_revenu, elargissement_ir, fiscalite_patrimoine, cotisations_salariales.
   - ``years_elapsed == 0`` : tva_energie, isf_climatique, et csg (pour ses
-    effets PA/Gini).
-  Cas mixte : ``csg`` combine les deux — PA/Gini gated ``years_elapsed == 0``
+    effets Gini).
+  Cas mixte : ``csg`` combine les deux — Gini gated ``years_elapsed == 0``
   MAIS son sous-effet ``competitivite`` (mode progressif) gated
   ``self._is_first_year_change('csg_competitivite', ...)``. Cette nuance
   sémantique est PRÉSERVÉE telle quelle depuis le monolithe — toute
@@ -52,7 +57,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 from ..constants import ETI_TRANCHE_SUPERIEURE, POLICY_START_YEAR
 from .._logging import _log_debug
 from ._phasing import _one_time_level, _year_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -88,15 +93,6 @@ class FiscaliteMenagesMixin(_MixinBase):
         else:
             gini = 0.0
 
-        # Pouvoir d'achat : Impact ONE-TIME de NIVEAU (changement structure fiscale).
-        # Règle : TVA +1pt = -0.002 PA agrégé (INSEE 2018 "Hausse TVA et inégalités" :
-        # +3pt TVA = -0.6% niveau de vie corrigé sur 3 ans → -0.2%/pt).
-        # NIVEAU et non flux annuel : la consommation s'ajuste UNE FOIS au nouveau prix relatif.
-        if self._is_first_year_change('tva_rate_pa', {'rate': rate}):
-            pouvoir_achat = -0.002 * (rate - 0.20) / 0.01
-        else:
-            pouvoir_achat = 0.0
-
         # Compétitivité : Impact ONE-TIME (changement structure fiscale)
         # Règle : TVA +2% = -0.0005 compétitivité (CAE 2022, répercussion prix)
         if self._is_first_year_change('tva_rate_competitivite', {'rate': rate}):
@@ -108,13 +104,13 @@ class FiscaliteMenagesMixin(_MixinBase):
         impacts = {
             'recettes': delta_revenue,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(prelevements_indirects=delta_revenue),
         }
         return 0, delta_revenue, impacts
 
     def _apply_tva_energie(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
-        """TVA énergie (actuel 20%). NFP/RN: 5.5% → -17 Md€ recettes, +1.5% PA. Conso 120 Md€/an. Effets NIVEAU one-time.
+        """TVA énergie (actuel 20%). NFP/RN: 5.5% → -17 Md€ recettes. Conso 120 Md€/an. Effets NIVEAU one-time.
         Sources: NFP 2027, OFCE 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
         # ===== PARAMÈTRES - TAUX UNIQUE GAZ + ÉLECTRICITÉ =====
         # Slider unique : 20% (status quo) → 5.5% (NFP/RN)
@@ -147,19 +143,12 @@ class FiscaliteMenagesMixin(_MixinBase):
         delta_revenue = (recettes_nouvelles_total - recettes_actuelles_total) * phasing
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
-        # Pouvoir achat : énergie = 10% budget ménages
-        # Baisse TVA 20% → 5.5% = -14.5 points → +14.5% baisse prix TTC → +1.45% PA
-        # IMPORTANT : Effet NIVEAU (one-time), pas FLUX (recurring)
-        # → Impact PA appliqué UNIQUEMENT l'année de mise en œuvre (years_elapsed == 0)
         # CONVENTION : delta_tva = TAUX_NOUVEAU - TAUX_ANCIEN (cohérent avec TVA générale)
-        # Ex slider 5.5% : taux_energie=0.055 → delta_tva_moyen = (0.055-0.20) = -0.145
-        # Impact PA = -(-0.145) × 0.10 = +0.0145 (+1.45% PA) ✅
+        # Pouvoir d'achat (v0.6.8) : la variation de recettes passe par les prix
+        # (canal ``prelevements_indirects``, engine/rdb.py) ; l'ancien « −Δtaux ×
+        # 10 % du budget » comptait la baisse ENTIÈRE sur les prix, sans part
+        # ménages ni répercussion partielle d'une baisse.
         delta_tva_moyen = ((taux_elec + taux_gaz) / 2) - 0.20
-        part_energie_budget = 0.10  # Énergie = 10% budget ménages (INSEE 2024)
-
-        # Impact PA = one-time boost l'année de mise en œuvre seulement
-        # (années suivantes : niveau déjà atteint, pas d'impact additionnel)
-        impact_pa = _one_time_level(years_elapsed, -delta_tva_moyen * part_energie_budget * phasing)
 
         # Gini : léger effet positif (ménages modestes dépensent + en % pour énergie)
         # Baisse TVA énergie réduit inégalités (énergie = 15% budget classes populaires vs 7% classes aisées)
@@ -172,13 +161,13 @@ class FiscaliteMenagesMixin(_MixinBase):
         impacts = {
             'recettes': delta_revenue,
             'gini': impact_gini,
-            'pouvoir_achat': impact_pa,
-            'competitivite': impact_competitivite
+            'competitivite': impact_competitivite,
+            'menages': canaux_menages(prelevements_indirects=delta_revenue),
         }
 
         _log_debug(self.debug_logs,
             f"Y{year}: TVA énergie - Élec {taux_elec*100:.1f}%, Gaz {taux_gaz*100:.1f}%, "
-            f"Recettes {delta_revenue:+.1f} Md€, PA {impact_pa:+.2%}"
+            f"Recettes {delta_revenue:+.1f} Md€"
         )
 
         return 0, delta_revenue, impacts
@@ -227,16 +216,6 @@ class FiscaliteMenagesMixin(_MixinBase):
         else:
             gini = 0.0
 
-        # Pouvoir d'achat : Impact ONE-TIME de NIVEAU (changement barème fiscal).
-        # Règle : Hausse taux sup = -0.001 PA (concentré hauts revenus). Décote touche classes moyennes.
-        # Le barème modifie le revenu disponible UNE FOIS, pas chaque année (TAXIPP/IPP convention).
-        params_ir_pa = {'taux_sup': taux_sup, 'decote': decote}
-        if self._is_first_year_change('impot_revenu_pa', params_ir_pa):
-            pouvoir_achat = -0.001 * (taux_sup - 0.45) / 0.05
-            pouvoir_achat += -0.002 * (1.0 - decote)
-        else:
-            pouvoir_achat = 0.0
-
         # Compétitivité : Impact ONE-TIME (changement structure fiscale)
         # Règle : Taux sup 45%→50% = -0.0002 (CAE 2024, attractivité hauts revenus/expatriation)
         params_ir_comp = {'taux_sup': taux_sup, 'decote': decote}
@@ -248,8 +227,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         impacts = {
             'recettes': delta_revenue,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
         return 0, delta_revenue, impacts
 
@@ -285,22 +264,18 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Impact recettes (proportionnel, RÉCURRENT chaque année)
         delta_recettes = CSG_RECETTES_BASE * (delta_taux_global / CSG_BASE)
 
-        # Impact PA et Gini : ONE-TIME (changement de niveau, pas flux annuel)
-        # Justification économique : Un changement de taux CSG modifie le niveau
-        # du revenu disponible UNE SEULE FOIS (effet de niveau), comme TVA/IR ;
-        # années suivantes : niveau déjà atteint, plus d'impact marginal.
-        # Impact PA global (inverse, tous déciles touchés également) :
-        #   -1 pt CSG = -1% PA (OFCE 2024).
+        # Impact Gini : ONE-TIME (changement de niveau, pas flux annuel).
+        # Pouvoir d'achat (v0.6.8) : la recette EST le revenu retiré aux ménages
+        # (canal ``prelevements_directs``) ; l'ancien « −1 pt = −1 % de PA »
+        # transmettait 111 % de ses euros au RDB.
         # Impact Gini du taux : LÉGÈREMENT RÉGRESSIF — CSG touche pensions (taux
         #   remplacement faible) et patrimoine. Règle : CSG +1 pt = +0.002 Gini
         #   (OFCE 2024 "CSG légèrement régressive"). CSG 9.7 % (défaut 2025) →
         #   delta=0 → impact=0 (status quo) ; CSG 10.5 % → delta=+0.8 pt →
         #   impact=+0.0016 Gini.
-        impact_pa_taux = _one_time_level(years_elapsed, -0.01 * (delta_taux_global / 0.01))
         impact_gini_taux = _one_time_level(years_elapsed, 0.002 * (delta_taux_global / 0.01))
 
         # ===== EFFET 2 : PROGRESSIVITÉ (si activée) =====
-        impact_pa_progressif = 0.0
         impact_gini_progressif = 0.0
         impact_emploi_progressif = 0.0
         impact_competitivite = 0.0
@@ -311,12 +286,13 @@ class FiscaliteMenagesMixin(_MixinBase):
 
             # IMPACTS ONE-TIME : appliqués uniquement l'année 0 (changement de
             # niveau) ; années suivantes : maintien du niveau (pas de cumul).
-            # PA : effet différentiel net POSITIF (+0.4 %) — déciles bas (forte
-            #   propension conso) gagnent plus que hauts perdent.
+            # PA (v0.6.8) : NUL en agrégé — à recette nulle, le RDB total ne
+            #   bouge pas (transfert entre déciles, porté par le Gini). L'ancien
+            #   +0,4 % comptait un effet de consommation, que l'emploi ci-dessous
+            #   porte déjà.
             # Gini : FORTE réduction inégalités (OFCE 2023, modèle Allemagne).
             # Emploi : via boost consommation (multiplicateur 0.6) — +0.73 %
             #   conso → +0.44 % PIB → -0.15 % chômage (Okun -0.35).
-            impact_pa_progressif = _one_time_level(years_elapsed, +0.004)
             impact_gini_progressif = _one_time_level(years_elapsed, -0.015)
             impact_emploi_progressif = _one_time_level(years_elapsed, -0.0015)
 
@@ -332,10 +308,10 @@ class FiscaliteMenagesMixin(_MixinBase):
         # ===== IMPACTS TOTAUX =====
         impacts = {
             'recettes': delta_recettes,
-            'pouvoir_achat': impact_pa_taux + impact_pa_progressif,
             'gini': impact_gini_taux + impact_gini_progressif,
             'chomage': impact_emploi_progressif,
-            'competitivite': impact_competitivite
+            'competitivite': impact_competitivite,
+            'menages': canaux_menages(prelevements_directs=delta_recettes),
         }
 
         # Logs détaillés
@@ -345,12 +321,12 @@ class FiscaliteMenagesMixin(_MixinBase):
             _log_debug(self.debug_logs,
                        f"Y{year}: CSG {taux_global*100:.1f}% progressive - "
                        f"D1-D3:{taux_d1_d3*100:.1f}%, D10:{taux_d10*100:.1f}%, "
-                       f"Recettes {delta_recettes:+.1f}Md€, PA {impacts['pouvoir_achat']*100:+.2f}%, "
+                       f"Recettes {delta_recettes:+.1f}Md€, "
                        f"Gini {impact_gini_progressif:.3f}")
         else:
             _log_debug(self.debug_logs,
                        f"Y{year}: CSG {taux_global*100:.1f}% flat - "
-                       f"Recettes {delta_recettes:+.1f}Md€, PA {impacts['pouvoir_achat']*100:+.2f}%")
+                       f"Recettes {delta_recettes:+.1f}Md€")
 
         return 0, delta_recettes, impacts
 
@@ -362,7 +338,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         Paramètre:
         - baisse_points (0-5): Baisse en points de cotisations
 
-        Impact: -1 point = +0.5% pouvoir d'achat, coût 6 Md€
+        Impact: -1 point = 6 Md€ rendus aux salariés (canal prélèvements directs)
         Sources: URSSAF 2024, DARES pouvoir d'achat, OFCE multiplicateurs
         """
         baisse_points = params.get('baisse_points', 0.0)  # 0.0 à 5.0
@@ -379,17 +355,12 @@ class FiscaliteMenagesMixin(_MixinBase):
         # ===== IMPACTS MACROÉCONOMIQUES =====
         impacts = {
             'recettes': delta_revenue,
+            # Baisse de cotisations → salaire net ↑ du montant rendu (v0.6.8).
+            'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
-        # ONE-TIME gate: PA et Gini ne s'appliquent que la première année de changement
+        # ONE-TIME gate: le Gini ne s'applique que la première année de changement
         is_first_year = self._is_first_year_change('cotisations_salariales', {'baisse_points': baisse_points})
-
-        # Pouvoir d'achat: +0.5% par point (OFCE 2024) — ONE-TIME
-        # Baisse cotis → salaire net augmente → PA augmente
-        if is_first_year:
-            impacts['pouvoir_achat'] = 0.005 * baisse_points
-        else:
-            impacts['pouvoir_achat'] = 0.0
 
         # Gini: Impact ONE-TIME (première année changement seulement)
         if is_first_year:
@@ -419,8 +390,7 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
                    f"Y{year}: Cotisations salariales -{baisse_points:.1f} pts - "
-                   f"Taux effectif {22-baisse_points:.1f}%, coût {delta_revenue:.1f}Md€, "
-                   f"PA +{impacts['pouvoir_achat']*100:.2f}%")
+                   f"Taux effectif {22-baisse_points:.1f}%, coût {delta_revenue:.1f}Md€")
 
         return 0, delta_revenue, impacts
 
@@ -467,6 +437,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # ===== IMPACTS MACROÉCONOMIQUES =====
         impacts = {
             'recettes': delta_revenue,
+            'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
         delta_contrib = taux_cible - TAUX_ACTUEL
@@ -477,12 +448,6 @@ class FiscaliteMenagesMixin(_MixinBase):
             impacts['gini'] = 0.005 * (delta_contrib / 0.20)
         else:
             impacts['gini'] = 0.0
-
-        # Pouvoir d'achat: ONE-TIME (changement barème = ajustement revenu disponible une fois)
-        if self._is_first_year_change('elargissement_ir_pa', {'taux_cible': taux_cible}):
-            impacts['pouvoir_achat'] = -0.0006 * (delta_contrib / 0.20)
-        else:
-            impacts['pouvoir_achat'] = 0.0
 
         # Compétitivité: Neutre
         impacts['competitivite'] = 0.0
@@ -527,8 +492,13 @@ class FiscaliteMenagesMixin(_MixinBase):
         delta_revenue = TOTAL_BASE * intensite
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
+        # Revenu disponible (v0.6.8) : IFI et taxe foncière sont des impôts
+        # COURANTS des ménages ; les droits de succession sont un transfert en
+        # capital, hors du RDB au sens de l'INSEE — exclus du canal ménages.
         impacts = {
             'recettes': delta_revenue,
+            'menages': canaux_menages(prelevements_directs=(
+                delta_revenue * (IFI_BASE + FONCIERE_BASE) / TOTAL_BASE)),
         }
 
         # Gini: Impact ONE-TIME (changement structure fiscale)
@@ -537,12 +507,6 @@ class FiscaliteMenagesMixin(_MixinBase):
             impacts['gini'] = -0.010 * (delta_revenue / 10.0)
         else:
             impacts['gini'] = 0.0
-
-        # Pouvoir d'achat: ONE-TIME (changement structure fiscale)
-        if self._is_first_year_change('fiscalite_patrimoine_pa', {'intensite': intensite}):
-            impacts['pouvoir_achat'] = -0.0005 * intensite
-        else:
-            impacts['pouvoir_achat'] = 0.0
 
         # Compétitivité: Impact ONE-TIME (changement structure fiscale)
         # Règle : Hausse 10 Md€ = -0.002 compétitivité (exil fiscal entrepreneurs)
@@ -646,10 +610,6 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Impact appliqué UNE FOIS (changement structure revenus/patrimoine)
         impact_gini = _one_time_level(years_elapsed, -0.020 * (recettes_nettes / 12) * phasing)
 
-        # Pouvoir d'achat : -0.001 (quasi-neutre, touche 1% population)
-        # Impact appliqué UNE FOIS (changement consommation hauts patrimoines)
-        impact_pa = _one_time_level(years_elapsed, -0.001 * (recettes_nettes / 12) * phasing)
-
         # Compétitivité : -0.002 (risque exil entrepreneurs)
         # Impact appliqué UNE FOIS (changement structure productive)
         impact_competitivite = _one_time_level(years_elapsed, -0.002 * (recettes_nettes / 12) * phasing)
@@ -657,8 +617,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         impacts = {
             'recettes': delta_revenue,
             'gini': intensite * impact_gini,
-            'pouvoir_achat': intensite * impact_pa,
-            'competitivite': intensite * impact_competitivite
+            'competitivite': intensite * impact_competitivite,
+            'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
         _log_debug(self.debug_logs,

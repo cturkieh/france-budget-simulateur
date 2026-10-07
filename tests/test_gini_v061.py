@@ -440,7 +440,8 @@ def test_education_conserve_ses_autres_canaux():
     impacts = _impacts_education(_sim(), budget=80.0, enseignants=10000.0, salaires=5.0)
     assert impacts['depenses'] > 0
     assert impacts['competitivite'] > 0
-    assert impacts['pouvoir_achat'] > 0
+    # v0.6.8 : la revalorisation des salaires est un revenu des enseignants.
+    assert impacts['menages']['remunerations_publiques'] > 0
 
 
 # ===========================================================================

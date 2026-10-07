@@ -235,10 +235,18 @@ def test_statu_quo_valide(tolerant):
 
 def test_borne_physique_du_pouvoir_d_achat(tolerant, monkeypatch):
     """Porte d'entrée retirée : seule la borne de sortie protège. Avant : PA
-    négatif (variation ≤ −100 %), sans un signal."""
+    négatif (variation ≤ −100 %), sans un signal.
+
+    v0.6.8 (indice RDB-moteur) : les euros des ménages sont plafonnés avec le
+    budget dont ils sont issus (5 % du PIB par mesure, 10 % au total) — une
+    TVA à 2 000 % seule ne fait plus que +6,5 % de prix. La borne de sortie
+    mord quand deux prélèvements DIRECTS absurdes saturent le plafond total
+    (10 % du PIB ≈ 16 % du RDB retirés en un an)."""
     for mid in list(PARAM_DOMAINS):
         monkeypatch.delitem(PARAM_DOMAINS, mid)
-    df, _, report = _simuler({'tva_rate': {'taux': 20}})
+    df, _, _ = _simuler({'tva_rate': {'taux': 20}})
+    assert (df[PA] > 0).all()
+    df, _, report = _simuler({'csg': {'taux': 5.0}, 'impot_revenu': {'taux_superieur': 50.0}})
     assert (df[PA] > 0).all()
     assert report['valid'] is False
     assert any("Pouvoir d'achat : variation annuelle bornée" in w for w in report['warnings'])

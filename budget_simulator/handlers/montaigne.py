@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 from ..constants import POLICY_START_YEAR
 from .._logging import _log_debug
 from ._phasing import _year_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -41,6 +41,9 @@ else:
 
 # Montée en charge du rabot : 50 % la première année, 100 % ensuite.
 _RABOT_PHASING = (0.5, 1.0)
+# Catégories de dépense versées aux ménages (prestations en espèces et
+# remboursements), seules à toucher directement leur revenu (v0.6.8).
+_CATEGORIES_PRESTATIONS = ('retraites', 'sante', 'chomage', 'dependance', 'minima_sociaux')
 
 
 class MontaigneMixin(_MixinBase):
@@ -125,9 +128,15 @@ class MontaigneMixin(_MixinBase):
                       details_coupes.get('dependance', 0)) / max(total_coupe, 0.1)
         impact_gini = 0.10 * taux_reduction * pct_social * phasing  # +0.008 à 8%
 
-        # 2. Impact Pouvoir d'Achat - NÉGATIF
-        # Moins de prestations, moins de salaires publics
-        impact_pa = -0.15 * taux_reduction * phasing  # -1.2% à 8%
+        # 2. Pouvoir d'achat (v0.6.8) : les coupes des catégories de
+        # PRESTATIONS (pensions, remboursements de santé, chômage, dépendance,
+        # minima sociaux) sont un revenu retiré aux ménages — canal
+        # ``prestations``, en niveau de l'année. Les autres coupes (masse
+        # salariale, assimilée à des effectifs, fonctionnement, investissement,
+        # dotations, aides aux entreprises, UE) passent par la croissance.
+        # L'ancien « −0,15 × taux », réémis chaque année, composait −7,6 pts
+        # d'indice en 2035 pour un rabot de 7,5 %.
+        coupes_prestations = sum(details_coupes.get(c, 0.0) for c in _CATEGORIES_PRESTATIONS)
 
         # 3. Impact Croissance
         # NOTE: L'impact croissance du rabot est capturé via le multiplicateur Keynésien
@@ -150,12 +159,12 @@ class MontaigneMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': impact_gini,
-            'pouvoir_achat': impact_pa,
             'competitivite': impact_competitivite,
+            'menages': canaux_menages(prestations=-coupes_prestations),
             # Métadonnées de debug. La valeur est un sous-dict, ce qui s'écarte
             # du contrat ImpactsDict = Dict[str, float]. Les agrégateurs du
-            # moteur ne lisent que les clés numériques connues (gini,
-            # competitivite, chomage, pouvoir_achat, depenses, recettes), donc
+            # moteur ne lisent que les clés connues (gini, competitivite,
+            # chomage, menages, depenses, recettes), donc
             # rabot_details est simplement ignoré sans erreur runtime. À aplatir
             # ou déplacer vers _log_debug lors d'un futur chantier de typage
             # strict (mypy).
@@ -173,7 +182,7 @@ class MontaigneMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
             f"Y{year}: RABOT UNIFORME - Taux {taux_reduction*100:.0f}%, Phasing {phasing*100:.0f}%, "
-            f"Économies {total_coupe:.1f} Md€, Gini {impact_gini:+.4f}, PA {impact_pa:+.2%}"
+            f"Économies {total_coupe:.1f} Md€ (prestations {coupes_prestations:.1f}), Gini {impact_gini:+.4f}"
         )
 
         return delta_spending, 0, impacts

@@ -211,22 +211,30 @@ def test_aucune_collision_id_lfi_2026():
 # horizons_2027 106,4→109,2 ; lr_2027 105,3→108,4 ; ps_2027 109,3→112,3 ;
 # ecologistes_2027 108,0→110,8 ; im_rabot_2029 95,1→97,1 ;
 # im_competitivite_2029 105,4→108,1. Aucune logique de gating modifiée.
+# RECALAGE v0.6.8 (indice de pouvoir d'achat RDB-moteur, engine/rdb.py : RDB des
+# ménages / prix de la consommation / unités de consommation, à la place de
+# « croissance + coefficients forfaitaires »). Mesuré le 07/10/2026, avant →
+# après : plf_2026 104,6→102,7 ; rn_2027 109,3→104,4 ; lfi_2027 115,9→107,2 ;
+# renaissance_2027 106,7→104,4 ; horizons_2027 109,8→101,9 ; lr_2027
+# 109,3→104,7 ; ps_2027 112,0→105,6 ; ecologistes_2027 110,6→103,8 ;
+# im_rabot_2029 96,8→94,3 ; im_competitivite_2029 107,9→103,5. Toutes les
+# autres colonnes sont bit-identiques.
 EXPECTED_PA_2029_FULL = {
-    "plf_2026": 104.4,
+    "plf_2026": 102.7,
     # 30/08/2026 : retrait de la baisse de CSG furtive (0,097 → 0,098039 voté)
     # chez RN et les deux scénarios Montaigne → PA −0,1 pt chacun.
-    "rn_2027": 108.7,
-    "lfi_2027": 116.6,
+    "rn_2027": 104.4,
+    "lfi_2027": 107.2,
     # 30/08/2026 : re-encodage Attal (droit au brut +15 Md€ mais année blanche
     # inchangée, retrait rénovation non sourcée) 103.7 → 102.9 ; Philippe
     # (retrait abattement retraités + chômage 16 mois) 107.3 → 106.7.
-    "renaissance_2027": 106.3,
-    "horizons_2027": 109.2,
-    "lr_2027": 108.4,
-    "ps_2027": 112.3,
-    "ecologistes_2027": 110.8,
-    "im_rabot_2029": 97.1,
-    "im_competitivite_2029": 108.1,
+    "renaissance_2027": 104.4,
+    "horizons_2027": 101.9,
+    "lr_2027": 104.7,
+    "ps_2027": 105.6,
+    "ecologistes_2027": 103.8,
+    "im_rabot_2029": 94.3,
+    "im_competitivite_2029": 103.5,
 }
 
 
@@ -247,7 +255,7 @@ def test_expected_pa_keyset_couvre_tous_les_scenarios():
 @_FULL_SCENARIOS_AVAILABLE
 @pytest.mark.parametrize("name,measures", FULL_SCENARIOS.items())
 def test_pa_2029_garde_fou_gating_one_time(name, measures):
-    """Garde-fou anti-régression sur les 6 gates one-time PA + asymétrie fonction_publique.
+    """Garde-fou anti-régression de l'indice de pouvoir d'achat (v0.6.8 : RDB-moteur).
     Une dérive ≥1.5 pt sur un scénario signale un changement de comportement à investiguer."""
     sim = BudgetSimulatorV45(periods=10, mesures=measures)
     df_main, _, _ = sim.simulate()
@@ -255,5 +263,5 @@ def test_pa_2029_garde_fou_gating_one_time(name, measures):
     expected = EXPECTED_PA_2029_FULL[name]
     assert abs(pa_2029 - expected) < 1.5, (
         f"{name}: PA 2029 = {pa_2029:.1f} hors tolérance ±1.5 vs attendu {expected:.1f} "
-        f"(régression possible sur gating one-time PA ou recalibrage fonction_publique)"
+        f"(régression possible sur l'indice RDB-moteur ou les canaux ménages des handlers)"
     )

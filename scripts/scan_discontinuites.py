@@ -16,6 +16,9 @@ Les interrupteurs 0/1 (``DRAPEAUX``) sont exclus : leur saut est le levier lui-m
 
 Usage :
   python3 scripts/scan_discontinuites.py [--points N] [--scenarios a,b] [--json sortie.json]
+                                         [--colonne "Pouvoir d'Achat"]
+``--colonne`` (v0.6.8) : indicateur 2035 balayé, la dette par défaut ; l'indice
+de pouvoir d'achat RDB-moteur se scanne de même (même seuil, en points).
 Scénarios : ``BUDGETLAB_SCENARIOS_JSON`` ou frontend-react/src/data/scenarios.json.
 Sortie : un saut par ligne (scénario, levier.paramètre, position, saut de dette
 2035, première année où l'état macro diverge) ; code retour 1 si un saut
@@ -55,8 +58,8 @@ def _avec(mesures, levier, param, x):
     return {**mesures, levier: {**(mesures.get(levier) or {}), param: x}}
 
 
-def _dette(mesures):
-    return float(_simuler(mesures)[0]['Dette/PIB %'].iloc[-1])
+def _dette(mesures, colonne='Dette/PIB %'):
+    return float(_simuler(mesures)[0][colonne].iloc[-1])
 
 
 def pleine_precision():
@@ -73,11 +76,11 @@ def _balayer(args):
     return balayer(*args)
 
 
-def balayer(mesures, sid, levier, param, lo, hi, n):
+def balayer(mesures, sid, levier, param, lo, hi, n, colonne='Dette/PIB %'):
     """Balaye un paramètre sur [lo ; hi] en n points ; renvoie les sauts survivant à
     la bissection (tous, sans seuil). Suppose les sorties en pleine précision."""
     xs = [lo + (hi - lo) * i / (n - 1) for i in range(n)]
-    ds = [_dette(_avec(mesures, levier, param, x)) for x in xs]
+    ds = [_dette(_avec(mesures, levier, param, x), colonne) for x in xs]
     deltas = [b - a for a, b in zip(ds, ds[1:])]
     mediane = sorted(abs(d) for d in deltas)[len(deltas) // 2]
     sauts = []
@@ -88,7 +91,7 @@ def balayer(mesures, sid, levier, param, lo, hi, n):
         a, b, da, db = xs[i], xs[i + 1], ds[i], ds[i + 1]
         while b - a > 1e-9 * max(1.0, hi - lo):
             c = (a + b) / 2
-            dc = _dette(_avec(mesures, levier, param, c))
+            dc = _dette(_avec(mesures, levier, param, c), colonne)
             if abs(dc - da) >= abs(db - dc):
                 b, db = c, dc
             else:
@@ -114,12 +117,13 @@ def main():
     ap.add_argument('--scenarios', default='')
     ap.add_argument('--json', default='')
     ap.add_argument('--seuil', type=float, default=1e-3)
+    ap.add_argument('--colonne', default='Dette/PIB %')
     opts = ap.parse_args()
     from budget_simulator.engine._param_domain import PARAM_DOMAINS
     scen = _scenarios()
     if opts.scenarios:
         scen = {k: scen[k] for k in opts.scenarios.split(',')}
-    travaux = [(m, sid, levier, param, float(lo), float(hi), opts.points)
+    travaux = [(m, sid, levier, param, float(lo), float(hi), opts.points, opts.colonne)
                for sid, m in scen.items() for levier, dom in PARAM_DOMAINS.items()
                for param, (lo, hi) in dom.items() if param not in DRAPEAUX]
     with Pool() as pool:
@@ -128,7 +132,8 @@ def main():
     for s in sorted(sauts, key=lambda s: -abs(s['saut_dette_2035'])):
         print(f"{s['scenario']:<22} {s['parametre']:<42} @ {s['x']:<12.6g} "
               f"{s['saut_dette_2035']:+.4f} pt   1re divergence (année, gap, g, π, u) : {s['divergence']}")
-    print(f'{len(travaux)} balayages × {opts.points} points : {len(sauts)} saut(s) > {opts.seuil} pt')
+    print(f'{opts.colonne} 2035 — {len(travaux)} balayages × {opts.points} points : '
+          f'{len(sauts)} saut(s) > {opts.seuil} pt')
     if opts.json:
         Path(opts.json).write_text(json.dumps(sauts, indent=1, ensure_ascii=False), encoding='utf-8')
     return 1 if sauts else 0

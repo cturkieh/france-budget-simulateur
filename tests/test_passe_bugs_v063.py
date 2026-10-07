@@ -123,29 +123,31 @@ class TestChomagePouvoirAchatDuree:
     SANS canal durée (le Gini a gini_duree, le PA n'avait plus rien) — or
     couper des mois de droits est un choc de revenu réel pour les ~30 %
     d'entrants qui épuisent leurs droits (Unédic ex-post 18/12/2025 p. 10-11).
-    Le PA suit désormais le canal € TOTAL, même règle INSEE (−0,002 / 5 Md€)."""
+    Le PA suit le canal € TOTAL. v0.6.8 : ce canal est en euros (canal
+    ``prestations`` = la dépense d'allocations, lue en niveau par l'indice
+    RDB-moteur), à la place du coefficient −0,002 / 5 Md€."""
 
     def test_couper_la_duree_frappe_le_pouvoir_d_achat(self):
-        """18→12 mois à taux constant : PA = 0,002 × (−4,5)/5 = −0,0018
-        (AVANT le fix v0.6.3 du double comptage : −0,0053 gonflé ;
-        APRÈS le fix mais AVANT ce patch : 0, canal disparu)."""
-        pa = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 12,
-                               'degressivite': False})['pouvoir_achat']
-        assert pa == pytest.approx(0.002 * (-6 * 0.75) / 5, rel=1e-9)
+        """18→12 mois à taux constant : les allocations non versées sortent
+        du revenu des ménages, au montant du budget (−6 × 0,75 = −4,5 Md€)."""
+        imp = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 12,
+                                'degressivite': False})
+        assert imp['menages']['prestations'] == pytest.approx(-6 * 0.75, rel=1e-9)
+        assert imp['menages']['prestations'] == pytest.approx(imp['depenses'], rel=1e-12)
 
     def test_allonger_la_duree_est_symetrique(self):
-        pa = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 24,
-                               'degressivite': False})['pouvoir_achat']
-        assert pa == pytest.approx(0.002 * (6 * 0.75) / 5, rel=1e-9)
+        imp = _chomage_impacts({'taux_remplacement': 0.60, 'duree': 24,
+                                'degressivite': False})
+        assert imp['menages']['prestations'] == pytest.approx(6 * 0.75, rel=1e-9)
 
     def test_le_canal_taux_du_pa_est_inchange(self):
-        """À durée de référence, la formule garde sa forme −0,002 × (base −
-        montant)/5 (base 40 à l'époque du fix, 36,6 depuis v0.6.4)."""
+        """À durée de référence, le canal vaut −(base − montant) en Md€ (base
+        40 à l'époque du fix, 36,6 depuis v0.6.4)."""
         REF = CHOMAGE_MONTANT_REF_MD
-        pa = _chomage_impacts({'taux_remplacement': 0.55, 'duree': 18,
-                               'degressivite': False})['pouvoir_achat']
+        imp = _chomage_impacts({'taux_remplacement': 0.55, 'duree': 18,
+                                'degressivite': False})
         montant = REF * (0.55 / 0.60)
-        assert pa == pytest.approx(-0.002 * (REF - montant) / 5, rel=1e-9)
+        assert imp['menages']['prestations'] == pytest.approx(-(REF - montant), rel=1e-9)
 
     def test_le_gini_duree_est_conserve_sans_double_comptage(self):
         """gini = gini_montant (taux seul) + gini_duree — la durée ne passe

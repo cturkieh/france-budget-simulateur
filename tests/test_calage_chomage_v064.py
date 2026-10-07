@@ -246,7 +246,7 @@ class TestDegressiviteGini:
 
     def test_tous_les_canaux_en_euros_portent_le_facteur(self):
         """Propriété générique (revue Altitude) : le facteur étant DANS les
-        euros, dépense, PA et compétitivité valent exactement facteur × leur
+        euros, dépense, PA (canal ménages) et compétitivité valent exactement facteur × leur
         valeur sans dégressivité — c'est ce qui attraperait un futur canal €
         branché en amont du scaling. (Cas à signe unique : une coupe pure.)"""
         params = {'taux_remplacement': 0.50, 'duree': 18}
@@ -254,8 +254,9 @@ class TestDegressiviteGini:
         sans = chomage_impacts({**params, 'degressivite': False})
         f = CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE
         assert avec['depenses'] == pytest.approx(f * sans['depenses'], rel=1e-9)
-        assert avec['pouvoir_achat'] == pytest.approx(
-            f * sans['pouvoir_achat'], rel=1e-9)
+        # v0.6.8 : le canal pouvoir d'achat est en euros (prestations).
+        assert avec['menages']['prestations'] == pytest.approx(
+            f * sans['menages']['prestations'], rel=1e-9)
         assert avec['competitivite'] == pytest.approx(
             f * sans['competitivite'], rel=1e-9)
 

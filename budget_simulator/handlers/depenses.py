@@ -51,8 +51,8 @@ Mesures couvertes (6 handlers) :
   ASU) est un chantier distinct.
 
 Convention d'application :
-- Effets ``gini`` / ``competitivite`` (et parfois ``pouvoir_achat`` /
-  ``chomage``) en mode NIVEAU one-time, gated par
+- Effets ``gini`` / ``competitivite`` (et parfois ``chomage``) en mode
+  NIVEAU one-time, gated par
   ``self._is_first_year_change(<clé>, params)`` (méthode de l'hôte) ou par
   un suivi cross-année dédié (cf ``chomage_alloc`` ci-dessous). Chaque
   sous-effet a sa propre clé de gating (``retraites_gini_indexation``,
@@ -64,9 +64,11 @@ Convention d'application :
   le CALENDRIER LÉGAL, mobile jusqu'en 2032 : l'horloge du run y plaçait
   l'effet plein sur un écart encore nul pour tout programme s'écartant
   après 2026 (cf. le détail dans ``_apply_retraites``).
-- Effet ``pouvoir_achat`` de ``retraites`` et ``prestations_indexation``
-  est au contraire RÉCURRENT (suit la désindexation chaque année) —
-  PRÉSERVÉ tel quel du monolithe.
+- Pouvoir d'achat (v0.6.8) : chaque handler émet ses montants par canal
+  ménages (clé ``menages``) — PRESTATIONS (pensions, allocations, minima,
+  remboursements) ou prélèvements directs (``abattement_retraites``) — lus
+  chaque année, en niveau, par l'indice RDB-moteur (``engine/rdb.py``). Les
+  coefficients forfaitaires ``pouvoir_achat`` ont disparu.
 - Effet ``depenses`` : négatif = économie. ``abattement_retraites`` est le
   seul handler de la section à porter son effet sur ``recettes``.
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de
@@ -137,14 +139,12 @@ from ..constants import (
     PREVENTION_OFFSET_CENTRAL_CAP,
     PREVENTION_OFFSET_LAG_YEARS,
     PREVENTION_OFFSET_RAMP_PER_YEAR,
-    RDB_MENAGES_MD_EUR,
     RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
     RETRAITES_GINI_PAR_ANNEE_ECART,
     RETRAITES_GINI_PAR_POINT_DESINDEXATION,
     RETRAITES_GINI_RESIDU_FLUX,
-    RETRAITES_PA_GEL_TOTAL,
     RETRAITES_PART_MASSE_INDEXEE,
     RETRAITES_REF_DUREE_ANS,
     REVALORISATION_PENSIONS_2026,
@@ -160,7 +160,7 @@ from .._seniors import (
     retraites_ecart_age_ans,
 )
 from ._phasing import _year_phasing, asu_is_active, asu_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -339,13 +339,12 @@ class DepensesMixin(_MixinBase):
         else:
             gini += gini_age * RETRAITES_GINI_RESIDU_FLUX
 
-        # Pouvoir d'achat : Impact agrégé via retraités (~26% RDB).
-        # Formule : -RETRAITES_PA_GEL_TOTAL × (1 - indexation), appliquée chaque
-        # année (effet récurrent). Calibration OFCE Brief 124 (15/02/2024) :
-        # élasticité PA-retraités/désindexation ≈ -0.7%/an PA agrégé pour gel
-        # TOTAL (indexation=0), proportionnelle au ratio d'écart à la pleine
-        # indexation. Cumulé sur 5 ans = -3.5%. Valeur et source : constants.py.
-        pouvoir_achat = -RETRAITES_PA_GEL_TOTAL * (1.0 - indexation)
+        # Pouvoir d'achat (v0.6.8) : les pensions non versées (âge, durée,
+        # indexation) sont le revenu retiré aux retraités — canal
+        # ``prestations``, au montant du budget. L'ancien « −0,7 %/an pour un
+        # gel total » se composait d'une année sur l'autre (un niveau devenait
+        # une croissance). Le salaire des seniors maintenus en emploi passe
+        # par la croissance (offre de travail, update_labour_supply).
 
         # Compétitivité : Pas d'impact direct
         competitivite = 0
@@ -353,8 +352,8 @@ class DepensesMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(prestations=delta_spending),
         }
         return delta_spending, 0, impacts
 
@@ -538,9 +537,11 @@ class DepensesMixin(_MixinBase):
             # Années suivantes : impact déjà intégré
             gini = 0.0
 
-        # Pouvoir d'achat: Impact franchises sur reste à charge
-        # Règle : Franchises 100%→200% = -0.001 PA (INSEE 2024)
-        pouvoir_achat = -0.001 * (taux_franchise - 100) / 100
+        # Pouvoir d'achat (v0.6.8) : seules les franchises et participations
+        # touchent le reste à charge des ménages (canal ``prestations`` : un
+        # remboursement en moins est payé par le patient). Les économies
+        # d'organisation (hôpital, ambulatoire) et la prévention passent par la
+        # croissance.
 
         # Compétitivité : neutre (optimisation interne, cf. doc)
         competitivite = 0.0
@@ -556,8 +557,8 @@ class DepensesMixin(_MixinBase):
             'phasing_admin': phasing_admin,
             'phasing_struct': phasing_struct,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(prestations=delta_franchise),
         }
 
         # Debug
@@ -704,24 +705,9 @@ class DepensesMixin(_MixinBase):
             gini_duree = GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD_EUR * (-delta_duree)
 
             gini = gini_montant + gini_duree
-
-            # Pouvoir d'achat : Impact FORT sur chômeurs (ONE-TIME)
-            # Règle : 5 Md€ d'allocations en moins = -0.002 PA (INSEE 2024),
-            # appliquée au canal € TOTAL (taux ET durée). v0.6.3 : la fin du
-            # double comptage avait fait disparaître la durée du PA (le Gini
-            # a son gini_duree, le PA n'avait plus d'équivalent) — or couper
-            # des mois de droits est un choc de revenu réel pour les ~30 %
-            # d'entrants qui épuisent leurs droits (part basculant à l'ASS
-            # 13 → 20 % entre mi-2022 et mi-2025 ; 31 % des moins de 59 ans
-            # en emploi salarié trois mois après l'épuisement — Unédic
-            # ex-post 18/12/2025, p. 10-11). Même règle €, aucune constante
-            # nouvelle ; à durée de référence la formule est identique à
-            # l'ancienne (-0.002 × (40 − montant)/5).
-            pouvoir_achat = 0.002 * delta_alloc / 5
         else:
             # Années suivantes : impacts déjà intégrés dans indices courants
             gini = 0.0
-            pouvoir_achat = 0.0
 
         # Compétitivité : Léger (flexibilité marché du travail) — ONE-TIME
         # Règle : Baisse alloc = +0.0005 compétitivité (réforme Hartz IV).
@@ -759,12 +745,16 @@ class DepensesMixin(_MixinBase):
         else:
             impact_chomage = 0.0
 
+        # Pouvoir d'achat (v0.6.8) : les allocations (taux ET durée) sont un
+        # revenu des chômeurs — canal ``prestations``, au montant du budget,
+        # chaque année (couper des mois de droits est un choc de revenu réel :
+        # Unédic ex-post 18/12/2025, p. 10-11).
         impacts = {
             'depenses': delta_spending,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
             'competitivite': competitivite,
-            'chomage': impact_chomage
+            'chomage': impact_chomage,
+            'menages': canaux_menages(prestations=delta_spending),
         }
         _log_debug(self.debug_logs, f"Y{year}: Chômage - taux={taux_remplacement*100:.0f}%, durée={duree}m, montant={montant:.1f}Md€, delta={delta_spending:.1f}Md€")
         return delta_spending, 0, impacts
@@ -843,13 +833,14 @@ class DepensesMixin(_MixinBase):
         ------------------------------------
         - `delta_spending` POSITIF = surcoût (le handler en produit
           désormais, c'est tout l'objet du lot) ;
-        - `gini` et `pouvoir_achat` sont des effets de NIVEAU : le moteur
-          les CUMULE (`gini_cible_cumul += …`) et les COMPOSE
-          (`purchasing_power *= …`). Émettre le même delta chaque année en
+        - `gini` est un effet de NIVEAU : le moteur le CUMULE
+          (`gini_cible_cumul += …`). Émettre le même delta chaque année en
           ferait un flux perpétuel — une réforme de barème déplace le niveau
-          des transferts UNE FOIS. Les deux canaux émettent donc l'INCRÉMENT
-          de montée en charge, dont la somme vaut exactement le niveau
-          atteint, et zéro une fois le régime permanent atteint.
+          des transferts UNE FOIS. Le Gini émet donc l'INCRÉMENT de montée
+          en charge, dont la somme vaut exactement le niveau atteint, et zéro
+          une fois le régime permanent atteint ;
+        - le canal ménages (``menages``, v0.6.8) émet au contraire le NIVEAU
+          du transfert de l'année : l'indice RDB-moteur le lit en niveau.
         """
         # CONTRAT (cf. docs/MEASURE_REGISTRY.md) : asu_activation /
         # asu_plafonnement sont lus ici depuis `params` = mesures['asu']
@@ -924,12 +915,12 @@ class DepensesMixin(_MixinBase):
         # dont le domaine est « tout transfert net vers le bas » ; le
         # recours y a même le titre le plus fort : zéro perdant, concentré
         # en bas par construction — ce sont les études DREES du non-recours).
-        # F5 (revue) : le niveau de régime du recours vient de SA fonction
-        # (asu_cout_recours_md_eur(1.0)), pas du littéral importé — les deux
-        # consommateurs (budget, PA) suivent la même source ; si le recours
-        # prend un jour une courbe propre, la ligne PA suit.
-        impacts['pouvoir_achat'] = ((effort + asu_cout_recours_md_eur(1.0))
-                                    / RDB_MENAGES_MD_EUR) * increment
+        # v0.6.8 : canal ``prestations`` en NIVEAU de l'année — l'effort phasé
+        # plus le recours de l'année (le coût de bascule n'est pas un revenu
+        # des ménages) ; l'indice RDB-moteur le lit chaque année. L'ancienne
+        # ligne émettait l'incrément de ce même transfert / 1 380 Md€, à 50 %
+        # dès 2027 (atténuation calendaire de l'ancien indice).
+        impacts['menages'] = canaux_menages(prestations=effort * phasing + cout.recours)
 
         # === GINI ===
         # AUCUNE source ne publie l'effet Gini de l'ASU (les scénarios
@@ -1016,23 +1007,15 @@ class DepensesMixin(_MixinBase):
         else:
             gini = 0.0
 
-        # Purchasing power: Impact négatif sur retraités aisés
-        # 50% des foyers concernés (7M foyers)
-        # Perte moyenne: ~570€/an pour les concernés
-        # Impact global: -0.0015% PA (effet limité car ciblé)
-        if reforme == 1:
-            pouvoir_achat = -0.0015 * phasing
-        else:
-            pouvoir_achat = 0
-
         # Competitiveness: No direct impact
         competitivite = 0
 
         impacts = {
             'recettes': delta_revenue,  # Positif = gain fiscal
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            # IR des retraités (v0.6.8) : prélèvement direct sur les ménages.
+            'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
         _log_debug(self.debug_logs,
@@ -1122,11 +1105,10 @@ class DepensesMixin(_MixinBase):
         else:
             gini = 0.0
 
-        # Purchasing power: STRONG impact (concentrated on bottom 30%)
-        # Rule: 100%→90% = -0.003 PA (INSEE 2024)
-        # Effet récurrent (suit l'inflation chaque année)
-        delta_indexation = indexation_ref - indexation
-        pouvoir_achat = -0.003 * delta_indexation / 0.10
+        # Pouvoir d'achat (v0.6.8) : l'écart de revalorisation EST le revenu
+        # retiré (ou rendu) aux allocataires — canal ``prestations``, au
+        # montant du budget. L'ancien « −0,3 % par 10 points », réémis chaque
+        # année, composait un niveau en croissance.
 
         # Competitiveness: No direct impact
         competitivite = 0
@@ -1134,8 +1116,8 @@ class DepensesMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(prestations=delta_spending),
         }
 
         _log_debug(self.debug_logs,

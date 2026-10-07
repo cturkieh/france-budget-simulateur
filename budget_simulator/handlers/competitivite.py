@@ -5,12 +5,12 @@ Mesures couvertes (7 handlers) :
   Suppression = +recettes, phasing 3 ans (CIR/ZFU/Dutreil). Effet compétitivité
   one-time.
 - ``niches_sociales_tge`` : exonérations cotisations patronales TGE (base
-  70 Md€). Coeffs chômage/PA neutralisés à 0 (anti double-comptage, captés par
+  70 Md€). Coeff chômage neutralisé à 0 (anti double-comptage, capté par
   le multiplicateur fiscal du moteur — cf constants.py).
 - ``subventions_tge`` : soutien public innovation/export/R&D (base 35 Md€).
   Suppression = -dépenses, perte compétitivité innovation LT.
 - ``cotisations_patronales`` : taux patronal (base 27 %, range 15-35 %).
-  Masse salariale ~48 % PIB. Effets emploi/PA/chômage/compétitivité one-time.
+  Masse salariale ~48 % PIB. Effets emploi/chômage/compétitivité one-time.
 - ``impot_societes`` : taux IS (base 25 %) + niches IS. Assiette = bénéfice
   fiscal imposable (~9,1 % PIB), élasticité DG Trésor 2017, ``np.clip`` sur
   les niches. Effet récession via ``self.base_params['pib_base']``.
@@ -20,12 +20,16 @@ Mesures couvertes (7 handlers) :
   max 15 Md€). Signal fiscal one-time.
 
 Convention d'application :
-- Effets ``competitivite`` / ``pouvoir_achat`` / ``chomage`` / ``emploi`` en
+- Effets ``competitivite`` / ``chomage`` / ``emploi`` en
   mode NIVEAU one-time, gated par ``self._is_first_year_change(<clé>, params)``
-  (chaque sous-effet a sa propre clé : ``<measure>``, ``<measure>_pa``,
-  ``<measure>_emploi``, etc. — re-trigger sur changement effectif du slider).
-  Exception : ``impot_societes`` applique ``pouvoir_achat`` de façon
-  inconditionnelle (pas de gating one-time) — PRÉSERVÉ tel quel du monolithe.
+  (chaque sous-effet a sa propre clé : ``<measure>``, ``<measure>_emploi``,
+  etc. — re-trigger sur changement effectif du slider).
+- Pouvoir d'achat (v0.6.8, arbitrage du mainteneur) : AUCUN effet direct.
+  Un impôt sur les entreprises n'est pas un revenu des ménages ; il agit sur
+  leur pouvoir d'achat par la croissance et l'emploi (salaires privés de
+  l'indice RDB-moteur, ``engine/rdb.py``). Chaque handler émet des canaux
+  ménages nuls (``menages``). Les anciens coefficients (impôts de production
+  ×0,001/Md€ = 175 % de transmission, IS, cotisations patronales) ont disparu.
 - Effet ``recettes`` : delta one-shot (montant_base - montant) pour les
   niches/subventions/IS exceptionnel ; proportionnel à la masse salariale
   pour les cotisations patronales.
@@ -58,13 +62,12 @@ from ..constants import (
     COEFF_COMPETITIVITE_NICHES_FISCALES_TGE,
     COEFF_COMPETITIVITE_NICHES_SOCIALES_TGE,
     COEFF_COMPETITIVITE_SUBVENTIONS_TGE,
-    COEFF_PA_NICHES_SOCIALES_TGE,
     PHASING_NICHES_FISCALES_TGE,
     POLICY_START_YEAR,
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -109,7 +112,7 @@ class CompetitiviteMixin(_MixinBase):
 
         impacts = {
             'recettes': delta_revenue,
-            'pouvoir_achat': 0,  # Neutre (TGE)
+            'menages': canaux_menages(),  # Neutre (TGE)
             'competitivite': impact_competitivite
         }
 
@@ -137,7 +140,7 @@ class CompetitiviteMixin(_MixinBase):
         else:
             impact_competitivite = 0.0
 
-        # Impact CHÔMAGE et PA : coefficients à 0 (mai 2026, anti double-comptage).
+        # Impact CHÔMAGE : coefficient à 0 (mai 2026, anti double-comptage).
         # Cible Bozio-Wasmer 2024 (~138k emplois pour suppression 60 Md€) déjà atteinte
         # par le multiplicateur fiscal du moteur (cascade recettes → croissance → Okun).
         # Test runtime : suppression 60 Md€ → -140 630 emplois Y10 sans signal direct.
@@ -151,15 +154,10 @@ class CompetitiviteMixin(_MixinBase):
         else:
             impact_chomage = 0.0
 
-        if self._is_first_year_change('niches_sociales_tge_pa', params_niches_soc):
-            montant_suppression = montant_base - montant
-            impact_pa = -montant_suppression * COEFF_PA_NICHES_SOCIALES_TGE
-        else:
-            impact_pa = 0.0
 
         impacts = {
             'recettes': delta_revenue_social,
-            'pouvoir_achat': impact_pa,
+            'menages': canaux_menages(),
             'competitivite': impact_competitivite,
             'chomage': impact_chomage,
         }
@@ -191,7 +189,7 @@ class CompetitiviteMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': 0,  # Quasi neutre
-            'pouvoir_achat': 0,
+            'menages': canaux_menages(),
             'competitivite': impact_competitivite
         }
 
@@ -235,13 +233,6 @@ class CompetitiviteMixin(_MixinBase):
         # Effet passe par compétitivité → emploi → distribution revenus = MACRO
         # Impact Gini vient UNIQUEMENT de l'effet macro
 
-        # Impact PA (baisse coût travail → hausse emploi → hausse PA) — ONE-TIME
-        # Source: DARES 2024 - Baisse 3 pts = +0.24% emploi = +0.15% PA
-        if self._is_first_year_change('cotisations_patronales_pa', params_cotis_pat):
-            impact_pa = -delta_taux * 0.05  # -3 pts → +0.15%
-        else:
-            impact_pa = 0.0
-
         # Impact chômage via coût travail (ONE-TIME)
         # Élasticité emploi/coût travail = 0.4 (Kramarz & Philippon 2001)
         # Baisse 5 pts cotisations → Baisse coût → +emploi → -0.30 pt chômage
@@ -261,7 +252,7 @@ class CompetitiviteMixin(_MixinBase):
 
         impacts = {
             'recettes': delta_revenue_social,
-            'pouvoir_achat': impact_pa,
+            'menages': canaux_menages(),
             'competitivite': impact_competitivite,
             'chomage': impact_chomage,
             'emploi': impact_emploi_export,  # ONE-TIME (Kramarz-Philippon 2001)
@@ -305,10 +296,6 @@ class CompetitiviteMixin(_MixinBase):
         # Hausse IS → répercussion prix -0.01% pour TOUS → écart relatif inchangé
         # Impact Gini vient UNIQUEMENT de l'effet macro (recettes → multiplicateur)
 
-        # Pouvoir d'achat : Léger impact si hausse répercutée sur prix
-        # Règle : 20% hausse IS = 0.5% hausse prix → -0.0001 PA (INSEE 2024)
-        pouvoir_achat = -0.0001 * (rate - 0.25) / 0.05
-
         # Compétitivité : Impact ONE-TIME basé sur ATTRACTIVITÉ FISCALE (OCDE)
         # Logique : Taux IS affecte délocalisation/attractivité pour toutes entreprises
         # Hausse taux → délocalisation bénéfices (optimisation fiscale, siège social)
@@ -329,7 +316,7 @@ class CompetitiviteMixin(_MixinBase):
             'recettes': delta_revenue,
             'niches_reduction': delta_niches,
             'taux': delta_taux,
-            'pouvoir_achat': pouvoir_achat,
+            'menages': canaux_menages(),
             'competitivite': competitivite
         }
 
@@ -382,16 +369,10 @@ class CompetitiviteMixin(_MixinBase):
         else:
             impact_chomage = 0.0
 
-        # Pouvoir d'achat : Impact ONE-TIME (répercussion prix one-time sur consommation, comme TVA/IS).
-        if self._is_first_year_change('impots_production_pa', params_impots_prod):
-            impact_pa = delta_revenue * 0.001
-        else:
-            impact_pa = 0.0
-
         impacts = {
             'recettes': -delta_revenue,  # Négatif car baisse = perte recettes
 
-            'pouvoir_achat': impact_pa,
+            'menages': canaux_menages(),
             'competitivite': impact_competitivite,
             'chomage': impact_chomage
         }
@@ -424,7 +405,7 @@ class CompetitiviteMixin(_MixinBase):
 
         impacts = {
             'recettes': delta_revenue,
-            'pouvoir_achat': 0,
+            'menages': canaux_menages(),
             'competitivite': impact_competitivite
         }
 

@@ -67,5 +67,9 @@ def test_effets_macro_interpoles_comme_la_recette():
     _, plein = _isf(1.0, POLICY_START_YEAR)
     for i in (0.0, 0.3, 0.6):
         _, imp = _isf(i, POLICY_START_YEAR)
-        for k in ('gini', 'pouvoir_achat', 'competitivite'):
+        for k in ('gini', 'competitivite'):
             assert imp.get(k, 0.0) == pytest.approx(i * plein[k], abs=1e-15), (i, k)
+        # v0.6.8 : canal ménages = la recette elle-même, donc interpolé pareil.
+        directs = imp.get('menages', {}).get('prelevements_directs', 0.0)
+        assert directs == pytest.approx(i * plein['menages']['prelevements_directs'],
+                                        abs=1e-12), i

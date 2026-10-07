@@ -23,7 +23,7 @@ from tests.snapshots.coverage_scenarios import build_standalone_scenarios
 
 # Clés agrégées LUES par le moteur macro (cf handlers/_types.py).
 CANONICAL_KEYS = frozenset({
-    'depenses', 'recettes', 'pouvoir_achat', 'gini', 'competitivite', 'chomage',
+    'depenses', 'recettes', 'menages', 'gini', 'competitivite', 'chomage',
 })
 
 # Clés de traçabilité / métadonnée émises par certains handlers, conservées
@@ -128,6 +128,18 @@ def test_every_handler_emits_at_least_one_key(emitted_keys_by_handler):
         "`_toggle_param_ids` ? param non numérique ?). Le contrat de clés "
         "est aveugle sur eux tant que ce n'est pas corrigé."
     )
+
+
+def test_every_handler_exposes_household_channels(emitted_keys_by_handler):
+    """v0.6.8 : les 33 handlers exposent leurs canaux ménages (clé ``menages``,
+    ``handlers/_types.canaux_menages``), à zéro s'ils n'en ont pas — c'est le
+    contrat que lit l'indice de pouvoir d'achat RDB-moteur (engine/rdb.py).
+    L'ancienne clé ``pouvoir_achat`` (coefficients forfaitaires) a disparu."""
+    sans = sorted(h for h, keys in emitted_keys_by_handler.items() if 'menages' not in keys)
+    assert not sans, f"handler(s) sans canaux ménages : {sans}"
+    avec_ancienne_cle = sorted(h for h, keys in emitted_keys_by_handler.items()
+                               if 'pouvoir_achat' in keys)
+    assert not avec_ancienne_cle, f"clé pouvoir_achat réapparue : {avec_ancienne_cle}"
 
 
 def test_no_handler_crashed(emitted_keys_by_handler):

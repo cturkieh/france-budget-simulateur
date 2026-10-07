@@ -21,6 +21,7 @@ Les sites (c)/(d)/(e) sont inatteignables via les handlers calibrés réels
 import logging
 
 from budget_simulator.simulator import BudgetSimulatorV45
+from budget_simulator.handlers._types import canaux_menages
 
 _ADDITIONNELS_LOGGER = 'budget_simulator.handlers.additionnels'
 _ORCHESTRATOR_LOGGER = 'budget_simulator.engine.orchestrator'
@@ -61,8 +62,9 @@ def test_exonerations_cap_15_emits_warning(default_simulator, caplog):
 # --------------------------------------------------------------------------
 
 def _huge(measure, params, year, gdp, inflation, unemployment):
-    """Handler factice : impact volontairement > 5 % PIB (déclenche le clip)."""
-    return 1.0e9, 1.0e9, {'depenses': 1.0e9, 'recettes': 1.0e9}
+    """Handler factice : impact volontairement > 5 % PIB (déclenche le clip).
+    Honore le contrat des handlers v0.6.8 (canaux ménages, ici nuls)."""
+    return 1.0e9, 1.0e9, {'depenses': 1.0e9, 'recettes': 1.0e9, 'menages': canaux_menages()}
 
 
 def _boom(measure, params, year, gdp, inflation, unemployment):

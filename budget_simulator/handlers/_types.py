@@ -4,7 +4,8 @@
 ``Tuple[float, float, ImpactsDict]``).
 
 Le moteur macro lit principalement les clés agrégées : ``depenses``,
-``recettes``, ``pouvoir_achat``, ``gini``, ``competitivite``, ``chomage``.
+``recettes``, ``menages`` (canaux ménages, v0.6.8 — cf. ``CANAUX_MENAGES``
+ci-dessous), ``gini``, ``competitivite``, ``chomage``.
 Convention de signe budgétaire : ``depenses`` négatif = économie (le solde
 s'améliore), ``recettes`` positif = gain fiscal — l'impact net sur le solde
 d'une mesure vaut ``recettes − depenses``.
@@ -17,7 +18,7 @@ Tolérance ponctuelle : ``rabot_details`` dans ``_apply_rabot_uniforme``
 est un sous-dict métadonnée qui s'écarte du contrat ``Dict[str, float]``.
 Les agrégateurs du moteur (``micro_impacts.py``, ``unemployment.py``,
 ``growth.py``) ne lisent que les clés numériques connues (``gini``,
-``competitivite``, ``chomage``, ``pouvoir_achat``, ``depenses``,
+``competitivite``, ``chomage``, ``menages``, ``depenses``,
 ``recettes``) ; ``rabot_details`` est donc simplement ignorée car non
 listée, pas filtrée par type — pas d'erreur runtime. Cas unique à
 aplatir lors d'un futur chantier de typage strict (cf

@@ -95,6 +95,7 @@ from ..constants import (
     HANDLER_FAILED_KEY,
     PA_VARIATION_ANNUELLE_MAX,
 )
+from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
     EntreeInvalide,
     assainir_mesures,
@@ -291,6 +292,14 @@ class OrchestratorMixin:
                     delta_spending, delta_revenue, measure_impacts = self._apply_complex_measure(
                         measure, parameters, year, gdp, inflation, unemployment
                     )
+                    # Contrat v0.6.8 : un handler qui déplace des euros dit
+                    # lesquels touchent les ménages (clé `menages`, à zéro si
+                    # aucun). Sans elle, l'indice de pouvoir d'achat compterait
+                    # le levier nul SANS le dire : échec bruyant (ERROR +
+                    # HANDLER_FAILED_KEY, escalade stricte) par l'except infra.
+                    if (delta_spending or delta_revenue) and 'menages' not in measure_impacts:
+                        raise RuntimeError(
+                            f"handler {measure_id} sans canaux ménages (clé 'menages')")
                 elif measure.get('type') == 'formule':
                     # Fall back to ASTEVAL formula
                     context = {
@@ -348,8 +357,17 @@ class OrchestratorMixin:
                         (measure_id, 'CLIP_5'),
                         f"{measure_id} : impact plafonné à 5 % du PIB par "
                         f"mesure (plafond du modèle, FMI 2010), dès {year}")
-                delta_spending = np.clip(delta_spending, -max_impact, max_impact)
-                delta_revenue = np.clip(delta_revenue, -max_impact, max_impact)
+                clip_dep = np.clip(delta_spending, -max_impact, max_impact)
+                clip_rec = np.clip(delta_revenue, -max_impact, max_impact)
+                if 'menages' in measure_impacts and (clip_dep != delta_spending
+                                                     or clip_rec != delta_revenue):
+                    # Même plafond pour les euros des ménages que pour le
+                    # budget dont ils sont issus, côté par côté.
+                    measure_impacts['menages'] = borner_canaux(
+                        measure_impacts['menages'],
+                        clip_dep / delta_spending if delta_spending else 1.0,
+                        clip_rec / delta_revenue if delta_revenue else 1.0)
+                delta_spending, delta_revenue = clip_dep, clip_rec
                 # Propager le clip aux measure_impacts (sinon multiplicateur calculé sur valeur
                 # non-clip mais budget appliqué sur valeur clip → incohérence interne)
                 measure_impacts['depenses'] = delta_spending
@@ -361,8 +379,8 @@ class OrchestratorMixin:
                 has_budget_impact = abs(delta_spending) > 0.1 or abs(delta_revenue) > 0.1
                 has_macro_impact = (
                     abs(measure_impacts.get('gini', 0)) > 0.0001 or
-                    abs(measure_impacts.get('pouvoir_achat', 0)) > 0.0001 or
-                    abs(measure_impacts.get('competitivite', 0)) > 0.0001
+                    abs(measure_impacts.get('competitivite', 0)) > 0.0001 or
+                    any(abs(v) > 0.1 for v in measure_impacts.get('menages', {}).values())
                 )
 
                 # v0.6.7 (lot 3b) : TOUT levier évalué entre dans `impacts`, que lit
@@ -461,6 +479,9 @@ class OrchestratorMixin:
                 for key, val in impacts[measure_id].items():
                     if key in _BUDGET_KEYS and isinstance(val, (int, float, np.integer, np.floating)):
                         impacts[measure_id][key] = val * scaling_factor
+                if 'menages' in impacts[measure_id]:
+                    impacts[measure_id]['menages'] = borner_canaux(
+                        impacts[measure_id]['menages'], scaling_factor, scaling_factor)
             _log_debug(self.debug_logs, f"Y{year}: Mesures plafonnées à 10% PIB")
         # Mise à jour des dépenses et recettes
         spending += delta_spending_total
@@ -509,6 +530,10 @@ class OrchestratorMixin:
         growth = self.base_params['croissance_potentielle']
         output_gap = self.output_gap_courant  # init = OUTPUT_GAP_INITIAL (constants.py, source unique)
         purchasing_power = 100.0  # Initialisation avant la boucle (base 100 en 2025)
+        pib_nominal_2025 = gdp_nominal
+        # Décomposition de l'indice de pouvoir d'achat par année (engine/rdb.py),
+        # non arrondie : traçabilité et tests.
+        self._rdb_trace = {}
         competitivite_index = 100.0  # Indice de compétitivité des entreprises (base 100 en 2025)
 
         # Boucle de simulation
@@ -851,45 +876,33 @@ class OrchestratorMixin:
                         f"de son domaine de validité)")
                 self.gini_courant = np.clip(self.gini_courant, GINI_SOFT_FLOOR, GINI_HARD_CEILING)
 
-            # Indice SYNTHÉTIQUE de pouvoir d'achat (macro + micro) — mise à jour
-            # INCRÉMENTALE. Non comparable au RDB réel par UC de l'INSEE (refonte
-            # en RDB : v0.6.8). Formule exacte publiée dans METHODOLOGIE.
-            if year_idx > 0:  # Pas de mise à jour pour l'année de base (2025)
-                # Effet macro : croissance RÉELLE du PIB agrégé (pas par tête).
-                # v0.6.7 (audit Codex 10/2026, bloc C constat 4) : la v0.6.6
-                # calculait `growth − inflation + 0,54 × inflation` — or `growth`
-                # est déjà réelle (le nominal porte le déflateur) : l'inflation
-                # était retranchée une seconde fois, compensée à 54 % par une
-                # « protection d'indexation » qui n'existait que pour corriger
-                # cette soustraction (net g − 0,46 π).
-                pa_macro_net = growth
-
-                # Effet micro : Impacts directs des mesures fiscales/sociales permanentes.
-                # Les mesures permanentes (TVA, IR, CSG...) affectent le PA chaque année,
-                # pas seulement en année 1. L'ancien gate `year_idx == 1` bloquait
-                # l'effet PA des réformes après la première année, ce qui sous-estimait
-                # l'impact cumulé sur le pouvoir d'achat des ménages.
-                # Atténuation : effet réduit de 50% après année 1 (adaptation comportementale).
-                pa_micro = 0
-                if len(measure_impacts_by_year) > 0:
-                    year_measures = measure_impacts_by_year[-1]
-                    for measure_id, measure_data in year_measures.items():
-                        if measure_id != 'Année' and isinstance(measure_data, dict) and 'pouvoir_achat' in measure_data:
-                            pa_micro += measure_data['pouvoir_achat']
-                            if abs(measure_data['pouvoir_achat']) > 0.001:
-                                _log_debug(self.debug_logs,
-                                    f"Y{year}: PA micro {measure_id} = {measure_data['pouvoir_achat']:+.4f}")
-                    # Atténuer l'effet cumulé après année 1 : adaptation comportementale
-                    # et transmission partielle des effets fiscaux sur les prix
-                    if year_idx > 1:
-                        pa_micro *= 0.5
-
-                # PA total = Macro net (après indexation baseline) + Micro (mesures)
-                # Borne physique (v0.6.7, PA_VARIATION_ANNUELLE_MAX) : sans
-                # elle, une variation ≤ −100 % inversait le signe de l'indice
-                # (TVA à 2 000 % → PA −296). Ne mord sur aucun scénario publié.
+            # Indice de pouvoir d'achat RDB-MOTEUR (v0.6.8, engine/rdb.py) : RDB des
+            # ménages déflaté par le prix de leur consommation, par unité de
+            # consommation, base 100 en 2025 — la définition de l'INSEE. Indice de
+            # NIVEAU : l'année t ne lit que les grandeurs de t (PIB nominal,
+            # déflateur, masse salariale publique organique, euros des mesures par
+            # canal ménages). Remplace « croissance du PIB + Σ coefficients
+            # forfaitaires × 0,5 après 2026 » de la v0.6.7 (formule et tableau
+            # avant/après : METHODOLOGIE § Pouvoir d'achat).
+            rdb = rdb_annee(
+                impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
+                (self.masse_categorie_nominale('masse_salariale')
+                 / self.spending_categories_base['masse_salariale']),
+                year_idx)
+            self._rdb_trace[year] = rdb
+            # Même garde de finitude que le Gini : un NaN/inf ressortirait de la
+            # borne comme une valeur plausible.
+            if not np.isfinite(rdb.indice):
+                raise RuntimeError(
+                    f"Y{year_idx}: indice de pouvoir d'achat non fini ({rdb.indice!r}) — "
+                    f"mesures actives : {sorted(leviers_presents(self.mesures))}")
+            if year_idx > 0:
+                # Borne physique (v0.6.7, PA_VARIATION_ANNUELLE_MAX) sur la
+                # variation de l'indice : un RDB rendu négatif ou un prix
+                # démultiplié (TVA à 2 000 %) sortent du domaine du modèle. Ne
+                # mord sur aucun scénario publié.
                 variation_pa, bornee = _borner_variation(
-                    pa_macro_net + pa_micro, PA_VARIATION_ANNUELLE_MAX)
+                    rdb.indice / purchasing_power - 1, PA_VARIATION_ANNUELLE_MAX)
                 if bornee:
                     self._corrections.setdefault(
                         ('Pouvoir d\'Achat', 'SORTIE'),
@@ -897,10 +910,10 @@ class OrchestratorMixin:
                         f"±{PA_VARIATION_ANNUELLE_MAX:.0%} dès {year} "
                         f"(résultat hors du domaine de validité du modèle)")
                 purchasing_power *= (1 + variation_pa)
-
-                if abs(pa_micro) > 0.001:
+                if rdb.effet_mesures or rdb.coin_indirect:
                     _log_debug(self.debug_logs,
-                        f"Y{year}: PA = {purchasing_power:.1f} (macro {pa_macro_net:+.2%}, micro {pa_micro:+.2%})")
+                        f"Y{year}: PA = {purchasing_power:.1f} (RDB {rdb.rdb:.1f} Md€ dont "
+                        f"mesures {rdb.effet_mesures:+.1f}, prix ×{rdb.prix:.4f})")
 
             # Compétitivité des entreprises - Mise à jour MULTIPLICATIVE (comme PA)
             # Sources : OCDE 2024, Banque de France, DG Trésor
@@ -985,6 +998,12 @@ class OrchestratorMixin:
                 # lecteur unique pour que la colonne publiée ne puisse plus
                 # diverger de la croissance simulée.
                 'Croissance_Potentielle_Totale %': round(self.croissance_potentielle_totale() * 100, 2),
+                # Indice de pouvoir d'achat RDB-moteur (v0.6.8) : RDB nominal des
+                # ménages, dont effet direct des mesures, et prix de la
+                # consommation (2025 = 1). Décomposition complète : engine/rdb.py.
+                'RDB_Ménages_Md€': round(rdb.rdb, 1),
+                'RDB_Effet_Mesures_Md€': round(rdb.effet_mesures, 2),
+                'Prix_Consommation': round(rdb.prix, 4),
             })
 
         # Validation finale

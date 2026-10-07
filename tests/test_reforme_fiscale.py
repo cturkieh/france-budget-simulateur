@@ -45,13 +45,16 @@ def test_csg_progressive():
 
     print(f"\n  Delta Deficit : {delta_recettes:.2f} Md (attendu: ~0)")
     print(f"  Delta Gini : {delta_gini:.4f} (attendu: -0.015 brut x {ATTENUATION_Y1:.3f} en sortie Y1)")
-    print(f"  Delta PA : {delta_pa:.2f}% (attendu: +0.4%)")
+    print(f"  Delta PA : {delta_pa:.2f}% (attendu: 0)")
 
     # Validation souple
     assert abs(delta_recettes) < 2.0, f"[X] Neutralite recettes echouee : {delta_recettes:.2f} Md"
     assert -0.022 * ATTENUATION_Y1 < delta_gini < -0.008 * ATTENUATION_Y1, \
         f"[X] Impact Gini hors cible : {delta_gini:.4f}"
-    assert 0.2 < delta_pa < 0.6, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
+    # v0.6.8 (indice RDB-moteur) : à recette nulle, la progressivité déplace du
+    # revenu ENTRE ménages sans changer leur RDB total — effet porté par le
+    # Gini, nul sur l'indice agrégé (l'ancien +0,4 % était un coefficient).
+    assert abs(delta_pa) < 1e-9, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
 
     print("\n[OK] TEST CSG PROGRESSIVE REUSSI")
 
@@ -75,10 +78,12 @@ def test_cotisations_salariales():
     delta_pa = y0_baisse[PA_COL] - y0_sq[PA_COL]
 
     print(f"\n  Cout : {-delta_recettes:.2f} Md (attendu: 18 Md)")
-    print(f"  Delta PA : {delta_pa:.2f}% (attendu: +1.5%)")
+    print(f"  Delta PA : {delta_pa:.2f}% (attendu: +0.95%)")
 
     assert -21 < delta_recettes < -15, f"[X] Cout hors cible : {delta_recettes:.2f} Md"
-    assert 1.2 < delta_pa < 1.8, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
+    # v0.6.8 : 18 Md€ rendus sur un RDB 2026 d'environ 1 900 Md€ ≈ +0,95 pt
+    # (l'ancien +0,5 %/point transmettait 133 % de ses euros).
+    assert 0.85 < delta_pa < 1.05, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
 
     print("\n[OK] TEST COTISATIONS SALARIALES REUSSI")
 

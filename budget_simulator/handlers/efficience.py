@@ -23,9 +23,10 @@ Mesures couvertes (5 handlers) :
   agents, masse salariale 330 Md€, coût moyen 60 k€/agent. La cible
   d'effectifs est atteinte par une rampe linéaire 2027-2032 (v0.6.7) ; une
   réduction puise dans le vivier de départs partagé avec la réforme, au même
-  taux maximal de non-remplacement (67 %). Impact ``pouvoir_achat`` de
-  niveau, asymétrie volontaire (suppressions = attrition naturelle, pas
-  d'effet PA sur les actifs). ``int(...)`` sur
+  taux maximal de non-remplacement (67 %). Pouvoir d'achat (v0.6.8) : seul
+  le point d'indice est un revenu direct des agents (canal
+  ``remunerations_publiques``) ; les effectifs, dans les deux sens, passent
+  par la croissance (arbitrage du mainteneur). ``int(...)`` sur
   ``variation_effectifs`` au logging : le frontend JSON peut envoyer un
   float (25000.0) là où ``{:+d}`` exige un int — garde-fou Phase 0.8 à
   préserver tel quel.
@@ -34,13 +35,12 @@ Mesures couvertes (5 handlers) :
 
 Convention d'application :
 - Profil « EFFICIENCE » : récupérer de l'argent dû / optimiser l'interne
-  ne crée pas de valeur économique → ``gini`` / ``pouvoir_achat`` /
-  ``competitivite`` neutralisés à 0 pour fraude_fiscale, fraude_sociale,
+  ne crée pas de valeur économique → ``gini`` / ``competitivite`` et canaux
+  ménages (``menages``) neutralisés à 0 pour fraude_fiscale, fraude_sociale,
   fonction_publique_reforme, optimisation_dette. Seul ``fonction_publique``
-  porte un effet ``pouvoir_achat`` (point d'indice / créations de postes),
-  gated one-time par ``self._is_first_year_change('fonction_publique', …)``
-  (méthode de l'hôte). Voir docs/METHODOLOGIE.md § "Lutte contre la
-  Fraude" et § "Fonction Publique".
+  porte un canal ménages (point d'indice, ``remunerations_publiques``, en
+  niveau de l'année). Voir docs/METHODOLOGIE.md § "Lutte contre la Fraude"
+  et § "Fonction Publique".
 - Garde précoce ``if <cible> == 0: return 0, 0, {}`` dans les 5 handlers
   (mesure inactive = neutre) — PRÉSERVÉ tel quel du monolithe.
 
@@ -92,7 +92,7 @@ from ..constants import (
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing, asu_phasing
-from ._types import ImpactsDict
+from ._types import ImpactsDict, canaux_menages
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -195,7 +195,7 @@ class EfficienceMixin(_MixinBase):
             'depenses': delta_spending,
             'recettes': delta_revenue,
             'gini': 0,  # Pas d'impact redistributif (récupération fraude)
-            'pouvoir_achat': 0,  # Pas d'impact direct sur ménages
+            'menages': canaux_menages(),  # Pas d'impact direct sur ménages
             'competitivite': 0  # Pas d'impact sur compétitivité entreprises
         }
 
@@ -318,7 +318,7 @@ class EfficienceMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': 0.0,
-            'pouvoir_achat': 0.0,
+            'menages': canaux_menages(),
             'competitivite': 0.0
         }
 
@@ -446,7 +446,7 @@ class EfficienceMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': 0,  # Pas d'impact redistributif (optimisation interne)
-            'pouvoir_achat': 0,  # Pas d'impact direct sur ménages
+            'menages': canaux_menages(),  # Pas d'impact direct sur ménages
             'competitivite': 0  # Gains productivité admin ≠ compétitivité entreprises
         }
         return delta_spending, 0, impacts
@@ -518,6 +518,7 @@ class EfficienceMixin(_MixinBase):
         # que le coût d'un agent — figée en euros 2025, la masse sous-estimait
         # le coût d'une hausse de rémunération quand les économies d'une
         # réduction d'effectifs, elles, étaient indexées.
+        impact_point_indice = 0.0
         if hausse_point_indice != 0:
             impact_point_indice = ((hausse_point_indice / 100) * masse_salariale_base
                                    * self.indice_prix_depenses())
@@ -526,32 +527,14 @@ class EfficienceMixin(_MixinBase):
                 f"Y{year}: FP Point indice - {hausse_point_indice:+.1f}% = {impact_point_indice:+.1f} Md€")
 
         # IMPACTS MACRO
-        # Pouvoir d'achat : ONE-TIME (effet demande initial)
-        # Hausse point indice → +PA pour fonctionnaires (15% pop active)
-        # +1% point indice = +0.003 PA (effet modéré car 15% de la pop)
-        # Créations postes = emplois stables = +PA (+10k postes = +0.001 PA)
-        params_fp = {
-            'effectifs': variation_effectifs,
-            'point_indice': hausse_point_indice
-        }
-
-        if self._is_first_year_change('fonction_publique', params_fp):
-            pouvoir_achat = hausse_point_indice * 0.003
-        else:
-            pouvoir_achat = 0.0
-        # Asymétrie volontaire : suppressions de postes = non-remplacement de départs en retraite
-        # (attrition naturelle, pas de licenciements), donc pas d'effet PA direct sur les actifs.
-        # Création : 10k postes × 60k€ × 70% net = 0.4 Md€ → +0.025% PA (calibration INSEE).
-        # v0.6.7 : effet de NIVEAU servi au rythme de la rampe — chaque année émet
-        # l'INCRÉMENT de postes créés (convention de l'ASU), la somme vaut le
-        # niveau atteint ; il était servi en entier en 2026 pour des postes qui
-        # ne sont plus créés qu'à partir de 2027.
-        if variation_effectifs > 0:
-            increment = (variation_effectifs
-                         * (_fp_effectifs_annees_de_rampe(year)
-                            - _fp_effectifs_annees_de_rampe(year - 1))
-                         / _FP_EFFECTIFS_DUREE_RAMPE)
-            pouvoir_achat += increment / 40000 * 0.001
+        # Pouvoir d'achat (v0.6.8, arbitrage du mainteneur) : le point d'indice
+        # est un revenu versé aux agents en place — canal
+        # ``remunerations_publiques`` au COÛT de l'année, dont l'indice ne
+        # retient que la part nette (PART_NETTE_REMUNERATIONS_APU), compté UNE
+        # fois (plus de coefficient en sus de la croissance : 0,003/point
+        # transmettait 158 % de ses euros). Les EFFECTIFS, créations comme
+        # suppressions, n'ont aucun effet direct : ils passent par la
+        # croissance, qui contient la production publique de ces agents.
 
         # Compétitivité : PAS D'IMPACT DIRECT
         # Lien masse salariale FP → compétitivité entreprises trop indirect
@@ -565,12 +548,12 @@ class EfficienceMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': gini,
-            'pouvoir_achat': pouvoir_achat,
-            'competitivite': competitivite
+            'competitivite': competitivite,
+            'menages': canaux_menages(remunerations_publiques=impact_point_indice),
         }
 
         _log_debug(self.debug_logs,
-            f"Y{year}: FP Total = {delta_spending:+.1f} Md€ (PA: {pouvoir_achat:+.4f}, Compét: {competitivite:+.4f})")
+            f"Y{year}: FP Total = {delta_spending:+.1f} Md€ (Compét: {competitivite:+.4f})")
 
         return delta_spending, 0, impacts
 
@@ -596,7 +579,7 @@ class EfficienceMixin(_MixinBase):
         impacts = {
             'depenses': delta_spending,
             'gini': 0.0,
-            'pouvoir_achat': 0.0,
+            'menages': canaux_menages(),
             'competitivite': 0.0
         }
 
