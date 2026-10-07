@@ -811,9 +811,10 @@ RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 
 # --- Désindexation des pensions (v0.6.7, audit Codex 10/2026, bloc B constat 2) ---
 # Économie = PART × masse nominale de la catégorie `retraites` de l'année ×
 # [1 − Π (1 − δ × max(π_{s−1}, 0))], δ = 1 − indexation, une revalorisation par
-# an dès POLICY_START_YEAR, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE — 2026 à
-# l'inflation 2025 réalisée, INFLATION_BASE (handlers/depenses.py, réfutation des
-# handlers : c'était l'inflation de l'année courante, gel 2026 = 4,48 Md€).
+# an dès POLICY_START_YEAR, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE — 2026 au
+# taux légal effectif REVALORISATION_PENSIONS_2026 (handlers/depenses.py,
+# réfutation des handlers : c'était l'inflation de l'année courante, gel 2026 =
+# 4,48 Md€).
 # Remplace RETRAITES_EROSION_INDEXATION_MD_EUR = 1,5 Md€/an par année et par
 # point d'écart, indépendant de l'inflation et non sourcé : sur 380 Md€ de
 # pensions, une inflation implicite de 0,39 % — quatre fois moins qu'une
@@ -827,6 +828,18 @@ RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 
 # catégorie du moteur au statu quo (390,7 Md€) : 336 / 390,7 = 0,86.
 # Verrouillé par tests/test_desindexation_v067.py (ancrage OFCE à 0,05 Md€).
 RETRAITES_PART_MASSE_INDEXEE = 0.86
+# REVALORISATION DES PENSIONS AU 1ER JANVIER 2026 : un FAIT, pas une sortie du
+# moteur — 0,9 % (coefficient 1,009, art. L161-25 CSS : prix hors tabac sur douze
+# mois ; le gel du PLFSS 2026 a été rejeté). Sources : service-public.fr,
+# « Pensions de retraite de base : quelle revalorisation au 1er janvier 2026 ? »
+# (https://www.service-public.fr/particuliers/actualites/A17919) ; circulaire
+# Cnav 2025/29 du 22/12/2025. C'est la revalorisation 2026 qu'évite un programme
+# qui gèle ou sous-indexe les pensions ; les suivantes portent l'inflation du
+# moteur de l'année précédente. La part indexée ci-dessus reste déduite du point
+# OFCE avec SON hypothèse (1,1 % → 3,7 Md€, soit 336 Md€) : au taux effectif, le
+# même gel vaut 3,0 Md€. Les prestations (revalorisées au 1er avril) gardent
+# INFLATION_BASE pour 2026 : leur taux effectif n'a pas été vérifié.
+REVALORISATION_PENSIONS_2026 = 0.009
 RETRAITES_EROSION_PLATEAU_ANS = 7        # revalorisations comptées au plus : renouvellement des cohortes, l'écart au statu quo cesse de croître
 
 # --- Canal redistributif du levier d'âge -----------------------------------

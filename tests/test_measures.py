@@ -40,13 +40,14 @@ def test_apply_retraites(simulator):
     # year_idx=0 (2026) → phasing = (0+1)/5 = 0.2
     # age: -6,0 * (63 - 62,75) * 0,2 * (1 - 0,096) = -0,2712
     # duration: -4 * (43.5 - 42.5) * 0.2 = -0.8
-    # indexation (v0.6.7) : 0,86 × masse nominale × δ × π la première année —
-    # hors simulation la masse est la base 2025 (380 Md€) : -0,86 × 380 × 0,3 × 0,01
-    # = -0,9804 (v0.6.6 : -1,5 × 0,3, insensible à l'inflation).
+    # indexation (v0.6.7) : 0,86 × masse nominale × δ × la revalorisation légale
+    # effective du 1er janvier 2026 (0,9 %, un fait, pas l'inflation de l'appel)
+    # — hors simulation la masse est la base 2025 (380 Md€) : -0,86 × 380 × 0,3 ×
+    # 0,009 = -0,8824 (v0.6.6 : -1,5 × 0,3, insensible à l'inflation).
     phasing = 0.2
     expected_spending = (-6.0 * (63 - 62.75) * phasing * (1 - 0.096)
                          - 4.0 * (43.5 - 42.5) * phasing
-                         - 0.86 * 380 * (1 - 0.7) * 0.01)
+                         - 0.86 * 380 * (1 - 0.7) * 0.009)
     assert abs(delta_spending - expected_spending) < 1e-9, f"Expected {expected_spending:.4f}, got {delta_spending:.4f}"
     assert delta_revenue == 0
     assert 'depenses' in impacts

@@ -444,15 +444,18 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
   l'écart constitué subsiste ensuite, sans se rembourser.
 - Calendrier N−1 (réfutation des handlers, 07/10/2026) : chaque revalorisation porte l'inflation de
   l'ANNÉE PRÉCÉDENTE, comme la loi (pensions au 1er janvier, prestations au 1er avril, sur l'inflation
-  passée) et comme la baseline du moteur (part indexée de `pi_idx`, ci-dessus). Celle de 2026 porte
-  l'inflation 2025 réalisée, `INFLATION_BASE` (1,1 %, constante INSEE et non sortie du moteur) ; les
-  suivantes, l'inflation que le moteur calcule pour l'année d'avant. Le moteur revalorisait à
-  l'inflation de l'année COURANTE (1,33 % en 2026) : un gel total 2026 valait 4,48 Md EUR, 21 % au-dessus
-  de l'ancrage OFCE de sa propre calibration ; il vaut désormais 3,7 Md EUR. Limite assumée : le moteur
-  n'a qu'un concept de prix (le déflateur), quand la loi revalorise sur l'indice des prix à la
-  consommation hors tabac — la revalorisation légale effective du 1er janvier 2026 a été de 0,9 %
-  (gel du PLFSS rejeté), soit un gel 2026 à ~3,0 Md EUR sur cette base. Effet de la correction sur la
-  dette 2035 : Renaissance +0,07 pt, IM-compétitivité +0,04.
+  passée) et comme la baseline du moteur (part indexée de `pi_idx`, ci-dessus). Les revalorisations
+  à partir de 2027 portent l'inflation que le moteur calcule pour l'année d'avant. Celle du 1er janvier
+  2026 a déjà eu lieu : c'est un fait, `REVALORISATION_PENSIONS_2026` = **0,9 %** (coefficient 1,009,
+  art. L161-25 CSS, gel du PLFSS rejeté — service-public.fr, « Pensions de retraite de base : quelle
+  revalorisation au 1er janvier 2026 ? » ; circulaire Cnav 2025/29). Un gel total 2026 évite donc
+  0,9 % de la masse indexée : **3,0 Md EUR**. La part indexée 0,86 ne change pas : elle reste déduite du
+  point OFCE avec l'hypothèse de l'OFCE (1,1 % → 3,7 Md EUR, soit 336 Md EUR), seul le taux évité
+  diffère. Le moteur revalorisait à l'inflation de l'année COURANTE (1,33 % en 2026) : le même gel
+  valait 4,48 Md EUR. Les prestations, revalorisées au 1er avril, gardent pour 2026 l'inflation 2025
+  réalisée (`INFLATION_BASE`, 1,1 %) : leur taux effectif n'a pas été vérifié. Effet de la correction
+  sur la dette 2035 : Renaissance +0,07 pt (inflation N−1) puis +0,02 (taux 2026 effectif),
+  IM-compétitivité +0,04 puis +0,02.
 - Part indexée 0,86 : la masse que porte une désindexation décidée par la loi (régimes de base
   et pensions publiques ; l'Agirc-Arrco est revalorisé par les partenaires sociaux), calée sur
   l'OFCE — P. Madec, « Impôts et prestations : quels effets attendre d'une « année blanche » ? »,

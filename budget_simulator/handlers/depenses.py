@@ -147,6 +147,7 @@ from ..constants import (
     RETRAITES_PA_GEL_TOTAL,
     RETRAITES_PART_MASSE_INDEXEE,
     RETRAITES_REF_DUREE_ANS,
+    REVALORISATION_PENSIONS_2026,
     asu_cout_annuel_md_eur,
     asu_cout_recours_md_eur,
     asu_effort_perenne_md_eur,
@@ -176,7 +177,7 @@ class DepensesMixin(_MixinBase):
     """Handlers Section 2 — Maîtrise des dépenses."""
 
     def _ecart_revalorisations(self, delta: float, year: int, inflation: float,
-                               max_revalorisations: int) -> float:
+                               max_revalorisations: int, taux_2026: float) -> float:
         """Écart de NIVEAU d'une masse sous-indexée (part de la masse), v0.6.7.
 
         ``1 − Π_s (1 − δ × max(π_{s−1}, 0))`` sur les revalorisations écoulées :
@@ -185,9 +186,11 @@ class DepensesMixin(_MixinBase):
         l'inflation de l'ANNÉE PRÉCÉDENTE : la loi revalorise les pensions au
         1er janvier et les prestations au 1er avril sur l'inflation passée, et
         c'est elle que l'OFCE chiffre (gel 2026 : 1,1 %, 3,7 Md€ — l'ancrage de
-        RETRAITES_PART_MASSE_INDEXEE). La revalorisation de 2026 porte donc
-        l'inflation 2025 réalisée, ``base_params['inflation_base']`` (constante
-        INSEE, pas une sortie du moteur) ; les suivantes, l'inflation que le
+        RETRAITES_PART_MASSE_INDEXEE). La revalorisation de 2026 porte
+        ``taux_2026``, un fait que l'appelant fournit (pensions : le taux légal
+        effectif REVALORISATION_PENSIONS_2026 ; prestations : l'inflation 2025
+        réalisée, ``base_params['inflation_base']``), jamais une sortie du
+        moteur ; les suivantes, l'inflation que le
         moteur a calculée l'année d'avant (``_inflation_par_annee``, écrit par
         ``simulate()`` avant les handlers ; hors simulation, une année absente
         vaut l'inflation de l'appel). v0.6.7 jusqu'à la réfutation des handlers :
@@ -200,7 +203,7 @@ class DepensesMixin(_MixinBase):
         facteur = 1.0
         for annee in range(POLICY_START_YEAR, dernier + 1):
             if annee == POLICY_START_YEAR:
-                pi = self.base_params['inflation_base']
+                pi = taux_2026
             else:
                 pi = self._inflation_par_annee.get(annee - 1, inflation)
             facteur *= 1 - delta * max(pi, 0.0)
@@ -285,7 +288,8 @@ class DepensesMixin(_MixinBase):
         delta_spending -= (RETRAITES_PART_MASSE_INDEXEE
                            * self.masse_categorie_nominale('retraites')
                            * self._ecart_revalorisations(1.0 - indexation, year, inflation,
-                                                         RETRAITES_EROSION_PLATEAU_ANS))
+                                                         RETRAITES_EROSION_PLATEAU_ANS,
+                                                         REVALORISATION_PENSIONS_2026))
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
@@ -1101,7 +1105,8 @@ class DepensesMixin(_MixinBase):
         # voté pour 2026 ne rapportait rien en 2026). Dix revalorisations au plus
         # (l'ancien plafond « 10 ans »), sans plateau de cohortes : un barème
         # sous-indexé le reste pour tous les bénéficiaires.
-        ecart = self._ecart_revalorisations(indexation_ref - indexation, year, inflation, 10)
+        ecart = self._ecart_revalorisations(indexation_ref - indexation, year, inflation, 10,
+                                            self.base_params['inflation_base'])
         delta_spending = -self.masse_categorie_nominale('minima_sociaux') * ecart  # <0 économie, >0 surcoût
 
         # === MACRO IMPACTS ===
