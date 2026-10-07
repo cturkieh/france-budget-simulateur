@@ -1306,8 +1306,8 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
 
 **Potentiel** : 0-18 Md EUR selon bareme
 
-**Curseur d'intensité — courbe continue (v0.6.7, audit externe Codex 10/2026, arbitrage de
-Cyril)** : `recette totale = IFI + intensité × (ISF complet − IFI)`, donc écart au statu quo =
+**Curseur d'intensité — courbe continue (v0.6.7, audit externe Codex 10/2026, arbitrage du
+mainteneur du 07/10/2026)** : `recette totale = IFI + intensité × (ISF complet − IFI)`, donc écart au statu quo =
 `intensité × (ISF complet − IFI)`, où « ISF complet » est le point NFP ci-dessous (seuil 1,3 M EUR,
 taux 1 %, bonus vert 30 % : +7,90 Md EUR en 2030, IFI de 2,16 Md EUR déduit). Gini, pouvoir
 d'achat et compétitivité sont interpolés de la même façon. Monotone, nul à 0, identique au bit à 1
@@ -1418,7 +1418,7 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
 
-**Recalibrage « central » des familles (v0.6.7, GO de Cyril du 07/10/2026)** — règle : chaque
+**Recalibrage « central » des familles (v0.6.7, arbitrage du mainteneur du 07/10/2026)** — règle : chaque
 famille est calée sur la valeur CENTRALE de la littérature, en effet de NIVEAU sur le PIB réel 4 ans
 après le début d'une impulsion PERMANENTE de 1 % du PIB (définition du FMI), MESURÉ DANS LE MOTEUR
 COMPLET (rappel vers le potentiel λ = 0,2, Phillips, Okun, dette) et non en `k × Σ profil`. Une
@@ -1433,9 +1433,9 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 | Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 |
 | Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 |
 
-**Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée** : en moteur complet, la coupe coûte encore 4,4 % de plus que la hausse ne rapporte ; c'est l'éviction (« crowding-out »), qui pénalise les seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Verrouillé par `tests/test_symetrie_transferts_v067.py`.
+**Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée** : en moteur complet, la coupe coûte encore 4,4 % de plus que la hausse ne rapporte ; c'est l'éviction (« crowding-out »), qui réduit mécaniquement l'effet des seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Verrouillé par `tests/test_symetrie_transferts_v067.py`.
 
-**Baisse d'impôts symétrique de la hausse (v0.6.7 — GO de Cyril : « pas prouvé = valeur centrale »).** Jusqu'ici une baisse d'impôts valait 0,7 fois une hausse (k 0,455 contre 0,615 ; « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », un héritage sans source) : rendre 1 point de PIB d'impôts rapportait 0,45 point de PIB à 4 ans quand le prélever en coûtait 0,65 — 0,2 point de PIB de pénalité par point de PIB pour tout programme qui baisse un impôt. Vérification en ligne du 07/10/2026 : les études de référence estiment UN coefficient pour les deux signes (Romer & Romer 2010, *AER* 100(3), 763-801, chocs narratifs : « tax increases are highly contractionary », modèle linéaire ; Mertens & Ravn 2013, *AER* 103(4), 1212-47, impôts sur le revenu et sur les sociétés, « short run output effects of tax shocks are large » ; méta-analyse Gechert 2015, *Oxford Economic Papers* 67(3), qui classe par instrument) ; les seules estimations d'une asymétrie de signe se contredisent : aux États-Unis c'est la BAISSE qui l'emporte (Hussain & Malik 2016, *Journal of Economic Dynamics and Control* 69, 268-300 : « the output response to a tax increase is statistically insignificant, but output shows a significantly positive and permanent increase following a tax decrease » ; Jones, Olson & Wohar 2015, *Journal of Macroeconomics* 43, 38-48 : « in the U.S. positive tax shocks—tax increases—do not affect output while negative tax shocks—tax cuts—have large, positive effects »), au Royaume-Uni la HAUSSE (même article : « In the U.K., tax increases substantially reduce output while tax cuts have no significant effect »). Aucune asymétrie n'est établie dans un sens : la baisse prend la valeur centrale de la hausse, 0,65 d'effet de niveau à 4 ans. Le coefficient d'impact est un peu plus haut (k = 0,63 contre 0,615) parce que l'éviction du moteur (« crowding-out », `engine/growth.py`) ne frappe que les expansions au-delà de 100 % du PIB de dette : à k égal, la baisse ne vaudrait que 0,631 (−3 %) ; éviction neutralisée, k égaux donnent un rapport 1,001 — c'est le même calage sur l'EFFECTIF que les transferts, mesurés eux aussi en expansion. Déplace les seuls scénarios qui baissent un impôt (dette 2035 : LR −2,84 pt, Horizons −2,72, RN −1,70, Renaissance −1,58, IM Compétitivité −1,05, LFI −0,88, PS −0,77, Budget 2026 voté −0,03) et 5 cas isolés du golden master ; les 31 autres cas, dont le statu quo, Écologistes et IM Rabot, sont identiques au bit. Verrouillé par `tests/test_symetrie_impots_v067.py` (trois leviers fiscaux, rapport baisse/hausse à 4 ans à ±3 %).
+**Baisse d'impôts symétrique de la hausse (v0.6.7 — arbitrage du mainteneur du 07/10/2026 : « pas prouvé = valeur centrale »).** Jusqu'ici une baisse d'impôts valait 0,7 fois une hausse (k 0,455 contre 0,615 ; « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », un héritage sans source) : rendre 1 point de PIB d'impôts rapportait 0,45 point de PIB à 4 ans quand le prélever en coûtait 0,65 — 0,2 point de PIB d'écart défavorable, mécanique, par point de PIB pour tout programme qui baisse un impôt. Vérification en ligne du 07/10/2026 : les études de référence estiment UN coefficient pour les deux signes (Romer & Romer 2010, *AER* 100(3), 763-801, chocs narratifs : « tax increases are highly contractionary », modèle linéaire ; Mertens & Ravn 2013, *AER* 103(4), 1212-47, impôts sur le revenu et sur les sociétés, « short run output effects of tax shocks are large » ; méta-analyse Gechert 2015, *Oxford Economic Papers* 67(3), qui classe par instrument) ; les seules estimations d'une asymétrie de signe se contredisent : aux États-Unis c'est la BAISSE qui l'emporte (Hussain & Malik 2016, *Journal of Economic Dynamics and Control* 69, 268-300 : « the output response to a tax increase is statistically insignificant, but output shows a significantly positive and permanent increase following a tax decrease » ; Jones, Olson & Wohar 2015, *Journal of Macroeconomics* 43, 38-48 : « in the U.S. positive tax shocks—tax increases—do not affect output while negative tax shocks—tax cuts—have large, positive effects »), au Royaume-Uni la HAUSSE (même article : « In the U.K., tax increases substantially reduce output while tax cuts have no significant effect »). Aucune asymétrie n'est établie dans un sens : la baisse prend la valeur centrale de la hausse, 0,65 d'effet de niveau à 4 ans. Le coefficient d'impact est un peu plus haut (k = 0,63 contre 0,615) parce que l'éviction du moteur (« crowding-out », `engine/growth.py`) ne frappe que les expansions au-delà de 100 % du PIB de dette : à k égal, la baisse ne vaudrait que 0,631 (−3 %) ; éviction neutralisée, k égaux donnent un rapport 1,001 — c'est le même calage sur l'EFFECTIF que les transferts, mesurés eux aussi en expansion. Déplace les seuls scénarios qui baissent un impôt (dette 2035 : LR −2,84 pt, Horizons −2,72, RN −1,70, Renaissance −1,58, IM Compétitivité −1,05, LFI −0,88, PS −0,77, Budget 2026 voté −0,03) et 5 cas isolés du golden master ; les 31 autres cas, dont le statu quo, Écologistes et IM Rabot, sont identiques au bit. Verrouillé par `tests/test_symetrie_impots_v067.py` (trois leviers fiscaux, rapport baisse/hausse à 4 ans à ±3 %).
 
 Le rappel vers le potentiel rend les effets de demande transitoires : à 10 ans le niveau est revenu
 près de zéro (l'effet durable du capital public passe par le canal d'offre `SUPPLY_EFFECTS`). **Aucun
@@ -1445,17 +1445,34 @@ du coût brut d'une impulsion permanente d'investissement revient au solde publi
 l'autofinancement (2,38 × 0,51 > 1), masqué par l'impulsion unique. Le recalibrage RELÈVE trois familles
 sur quatre : la v0.6.6 était sous la valeur centrale pour les impôts, les transferts et les coupes.
 
-**Incertitude et poids du canal keynésien (v0.6.7, GO de Cyril du 07/10/2026).** Le classement entre
-programmes dépend d'abord de ce canal. Mesure du 07/10/2026 (moteur v0.6.7, les cinq multiplicateurs
-`MULT_*` à zéro, toutes les autres équations inchangées) : la dette 2035 de LFI passerait de 151,8 % à
-176,3 % du PIB, celle d'IM Rabot de 134,4 % à 106,1 % ; selon les programmes, le canal déplace la dette
-2035 de −24,5 à +28,3 points. La valeur centrale retenue est celle de la table ci-dessus (FMI WEO
+**Incertitude et poids du canal keynésien (v0.6.7, arbitrage du mainteneur du 07/10/2026).** Le
+classement entre programmes dépend d'abord de ce canal. Mesure du 07/10/2026 (moteur v0.6.7, les cinq
+multiplicateurs `MULT_*` à zéro, toutes les autres équations inchangées), dette 2035 en % du PIB :
+
+| Scénario | Avec canal (central) | Sans canal | Effet du canal (pts) |
+|---|---:|---:|---:|
+| Statu quo | 151,2 | 151,2 | 0,0 |
+| Budget 2026 voté | 149,8 | 148,4 | +1,4 |
+| RN | 152,7 | 159,6 | −6,9 |
+| LFI | 151,8 | 176,3 | −24,5 |
+| Renaissance | 151,6 | 156,1 | −4,5 |
+| Horizons | 145,0 | 140,4 | +4,6 |
+| LR | 156,1 | 161,8 | −5,7 |
+| PS | 144,7 | 157,8 | −13,1 |
+| Les Écologistes | 137,1 | 145,4 | −8,3 |
+| IM Rabot | 134,4 | 106,1 | +28,3 |
+| IM Compétitivité | 127,6 | 127,7 | −0,1 |
+
+Selon les programmes, le canal déplace la dette 2035 de −24,5 à +28,3 points, les deux extrêmes des dix
+scénarios publiés (négatif : le canal allège la dette, cas des programmes de relance ; positif : il
+l'alourdit, cas des consolidations). La valeur centrale retenue est celle de la table ci-dessus (FMI WEO
 oct. 2014, Ramey 2019, Gechert 2015), mais la littérature ne tranche pas pour la France. Le site publie
 donc, sur chaque fiche programme, une fourchette : la même trajectoire avec les cinq multiplicateurs
 (`MULT_INVESTISSEMENT`, `MULT_COUPE_DEPENSES`, `MULT_TRANSFERTS`, `MULT_HAUSSE_IMPOTS`,
 `MULT_BAISSE_IMPOTS`) ×0,75 et ×1,25 — coefficients propres du SMIC et de la fraude fiscale et
-ajustements conjoncturels inchangés. Exemple, dette 2035 : LFI 148,1 à 155,9 %, IM Rabot 125,4 à
-144,5 % ; le statu quo, sans impulsion, ne bouge pas (151,2 %).
+ajustements conjoncturels inchangés. Les deux extrêmes des dix scénarios, dette 2035 : la fourchette la
+plus large est celle d'IM Rabot (125,4 à 144,5 %), la plus étroite celle d'IM Compétitivité (127,6 % dans
+les deux cas) ; chaque fiche publie la sienne. Le statu quo, sans impulsion, ne bouge pas (151,2 %).
 
 **Perimetre du canal investissement (v0.6.0)** : education, recherche publique,
 transition ecologique UNIQUEMENT (`INVESTMENT_CORE_MEASURES`). La sante courante
@@ -1463,7 +1480,7 @@ et la reforme de l'Etat sont de la consommation/optimisation publique : canaux
 transferts/generique (la revue adverse du 24/08 a montre que le perimetre large
 donnait un multiplicateur d'investissement aux coupes... de sante).
 
-**Atténuation « confiance » retirée (v0.6.7 — règle de Cyril du 07/10/2026 : un mécanisme reste si et seulement s'il est conforme à la littérature).** Jusqu'ici toute coupe de dépense générique était divisée par 1,10 dès la 2ᵉ année (« effet confiance », Alesina-Favero-Giavazzi : plans par la dépense « mild recessionary »). Deux constats, chacun suffisant :
+**Atténuation « confiance » retirée (v0.6.7 — règle posée par le mainteneur le 07/10/2026 : un mécanisme reste si et seulement s'il est conforme à la littérature).** Jusqu'ici toute coupe de dépense générique était divisée par 1,10 dès la 2ᵉ année (« effet confiance », Alesina-Favero-Giavazzi : plans par la dépense « mild recessionary »). Deux constats, chacun suffisant :
 
 1. **Il était redondant par construction.** Le facteur frappait 100 % des coupes génériques (sonde sur les 44 cas du golden master : aucune coupe générique hors de son champ), et la calibration v0.6.7 cale l'EFFECTIF de la coupe sur 0,8 (Ramey 2019) : il était donc absorbé dans k. Preuve : sans le facteur, avec k = 0,81 / 1,10, les 44 cas sont identiques au bit. Il ne modélisait rien ; il affichait un mécanisme.
 2. **L'effet qu'il affichait est contredit par la table qui le porte, et n'est pas établi pour la France.** Alesina, Favero & Giavazzi (2015, *Journal of International Economics* 96, S19-S42 ; livre *Austerity*, 2019) : « Fiscal adjustments based upon spending cuts are much less costly, in terms of output losses, than tax-based ones », différence « not to be explained by accompanying policies, including monetary policy » mais par la confiance et l'investissement privé. Le FMI (WEO oct. 2010, ch. 3, « Will It Hurt? ») trouve le même classement mais l'attribue d'abord à la politique monétaire : « Consolidation is more painful when it relies primarily on tax hikes; this occurs largely because central banks typically provide less monetary stimulus during such episodes » — canal qui n'existe pas pour un pays de la zone euro, dont la politique monétaire est commune. Et la méta-analyse retenue par le moteur pour classer les instruments (Gechert 2015, 104 études) donne l'ordre INVERSE : dépenses ≈ 1, impôts 0,3 à 0,4 de moins. La table par famille suit Gechert — coupe 0,8 contre hausse d'impôts 0,65 —, si bien que, même ÷ 1,10, une consolidation par la dépense coûtait PLUS de PIB qu'une consolidation par l'impôt : le facteur n'implémentait pas l'effet d'AFG, il en portait le nom. Les multiplicateurs fiscaux narratifs américains (Ramey 2019 : « −2 to −3 ») iraient dans le sens d'AFG, mais ils ne sont pas retenus comme centraux pour la France (choix déclaré dans la table ci-dessus). Guajardo, Leigh & Pescatori (2014, *JEEA* 12(4)) réfutent l'austérité EXPANSIONNISTE (« fiscal consolidation has contractionary effects on private demand and GDP »), pas la composition : ils ne tranchent pas cette question.
@@ -1587,7 +1604,7 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 
 **Output gap initial** : le niveau **gap initial de -0,7%** est pose sur l'annee de base (`OUTPUT_GAP_INITIAL`). Sources : Gouvernement, RAA 2026, **Tableau n° 2 p. 20** (avis HCFP n° 2026-3 du 17/04/2026) : -0,7 en 2027 et 2028, -0,5 en 2029 ; variante documentee FMI, *Article IV* PR n° 26/255 du 22/07/2026, Table 1 : -0,4. La v4.0 partait de -1,5%, soit 2 a 4 fois plus bas que les deux estimations officielles, **sans aucune source dans le code**.
 
-**Output gap en NIVEAU, rappel vers le potentiel (v0.6.7, B3 — arbitrage de Cyril, audit externe Codex 10/2026, bloc A constat 3)** — deux équations :
+**Output gap en NIVEAU, rappel vers le potentiel (v0.6.7, B3 — arbitrage du mainteneur (07/10/2026), audit externe Codex 10/2026, bloc A constat 3)** — deux équations :
 
 ```
 (1) définition : (1 + gap_t) = (1 + gap_{t−1}) × (1 + g_t) / (1 + g*_t)        [écart du PIB réel à son potentiel, BCE/OCDE/FMI/CE]
@@ -1981,8 +1998,8 @@ classement inchange. Proprietes verrouillees par tests dedies.
   (`INDEXATION_BASELINE_RATIO`, supprimée) qui n'existait que pour compenser cette
   soustraction ; le commentaire du code parlait de « PIB/tête » sans division par la
   population. Effet : +2,0 à +3,4 pt d'indice en 2029 pour les dix scénarios publiés,
-  presque uniforme (un peu plus pour les programmes à inflation plus haute, pénalisés
-  deux fois auparavant).
+  presque uniforme (un peu plus pour les programmes à inflation plus haute, dont
+  l'inflation était auparavant retranchée deux fois).
 
 **Competitivite :**
 - Baseline 2025 : 100 (indice)
@@ -2200,8 +2217,8 @@ ventilées) n'est pas encodée. Chaque scénario porte ce que sa source chiffre,
 plus ni moins.
 
 **Mise à jour v0.6.7 (07/10/2026) — septième colonne : corrections d'équations issues
-d'un audit externe, aucun paramètre de scénario modifié.** Les écarts au scénario de
-référence se resserrent, dans les deux sens : les programmes qui creusaient la dette
+d'un audit externe, aucun paramètre de scénario modifié.** Six écarts au scénario de
+référence sur neuf se resserrent, dans les deux sens : les programmes qui creusaient la dette
 par rapport au budget voté la creusent moins (LFI +17,7 vers +2,0, LR +8,0 vers +6,4,
 RN +6,7 vers +2,9), ceux qui la réduisaient la réduisent moins (IM Rabot -26,8 vers
 -15,4, IM Compétitivité -25,0 vers -22,2, Horizons -8,8 vers -4,8) ; deux
