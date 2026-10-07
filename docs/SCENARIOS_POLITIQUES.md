@@ -110,8 +110,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 ### Programme LR Retailleau 2027
 <!-- scenario:lr_2027 -->
 
-- **Source** : Projet B. Retailleau 2027 — avecretailleau.fr/projet, mesures publiées en septembre 2026 (consulté le 01/10/2026) ; effectifs : LCI 22/09/2026
-- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, publié mesure par mesure sur le site de campagne avec une ligne de financement par mesure : réforme structurelle de l'État (réduction marquée des effectifs, fusion d'agences), refonte des aides sociales autour d'un compte social unique plafonné, report de l'âge du taux plein complété d'un pilier par capitalisation, et baisse des prélèvements sur le travail et la production, partagée entre entreprises (cotisations patronales, impôts de production) et salariés (cotisations salariales). Le paramétrage encode le coût de ces baisses tel que chiffré par le candidat ; l'enveloppe d'économies globale, non ventilée, n'est pas encodée.
+- **Source** : Projet B. Retailleau 2027 — avecretailleau.fr/projet, mesures publiées en septembre 2026 (consulté le 01/10/2026)
+- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, publié mesure par mesure sur le site de campagne avec une ligne de financement par mesure : réforme structurelle de l'État (réduction marquée des effectifs), refonte des aides sociales autour d'un compte social unique plafonné, report de l'âge du taux plein complété d'un pilier par capitalisation, et baisse des prélèvements sur le travail et la production, partagée entre entreprises (cotisations patronales, impôts de production) et salariés (cotisations salariales). Le paramétrage encode le coût de ces baisses tel que chiffré par le candidat ; l'enveloppe d'économies globale, non ventilée, n'est pas encodée.
 
 ### Programme PS 2027
 <!-- scenario:ps_2027 -->
