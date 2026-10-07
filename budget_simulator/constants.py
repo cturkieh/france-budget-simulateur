@@ -419,9 +419,51 @@ TAUX_PRELEVEMENTS_AUTOFINANCEMENT = 0.51  # recettes/PIB du moteur : seuil d'aut
 # était portée par un clip. tests/test_phillips_v061.py vérifie désormais que
 # les deux garde-fous restent INERTES en statu quo.
 BCE_PLANCHER_ACCOMMODANT = 0.008  # 0,8 % — seuil de la politique monétaire accommodante
-CROISSANCE_POTENTIELLE = 0.011  # 1,1 % — moyenne du sentier de la mission
-                                # Jaravel/Ragot/Tavernier/Valla (07/2026) :
-                                # 1,2 / 1,2 / 1,0 / 1,0 % (2027-2030). v0.5.1 : 1,0.
+# --- Traînée de dette (Kumar & Woo 2010, IMF WP/10/174 ; effet d'OFFRE depuis
+# v0.6.7 B3, engine/growth.py) — source unique (v0.6.7, lot 3b ; était un
+# littéral dans simulator.py et growth.py, valeurs inchangées) :
+# traînée = DEBT_DRAG_COEFF × (dette/PIB − DEBT_DRAG_SEUIL) au-delà du seuil.
+DEBT_DRAG_COEFF = -0.005  # par unité de ratio : −0,05 pt de croissance par +10 pts ; compromis Reinhart-Rogoff −0,008 / Herndon-Ash-Pollin −0,003
+DEBT_DRAG_SEUIL = 0.9     # 90 % du PIB
+
+# --- Croissance potentielle : ré-ancrage DÉRIVÉ (v0.6.7, lot 3b, option B
+# arbitrée le 07/10/2026) ---
+# La mission Jaravel/Ragot/Tavernier/Valla (07/2026) publie un potentiel TOTAL de
+# 1,2 / 1,2 / 1,0 / 1,0 % (2027-2030), moyenne 1,1 %. Une estimation officielle de
+# potentiel est faite sur l'économie OBSERVÉE : elle intègre déjà l'effet de la
+# dette héritée. Depuis B3, le potentiel total du moteur = tendanciel + traînée de
+# dette (croissance_potentielle_totale()). Pour que le statu quo démarre sur le
+# potentiel officiel, le tendanciel est donc le potentiel officiel AUGMENTÉ de la
+# traînée au niveau de dette de 2025 — un NIVEAU (la dette héritée), pas une
+# pente : la traînée supplémentaire due à la dette qui monte ENSUITE reste un
+# effet du modèle, appliqué comme avant.
+#   tendanciel = 1,1 % − (−0,005) × (1,156 − 0,9) = 1,1 + 0,128 = 1,228 %
+# Jusqu'en v0.6.6 : 1,1 % (v0.5.1 : 1,0), la traînée frappant la croissance
+# EFFECTIVE. Calée sur rien d'autre : le corridor de la mission qui en résulte
+# (tests/test_calibration_mission_v060.py) est publié tel quel (METHODOLOGIE).
+CROISSANCE_POTENTIELLE_MISSION = 0.011  # potentiel TOTAL officiel, moyenne 2027-2030
+CROISSANCE_POTENTIELLE = (CROISSANCE_POTENTIELLE_MISSION
+                          - DEBT_DRAG_COEFF * (DETTE_RATIO_2025 - DEBT_DRAG_SEUIL))  # 1,228 %
+# Bornes de l'hystérèse du tendanciel, RELATIVES à sa valeur de départ (v0.6.7,
+# lot 3b) : jusqu'ici absolues [0,7 ; 1,2 %], soit −0,4 / +0,1 pt autour de
+# l'ancien 1,1 %. Gardées absolues avec un tendanciel à 1,228 %, elles auraient
+# rendu l'hystérèse POSITIVE impossible (tendanciel déjà au-dessus du plafond)
+# tout en laissant la négative : asymétrie défavorable aux seuls programmes
+# expansifs. Relatives, elles conservent exactement la marge de la v0.6.6.
+HYSTERESE_POTENTIEL_MARGE_BASSE = 0.004
+HYSTERESE_POTENTIEL_MARGE_HAUTE = 0.001
+# Hystérèses lues sur la croissance CYCLIQUE (v0.6.7, lot 3b) : écart de la
+# croissance au potentiel TOTAL, comme la loi d'Okun depuis la correction I6.
+# Lues sur le NIVEAU de croissance, elles comptaient la croissance d'OFFRE comme un
+# boom : avec le tendanciel ré-ancré à 1,228 % et un bonus d'offre, un choc d'offre
+# faisait baisser le chômage (propriété P1, tests/test_okun_potentiel_v061.py).
+# Seuils historiques en croissance (chômage −1,5 / +2,0 % ; potentiel ±2,0 %)
+# ré-exprimés en écart au potentiel officiel (1,1 %) : identiques en valeur pour
+# une économie à son potentiel officiel.
+HYSTERESE_CHOMAGE_ECART_BAS = -0.015 - CROISSANCE_POTENTIELLE_MISSION    # −2,6 pts
+HYSTERESE_CHOMAGE_ECART_HAUT = 0.020 - CROISSANCE_POTENTIELLE_MISSION    # +0,9 pt
+HYSTERESE_POTENTIEL_ECART_BAS = -0.020 - CROISSANCE_POTENTIELLE_MISSION  # −3,1 pts
+HYSTERESE_POTENTIEL_ECART_HAUT = 0.020 - CROISSANCE_POTENTIELLE_MISSION  # +0,9 pt
 CROISSANCE_2025 = 0.008  # +0,8 % en volume — INSEE Première n° 2105, 29/05/2026 (comptes de la Nation 2025 ; même publication que le déflateur INFLATION_BASE, appariement obligatoire)
 
 # === FISCAL PARAMETERS ===

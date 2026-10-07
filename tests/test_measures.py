@@ -166,7 +166,11 @@ def test_update_potential_growth_no_investment(simulator):
     simulator.investment_history = [0.1, 0.1, 0.1]  # < 0.5, pas de boost
     simulator._last_impacts = {'retraites': {'depenses': -10}}  # Pas d'investissement
     old_potential = simulator.base_params['croissance_potentielle']
-    simulator.update_potential_growth(growth=0.015, year=4)
+    # v0.6.7 (lot 3b) : l'hystérèse du potentiel lit la croissance CYCLIQUE (écart
+    # au potentiel total). 1,5 % pour un potentiel de 1,0 % est un écart de +0,5 pt,
+    # dans la zone du rebond : la croissance est posée AU potentiel pour isoler ce
+    # que le test mesure (l'effet d'offre, absent sans investissement).
+    simulator.update_potential_growth(growth=simulator.croissance_potentielle_totale(), year=4)
     assert simulator.base_params['croissance_potentielle'] == old_potential, "Pas de changement sans investissement"
     assert not any("Boost potentiel" in s for s in simulator.debug_logs), "Log boost absent"
 

@@ -61,7 +61,13 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import chomage_seniors_ecart
-from ..constants import CHOMAGE_CLIP_MAX, CHOMAGE_CLIP_MIN, REGIME_DEMI_LARGEUR_CROISSANCE
+from ..constants import (
+    CHOMAGE_CLIP_MAX,
+    CHOMAGE_CLIP_MIN,
+    HYSTERESE_CHOMAGE_ECART_BAS,
+    HYSTERESE_CHOMAGE_ECART_HAUT,
+    REGIME_DEMI_LARGEUR_CROISSANCE,
+)
 from ._regimes import au_dessus, en_dessous
 
 
@@ -123,8 +129,12 @@ class UnemploymentMixin:
         # régime mais un PLANCHER : le rebond s'arrête au NAIRU (continu en u ;
         # l'ancienne marche retirait 0,1 pt entier dès u > NAIRU, donc pouvait
         # passer jusqu'à 0,1 pt sous le NAIRU).
-        w_hysterese = en_dessous(growth, -0.015, REGIME_DEMI_LARGEUR_CROISSANCE)
-        w_rebond = au_dessus(growth, 0.020, REGIME_DEMI_LARGEUR_CROISSANCE)
+        # Lues sur la croissance CYCLIQUE (écart au potentiel total, comme Okun) :
+        # un choc d'offre ne déclenche ni hystérèse ni rebond (constants.py,
+        # HYSTERESE_CHOMAGE_ECART_*, seuils historiques ré-exprimés).
+        ecart_croissance = growth - self.croissance_potentielle_totale()
+        w_hysterese = en_dessous(ecart_croissance, HYSTERESE_CHOMAGE_ECART_BAS, REGIME_DEMI_LARGEUR_CROISSANCE)
+        w_rebond = au_dessus(ecart_croissance, HYSTERESE_CHOMAGE_ECART_HAUT, REGIME_DEMI_LARGEUR_CROISSANCE)
         if w_hysterese > 0:
             unemployment += 0.002 * w_hysterese
             _log_debug(self.debug_logs, f"Y{year}: Hystérèse chômage (poids {w_hysterese:.2f})")

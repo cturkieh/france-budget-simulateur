@@ -132,7 +132,10 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             name="CROISSANCE_POTENTIELLE",
             source="constants.CROISSANCE_POTENTIELLE",
             raw_value=constants.CROISSANCE_POTENTIELLE,
-            representations=("1,1%", "1,1 %"),
+            # v0.6.7 (lot 3b) : tendanciel DÉRIVÉ 1,228 % (potentiel officiel 1,1 %
+            # + traînée de la dette héritée 0,128) — le « 1,1 % » des docs est
+            # désormais le potentiel TOTAL, pas cette constante.
+            representations=("1,228%", "1,228 %"),
             must_appear_in=_ALL_DOCS,
         ),
         CriticalConstant(

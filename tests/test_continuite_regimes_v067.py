@@ -11,7 +11,9 @@ conjoncture était une MARCHE :
   écart < −1 pt (inflation.py) ;
 - chômage +0,2 pt si croissance < −1,5 %, −0,1 pt si croissance > 2 % au-dessus
   du NAIRU (unemployment.py) ;
-- potentiel ×0,997 si croissance < −2 %, ×1,002 si > 2 % (growth.py) ;
+- potentiel ×0,997 si croissance < −2 %, ×1,002 si > 2 % (growth.py) — ces deux
+  hystérèses lisent depuis le ré-ancrage du potentiel la croissance CYCLIQUE
+  (seuils ré-exprimés en écart au potentiel : −2,6 / +0,9 pt et ±… cf. constants) ;
 - plancher monétaire : sous 0,8 % d'inflation, π → 0,7 π + 0,3 π* (inflation.py,
   ``rappel_bce``) — saut de 0,80 à 1,04 % au franchissement, règle non monotone.
 Une marche transforme une variation de 10⁻⁹ en saut. RED reproduit : sur 08810ad,
@@ -100,8 +102,18 @@ def _chomage(growth, u_prev=0.085):
     return s.calculate_unemployment(growth, u_prev, 3, {})
 
 
-@pytest.mark.parametrize('seuil', [-0.015, 0.020])
-def test_hysterese_chomage_continue_au_seuil(seuil):
+def _potentiel_total():
+    s = BudgetSimulatorV45()
+    s._reset_state()
+    return s.croissance_potentielle_totale()
+
+
+# Seuils lus sur la croissance CYCLIQUE (écart au potentiel total) depuis le
+# ré-ancrage du potentiel (constants.py, HYSTERESE_*_ECART_*).
+@pytest.mark.parametrize('nom', ['HYSTERESE_CHOMAGE_ECART_BAS', 'HYSTERESE_CHOMAGE_ECART_HAUT'])
+def test_hysterese_chomage_continue_au_seuil(nom):
+    from budget_simulator import constants
+    seuil = _potentiel_total() + getattr(constants, nom)
     assert abs(_chomage(seuil + D) - _chomage(seuil - D)) < 1e-6
 
 
@@ -124,8 +136,10 @@ def _potentiel(growth, year=5):
     return s.base_params['croissance_potentielle']
 
 
-@pytest.mark.parametrize('seuil', [-0.020, 0.020])
-def test_hysterese_potentiel_continue_au_seuil(seuil):
+@pytest.mark.parametrize('nom', ['HYSTERESE_POTENTIEL_ECART_BAS', 'HYSTERESE_POTENTIEL_ECART_HAUT'])
+def test_hysterese_potentiel_continue_au_seuil(nom):
+    from budget_simulator import constants
+    seuil = _potentiel_total() + getattr(constants, nom)
     assert abs(_potentiel(seuil + D) - _potentiel(seuil - D)) < 1e-9
 
 

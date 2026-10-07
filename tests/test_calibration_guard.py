@@ -55,7 +55,15 @@ def test_baseline_dette_range(baseline_df):
     fourchette verrouille la mécanique, pas un consensus inexistant."""
     df = baseline_df
     dette = df.iloc[-1]['Dette/PIB %']
-    assert 155 < dette < 170, f"Baseline dette {dette:.1f}% hors fourchette 155-170%"
+    # RE-CENTRÉE v0.6.7 (lot 3b, ré-ancrage DÉRIVÉ du potentiel, constants.py) : la
+    # fenêtre garde sa demi-largeur (±8 pt), son centre suit la cause documentée.
+    # Mesuré 151,2 % (157,8 avant). Décomposition des −6,6 pt : tendanciel 1,1 →
+    # 1,228 % (potentiel total du statu quo = potentiel officiel 1,1 % à la dette
+    # 2025), PIB nominal 2035 +1,38 % → dénominateur −2,1 pt ; dette −174 Md€ →
+    # numérateur −4,5 pt (recettes d'élasticité 1 sur un PIB plus haut, dépense
+    # primaire insensible au PIB réel : +136 Md€ de solde primaire cumulé, +38 Md€
+    # d'intérêts évités). Même nature que le résidu (b) du corridor de la mission.
+    assert 143 < dette < 159, f"Baseline dette {dette:.1f}% hors fourchette 143-159%"
 
 
 def test_baseline_deficit_range(baseline_df):

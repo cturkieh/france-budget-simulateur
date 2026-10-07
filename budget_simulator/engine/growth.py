@@ -104,7 +104,15 @@ import numpy as np
 
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
-from ..constants import OUTPUT_GAP_RAPPEL, REGIME_DEMI_LARGEUR_CROISSANCE
+from ..constants import (
+    DEBT_DRAG_SEUIL,
+    HYSTERESE_POTENTIEL_ECART_BAS,
+    HYSTERESE_POTENTIEL_ECART_HAUT,
+    HYSTERESE_POTENTIEL_MARGE_BASSE,
+    HYSTERESE_POTENTIEL_MARGE_HAUTE,
+    OUTPUT_GAP_RAPPEL,
+    REGIME_DEMI_LARGEUR_CROISSANCE,
+)
 from ._regimes import au_dessus, en_dessous
 from ._param_domain import validate_param_domains, valeur_brute
 
@@ -141,7 +149,8 @@ class GrowthMixin:
 
         - ``base_params['croissance_potentielle']`` — tendanciel, MUTÉ en
           place par l'hystérèse de ``update_potential_growth`` puis clippé
-          dans [0,007 ; 0,012] ;
+          dans ses bornes d'hystérèse (tendanciel de départ −0,4 / +0,1 pt,
+          constants.py, HYSTERESE_POTENTIEL_MARGE_*) ;
         - ``_potential_growth_bonus`` — offre STRUCTURELLE (``SUPPLY_EFFECTS``
           : recherche, éducation, transition, rénovation), plafonnée ±0,20 pt ;
         - ``_labour_supply_bonus`` — offre de TRAVAIL (canal emploi seniors,
@@ -310,8 +319,8 @@ class GrowthMixin:
         # Traînée de dette = effet d'OFFRE (v0.6.7, B3) : elle abaisse le
         # POTENTIEL de l'année, que lisent ensuite les trois lecteurs (croissance,
         # Okun, output gap) — elle n'ouvre donc ni écart d'Okun ni output gap.
-        self._debt_drag = (self.economic_coeffs['debt_drag'] * (debt_ratio - 0.9)
-                           if debt_ratio > 0.9 else 0.0)
+        self._debt_drag = (self.economic_coeffs['debt_drag'] * (debt_ratio - DEBT_DRAG_SEUIL)
+                           if debt_ratio > DEBT_DRAG_SEUIL else 0.0)
         if self._debt_drag:
             _log_debug(self.debug_logs, f"Y{year}: Debt drag {self._debt_drag*100:.2f}% (potentiel)")
 
@@ -462,12 +471,21 @@ class GrowthMixin:
         # transition CONTINUE (v0.6.7, engine/_regimes.py, ±0,5 pt) : c'étaient
         # des marches. Seul im_rabot_2029 effleure la zone négative (+0,01 pt de
         # dette 2035, mesuré au lot 3b).
-        w_negative = en_dessous(growth, -0.020, REGIME_DEMI_LARGEUR_CROISSANCE)
-        w_rebond = au_dessus(growth, 0.020, REGIME_DEMI_LARGEUR_CROISSANCE) if year > 3 else 0.0
+        # Lue sur la croissance CYCLIQUE (écart au potentiel total, constants.py,
+        # HYSTERESE_POTENTIEL_ECART_*) : la croissance d'offre ne se renforce pas
+        # elle-même par l'hystérèse.
+        ecart_croissance = growth - self.croissance_potentielle_totale()
+        w_negative = en_dessous(ecart_croissance, HYSTERESE_POTENTIEL_ECART_BAS, REGIME_DEMI_LARGEUR_CROISSANCE)
+        w_rebond = (au_dessus(ecart_croissance, HYSTERESE_POTENTIEL_ECART_HAUT, REGIME_DEMI_LARGEUR_CROISSANCE)
+                    if year > 3 else 0.0)
         if w_negative > 0:
             self.base_params['croissance_potentielle'] *= 1 + (0.997 - 1) * w_negative
             _log_debug(self.debug_logs, f"Y{year}: Hystérèse négative (poids {w_negative:.2f})")
-        if w_rebond > 0 and self.base_params['croissance_potentielle'] < 0.012:
+        # Bornes RELATIVES au tendanciel de départ (v0.6.7, constants.py,
+        # HYSTERESE_POTENTIEL_MARGE_*) : avant, [0,7 ; 1,2 %] absolus.
+        plancher = self._pre_simulate_croissance_potentielle - HYSTERESE_POTENTIEL_MARGE_BASSE
+        plafond = self._pre_simulate_croissance_potentielle + HYSTERESE_POTENTIEL_MARGE_HAUTE
+        if w_rebond > 0 and self.base_params['croissance_potentielle'] < plafond:
             self.base_params['croissance_potentielle'] *= 1 + (1.002 - 1) * w_rebond
             _log_debug(self.debug_logs, f"Y{year}: Rebond potentiel (poids {w_rebond:.2f})")
 
@@ -555,8 +573,6 @@ class GrowthMixin:
             logger.error("Y%s: supply-side bonus désactivé: %s", year, e, exc_info=True)
             _log_debug(self.debug_logs, f"Y{year}: ERREUR supply-side (bonus désactivé): {e}")
 
-        # Cap final hystérèse (hors bonus supply)
+        # Cap final hystérèse (hors bonus supply), relatif au tendanciel de départ
         self.base_params['croissance_potentielle'] = np.clip(
-            self.base_params['croissance_potentielle'],
-            0.007, 0.012
-        )
+            self.base_params['croissance_potentielle'], plancher, plafond)

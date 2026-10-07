@@ -7,6 +7,7 @@ from asteval import Interpreter
 
 from ._logging import _log_debug
 from .constants import (
+    DEBT_DRAG_COEFF,
     MULT_BAISSE_IMPOTS,
     MULT_COUPE_DEPENSES,
     MULT_HAUSSE_IMPOTS,
@@ -466,7 +467,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             # POTENTIELLE (engine/growth.py). Kumar & Woo 2010, IMF WP/10/174 : « long-run
             # growth », −0,2 pt/an par +10 pts de dette initiale (moindre en économies
             # avancées), via investissement et stock de capital. −0,005 = −0,05 pt / 10 pts.
-            'debt_drag': -0.005,  # Compromis entre -0.008 (Reinhart-Rogoff) et -0.003 (Herndon et al. 2014)
+            'debt_drag': DEBT_DRAG_COEFF,  # constants.py (compromis Reinhart-Rogoff −0,008 / Herndon et al. 2014 −0,003)
             'inflation_inertia': INFLATION_INERTIE,  # source unique constants.py (v0.6.3 : 0,50 littéral nu → 0,33 encadré)
             # FIX: ancien 0.40 (positif) signifiait "chômage élevé → plus de croissance"
             # ce qui est économiquement faux. Quand le SMIC augmente le chômage,
@@ -663,7 +664,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # lecteur unique croissance_potentielle_totale() doit l'agréger : un
         # canal d'offre de travail NE DOIT PAS transiter par
         # base_params['croissance_potentielle'], que update_potential_growth
-        # clippe dans [0,007 ; 0,012] et mute en place (hystérèse) — il y
+        # clippe dans ses bornes d'hystérèse (relatives au tendanciel de départ
+        # depuis v0.6.7, constants.py) et mute en place (hystérèse) — il y
         # serait écrêté ET rendu permanent alors qu'il est transitoire.
         # v0.6.1 lot 3 : son producteur est GrowthMixin.update_labour_supply
         # (canal emploi seniors), qui écrit AUSSI _labour_supply_level.

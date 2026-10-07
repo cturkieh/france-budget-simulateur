@@ -57,15 +57,16 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
-| Deficit 2026 | -5,37 % | **-5,24 %** (loi votee : -5,0 %) |
-| Dette 2030 | 131,02 % | **130,55 %** (mission IGF : 130,5) |
-| Dette 2035 | 157,81 % | **156,39 %** |
-| Deficit 2035 | -10,23 % | **-9,85 %** |
+| Deficit 2026 | -5,30 % | **-5,17 %** (loi votee : -5,0 %) |
+| Dette 2030 | 129,12 % | **128,65 %** (mission IGF : 130,5) |
+| Dette 2035 | 151,17 % | **149,77 %** |
+| Deficit 2035 | -9,05 % | **-8,69 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
   aux comptes definitifs INSEE et inertie d'inflation ramenee au milieu de sa fourchette).
-  Re-mesures le 07/10/2026 (v0.6.7 : moteur sans tirage aleatoire, cf. « Stochasticite »).
+  Re-mesures le 07/10/2026 (v0.6.7 : moteur sans tirage aleatoire, cf. « Stochasticite », et
+  tendanciel du potentiel re-ancre a 1,228 %, cf. « Calibration Baseline Validee »).
 
   Toute grandeur mesuree publiee dans ce document nomme desormais son objet, et une garde de la suite moteur (`tests/test_chiffres_publies_v061.py`) la recalcule a chaque execution : un chiffre qui cesse de reproduire fait rougir la CI au lieu de rester en ligne.
 
@@ -1399,7 +1400,7 @@ dedie, pas d'un coefficient.
 
 **Ce qui change.** Jusqu'en v0.6.6, chaque dépendance du moteur à la conjoncture était une MARCHE : multiplicateurs ×1,15 si output gap < −2 % ou écart de chômage > 2 pts, ×0,85 si gap > 2 % et écart < −1 pt, ×1,3 (ZLB) si taux < 2 % et gap < −2 % ; dépenses en volume ×0,90 si gap < −2 %, ×1,02 si gap > 2 % ; inflation ×0,80 si gap < −2,5 % et écart > 1 pt, ×1,08 si gap > 2 % et écart < −1 pt ; chômage +0,2 pt si croissance < −1,5 %, −0,1 pt si croissance > 2 % ; potentiel ×0,997 / ×1,002 au-delà de ∓2 % de croissance ; plancher monétaire accommodant (sous 0,8 % d'inflation, π → 0,7 π + 0,3 π*), qui faisait REMONTER l'inflation de 0,80 à 1,04 % au franchissement. Une marche transforme une variation infinitésimale d'un paramètre en saut : la prévention de `im_rabot_2029` poussée de 10⁻⁹ Md€ au-delà de 7,6 Md€ coûtait −1,67 pt de dette 2035, et un balayage systématique (chaque paramètre de `PARAM_DOMAINS` × 10 scénarios publiés, bissection à 10⁻⁹ : `scripts/scan_discontinuites.py`) trouvait ce type de saut en 26 points (20 couples scénario × paramètre), de +1,92 pt (curseur `rabot_uniforme` de « Budget 2026 (voté) ») à −0,20 pt ; deux de plus (plancher monétaire, −0,66 et −0,69 pt sur le même curseur de « Budget 2026 (voté) » et d'Horizons) sont apparus une fois la marche récession lissée, qui les masquait.
 
-**Forme retenue.** Chaque régime passe par un poids w ∈ [0 ; 1] et la réponse est la moyenne des réponses des deux régimes pondérée par w (`x × (1 + (F − 1) × w)`, F = facteur du plein régime ; `engine/_regimes.py`). C'est la structure des modèles à transition lisse d'Auerbach & Gorodnichenko (2012), « Measuring the Output Responses to Fiscal Policy », *American Economic Journal: Economic Policy* 4(2), 1-27 (DOI 10.1257/pol.4.2.1) : « using regime-switching models, we find large differences in the size of spending multipliers in recessions and expansions » — leur STVAR pondère les deux régimes par un poids F(z) continu de l'état. A&G emploient une logistique ; le moteur retient une **rampe linéaire à support compact** : poids nul hors de la zone (régime normal inchangé AU BIT : statu quo et « Budget 2026 (voté) » identiques), plein au-delà (plein régime inchangé au bit), 0,5 au seuil historique. Conditions composées : « ou » → max des poids, « et » → min. **Demi-largeurs, choix déclarés** (`REGIME_DEMI_LARGEUR_*`) : ±1 pt sur l'output gap et l'écart de chômage (zone −3 % → −1 % autour du seuil −2 %), ±0,5 pt sur la croissance (avec ±1 pt, la zone du seuil +2 % commencerait à +1 % et engloberait la croissance normale du statu quo, 0,9-1,2 %), ±0,3 pt sur l'inflation pour le plancher monétaire (la plus petite valeur ronde qui garde la règle CROISSANTE avec marge — ±0,2 pt la laisserait décroissante par endroits — et dont la zone 0,5-1,1 % reste sous l'inflation la plus basse du statu quo, 1,34 %). La condition « chômage au-dessus du NAIRU » du rebond n'est pas un régime mais un plancher : le rebond s'arrête désormais au NAIRU (l'ancienne marche retirait 0,1 pt entier, quitte à passer sous le NAIRU).
+**Forme retenue.** Chaque régime passe par un poids w ∈ [0 ; 1] et la réponse est la moyenne des réponses des deux régimes pondérée par w (`x × (1 + (F − 1) × w)`, F = facteur du plein régime ; `engine/_regimes.py`). C'est la structure des modèles à transition lisse d'Auerbach & Gorodnichenko (2012), « Measuring the Output Responses to Fiscal Policy », *American Economic Journal: Economic Policy* 4(2), 1-27 (DOI 10.1257/pol.4.2.1) : « using regime-switching models, we find large differences in the size of spending multipliers in recessions and expansions » — leur STVAR pondère les deux régimes par un poids F(z) continu de l'état. A&G emploient une logistique ; le moteur retient une **rampe linéaire à support compact** : poids nul hors de la zone (régime normal inchangé AU BIT : statu quo et « Budget 2026 (voté) » identiques), plein au-delà (plein régime inchangé au bit), 0,5 au seuil historique. Conditions composées : « ou » → max des poids, « et » → min. **Demi-largeurs, choix déclarés** (`REGIME_DEMI_LARGEUR_*`) : ±1 pt sur l'output gap et l'écart de chômage (zone −3 % → −1 % autour du seuil −2 %), ±0,5 pt sur la croissance (avec ±1 pt, la zone du seuil +2 % commencerait à +1 % et engloberait la croissance normale du statu quo, 0,9-1,2 %), ±0,3 pt sur l'inflation pour le plancher monétaire (la plus petite valeur ronde qui garde la règle CROISSANTE avec marge — ±0,2 pt la laisserait décroissante par endroits — et dont la zone 0,5-1,1 % reste sous l'inflation la plus basse du statu quo, 1,34 %). La condition « chômage au-dessus du NAIRU » du rebond n'est pas un régime mais un plancher : le rebond s'arrête désormais au NAIRU (l'ancienne marche retirait 0,1 pt entier, quitte à passer sous le NAIRU). Depuis le ré-ancrage du potentiel (même lot), les hystérèses du chômage et du potentiel lisent la croissance CYCLIQUE — l'écart au potentiel total, comme la loi d'Okun (correction I6) —, seuils historiques ré-exprimés en écart au potentiel officiel 1,1 % (chômage −2,6 / +0,9 pt, potentiel −3,1 / +0,9 pt) : lues sur le niveau de croissance, elles comptaient la croissance d'OFFRE comme un boom, et un choc d'offre faisait baisser le chômage (propriété P1, `tests/test_okun_potentiel_v061.py`). Les bornes de l'hystérèse du tendanciel deviennent RELATIVES (−0,4 / +0,1 pt autour du tendanciel de départ, la marge de la v0.6.6) : absolues à [0,7 ; 1,2 %] avec un tendanciel à 1,228 %, elles auraient interdit l'hystérèse positive et gardé la négative.
 
 **Ce que cela déplace** (dette 2035, avant → après) : `im_rabot_2029` 141,67 → 141,14 (son gap 2027 de −2,31 % n'est plus au plein régime récession mais à poids 0,66 : moins d'amplification de sa consolidation, −0,72 pt ; moins de compression de dépense, +0,23 ; inflation et plancher monétaire +0,08 ; chômage −0,12) ; `lfi_2027` 158,83 → 158,35 (gap de +2,5 à +3,6 % : régimes expansion et tensions entrés plus tôt et plus progressivement — multiplicateurs −0,26, inflation −0,14, dépenses −0,07) ; `ps_2027` 152,00 → 151,80 (gap 2029 à +2,01 %, pile sur l'ancienne marche « tensions ») ; `horizons_2027` 154,51 → 154,42. Les six autres scénarios et le statu quo sont identiques au bit. La règle est la même pour tous ; les scénarios qui bougent sont ceux dont l'économie simulée s'approche des seuils, aux deux bords.
 
@@ -1526,7 +1527,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
 - L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,42 / 1,45 / 1,46 / 1,46%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,426%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
-- **Marge a declarer** : la moyenne du scenario servi est a 0,026 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette, la moyenne tombe a 1,384 %, sous le plancher : echec attendu DECLARE (`tests/test_phillips_v061.py`), marge que le tirage aleatoire tenait. En sens inverse, la marge du corridor de DETTE s'est rouverte : deviation annuelle max 0,67 pt pour une tolerance de 1,6 (2,26 avec le bruit tire, hors corridor) : declare ici plutot que tu.
+- **Marge a declarer** : la moyenne du scenario servi est a 0,026 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette, la moyenne tombe a 1,384 %, sous le plancher : echec attendu DECLARE (`tests/test_phillips_v061.py`), marge que le tirage aleatoire tenait. En sens inverse, le corridor de DETTE est a 1,85 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -1553,7 +1554,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 
 **Rendements decroissants** : Le bonus est calcule via `log2(1 + |ecart au defaut|)` (la page ecrivait `ln` jusqu'au 07/10/2026 ; le code a toujours calcule `log2`), ce qui attenue les gains marginaux a mesure que l'investissement augmente. **v0.6.7** : plus de seuil d'activation a 100 M EUR d'ecart — le bonus, nul en 0, naissait d'un coup a `coeff x log2(1,1)` (transition ecologique a 0,1 Md EUR : -0,80 pt de dette 2035 sur « Budget 2026 (vote) »).
 
-**Cap total** : +0,20 pt maximum (et plancher symetrique -0,20 pt, v0.6.0). La croissance potentielle peut passer de 1,1% a 1,3% maximum.
+**Cap total** : +0,20 pt maximum (et plancher symetrique -0,20 pt, v0.6.0). Le potentiel total peut depasser d'au plus 0,20 pt son niveau sans effet d'offre (tendanciel 1,228 % depuis la v0.6.7, net de la traînee de dette).
 
 **Correction « un seul potentiel » (v0.6.1)** : jusqu'a la v0.6.0, trois blocs du moteur lisaient la
 croissance potentielle et deux d'entre eux ignoraient le bonus supply-side. La croissance de l'annee
@@ -1915,16 +1916,28 @@ inchangee, Tableaux 3/4/5/6. Corridor verrouille en CI
 vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 78 -> 124 Md EUR, taux apparent 2,2 -> 3,1 % (2026-2030).
 
+**Valeurs réelles du scénario de référence face à la mission** (v0.6.7, lot 3b — tendanciel dérivé 1,228 %, TOL_DETTE portée de 1,6 à 2,0 pt ; HCFP : dette 2030 ≈ 129,5 %) :
+
+| Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
+|---|---|---|---|---|---|---|
+| 2026 | 117,84 | 118,4 | −0,56 | −5,17 | −5,00 | 0,37 % |
+| 2027 | 120,22 | 121,4 | −1,18 | −5,35 | −5,88 | 0,24 % |
+| 2028 | 122,78 | 124,2 | −1,42 | −5,58 | −6,21 | 0,01 % |
+| 2029 | 125,57 | 127,3 | −1,73 | −5,85 | −6,57 | −0,05 % |
+| 2030 | 128,65 | 130,5 | −1,85 | −6,20 | −6,76 | −0,12 % |
+
+Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,12 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,85 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
+
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | **-5,24 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,37) |
-| Dette | **130,55 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart +0,05 pt apres les recalages Phillips v4.1, sourcing v4.2, impulsions et retrait du bruit tire v0.6.7 — -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
-| Dette | **131,02 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **157,81 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 156,39) |
-| Deficit | **-10,23 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -9,85) |
-| Croissance potentielle | 1,1% | Sentier mission IGF 07/2026 (1,2/1,2/1,0/1,0), extensible a 1,3% |
+| Deficit | **-5,17 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30) |
+| Dette | **128,65 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,85 pt depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
+| Dette | **129,12 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
+| Dette | **151,17 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,77) |
+| Deficit | **-9,05 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,69) |
+| Croissance potentielle | tendanciel 1,228 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,128 pt (-0,005 x (115,6 - 90) %) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
 | Cible BCE | 2,0% (`BCE_CIBLE_INFLATION`) | Garde-fou de surchauffe, inactif en statu quo |

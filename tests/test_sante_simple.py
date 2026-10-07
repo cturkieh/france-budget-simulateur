@@ -86,11 +86,16 @@ def test_simulation_complete():
     # gap en niveau refermé à 20 %/an (le gap initial −0,7 % se résorbe, +0,7 %
     # de PIB), traînée de dette passée dans le potentiel (Okun ne la lit plus :
     # chômage plus bas, moindres dépenses). Sens commun à tous les scénarios.
-    assert abs(dette_2035 - 157.8) <= 4.0, (
-        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~157,8% (v0.6.7, B3)"
+    # RECALIBRAGE v0.6.7 lot 3b (mesuré 151,2 % / −9,05 %) : tendanciel ré-ancré
+    # 1,1 → 1,228 % (dérivé : potentiel officiel + traînée de la dette héritée,
+    # constants.py). Dette 2035 −6,6 pt = dénominateur −2,1 (PIB nominal +1,4 %)
+    # + numérateur −4,5 (recettes sur un PIB plus haut, dépense primaire
+    # insensible au PIB réel). Tolérances inchangées.
+    assert abs(dette_2035 - 151.2) <= 4.0, (
+        f"Dette/PIB 2035: {dette_2035:.1f}%, expected ~151,2% (v0.6.7, lot 3b)"
     )
-    assert abs(deficit_2035 - (-10.2)) <= 2.0, (
-        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-10,2% (v0.6.7, B3)"
+    assert abs(deficit_2035 - (-9.05)) <= 2.0, (
+        f"Deficit/PIB 2035: {deficit_2035:.2f}%, expected ~-9,05% (v0.6.7, lot 3b)"
     )
 
 
