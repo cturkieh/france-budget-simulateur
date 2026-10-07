@@ -420,10 +420,12 @@ class EfficienceMixin(_MixinBase):
         # v0.6.0 : formule extraite dans _reforme_fp_reduction_cumulee (vivier
         # partagé avec le curseur effectifs, anti-double-comptage) et poste
         # valorisé au coût complet chargé COUT_MOYEN_AGENT_FP_EUR (source
-        # unique constants.py — le 40 k€ v0.5.1 était sans périmètre).
+        # unique constants.py — le 40 k€ v0.5.1 était sans périmètre), en euros
+        # de l'année depuis v0.6.7 (indice de prix des dépenses, comme le curseur).
         if year_idx >= 2:
             postes_cumules = self._reforme_fp_reduction_cumulee(year)
-            economie_cumulee = postes_cumules * COUT_MOYEN_AGENT_FP_EUR / 1e9
+            economie_cumulee = (postes_cumules * COUT_MOYEN_AGENT_FP_EUR
+                                * self.indice_prix_depenses() / 1e9)
             delta_spending -= economie_cumulee
 
             _log_debug(self.debug_logs,
@@ -460,7 +462,10 @@ class EfficienceMixin(_MixinBase):
 
         # Constantes FP
         masse_salariale_base = 330  # Md€
-        cout_moyen_agent = COUT_MOYEN_AGENT_FP_EUR  # source unique v0.6.0
+        # Source unique v0.6.0, calée en euros 2025 ; v0.6.7 : en euros de
+        # l'année (indice de prix des dépenses, celui de la masse salariale du
+        # statu quo) — figé, il valorisait un poste 60 k€ en 2035 comme en 2026.
+        cout_moyen_agent = COUT_MOYEN_AGENT_FP_EUR * self.indice_prix_depenses()
 
         delta_spending = 0
 

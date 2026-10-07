@@ -694,7 +694,7 @@ et par un meilleur ciblage, pas par une depense additionnelle.
 
 | Parametre | Impact | Cout/Economie |
 |-----------|--------|---------------|
-| Effectifs | Cible atteinte en 2032 (rampe 2027-2032) | 60 k EUR/agent/an |
+| Effectifs | Cible atteinte en 2032 (rampe 2027-2032) | 60 k EUR/agent/an en euros 2025, indexé |
 | Point d'indice | Hausse salaires | 2 Md EUR/point |
 | Fusion agences | Economies structurelles | Variable |
 
@@ -713,7 +713,12 @@ annuelles** de départs, `157 000 × taux × efficacité(année de la cohorte)`,
 non-remplacement vaut 5 % par point d'intensité jusqu'à 10 (50 %), puis 1,7 point de plus
 par point (67 % à l'intensité 20), borné à [0 ; 1] : une cohorte ne dépasse jamais les
 départs de son année. Chaque poste vaut le coût complet chargé `COUT_MOYEN_AGENT_FP_EUR`
-(60 k EUR, euros 2025 non indexés). Ordres de grandeur calculés : intensité 10 →
+(60 k EUR en euros 2025), exprimé en euros de l'année par l'indice de prix des dépenses
+du moteur depuis v0.6.7 — celui qui fait croître la masse salariale du statu quo (~70 k
+EUR en 2035). Figé jusqu'en v0.6.6, il sous-estimait les économies d'une réduction comme le
+coût d'une création, d'environ 15 % en fin d'horizon. Le curseur « effectifs » applique le
+même coût, la même année : un poste vaut autant pour les deux leviers. Ordres de grandeur
+calculés (au coût 2025) : intensité 10 →
 215 875 postes en 2030 (13,0 Md EUR/an), 529 875 au plateau (31,8 Md EUR/an) ; intensité
 20 → 289 272 postes en 2030 (17,4 Md EUR/an), 710 032 au plateau (42,6 Md EUR/an). Les
 « potentiels » cités plus haut pour les deux axes sont des ordres de grandeur de la

@@ -103,6 +103,10 @@ class _SimulatorState(Protocol):
     def masse_categorie_nominale(self, categorie: str) -> float:
         ...
 
+    # Indice de prix des dépenses : coût d'un agent FP en euros de l'année (v0.6.7).
+    def indice_prix_depenses(self) -> float:
+        ...
+
     # --- Attributs hôte lus par les mixins ---
     mesures: Dict[str, Dict]
     base_params: Dict[str, float]

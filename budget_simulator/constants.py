@@ -468,7 +468,9 @@ SEMI_ELASTICITE_SOLDE_PIB_FRANCE = 0.55
 # d'agents — DGAFP 2024, INSEE 2024). SOURCE UNIQUE v0.6.0 : les deux handlers
 # fonction publique (réforme ET effectifs) valorisent un poste au même coût ;
 # v0.5.1 utilisait 40 k€ dans l'un et 60 k€ dans l'autre sans périmètre
-# documenté (audit 08/2026, constat 4).
+# documenté (audit 08/2026, constat 4). En euros 2025 : les deux handlers
+# l'expriment en euros de l'année par l'indice de prix des dépenses du moteur
+# (v0.6.7 — figé, il valorisait un poste 60 k€ en 2035 comme en 2026).
 COUT_MOYEN_AGENT_FP_EUR = 60000
 # Départs naturels annuels dans la fonction publique (retraites) — le vivier
 # UNIQUE dans lequel puisent le non-remplacement de la réforme de l'État et le

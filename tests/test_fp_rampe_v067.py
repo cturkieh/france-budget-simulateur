@@ -153,3 +153,66 @@ def test_scenario_rn_trajectoire_publiee():
               for an in rapport['measure_impacts_by_year']}
     assert par_an[2026] == 0.0
     assert par_an[2027] < 0 and par_an[2032] < par_an[2031] < par_an[2027]
+
+
+# ---------------------------------------------------------------------------
+# Coût d'un agent indexé (v0.6.7) : COUT_MOYEN_AGENT_FP_EUR est calé en euros
+# 2025 ; il valorisait un poste au même montant en 2035 (60 k€), dans un moteur
+# où tout le reste est en euros courants — sous-estimant les économies d'une
+# réduction et le coût d'une création. Désormais × l'indice de prix des
+# dépenses du moteur (celui qui fait croître la masse salariale du statu quo),
+# dans les DEUX handlers FP : un poste vaut le même coût pour la réforme et
+# pour le curseur, chaque année.
+# ---------------------------------------------------------------------------
+
+class _Releve(BudgetSimulatorV45):
+    """Relève, à chaque appel des handlers FP, l'indice de prix des dépenses par
+    un chemin indépendant (masse nominale de la catégorie / volume) et les
+    postes réalisés."""
+
+    def _apply_fonction_publique(self, measure, params, year, gdp, inflation, unemployment):
+        ms = 'masse_salariale'
+        self.indice[year] = (self.masse_categorie_nominale(ms)
+                             / (self.spending_categories_base[ms] * self._spending_factors[ms]))
+        return super()._apply_fonction_publique(measure, params, year, gdp, inflation, unemployment)
+
+
+def _trajectoire_fp(mesures):
+    sim = _Releve(periods=10, mesures=mesures)
+    sim.indice = {}
+    _, _, rapport = sim.simulate()
+    par_an = {an['Année']: an for an in rapport['measure_impacts_by_year']}
+    return sim, par_an
+
+
+def test_cout_agent_hors_simulation_reste_le_cout_2025():
+    """Hors simulation (appel direct d'un handler), l'indice vaut exactement 1 :
+    les appels unitaires gardent 60 k€ par poste."""
+    sim = BudgetSimulatorV45(periods=10, mesures={})
+    assert sim.indice_prix_depenses() == 1.0
+
+
+def test_cout_agent_suit_l_indice_de_prix_des_depenses():
+    """RED v0.6.6 : 60 k€ par poste en 2035 comme en 2026. Désormais, chaque
+    année, économie d'un poste non remplacé = COUT_MOYEN_AGENT_FP_EUR × indice
+    de prix des dépenses de l'année (~70 k€ en 2035)."""
+    cible = -201_000
+    sim, par_an = _trajectoire_fp({'fonction_publique': {'effectifs': cible, 'point_indice': 0}})
+    for annee in range(2027, 2036):
+        postes = cible * min(annee - 2026, 6) / 6
+        attendu = postes * COUT_MOYEN_AGENT_FP_EUR * sim.indice[annee] / 1e9
+        assert par_an[annee]['fonction_publique']['depenses'] == pytest.approx(attendu, rel=1e-9), annee
+    assert 66_000 < COUT_MOYEN_AGENT_FP_EUR * sim.indice[2035] < 74_000
+    assert sim.indice[2026] > 1.0
+
+
+def test_reforme_et_curseur_valorisent_un_poste_au_meme_cout():
+    """Source unique du coût d'un poste (v0.6.0) PRÉSERVÉE sous l'indexation :
+    l'économie de la réforme par poste non remplacé est celle du curseur."""
+    mesures = {'fonction_publique_reforme': {'fusion_agences': 50, 'digitalisation': 50}}
+    sim, par_an = _trajectoire_fp({**mesures, 'fonction_publique': {'effectifs': 60_000, 'point_indice': 0}})
+    for annee in (2031, 2033, 2035):   # après la phase de coûts (2026-2029)
+        postes = sim._reforme_fp_reduction_cumulee(annee)
+        economie = -par_an[annee]['fonction_publique_reforme']['depenses']
+        assert economie == pytest.approx(postes * COUT_MOYEN_AGENT_FP_EUR * sim.indice[annee] / 1e9,
+                                         rel=1e-9), annee
