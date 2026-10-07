@@ -215,9 +215,9 @@ def test_aucune_collision_id_lfi_2026():
 # ménages / prix de la consommation / unités de consommation, à la place de
 # « croissance + coefficients forfaitaires »). Mesuré le 07/10/2026, avant →
 # après : plf_2026 104,6→102,7 ; rn_2027 109,3→104,4 ; lfi_2027 115,9→107,2 ;
-# renaissance_2027 106,7→104,4 ; horizons_2027 109,8→101,9 ; lr_2027
+# renaissance_2027 106,7→104,5 ; horizons_2027 109,8→101,9 ; lr_2027
 # 109,3→104,7 ; ps_2027 112,0→105,6 ; ecologistes_2027 110,6→103,8 ;
-# im_rabot_2029 96,8→94,3 ; im_competitivite_2029 107,9→103,5. Toutes les
+# im_rabot_2029 96,8→94,2 ; im_competitivite_2029 107,9→103,5. Toutes les
 # autres colonnes sont bit-identiques.
 EXPECTED_PA_2029_FULL = {
     "plf_2026": 102.7,
@@ -228,12 +228,12 @@ EXPECTED_PA_2029_FULL = {
     # 30/08/2026 : re-encodage Attal (droit au brut +15 Md€ mais année blanche
     # inchangée, retrait rénovation non sourcée) 103.7 → 102.9 ; Philippe
     # (retrait abattement retraités + chômage 16 mois) 107.3 → 106.7.
-    "renaissance_2027": 104.4,
+    "renaissance_2027": 104.5,
     "horizons_2027": 101.9,
     "lr_2027": 104.7,
     "ps_2027": 105.6,
     "ecologistes_2027": 103.8,
-    "im_rabot_2029": 94.3,
+    "im_rabot_2029": 94.2,
     "im_competitivite_2029": 103.5,
 }
 

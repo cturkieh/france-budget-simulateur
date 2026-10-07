@@ -239,13 +239,13 @@ def test_formule_exacte_rejouee(monkeypatch):
     assert det.loc[2030, 'RDB_Effet_Mesures_Md€'] != 0
 
 
-def test_inflation_neutre_sur_la_part_privee(monkeypatch):
-    """Deux inflations (0,5 % et 3 %) : la part privée RÉELLE vaut exactement
-    sa part 2025 × l'indice du PIB réel — l'inflation ne la touche qu'à travers
-    la croissance réelle. Seule la masse salariale publique (catégorie organique
-    du moteur, indexée pour 54 % sur l'inflation PASSÉE) perd du pouvoir
-    d'achat quand l'inflation monte : écart réel borné à 2 % de cette part
-    (mesuré 1,3 % ; 10,6 % du RDB → ≈ 0,14 pt d'indice)."""
+def test_inflation_neutre_sur_le_revenu_de_base(monkeypatch):
+    """Deux inflations (0,5 % et 3 %) : la part privée RÉELLE vaut exactement sa
+    part 2025 × l'indice du PIB réel, et la part publique RÉELLE suit son seul
+    volume tendanciel (0,6 %/an) — l'inflation ne touche le revenu de base qu'à
+    travers la croissance réelle. (Constat du réfuteur v0.6.8 : indexée sur la
+    catégorie de dépense organique, la masse publique perdait 1,3 % réel l'année
+    d'une hausse d'inflation et suivait l'écart de production.)"""
     import budget_simulator.engine.orchestrator as orch
     monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
 
@@ -255,19 +255,39 @@ def test_inflation_neutre_sur_la_part_privee(monkeypatch):
         def calculate_inflation(self, year, economic_state):
             return self.pi
 
-    prive_2025 = (rdb_module.RDB_MENAGES_2025_MD_EUR
-                  - rdb_module.REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR)
-    publics = []
+    pub = rdb_module.REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR
+    prive_2025 = rdb_module.RDB_MENAGES_2025_MD_EUR - pub
     for pi in (0.005, 0.03):
         sim = type('_I', (_Inflation,), {'pi': pi})(periods=10, mesures={})
         _, det, _ = sim.simulate()
         pib_reel = det.set_index('Année')['PIB_Réel_Base2025']
-        for an, t in sim._rdb_trace.items():
+        volume = 1 + sim.spending_growth_rates['masse_salariale']
+        for i, (an, t) in enumerate(sim._rdb_trace.items()):
             assert t.rdb_prive / t.prix == pytest.approx(
                 prive_2025 * pib_reel[an] / pib_reel[2025], rel=1e-12), (pi, an)
-        publics.append({an: (t.rdb_base - t.rdb_prive) / t.prix for an, t in sim._rdb_trace.items()})
-    for an in publics[0]:
-        assert publics[1][an] == pytest.approx(publics[0][an], rel=0.02), an
+            assert (t.rdb_base - t.rdb_prive) / t.prix == pytest.approx(
+                pub * volume ** i, rel=1e-12), (pi, an)
+
+
+def test_masse_publique_de_base_identique_entre_scenarios():
+    """Arbitrage 2 : la masse salariale publique de base, en réel, ne dépend
+    d'aucune mesure (ni de la croissance qu'elles induisent) — seuls les canaux
+    de rémunération la déplacent. Vérifié sur les dix scénarios publiés."""
+    import pathlib
+    import sys
+    sys.path.insert(0, str(pathlib.Path(__file__).parent / 'snapshots'))
+    from run_scenarios_full import SCENARIOS
+    def reel(t):
+        # Déflatée par le DÉFLATEUR (le coin fiscal indirect est un effet prix
+        # des mesures, pas un effet sur la base).
+        deflateur = t.prix / (1 + t.coin_indirect / ((1 - TAUX_EPARGNE_MENAGES_2025) * t.rdb_base))
+        return (t.rdb_base - t.rdb_prive) / deflateur
+
+    sq = _run({})[0]._rdb_trace
+    for nom, mesures in SCENARIOS.items():
+        trace = _run(mesures)[0]._rdb_trace
+        for an, t in trace.items():
+            assert reel(t) == pytest.approx(reel(sq[an]), rel=1e-12), (nom, an)
 
 
 def test_ancrage_statu_quo_tendance_longue_insee():

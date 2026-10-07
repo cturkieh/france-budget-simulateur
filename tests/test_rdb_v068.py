@@ -29,7 +29,7 @@ def test_indice_2025_vaut_100():
     assert rdb.rdb_annee({}, PIB0, PIB0, 1.0, 1.0, 0).indice == pytest.approx(100.0, abs=1e-12)
 
 
-def test_sans_mesure_la_part_privee_suit_le_pib_nominal_et_la_publique_sa_masse():
+def test_sans_mesure_la_part_privee_suit_le_pib_nominal_et_la_publique_son_indice():
     an = rdb.rdb_annee({}, PIB0 * 1.03, PIB0, 1.01, 1.02, 1)
     pub = rdb.REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR
     assert an.rdb_base == pytest.approx((RDB_MENAGES_2025_MD_EUR - pub) * 1.03 + pub * 1.02)

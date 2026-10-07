@@ -359,14 +359,23 @@ class OrchestratorMixin:
                         f"mesure (plafond du modèle, FMI 2010), dès {year}")
                 clip_dep = np.clip(delta_spending, -max_impact, max_impact)
                 clip_rec = np.clip(delta_revenue, -max_impact, max_impact)
-                if 'menages' in measure_impacts and (clip_dep != delta_spending
-                                                     or clip_rec != delta_revenue):
-                    # Même plafond pour les euros des ménages que pour le
-                    # budget dont ils sont issus, côté par côté.
-                    measure_impacts['menages'] = borner_canaux(
+                if 'menages' in measure_impacts:
+                    # Même plafond pour les euros des ménages que pour le budget
+                    # dont ils sont issus, côté par côté, puis le plafond lui-même
+                    # sur chaque canal (un canal sans contrepartie budgétaire ne
+                    # lui échappe pas). No-op sur les scénarios publiés.
+                    canaux = borner_canaux(
                         measure_impacts['menages'],
                         clip_dep / delta_spending if delta_spending else 1.0,
                         clip_rec / delta_revenue if delta_revenue else 1.0)
+                    bornes = {c: float(np.clip(v, -max_impact, max_impact))
+                              for c, v in canaux.items()}
+                    if bornes != canaux:
+                        self._avis.setdefault(
+                            (measure_id, 'CLIP_5'),
+                            f"{measure_id} : impact plafonné à 5 % du PIB par "
+                            f"mesure (plafond du modèle, FMI 2010), dès {year}")
+                    measure_impacts['menages'] = bornes
                 delta_spending, delta_revenue = clip_dep, clip_rec
                 # Propager le clip aux measure_impacts (sinon multiplicateur calculé sur valeur
                 # non-clip mais budget appliqué sur valeur clip → incohérence interne)
@@ -880,14 +889,18 @@ class OrchestratorMixin:
             # ménages déflaté par le prix de leur consommation, par unité de
             # consommation, base 100 en 2025 — la définition de l'INSEE. Indice de
             # NIVEAU : l'année t ne lit que les grandeurs de t (PIB nominal,
-            # déflateur, masse salariale publique organique, euros des mesures par
-            # canal ménages). Remplace « croissance du PIB + Σ coefficients
+            # déflateur, euros des mesures par canal ménages). La masse salariale
+            # publique de BASE suit le volume tendanciel du statu quo
+            # (spending_growth_rates, 0,6 %/an) au prix du déflateur : identique en
+            # réel pour tous les scénarios, ni la croissance, ni l'écart de
+            # production, ni l'indexation passée n'y touchent (arbitrage 2 : seules
+            # les mesures de rémunération la déplacent, par leur canal). Remplace « croissance du PIB + Σ coefficients
             # forfaitaires × 0,5 après 2026 » de la v0.6.7 (formule et tableau
             # avant/après : METHODOLOGIE § Pouvoir d'achat).
             rdb = rdb_annee(
                 impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
-                (self.masse_categorie_nominale('masse_salariale')
-                 / self.spending_categories_base['masse_salariale']),
+                ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx
+                 * self.deflateur_cumule),
                 year_idx)
             self._rdb_trace[year] = rdb
             # Même garde de finitude que le Gini : un NaN/inf ressortirait de la

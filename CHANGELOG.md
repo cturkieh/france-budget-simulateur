@@ -13,8 +13,8 @@ colonne « Pouvoir d'Achat » change ; toutes les autres sorties sont bit-identi
 (44 scénarios vérifiés : 10 publiés, statu quo, 33 leviers isolés).
 
 - **Formule** (`budget_simulator/engine/rdb.py`) : RDB = part privée au PIB nominal +
-  rémunérations publiques nettes à la masse salariale organique du moteur + euros des
-  mesures de l'année par canal ; prix = déflateur × coin de fiscalité indirecte ;
+  rémunérations publiques nettes (volume tendanciel du statu quo × déflateur, identiques
+  en réel pour tous les scénarios) + euros des mesures de l'année par canal ; prix = déflateur × coin de fiscalité indirecte ;
   indice de NIVEAU (l'année t ne lit que les grandeurs de t).
 - **Contrat des handlers** : chacun des 33 handlers émet ses montants par canal ménages
   (clé `menages` : prélèvements directs, indirects, prestations, rémunérations
@@ -36,7 +36,7 @@ colonne « Pouvoir d'Achat » change ; toutes les autres sorties sont bit-identi
   2007), Benzarti & Carloni (AEJ:EP 2019). Deux valeurs non sourcées en ligne, signalées :
   part des primes dans le brut public (~25 %), part nette du brut privé (0,78).
 - **Effet** (2030, v0.6.7 → v0.6.8) : statu quo 106,0 → 103,6 ; étendue des dix
-  scénarios 20,2 → 13,1 pt (2035 : 22,1 → 10,0). Tableau complet et lecture :
+  scénarios 20,2 → 13,3 pt (2035 : 22,1 → 9,9). Tableau complet et lecture :
   `docs/METHODOLOGIE.md` § Indice de pouvoir d'achat.
 - **Limite déclarée** : statu quo 2026 à +0,8 % par UC contre −0,7 % prévu par l'INSEE
   (juin 2026) — écart porté par la croissance et l'inflation 2026 du moteur, antérieures

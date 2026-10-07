@@ -1972,7 +1972,7 @@ classement inchange. Proprietes verrouillees par tests dedies.
 
   ```
   RDB(t) = (RDB₂₀₂₅ − R_pub) × PIB_nominal(t) / PIB_nominal(2025)      revenus privés et de base
-         + R_pub × M(t) / M(2025)                                      rémunérations publiques nettes
+         + R_pub × (1 + v)^(t − 2025) × D(t)                           rémunérations publiques nettes
          + Σ_mesures [ prestations − prélèvements directs
                        + n × rémunérations publiques + salaires privés nets ]   (Md€ de l'année)
   P(t)   = D(t) × (1 + Σ_mesures τ± × p × prélèvements indirects / C(t)),   C(t) = (1 − s) × RDB_base(t)
@@ -1990,7 +1990,7 @@ classement inchange. Proprietes verrouillees par tests dedies.
   | p | 65,1 % | DG Trésor, *Analyse de la composition des recettes de TVA* (2022) ; appliqué aussi aux accises énergie et à la taxe carbone (approximation) |
   | τ+ / τ− | 1,0 / 0,5 | Benzarti, Carloni, Harju & Kosonen, JPE 128(12), 2020 : « prices respond twice as much to VAT increases as to VAT decreases » ; Carbonnier, JPubE 91(5-6), 2007 : baisses répercutées à 57 % et 77 % ; Benzarti & Carloni, AEJ:EP 11(1), 2019 : baisse de la restauration, consommateurs les moins bénéficiaires |
   | D(t) | déflateur du PIB du moteur | — |
-  | M(t) | catégorie `masse_salariale` organique du moteur | — |
+  | v | 0,6 %/an | volume tendanciel de la masse salariale du statu quo du moteur (`spending_growth_rates`, « GVT + point d'indice ») |
   | part nette du brut privé | 0,78 | cotisations salariales de 22 % retenues par le moteur (**non sourcée en ligne**) ; SMIC uniquement |
 
 - **Canaux par levier** (chaque handler émet la clé `menages`, `handlers/_types.canaux_menages`,
@@ -2009,8 +2009,9 @@ classement inchange. Proprietes verrouillees par tests dedies.
   direct sur le pouvoir d'achat, il passe par la croissance et l'emploi ; (2) la dépense
   publique n'a aucun effet direct — exception : une hausse de rémunération des agents en place
   est un revenu, comptée UNE fois, à sa part nette ; la masse salariale publique de base suit
-  la dépense organique du moteur (`M(t)`), pas la croissance, qui n'agit que sur la part
-  privée ; (3) répercussion asymétrique de la fiscalité indirecte, sourcée ; (4) les baisses
+  son volume tendanciel au prix du déflateur, identique en réel pour tous les scénarios (ni la
+  croissance, ni l'écart de production, ni l'indexation passée n'y touchent) : la croissance
+  n'agit que sur la part privée ; (3) répercussion asymétrique de la fiscalité indirecte, sourcée ; (4) les baisses
   d'indice qui résultent de la suppression de coefficients non sourcés sont acceptées et
   publiées (tableau ci-dessous) ; (5) indice par UC, ancré sur l'INSEE.
 - **Hypothèses affichées** : salaires privés, revenus des indépendants et du patrimoine,
@@ -2039,28 +2040,28 @@ classement inchange. Proprietes verrouillees par tests dedies.
   | Scénario | 2030 v0.6.7 | 2030 v0.6.8 | 2035 v0.6.7 | 2035 v0.6.8 |
   |---|---|---|---|---|
   | Statu quo | 106,0 | 103,6 | 111,5 | 106,6 |
-  | Budget 2026 voté (plf_2026) | 105,7 | 103,3 | 111,3 | 106,4 |
-  | RN | 110,3 | 105,0 | 116,0 | 107,8 |
-  | LFI | 117,4 | 107,9 | 123,2 | 109,3 |
-  | Renaissance | 107,2 | 104,8 | 110,3 | 107,0 |
+  | Budget 2026 voté (plf_2026) | 105,7 | 103,3 | 111,3 | 106,5 |
+  | RN | 110,3 | 105,0 | 116,0 | 107,9 |
+  | LFI | 117,4 | 108,0 | 123,2 | 109,3 |
+  | Renaissance | 107,2 | 104,8 | 110,3 | 107,1 |
   | Horizons | 110,9 | 102,4 | 116,9 | 105,8 |
   | LR | 110,3 | 105,2 | 115,1 | 107,5 |
-  | PS | 113,5 | 106,3 | 119,7 | 108,6 |
-  | Écologistes | 112,2 | 104,7 | 119,1 | 108,0 |
-  | Institut Montaigne, rabot | 97,2 | 94,8 | 101,1 | 99,3 |
+  | PS | 113,5 | 106,4 | 119,7 | 108,7 |
+  | Écologistes | 112,2 | 104,8 | 119,1 | 108,0 |
+  | Institut Montaigne, rabot | 97,2 | 94,7 | 101,1 | 99,4 |
   | Institut Montaigne, compétitivité | 109,4 | 104,2 | 115,5 | 107,3 |
-  | **Étendue (10 scénarios)** | **20,2** | **13,1** | **22,1** | **10,0** |
+  | **Étendue (10 scénarios)** | **20,2** | **13,3** | **22,1** | **9,9** |
 
   Lecture : environ −2,4 pt pour tous en 2030 (−4,9 en 2035) viennent du passage « par UC »
   (0,4 %/an, identique pour tous) ; le reste est l'effet de la définition. Écarts au statu
   quo en 2030, v0.6.7 → v0.6.8 : budget voté −0,3 → −0,3 ; RN +4,3 → +1,4 ; LFI +11,4 →
-  +4,3 ; Renaissance +1,2 → +1,2 ; Horizons +4,9 → −1,2 ; LR +4,3 → +1,6 ; PS +7,5 → +2,7 ;
-  Écologistes +6,2 → +1,1 ; rabot −8,8 → −8,8 ; compétitivité +3,4 → +0,6. Sept écarts se
+  +4,4 ; Renaissance +1,2 → +1,2 ; Horizons +4,9 → −1,2 ; LR +4,3 → +1,6 ; PS +7,5 → +2,8 ;
+  Écologistes +6,2 → +1,2 ; rabot −8,8 → −8,9 ; compétitivité +3,4 → +0,6. Sept écarts se
   resserrent, trois sont inchangés à 0,1 pt près. Ceux qui se resserrent le plus sont les
   programmes dont l'indice reposait sur des coefficients sans source — impôts de production
   (175 % de transmission pour un impôt d'entreprise), point d'indice et dépenses comptés en
   sus de la croissance, rénovation réémise chaque année. En 2035 le rabot passe de −10,4 à
-  −7,3 : ses coupes de prestations sont comptées en euros de l'année au lieu d'un
+  −7,2 : ses coupes de prestations sont comptées en euros de l'année au lieu d'un
   coefficient composé chaque année.
 
 **Competitivite :**

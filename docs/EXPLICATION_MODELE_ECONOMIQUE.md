@@ -301,7 +301,7 @@ par le prix de leur consommation, par unité de consommation, base 100 en 2025
 
 ```
 RDB(t)  = part privée × PIB nominal(t)          (salaires privés, indépendants, patrimoine)
-        + part publique × masse salariale(t)    (rémunérations publiques nettes)
+        + part publique × volume tendanciel(t) × déflateur(t)   (rémunérations publiques nettes)
         + euros des mesures de l'année           (prestations − impôts directs + ...)
 Prix(t) = déflateur(t) × (1 + TVA/accises répercutées / consommation)
 PA(t)   = 100 × RDB réel(t) / RDB(2025) / UC(t)

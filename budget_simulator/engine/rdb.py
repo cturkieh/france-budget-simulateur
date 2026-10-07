@@ -7,7 +7,7 @@ par le prix de leur consommation, rapporté au nombre d'unités de consommation
 (UC), base 100 en 2025 :
 
     RDB_t = (RDB_2025 − R_pub) × PIB_t / PIB_2025     revenus privés et de base
-          + R_pub × M_t / M_2025                      rémunérations publiques nettes
+          + R_pub × M_t                               rémunérations publiques nettes
           + Σ_mesures [prestations − prélèvements directs
                        + n × rémunérations publiques + salaires privés nets]
     P_t   = D_t × (1 + Σ_mesures τ± × part_ménages × indirects / C_t)
@@ -19,10 +19,12 @@ par le prix de leur consommation, rapporté au nombre d'unités de consommation
   C'est le seul canal de la croissance : une mesure qui agit sur le PIB
   (impôts d'entreprise, embauches, investissement) n'agit sur l'indice que par
   lui.
-- ``R_pub`` = part nette (``n``) de la masse salariale publique 2025 ; elle suit
-  la catégorie ``masse_salariale`` du moteur (``M_t``, dépense organique), PAS
-  le PIB : la croissance n'agit que sur la part privée. Un euro de point
-  d'indice est compté UNE fois, ici, à sa part nette.
+- ``R_pub`` = part nette (``n``) de la masse salariale publique 2025 ; ``M_t`` =
+  volume TENDANCIEL du statu quo du moteur (``spending_growth_rates``, 0,6 %/an)
+  × déflateur : identique en réel pour tous les scénarios. Ni la croissance, ni
+  l'écart de production, ni l'indexation passée n'y touchent — la croissance
+  n'agit que sur la part privée. Un euro de point d'indice est compté UNE fois,
+  par son canal, à sa part nette.
 - Canaux € : émis par chaque handler (clé ``menages``, cf.
   ``handlers/_types.CANAUX_MENAGES``), en euros de l'année, écart au statu
   quo. Indice de NIVEAU : l'année t ne lit que les montants de t (aucune
@@ -124,6 +126,10 @@ def rdb_annee(impacts: Mapping[str, object], pib_nominal: float, pib_nominal_202
               deflateur: float, indice_masse_publique: float, annees: int) -> RdbAnnee:
     """Indice de l'année à partir des grandeurs de l'année (aucun état)."""
     base = rdb_base_md_eur(pib_nominal, pib_nominal_2025, indice_masse_publique)
+    if not base > 0:
+        # PIB nominal et déflateur sont strictement positifs par construction :
+        # une base nulle ou négative est un bug d'appel, pas une entrée.
+        raise ValueError(f"RDB de base non positif ({base!r})")
     prive = base - REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR * indice_masse_publique
     canaux = list(canaux_des_mesures(impacts))
     effet = sum(effet_revenu_md_eur(c) for c in canaux)
