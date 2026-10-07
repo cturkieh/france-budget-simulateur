@@ -193,22 +193,31 @@ def test_aucune_collision_id_lfi_2026():
 # 100,3→99,1 ; im_competitivite_2029 104,8→104,5. Rappel de lecture (I17) :
 # la variable est le DÉFLATEUR, l'indexation légale suit l'IPC — l'écart
 # déclaré de -0,15 pt/an minore encore la perte affichée ici.
+# RECALAGE v0.6.7 lot 3A (impulsions budgétaires levier par levier, audit
+# Codex 10/2026 constats A1-A2) : la croissance de chaque scénario bouge parce
+# que toute la trajectoire d'effort est désormais multipliée, flux par flux —
+# et non plus le seul niveau de première année. `pa_macro = growth − …` suit.
+# Avant → après : plf_2026 101,9→101,6 ; rn_2027 105,9→105,8 ; lfi_2027
+# 110,8→113,2 ; renaissance_2027 102,9→103,3 ; horizons_2027 106,7→106,4 ;
+# lr_2027 104,8→105,3 ; ps_2027 108,3→109,3 ; ecologistes_2027 107,1→108,0 ;
+# im_rabot_2029 99,0→95,1 (sa coupe de 5,2 % du PIB enfin multipliée en
+# entier) ; im_competitivite_2029 104,4→105,4. Aucune logique PA modifiée.
 EXPECTED_PA_2029_FULL = {
-    "plf_2026": 101.9,
+    "plf_2026": 101.6,
     # 30/08/2026 : retrait de la baisse de CSG furtive (0,097 → 0,098039 voté)
     # chez RN et les deux scénarios Montaigne → PA −0,1 pt chacun.
-    "rn_2027": 105.9,
-    "lfi_2027": 110.8,
+    "rn_2027": 105.8,
+    "lfi_2027": 113.2,
     # 30/08/2026 : re-encodage Attal (droit au brut +15 Md€ mais année blanche
     # inchangée, retrait rénovation non sourcée) 103.7 → 102.9 ; Philippe
     # (retrait abattement retraités + chômage 16 mois) 107.3 → 106.7.
-    "renaissance_2027": 102.9,
-    "horizons_2027": 106.7,
-    "lr_2027": 104.8,
-    "ps_2027": 108.3,
-    "ecologistes_2027": 107.1,
-    "im_rabot_2029": 99.0,
-    "im_competitivite_2029": 104.4,
+    "renaissance_2027": 103.3,
+    "horizons_2027": 106.4,
+    "lr_2027": 105.3,
+    "ps_2027": 109.3,
+    "ecologistes_2027": 108.0,
+    "im_rabot_2029": 95.1,
+    "im_competitivite_2029": 105.4,
 }
 
 

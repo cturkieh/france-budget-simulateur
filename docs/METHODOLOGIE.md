@@ -58,9 +58,9 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
 | Deficit 2026 | -5,37 % | **-5,25 %** (loi votee : -5,0 %) |
-| Dette 2030 | 130,41 % | **129,35 %** (mission IGF : 130,5) |
-| Dette 2035 | 161,79 % | **158,85 %** |
-| Deficit 2035 | -11,26 % | **-10,68 %** |
+| Dette 2030 | 130,41 % | **129,91 %** (mission IGF : 130,5) |
+| Dette 2035 | 161,79 % | **160,69 %** |
+| Deficit 2035 | -11,26 % | **-10,99 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
@@ -616,7 +616,9 @@ coute moins que le sien). Trajectoire pour +3 Md EUR/an :
 Lecture : la prevention **coute toujours** de l'argent public, mais coute
 **de moins en moins**. C'est le maximum que la litterature autorise.
 
-**Limite connue, dite ici plutot que decouverte par un contradicteur** : le
+**Limite connue, dite ici plutot que decouverte par un contradicteur** (LEVÉE en
+v0.6.7 : l'impulsion est désormais la variation de chaque levier, sans aucun seuil —
+le paragraphe décrit l'état v0.6.1-v0.6.6) : le
 moteur ne cree une impulsion budgetaire que si l'effort depasse 0,1 % du PIB
 (`engine/growth.py`) — une regle A SEUIL. Un budget de prevention qui fait
 franchir ce seuil declenche d'un coup le multiplicateur, donc un peu de PIB,
@@ -1300,7 +1302,18 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
 
 ### Architecture des Multiplicateurs (v3.0)
 
-**Weighted Blend per-measure** : Chaque mesure budgetaire a son propre multiplicateur, calcule en fonction de sa composition (recettes/depenses/investissement). Le multiplicateur global de l'annee est la moyenne ponderee des multiplicateurs individuels, ponderee par le poids budgetaire de chaque mesure.
+**Impulsions par levier et par flux (v0.6.7, audit externe Codex 10/2026)** : l'effet keynésien de l'année est la somme, sur les leviers, les flux et les âges, de
+
+```
+effet(t) = Σ_levier Σ_flux Σ_âge  −k(flux, sens) × Δe(t − âge) × profil_levier(âge)
+Δe(t)    = e(t) − e(t−1),  e = flux du levier / PIB nominal de son année   (e > 0 = consolidation)
+```
+
+Chaque flux d'un levier est multiplié séparément : ses recettes au canal fiscal, ses dépenses au canal investissement (éducation, recherche, transition écologique) ou transferts/générique. Le sens (consolidation ou expansion) est celui du NIVEAU du flux par rapport au statu quo, pas celui de sa variation : retirer une hausse d'impôts porte le multiplicateur d'une hausse, donc l'effet cumulé d'une mesure retirée revient exactement à zéro et le cumul ne dépend que du niveau atteint (un flux qui change de signe dans l'année est scindé en zéro). Exceptions : le SMIC et la fraude fiscale ont un coefficient calibré sur leur effet NET, appliqué à leur solde (`FiscalMultipliers.MESURES_MULTIPLICATEUR_NET`). L'impulsion de l'année est lue dans les impacts de t−1 (lag d'un an, cf. boucle annuelle).
+
+**Ce que cela corrige (v0.6.6, deux erreurs de calcul)** : (1) une impulsion n'était stockée qu'au changement du hash des mesures — constant pendant une simulation —, donc UNE impulsion par scénario, égale au NIVEAU de la première année non nulle : la montée en charge n'était jamais multipliée (fraude fiscale : 0,10 % du PIB multiplié, 0,47 % atteint en 2030), et les résidus s'arrêtaient net dès que l'effort courant repassait sous 0,1 % du PIB ; (2) un seul multiplicateur par scénario, moyenne des multiplicateurs SIGNÉS pondérée par l'effort BRUT puis appliquée à l'effort NET : un programme équilibré n'avait aucun effet keynésien, et une consolidation nette pouvait être comptée comme une relance (banc de l'auditeur, 40 Md EUR d'investissement + 20/40/50 Md EUR d'impôts : +0,253 / 0 / +0,060 pt au lieu de +0,420 / +0,120 / −0,030). Contrat verrouillé par `tests/test_impulsions_v067.py` (somme signée, additivité d'une montée en charge, résidus après retrait, franchissement de zéro, chaque variation multipliée une fois en simulation complète).
+
+**Multiplicateur cumulé = k × Σ profil** : avec ces profils, l'effet de NIVEAU d'une impulsion permanente vaut 2,38 fois l'impulsion pour l'investissement (1,2 × 1,98), 1,0 pour une hausse d'impôts (0,5 × 2,0), 0,89 pour les transferts (0,5 × 1,77), 1,09 à 1,20 pour une coupe générique, 0,70 pour une baisse d'impôts. La v0.6.6 n'exposait presque jamais ces grandeurs (une seule impulsion par scénario, plafonnée) ; depuis la v0.6.7 elles portent tout le canal keynésien. **Limite déclarée** : 2,38 est au-dessus du FMI (WEO oct. 2014, ch. 3 : +1,5 % de PIB quatre ans après 1 point de PIB d'investissement public, en conditions favorables) ; le recalage du profil INVEST est un arbitrage de calibration ouvert, distinct de cette correction d'équation.
 
 ### Table des Multiplicateurs de Base
 
@@ -1334,7 +1347,7 @@ dedie, pas d'un coefficient.
 
 ### DECAY_PROFILE (Profil Temporel Differencie v3.1)
 
-Depuis la v3.1, le simulateur utilise **3 profils de decroissance** differencies selon le type de mesure budgetaire, au lieu d'un profil unique. Le profil applique a chaque annee est un melange pondere (weighted blend) selon la composition des mesures actives.
+Depuis la v3.1, le simulateur utilise **3 profils de decroissance** differencies selon le type de mesure budgetaire, au lieu d'un profil unique. Depuis la v0.6.7, chaque impulsion porte le profil de SON levier (`_get_decay_profile`) — plus de mélange pondéré à l'échelle du programme.
 
 **Profil TAXES** — pour les mesures fiscales (TVA, IS, IR, CSG, etc.) :
 ```
@@ -1356,9 +1369,9 @@ Pic decale a l'annee 2 (au lieu de l'annee 1), refletant les delais de mise en o
 
 **Sources** : IMF 2014, Blanchard & Leigh 2013, Ramey 2019 (profils temporels differencies par type de depense).
 
-Cap par mesure : 2% PIB (contraintes d'offre).
+**Plus de plafond de taille (v0.6.7)** : le plafond « effort ≤ 2 % du PIB » est retiré (cf. L5). Le seul filet reste le clip de croissance [−3,5 % ; +2,5 %].
 
-> **Note — ce qui N'EST PAS en production.** Un mecanisme de *re-impulsion annuelle* (dit « Type B » : chaque tranche annuelle d'investissement aurait genere une nouvelle impulsion de demande, en plus de l'impulsion declenchee au changement de curseur) a ete prototype puis **reverte (commit `11d979e` — « revert annual re-impulse, keep differentiated decay profiles only »)**. Il n'est **pas actif** dans le moteur courant. Seuls les 3 profils de decroissance differencies ci-dessus sont en production ; l'impulsion fiscale reste declenchee une fois par changement de mesure (`_fiscal_impulses`, selection du profil via `_get_decay_profile(measure_id)` dans `budget_simulator/simulator.py`).
+> **Note — ce qui N'EST PAS en production.** Un mecanisme de *re-impulsion annuelle* (dit « Type B » : chaque tranche annuelle d'investissement aurait genere une nouvelle impulsion de demande, en plus de l'impulsion declenchee au changement de curseur) a ete prototype puis **reverte (commit `11d979e` — « revert annual re-impulse, keep differentiated decay profiles only »)**. Il n'est **pas actif** : il re-multipliait le NIVEAU de la dépense chaque année, donc la comptait plusieurs fois. La v0.6.7 fait l'inverse : seule la VARIATION annuelle de l'effort est une impulsion, si bien que la somme des impulsions d'un levier égale exactement son niveau — chaque euro est multiplié une fois (`tests/test_impulsions_v067.py`).
 
 ### Taux d'Interet (v0.6.0 : ancre + spread, audit externe 08/2026)
 
@@ -1432,7 +1445,7 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 
 **Pass-through TVA (v4.0)** : one-shot, applique l'annee qui SUIT l'entree en vigueur de la mesure — la macro de l'annee t est calculee AVANT les mesures de t, l'impact TVA transmis vient donc de t-1. Pas de re-pass-through les annees suivantes : la persistance passe par l'inertie (rho = 0,5).
 
-**Ce que mesure la variable `inflation` — une variable pour trois roles (v4.1)** : le moteur n'a qu'une variable la ou l'economie en distingue trois — (i) le **deflateur du PIB**, denominateur du ratio de dette ; (ii) l'**IPC**, pour le pouvoir d'achat ; (iii) l'**indice d'indexation** des prestations. L'arbitrage retenu est de la caler sur le **deflateur**, parce que l'INSEE tranche explicitement (blog sept. 2022 : « les ressources publiques etant plus ou moins fonction du PIB en valeur plutot que de la seule consommation, c'est plutot le deflateur du PIB qui importe pour apprecier le taux d'emprunt reel des administrations publiques »), et parce que la dette est la sortie principale du site. L'indexation **legale** des pensions suit, elle, l'IPC hors tabac. **Biais residuel declare : -0,15 pt/an** sur les roles (ii) et (iii) — ecart deflateur/prix a la consommation mesure a -0,1/-0,2 pt en regime normal, jusqu'a -0,6/-0,8 pt en annee de choc energetique. **Ce biais n'est PAS conservateur — il FLATTE les chiffres publies** (correction du 26/08/2026 ; cette page ecrivait l'inverse). Il minore la depense indexee, donc il AMELIORE le deficit et la dette — la sortie principale du site — et il minore la perte de pouvoir d'achat affichee, donc il embellit cet indicateur aussi. Les deux effets vont dans le meme sens, et c'est le sens favorable ; « conservateur » designerait l'erreur qui joue contre soi. **Magnitude, mesuree par contre-epreuve** (depense primaire indexee sur l'IPC — l'indice que l'indexation legale suit — tout le reste identique) : deficit 2030 -6,40 -> -6,86, deficit 2035 -10,70 -> -11,95 ; dette 2030 129,65 -> 130,93, **dette 2035 159,35 -> 164,85, soit 5,5 points de PIB** (contre-epreuve mesuree le 26/08/2026 sur l'etat v0.6.1 ; l'ordre de grandeur — le seul message ici — est inchange par la passe v0.6.3, dont les valeurs vivantes sont 129,35 / 158,85 / -10,68). Ce n'est pas un residu de second ordre. Il n'est pas corrige ici : tous les handlers consomment `inflation`, scinder en trois variables est un changement d'architecture instruit separement — ce qui est corrige, c'est ce qu'on en dit.
+**Ce que mesure la variable `inflation` — une variable pour trois roles (v4.1)** : le moteur n'a qu'une variable la ou l'economie en distingue trois — (i) le **deflateur du PIB**, denominateur du ratio de dette ; (ii) l'**IPC**, pour le pouvoir d'achat ; (iii) l'**indice d'indexation** des prestations. L'arbitrage retenu est de la caler sur le **deflateur**, parce que l'INSEE tranche explicitement (blog sept. 2022 : « les ressources publiques etant plus ou moins fonction du PIB en valeur plutot que de la seule consommation, c'est plutot le deflateur du PIB qui importe pour apprecier le taux d'emprunt reel des administrations publiques »), et parce que la dette est la sortie principale du site. L'indexation **legale** des pensions suit, elle, l'IPC hors tabac. **Biais residuel declare : -0,15 pt/an** sur les roles (ii) et (iii) — ecart deflateur/prix a la consommation mesure a -0,1/-0,2 pt en regime normal, jusqu'a -0,6/-0,8 pt en annee de choc energetique. **Ce biais n'est PAS conservateur — il FLATTE les chiffres publies** (correction du 26/08/2026 ; cette page ecrivait l'inverse). Il minore la depense indexee, donc il AMELIORE le deficit et la dette — la sortie principale du site — et il minore la perte de pouvoir d'achat affichee, donc il embellit cet indicateur aussi. Les deux effets vont dans le meme sens, et c'est le sens favorable ; « conservateur » designerait l'erreur qui joue contre soi. **Magnitude, mesuree par contre-epreuve** (depense primaire indexee sur l'IPC — l'indice que l'indexation legale suit — tout le reste identique) : deficit 2030 -6,40 -> -6,86, deficit 2035 -10,70 -> -11,95 ; dette 2030 129,65 -> 130,93, **dette 2035 159,35 -> 164,85, soit 5,5 points de PIB** (contre-epreuve mesuree le 26/08/2026 sur l'etat v0.6.1 ; l'ordre de grandeur — le seul message ici — est inchange par la passe v0.6.3, dont les valeurs étaient 129,35 / 158,85 / -10,68 ; v0.6.7, impulsions levier par levier : 129,91 / 160,69 / -10,99). Ce n'est pas un residu de second ordre. Il n'est pas corrige ici : tous les handlers consomment `inflation`, scinder en trois variables est un changement d'architecture instruit separement — ce qui est corrige, c'est ce qu'on en dit.
 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
@@ -1502,7 +1515,7 @@ documente ici parce que la correction ci-dessus le rend visible.
 
 **Correction bug abs() (v3.1)** : Dans les versions precedentes, les coupes budgetaires (depenses negatives) etaient incorrectement prises en valeur absolue, ce qui les traitait comme des investissements. Ce bug est corrige : seules les depenses positives au-dessus du niveau par defaut generent un bonus.
 
-**Correction bug decay loop (v3.1)** : La boucle de decroissance des impulsions passees etait piegeee a l'interieur du gate d'effort courant. En consequence, quand l'effort budgetaire courant etait nul, les impulsions des annees precedentes disparaissaient au lieu de continuer a se dissiper normalement. Ce bug est corrige : les impulsions passees continuent leur decroissance independamment de l'effort courant.
+**Correction bug decay loop (v3.1, achevée en v0.6.7)** : La boucle de decroissance des impulsions passees etait piegeee a l'interieur du gate d'effort courant. En consequence, quand l'effort budgetaire courant etait nul, les impulsions des annees precedentes disparaissaient au lieu de continuer a se dissiper normalement. La v3.1 annonçait ce bug corrigé ; il ne l'était pas : la somme des résidus est restée sous la condition `abs(effort) > 0,001` jusqu'en v0.6.6 (taxe superprofits : −0,07 pt prévu en 2030, 0 servi — audit Codex 10/2026). Depuis la v0.6.7 les résidus sont sommés sans aucune condition sur l'effort courant.
 
 ### Mecanismes Supprimes (v3.0)
 
@@ -1795,10 +1808,10 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
 | Deficit | **-5,25 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,37) |
-| Dette | **129,35 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -0,85 pt apres les recalages Phillips v4.1 et sourcing v4.2 — la v4.0 affichait +2,4 pt) |
+| Dette | **129,91 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -0,59 pt apres les recalages Phillips v4.1, sourcing v4.2 et impulsions v0.6.7 — la v4.0 affichait +2,4 pt) |
 | Dette | **130,41 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **161,79 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 158,85) |
-| Deficit | **-11,26 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,68) |
+| Dette | **161,79 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 160,69) |
+| Deficit | **-11,26 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,99) |
 | Croissance potentielle | 1,1% | Sentier mission IGF 07/2026 (1,2/1,2/1,0/1,0), extensible a 1,3% |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
@@ -2135,9 +2148,9 @@ Le coefficient d'Okun France est fixe a -0.35. **Justification** : la fourchette
 
 L'elasticite des prelevements obligatoires au PIB nominal est `ELASTICITE_PO_PIB = 1.0`, uniforme sur tout le cycle (refonte v4.0). **Justification** : HCFP note 2023-01 (series 2002-2022) — elasticite observee 1,01-1,07, non significativement differente de 1 ; convention CBO/OBR/DG Tresor a politique inchangee. L'ancienne elasticite differenciee par regime de croissance (1,00/1,06/1,08/1,12) et l'erosion fiscale forfaitaire (0,2%/an, qui rendait l'elasticite de facto ~0,93) ont ete supprimees : l'asymetrie conjoncturelle joue taxe par taxe (IS, plus-values), pas en global, et aucune institution ne modelise une erosion globale des recettes. Une erosion reelle se modelise PAR TAXE, comme mesure explicite. Consequence : en statu quo, le ratio recettes/PIB est stable par construction (~52,2%) — c'est la definition d'un scenario a politique inchangee.
 
-### L5. Plafond effort 2% PIB par mesure
+### L5. Plus de plafond de taille sur l'impulsion keynésienne (v0.6.7)
 
-Aucune mesure ne peut depasser 2% PIB d'effort budgetaire (apres clip individuel) avant le plafond cumulatif 10% PIB (FMI 2010). **Justification** : Guajardo-Leigh-Pescatori 2014 (action-based dataset OCDE) chiffre la mediane des consolidations historiques a 1.0% PIB et le Q3 a ~1.7% PIB. Au-dela de 2%, les multiplicateurs ne sont plus calibres (Auerbach-Gorodnichenko 2012 : non-linearites fortes hors echantillon). Le plafond 2% couvre 75% des episodes historiques + sert de garde-fou pedagogique.
+Jusqu'en v0.6.6, le niveau d'effort multiplié était plafonné à 2 % du PIB (appliqué en fait au programme entier, pas « par mesure » comme l'écrivait cette page). **Retiré en v0.6.7.** Raisons : (1) la littérature citée ne porte pas de saturation — Guajardo, Leigh et Pescatori (2014) estiment des effets LINÉAIRES dans la taille de l'ajustement (la médiane de 1 % du PIB décrit l'échantillon, pas une borne de l'effet), Auerbach et Gorodnichenko (2012) documentent une non-linéarité d'ÉTAT (récession/expansion, déjà portée par l'ajustement ×1,15/×0,85), pas de taille, et Blanchard et Leigh (2013) trouvent des effets PLUS forts pour les grandes consolidations, jamais plus faibles ; (2) un plafond tronque le coût — ou le gain — des seuls programmes les plus brutaux, ce qui avantage par construction ceux qui concentrent leur effort ; (3) la stabilité ne dépend pas de lui : l'effet est une convolution finie (6 ans) des impulsions annuelles, bornée par k_max × 1,15 × 1,3 × Σ |impulsions des 6 dernières années|, sous le clip de croissance [−3,5 % ; +2,5 %]. Seul scénario publié touché : `im_rabot_2029`, dont la coupe atteint 5,2 % du PIB (3,1 % la première année), désormais multipliée en entier. Le plafond cumulatif de 10 % du PIB sur les MESURES (budget, FMI 2010) est inchangé.
 
 ### L6. Modele a agent representatif (pas de microsimulation par decile)
 

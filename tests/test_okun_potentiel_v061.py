@@ -42,10 +42,12 @@ deux sens, proportionnellement au signe du bonus d'offre.
 """
 import inspect
 import re
+from unittest.mock import patch
 
 import pytest
 
 from budget_simulator.engine.growth import GrowthMixin
+from budget_simulator.engine import orchestrator as orchestrator_module
 from budget_simulator.engine.orchestrator import OrchestratorMixin
 from budget_simulator.engine.unemployment import UnemploymentMixin
 from budget_simulator.simulator import BudgetSimulatorV45
@@ -124,7 +126,12 @@ def _simuler(cls, mesures=None, debt_drag=None):
     sim = cls(periods=10, mesures=mesures or {})
     if debt_drag is not None:
         sim.economic_coeffs['debt_drag'] = debt_drag
-    df, detail, _ = sim.simulate()
+    # Pleine précision (v0.6.7) : comparer les colonnes ARRONDIES à 0,01 pt
+    # mesurait l'arrondi d'affichage — un écart réel de 0,0006 pt de chômage
+    # (impulsions en % du PIB : un PIB plus haut allège le poids d'un flux
+    # nominal, cf. engine/growth.py) basculait un arrondi et sortait 0,01.
+    with patch.object(orchestrator_module, 'round', lambda x, n=None: float(x), create=True):
+        df, detail, _ = sim.simulate()
     return df, detail
 
 

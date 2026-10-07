@@ -48,14 +48,25 @@ def test_calculate_growth_austerity(simulator):
         'unemployment': 0.076,
         'deficit_ratio': -0.054
     }
+    # v0.6.7 : l'impulsion se lit levier par levier dans les impacts de t−1
+    # (plus de repli sur `part_depenses` sans levier) — 3,4 % du PIB, dont 61 %
+    # de coupe de dépenses générique et 39 % de hausse d'impôts.
+    simulator.pib_nominal = 3000.0
+    simulator._last_impacts = {
+        'collectivites': {'depenses': -0.61 * 0.034 * 3000, 'recettes': 0.0},
+        'tva_rate': {'depenses': 0.0, 'recettes': 0.39 * 0.034 * 3000},
+    }
     with patch('numpy.random.normal', return_value=0):
         growth = simulator.calculate_growth(year=1, economic_state=economic_state)
-    # Base + chomage_gap + debt_drag + multiplicateur (ONE-TIME si measures changed)
-    # Actual formula: croissance_potentielle + 0.4*unemployment_gap - 0.008*(debt-0.9) + mult*effort
-    expected_base = 0.01 + 0.4 * 0.001 - 0.008 * (1.156 - 0.9)
-    assert growth < expected_base + 0.01  # Growth is reduced by consolidation
-    # Vérification flexible : cherche "CHANGEMENT MESURES" + "Consolidation" dans le log
-    assert any("Consolidation" in s for s in simulator.debug_logs), "Log consolidation manquant"
+    # potentiel + traînée de dette + multiplicateurs (an 1 : pas d'atténuation
+    # « confiance » ; dette > 110 % : ×0,95) + cicatrice (effort > 3 %).
+    pot = simulator.croissance_potentielle_totale()
+    keynes = -0.95 * (0.60 * 0.61 + 0.50 * 0.39) * 0.034 * 0.90
+    cicatrice = max(-0.10 * (0.034 - 0.03), -0.003)
+    expected = pot - 0.005 * (1.156 - 0.9) + keynes + cicatrice
+    assert abs(growth - expected) < 1e-12, f"{growth:.6f} vs {expected:.6f}"
+    assert any("[IMPULSION]" in s and "consolidation" in s for s in simulator.debug_logs), \
+        "Log consolidation manquant"
 
 def test_calculate_revenues(simulator):
     growth = 0.01
@@ -188,6 +199,14 @@ def test_calculate_growth_significant_recession(simulator):
         'debt_ratio': 2.0,  # Très élevé → fort debt drag
         'unemployment': 0.08,  # < 0.09 → pas de stabilisateur chômage
         'deficit_ratio': -0.03  # > -0.04 → pas de stabilisateur déficit
+    }
+    # v0.6.7 : impulsion lue levier par levier (8 % du PIB, 30 % dépenses) ;
+    # plus de plafond à 2 % du PIB — le coût d'une consolidation brutale
+    # n'est plus tronqué (cf. engine/growth.py, _stocker_impulsions).
+    simulator.pib_nominal = 3000.0
+    simulator._last_impacts = {
+        'collectivites': {'depenses': -0.3 * 0.08 * 3000, 'recettes': 0.0},
+        'tva_rate': {'depenses': 0.0, 'recettes': 0.7 * 0.08 * 3000},
     }
     with patch('numpy.random.normal', return_value=-0.01):  # Bruit négatif
         growth = simulator.calculate_growth(year=1, economic_state=economic_state)
@@ -383,9 +402,21 @@ def test_calculate_growth_zlb(simulator):
         'deficit_ratio': -0.04,
         'interest_rate': 0.01  # < 0.02 pour ZLB
     }
+    # v0.6.7 : impulsion lue levier par levier — expansion de 1 % du PIB,
+    # 40 % d'investissement (éducation), 60 % de baisse d'impôts.
+    simulator.pib_nominal = 3000.0
+    simulator._last_impacts = {
+        'education': {'depenses': 0.4 * 0.01 * 3000, 'recettes': 0.0},
+        'impot_revenu': {'depenses': 0.0, 'recettes': -0.6 * 0.01 * 3000},
+    }
     with patch('numpy.random.normal', return_value=0):
         growth = simulator.calculate_growth(year=1, economic_state=economic_state)
-    # Calcul recalibré (weighted blend + crowding-out renforcé) :
+    # v0.6.7, forme fermée : potentiel − traînée de dette + flux par flux
+    # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (dette = 100 %, seuil strict).
+    keynes = 1.15 * 1.3 * (1.2 * 0.004 * 0.45 + 0.35 * 0.006 * 0.90)
+    exact = simulator.croissance_potentielle_totale() - 0.005 * (1.0 - 0.9) + keynes
+    assert abs(growth - exact) < 1e-12, f"{growth:.6f} vs {exact:.6f}"
+    # Historique (weighted blend v0.6.6, conservé pour lecture) :
     # Base: 0.01
     # Chômage: 0.4 * 0.02 = 0.008
     # Debt drag: -0.008 * (1.0 - 0.9) = -0.0008
@@ -398,8 +429,7 @@ def test_calculate_growth_zlb(simulator):
     # Crowding-out (effort < 0, debt_ratio >= 1.0):
     #   intensity = 0.002 + (1-0.4)*0.006 = 0.0056, effect = 0.0056*(-0.01) = -0.000056
     # Total ≈ 0.01 + 0.008 - 0.0008 + 0.00789 - 0.000056 ≈ 0.0250 (≈ clip 0.025)
-    expected = 0.025
-    assert abs(growth - expected) < 0.01, f"Expected ~{expected:.3f}, got {growth:.3f}"
+    # (v0.6.7 : le mélange ci-dessus est remplacé par la somme flux par flux.)
 
 def test_apply_measures_invalid_input(simulator):
     simulator.mesures = {'invalid_measure': {'param': 'invalid'}}  # Mesure inconnue

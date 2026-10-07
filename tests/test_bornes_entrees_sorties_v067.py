@@ -258,8 +258,17 @@ def test_bornes_de_sortie_ne_mordent_sur_aucun_scenario_publie(tolerant):
 
 def test_horizon_long_dette_bornee_a_zero_et_libelles_derives(tolerant):
     """Avant : dette −2 311,7 Md€ en 2075, `valid: true`, « Solde budgétaire
-    2035 » (valeur 2075) et « Années excédent budgétaire : 50/10 »."""
-    df, _, report = _simuler(CONSOLIDATION_MAXIMALE, periods=50)
+    2035 » (valeur 2075) et « Années excédent budgétaire : 50/10 ».
+
+    v0.6.7 : depuis que chaque marche de la consolidation est multipliée
+    (engine/growth.py), la consolidation maximale paie son coût de croissance
+    et ne passe plus sous zéro en 50 ans (45,6 % en 2075). Le mécanisme testé
+    — borne à 0 et libellés dérivés de l'horizon — ne dépend pas du scénario :
+    on part d'une dette initiale de 60 % du PIB pour l'exercer (borne dès 2051).
+    """
+    sim = BudgetSimulatorV45(periods=50, mesures=CONSOLIDATION_MAXIMALE)
+    sim.base_params['dette_ratio'] = 0.60
+    df, _, report = sim.simulate()
     assert (df['Dette'] >= 0).all()
     assert report['valid'] is False
     assert any('Dette brute bornée à 0' in w for w in report['warnings'])

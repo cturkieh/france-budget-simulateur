@@ -231,7 +231,7 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 (vote) »**, qui encode la loi de
-> finances et rend -5,25 % de deficit 2026, 129,35 % de dette 2030 et 158,85 %
+> finances et rend -5,25 % de deficit 2026, 129,91 % de dette 2030 et 160,69 %
 > en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -395,7 +395,9 @@ Le multiplicateur mesure l'impact sur le PIB d'une variation des depenses ou rec
 
 **ANCIEN modele (v2.0)** : Un multiplicateur global calcule a partir de la composition agregee.
 
-**NOUVEAU modele (v3.0)** : Moyenne ponderee des multiplicateurs per-measure. Chaque mesure appelle `get_multiplier` avec son propre `measure_id` et sa propre composition, puis les multiplicateurs sont ponderes par le poids budgetaire de chaque mesure.
+**Modele v3.0 a v0.6.6** : Moyenne ponderee des multiplicateurs per-measure. Chaque mesure appelle `get_multiplier` avec son propre `measure_id` et sa propre composition, puis les multiplicateurs sont ponderes par le poids budgetaire de chaque mesure.
+
+**Modèle v0.6.7 (audit externe Codex 10/2026)** : la moyenne ci-dessus mêlait des multiplicateurs de signes opposés, pondérés par l'effort BRUT et appliqués à l'effort NET — un programme équilibré n'avait aucun effet keynésien et une consolidation nette pouvait compter comme une relance ; et une seule impulsion était stockée par scénario (son niveau de première année). Désormais chaque flux de chaque levier (recettes, dépenses) est multiplié séparément, sur la VARIATION annuelle de son effort en % du PIB, avec le profil de son levier : `effet(t) = Σ −k × Δe(t − âge) × profil(âge)`. Le sens (consolidation/expansion) suit le niveau du flux par rapport au statu quo. Détail et tests : METHODOLOGIE § Multiplicateurs.
 
 ### Valeurs du Modele
 
@@ -414,7 +416,7 @@ Le multiplicateur mesure l'impact sur le PIB d'une variation des depenses ou rec
 
 ### Profil Temporel (DECAY_PROFILE Differencie v3.1)
 
-Les effets des multiplicateurs se dissipent dans le temps selon **3 profils differencies** (v3.1), melanges selon la composition des mesures actives :
+Les effets des multiplicateurs se dissipent dans le temps selon **3 profils differencies** (v3.1) ; depuis la v0.6.7, chaque impulsion porte le profil de son levier (plus de mélange à l'échelle du programme) :
 
 **Profil TAXES** (mesures fiscales : TVA, IS, IR, CSG, etc.) :
 ```
@@ -742,8 +744,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,37% PIB en statu quo NU ; **-5,25% pour le scenario de reference** « Budget 2026 (vote) », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 130,41% PIB en statu quo NU ; 129,35% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 161,79% PIB en statu quo NU ; 158,85% pour le scenario de reference. Deficit 2035 : -11,26% / -10,68%
+- Dette 2030 : 130,41% PIB en statu quo NU ; 129,91% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 161,79% PIB en statu quo NU ; 160,69% pour le scenario de reference. Deficit 2035 : -11,26% / -10,99%
 - Croissance potentielle : 1,0% (extensible a 1,2% avec investissement soutenu)
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

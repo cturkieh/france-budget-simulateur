@@ -242,18 +242,18 @@ def test_inventaire_bloc_null_couvre_les_lecteurs_lateraux():
 
 
 @pytest.mark.parametrize('mesure', MESURES)
-def test_hash_et_journal_voient_le_bloc_null_comme_absent(mesure):
-    """Lecteurs latéraux dont l'écart n'est PAS observable dans les résultats
-    (le hash ne sert qu'à détecter un changement d'une année à l'autre ; la
+def test_journal_voit_le_bloc_null_comme_absent(mesure):
+    """Lecteur latéral dont l'écart n'est PAS observable dans les résultats (la
     liste des leviers déviés n'est que journalisée) : la règle « bloc null =
-    levier absent » y est vérifiée directement."""
+    levier absent » y est vérifiée directement. (Le hash des mesures, second
+    lecteur de ce type, a disparu en v0.6.7 : les impulsions budgétaires se
+    lisent désormais dans les impacts, où un bloc null est déjà absent.)"""
     actif = _autre_mesure_active(mesure)
     avec_null = BudgetSimulatorV45(periods=1, mesures={**actif, mesure: None})
     sans = BudgetSimulatorV45(periods=1, mesures=dict(actif))
-    assert avec_null._get_active_measures_hash() == sans._get_active_measures_hash()
     assert avec_null.detect_active_measures() == sans.detect_active_measures()
     seul = BudgetSimulatorV45(periods=1, mesures={mesure: None})
-    assert seul._get_active_measures_hash() == 'no_measures'
+    assert seul.detect_active_measures() == []
 
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])

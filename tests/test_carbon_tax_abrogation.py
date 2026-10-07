@@ -16,6 +16,9 @@ monotone, sans érosion-PIB cumulée), ce qui teste réellement le signe de la f
 """
 import sys
 sys.path.insert(0, '.')
+from unittest.mock import patch
+
+from budget_simulator.engine import orchestrator as orchestrator_module
 from budget_simulator.simulator import BudgetSimulatorV45
 
 
@@ -32,7 +35,11 @@ def _simulate(taxe_carbone):
         }
     }
     sim = BudgetSimulatorV45(mesures=mesures)
-    df, _, _ = sim.simulate()
+    # Pleine précision (v0.6.7) : `Recettes/PIB %` est publié à 0,1 pt de PIB
+    # près (~3 Md€), plus gros que les écarts sondés ici (~0,3 Md€). Lue
+    # arrondie, la sonde mesurait l'arrondi : ct=40 sortait un écart nul.
+    with patch.object(orchestrator_module, 'round', lambda x, n=None: float(x), create=True):
+        df, _, _ = sim.simulate()
     return df
 
 

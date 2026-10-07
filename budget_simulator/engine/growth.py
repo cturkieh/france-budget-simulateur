@@ -3,10 +3,10 @@
 Méthodes couvertes :
 - ``calculate_growth`` : croissance réelle de l'année. Croissance
   potentielle + écart de chômage + debt drag, puis multiplicateur
-  keynésien à profils temporels différenciés (impulsion stockée au
-  changement de mesures, decay pondéré INVEST/TRANSFERS/TAXES), effet
-  confiance, cicatrice austérité, stabilisateurs, crowding-out, bruit
-  stochastique, clamp [-3,5 % ; +2,5 %].
+  keynésien à profils temporels différenciés (v0.6.7 : une impulsion par
+  levier, par flux et par année où son effort varie, profil du levier
+  INVEST/TRANSFERS/TAXES — ``_stocker_impulsions``), cicatrice austérité,
+  crowding-out, bruit stochastique, clamp [-3,5 % ; +2,5 %].
 - ``update_potential_growth`` : ajuste la croissance POTENTIELLE
   (hystérèse conjoncturelle + effet d'offre structurel ``SUPPLY_EFFECTS``,
   cap +0,20 pt).
@@ -56,8 +56,9 @@ Paire PRODUCTEUR → CONSOMMATEUR inter-méthodes (invariant load-bearing) :
   ``_reset_state`` DOIT le restaurer à la valeur utilisateur entre deux
   simulations (il le fait). Ne pas supposer ``base_params`` constant.
 - États accumulateurs cross-année mutés par ces méthodes :
-  ``_fiscal_impulses`` (dict {year: (effort, mult, profil)}, dédup via
-  ``_last_measures_hash``), ``_supply_years`` /
+  ``_fiscal_impulses`` (dict {(année, levier, flux, sens): (variation,
+  k, profil)}) et ``_niveaux_impulsion`` (effort de chaque (levier, flux) au
+  budget précédent), ``_supply_years`` /
   ``_supply_bonus_by_key`` (dépréciation progressive de l'offre).
   Tous initialisés / réinitialisés par l'hôte (``__init__`` /
   ``_reset_state``), hors périmètre du split (non touché).
@@ -89,7 +90,7 @@ ne s'exécutant jamais sur input atteignable, golden master byte-identique
 (vérifié). Item Phase 2 « catch silencieux » CLÔTURÉ par cette
 instrumentation (cf ``docs/REFACTOR_SPLIT_PLAN.md``).
 
-Helpers hôte via MRO : ``self._get_active_measures_hash()``,
+Helpers hôte via MRO : ``self._get_decay_profile()``,
 ``self._get_default_values()``. Lecture seule : ``self.economic_coeffs``,
 ``self.multipliers`` (instance ``FiscalMultipliers``), ``self.mesures``.
 Sink de logs : ``self.debug_logs`` via ``_log_debug``.
@@ -192,11 +193,103 @@ class GrowthMixin:
                 f"Y{year}: Offre de travail seniors = {self._labour_supply_bonus*100:+.3f}% "
                 f"(niveau cumule {niveau*100:+.3f}% de PIB)")
 
+    def _stocker_impulsions(self, year: int, eco_state: Dict) -> None:
+        """Impulsions budgétaires de l'année, levier par levier (v0.6.7, audit
+        10/2026, bloc A constats 1 et 2).
+
+        Une impulsion est la VARIATION de l'effort d'un levier entre deux
+        budgets successifs, en % du PIB nominal de son année — la définition
+        usuelle de l'impulsion budgétaire (variation du solde, FMI/CE). Elle est
+        lue dans ``_last_impacts`` (budget de t−1 : lag d'un an, cf.
+        l'orchestrateur) et comparée au niveau mémorisé l'appel précédent
+        (``_niveaux_impulsion``). Convention de signe : effort > 0 =
+        consolidation, donc effet sur la croissance = −k × impulsion, k ≥ 0.
+
+        Ce que cela remplace (v0.6.6, deux erreurs de calcul) :
+        - une impulsion n'était stockée qu'au changement du hash de
+          ``self.mesures``, constant pendant une simulation : UNE impulsion par
+          scénario, égale au NIVEAU de la première année ; la montée en charge
+          (fraude : 0,10 → 0,47 % du PIB) n'était jamais multipliée ;
+        - un seul multiplicateur par scénario, moyenne des multiplicateurs
+          SIGNÉS pondérée par l'effort BRUT puis appliquée à l'effort NET : un
+          programme équilibré n'avait aucun effet keynésien et une consolidation
+          nette pouvait être comptée comme une relance.
+
+        Granularité : chaque levier est multiplié FLUX PAR FLUX (recettes au
+        canal fiscal, dépenses au canal investissement ou transferts/générique),
+        sans quoi la même compensation se reproduirait à l'intérieur d'un levier
+        à deux flux. Exception : les leviers dont le coefficient est calibré sur
+        l'effet NET (``FiscalMultipliers.MESURES_MULTIPLICATEUR_NET``) sont
+        multipliés sur leur solde. Profil : celui du levier
+        (``_get_decay_profile``), pour ses deux flux.
+
+        Sens (consolidation / expansion) : celui du NIVEAU du flux par rapport
+        au statu quo, pas celui de la variation. Retirer une hausse d'impôts
+        porte donc le multiplicateur d'une hausse : l'effet cumulé d'une mesure
+        retirée revient exactement à zéro, et le cumul ne dépend que du niveau
+        atteint, pas du chemin (même état macro). Un flux qui change de signe
+        dans l'année est scindé en zéro.
+
+        Aucun plafond sur la taille : la littérature qui calibre ces
+        coefficients estime des effets linéaires dans la taille de l'ajustement
+        (Guajardo, Leigh & Pescatori 2014 ; FMI, WEO oct. 2010 ch. 3) et
+        Blanchard & Leigh (2013) trouvent des effets PLUS forts, jamais plus
+        faibles, pour les grandes consolidations. L'ancien plafond (niveau
+        d'effort ≤ 2 % du PIB) tronquait le coût — ou le gain — des seuls
+        programmes les plus brutaux. Le filet reste le clip de croissance
+        [−3,5 % ; +2,5 %] ; l'effet est une convolution finie (6 ans) des
+        impulsions, borné par k_max × 1,15 × 1,3 × Σ|impulsions récentes|.
+        """
+        pib = self.pib_nominal
+        niveaux: Dict = {}
+        for m_id, m_impact in self._last_impacts.items():
+            if not isinstance(m_impact, dict):
+                continue
+            # Un levier en échec porte 0/0 (HANDLER_FAILED_KEY) : niveau nul,
+            # comme dans le budget de l'année.
+            dep = float(m_impact.get('depenses', 0) or 0)
+            rec = float(m_impact.get('recettes', 0) or 0)
+            if m_id in self.multipliers.MESURES_MULTIPLICATEUR_NET:
+                niveaux[(m_id, 'solde')] = (rec - dep) / pib
+            else:
+                niveaux[(m_id, 'recettes')] = rec / pib
+                niveaux[(m_id, 'depenses')] = -dep / pib
+
+        compositions = {
+            'recettes': {'depenses': 0.0, 'recettes': 1.0, 'investissement': 0.0},
+            'solde': {'depenses': 0.0, 'recettes': 1.0, 'investissement': 0.0},
+        }
+        for cle in sorted(set(niveaux) | set(self._niveaux_impulsion)):
+            m_id, canal = cle
+            avant = self._niveaux_impulsion.get(cle, 0.0)
+            apres = niveaux.get(cle, 0.0)
+            troncons = [(avant, 0.0), (0.0, apres)] if avant * apres < 0 else [(avant, apres)]
+            for debut, fin in troncons:
+                delta = fin - debut
+                if delta == 0.0:
+                    continue
+                sens = 'consolidation' if debut + fin > 0 else 'expansion'
+                if canal == 'depenses':
+                    composition = {'depenses': 1.0, 'recettes': 0.0,
+                                   'investissement': 1.0 if m_id in self.INVESTMENT_CORE_MEASURES else 0.0}
+                else:
+                    composition = compositions[canal]
+                # La matrice porte le signe de l'effet (négatif en
+                # consolidation) ; ici le signe vient de l'impulsion, la
+                # matrice n'en donne que l'amplitude.
+                k = abs(self.multipliers.get_multiplier(sens, composition, eco_state, year, m_id))
+                self._fiscal_impulses[(year, m_id, canal, sens)] = (
+                    delta, k, self._get_decay_profile(m_id))
+                if abs(delta) > 0.0005:
+                    _log_debug(self.debug_logs,
+                        f"Y{year}: [IMPULSION] {m_id}/{canal} {sens} "
+                        f"{delta*100:+.3f}% PIB, k={k:.2f}")
+        self._niveaux_impulsion = niveaux
+
     def calculate_growth(self, year: int, economic_state: Dict) -> float:
         output_gap = economic_state['output_gap']
         unemployment_gap = economic_state['unemployment_gap']
         effort_budgetaire = economic_state['effort_budgetaire']
-        part_depenses = economic_state['part_depenses']
         debt_ratio = economic_state['debt_ratio']
         unemployment = economic_state.get('unemployment', 0.076)
         deficit_ratio = economic_state.get('deficit_ratio', -0.054)
@@ -209,130 +302,37 @@ class GrowthMixin:
             croissance += debt_impact
             _log_debug(self.debug_logs, f"Y{year}: Debt drag {debt_impact*100:.2f}%")
 
-        # === MULTIPLICATEUR KEYNÉSIEN AVEC PROFILS TEMPORELS DIFFÉRENCIÉS ===
-        # Une impulsion est stockée quand les mesures changent (hash change).
-        # Le profil de décroissance dépend de la composition des mesures :
+        # === MULTIPLICATEUR KEYNÉSIEN — IMPULSIONS PAR LEVIER (v0.6.7) ===
+        # effet(t) = Σ_levier Σ_âge −k × impulsion(t − âge) × profil(âge), où
+        # l'impulsion est la VARIATION annuelle de l'effort du levier (en % du
+        # PIB) : cf. `_stocker_impulsions`. Profils de décroissance par levier :
         # - INVEST : pic en Y2, persistance longue (Bom & Ligthart 2014, FMI 2020)
         # - TRANSFERS : front-loaded, decay rapide (Ramey 2019, FMI 2014)
         # - TAXES : profil intermédiaire (Blanchard & Leigh 2013)
         # Sommes normalisées <= 2.0
+        eco_state = {
+            'output_gap': output_gap,
+            'debt_ratio': debt_ratio,
+            'unemployment_gap': unemployment_gap,
+            'interest_rate': economic_state.get('interest_rate', 0.023)
+        }
+        self._stocker_impulsions(year, eco_state)
 
-        if abs(effort_budgetaire) > 0.001:
-            current_hash = self._get_active_measures_hash()
+        # Résidus de TOUTES les impulsions passées, sans condition sur l'effort
+        # courant : jusqu'en v0.6.6 cette somme vivait sous `abs(effort) >
+        # 0,001` et s'arrêtait net l'année où l'effort repassait sous 0,1 % du
+        # PIB (taxe superprofits : −0,07 pt prévu en 2030, 0 servi).
+        total_multiplier_effect = 0.0
+        for (impulse_year, _m, _canal, _sens), (delta, k, profil) in self._fiscal_impulses.items():
+            age = year - impulse_year
+            if 0 <= age < len(profil):
+                total_multiplier_effect -= k * delta * profil[age]
+        croissance += total_multiplier_effect
 
-            if current_hash != self._last_measures_hash:
-                effort_type = 'consolidation' if effort_budgetaire > 0 else 'expansion'
-                eco_state = {
-                    'output_gap': output_gap,
-                    'debt_ratio': debt_ratio,
-                    'unemployment_gap': unemployment_gap,
-                    'interest_rate': economic_state.get('interest_rate', 0.023)
-                }
-
-                # WEIGHTED BLEND : multiplicateur + profil decay moyens pondérés par mesure
-                weighted_mult = 0.0
-                total_weight = 0.0
-                # Poids par type pour le blend du profil decay
-                weight_invest = 0.0
-                weight_transfer = 0.0
-                weight_tax = 0.0
-
-                for m_id, m_impact in self._last_impacts.items():
-                    if not isinstance(m_impact, dict) or 'erreur' in m_impact:
-                        continue
-                    m_dep = abs(m_impact.get('depenses', 0))
-                    m_rev = abs(m_impact.get('recettes', 0))
-                    m_effort = m_dep + m_rev
-                    if m_effort < 0.01:
-                        continue
-
-                    m_total = m_dep + m_rev
-                    m_is_inv = m_id in self.INVESTMENT_CORE_MEASURES
-                    composition_m = {
-                        'depenses': m_dep / m_total if m_total > 0 else 0,
-                        'recettes': m_rev / m_total if m_total > 0 else 0,
-                        'investissement': m_dep / m_total if m_is_inv else 0
-                    }
-                    m_fiscal = m_impact.get('recettes', 0) - m_impact.get('depenses', 0)
-                    m_effort_type = 'consolidation' if m_fiscal > 0 else 'expansion'
-
-                    mult_m = self.multipliers.get_multiplier(
-                        m_effort_type, composition_m, eco_state, year, m_id
-                    )
-                    weighted_mult += mult_m * m_effort
-                    total_weight += m_effort
-
-                    # Classifier pour le profil decay
-                    if m_id in self.INVESTMENT_FLOW_MEASURES:
-                        weight_invest += m_effort
-                    elif m_id in self.TRANSFER_MEASURES:
-                        weight_transfer += m_effort
-                    else:
-                        weight_tax += m_effort
-
-                if total_weight > 0:
-                    multiplicateur = weighted_mult / total_weight
-                else:
-                    composition_fb = {
-                        'depenses': part_depenses,
-                        'recettes': 1 - part_depenses,
-                        'investissement': economic_state.get('part_investissement', 0)
-                    }
-                    multiplicateur = self.multipliers.get_multiplier(
-                        effort_type, composition_fb, eco_state, year
-                    )
-
-                # Blend pondéré du profil decay selon la composition des mesures
-                if total_weight > 0:
-                    profile_len = len(self.DECAY_PROFILE_TAXES)
-                    blended_profile = tuple(
-                        (weight_invest * self.DECAY_PROFILE_INVEST[i] +
-                         weight_transfer * self.DECAY_PROFILE_TRANSFERS[i] +
-                         weight_tax * self.DECAY_PROFILE_TAXES[i]) / total_weight
-                        for i in range(profile_len)
-                    )
-                else:
-                    blended_profile = self.DECAY_PROFILE_TAXES
-
-                self._fiscal_impulses[year] = (effort_budgetaire, multiplicateur, blended_profile)
-                self._last_measures_hash = current_hash
-
-                profile_type = 'INVEST' if weight_invest > max(weight_transfer, weight_tax) else \
-                               'TRANSFER' if weight_transfer > weight_tax else 'TAXES'
-                _log_debug(self.debug_logs,
-                    f"Y{year}: [IMPULSION] {effort_type.capitalize()} "
-                    f"{abs(effort_budgetaire)*100:.2f}% PIB, mult={multiplicateur:.2f}, "
-                    f"profil={profile_type} (inv={weight_invest:.0f} trans={weight_transfer:.0f} tax={weight_tax:.0f})")
-
-            # Sommer les effets décroissants de toutes les impulsions passées
-            total_multiplier_effect = 0
-            for impulse_year, impulse_data in self._fiscal_impulses.items():
-                impulse_effort, impulse_mult = impulse_data[0], impulse_data[1]
-                # _fiscal_impulses n'est écrit qu'en un point (3-tuple
-                # (effort, mult, blended_profile)) → impulse_data[2] toujours
-                # présent ; pas d'ancien fallback self.DECAY_PROFILE (mort).
-                decay_profile = impulse_data[2]
-                age = year - impulse_year
-                if age < 0 or age >= len(decay_profile):
-                    continue
-                decay = decay_profile[age]
-                raw_effort = abs(impulse_effort)
-                capped_effort = min(raw_effort, 0.02)
-                if raw_effort > 0.02 and age == 0:
-                    _log_debug(self.debug_logs,
-                        f"Y{year}: Effort plafonné: {raw_effort*100:.2f}% → 2.00% PIB")
-                effect = impulse_mult * capped_effort * decay
-                total_multiplier_effect += effect
-
-            croissance += total_multiplier_effect
-
-            if total_multiplier_effect != 0:
-                _log_debug(self.debug_logs,
-                    f"Y{year}: Effet multiplicateur total = {total_multiplier_effect*100:.2f}% "
-                    f"({len(self._fiscal_impulses)} impulsion(s) actives)")
-        else:
+        if total_multiplier_effect != 0:
             _log_debug(self.debug_logs,
-                f"Y{year}: Aucun effort budgétaire → pas de nouvelle impulsion")
+                f"Y{year}: Effet multiplicateur total = {total_multiplier_effect*100:.3f}% "
+                f"({len(self._fiscal_impulses)} impulsion(s) stockées)")
 
         # EFFET CONFIANCE « Alesina » : SUPPRIMÉ en v0.6.0 (audit 08/2026).
         # L'austérité expansionniste est réfutée sur échantillon corrigé (FMI

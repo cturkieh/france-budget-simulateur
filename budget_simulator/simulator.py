@@ -1,5 +1,3 @@
-import hashlib
-import json
 import logging
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
@@ -197,6 +195,13 @@ class EconomicValidator:
 # === MATRICE DES MULTIPLICATEURS FISCAUX AJUSTÉE ===
 class FiscalMultipliers:
     """Gestionnaire des multiplicateurs - ajustements suite retour Grok"""
+
+    # Leviers à coefficient PROPRE (traitements spéciaux de get_multiplier,
+    # indépendants de la composition) : calibrés sur l'effet NET du levier, ils
+    # sont appliqués à son solde recettes − dépenses ; tous les autres leviers
+    # sont multipliés flux par flux (engine/growth.py, _stocker_impulsions).
+    # Verrouillé par tests/test_impulsions_v067.py.
+    MESURES_MULTIPLICATEUR_NET = frozenset({'smic', 'fraude_fiscale'})
 
     def __init__(self):
         # Cache pour les multiplicateurs (évite recalcul)
@@ -619,11 +624,14 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         # Tracker paramètres mesures (pour impacts Gini one-time)
         self._measure_params_tracker = {}
-        self._last_measures_hash = None  # Pour détecter changements de mesures (multiplicateur temporal)
-        # Profils temporels des impulsions budgétaires (littérature Mésange/OFCE).
-        # Chaque impulsion est stockée l'année où les mesures changent, puis
-        # son effet décroît selon un profil empirique sur 5-6 ans.
-        self._fiscal_impulses = {}  # {year: (effort, multiplier, decay_profile)}
+        # Impulsions budgétaires (v0.6.7, engine/growth.py `_stocker_impulsions`) :
+        # une par levier, par flux et par année où son effort VARIE, puis son
+        # effet décroît selon le profil empirique du levier sur 6 ans.
+        # {(année, levier, flux, sens): (variation % PIB, k ≥ 0, profil)}
+        self._fiscal_impulses = {}
+        # Effort de chaque (levier, flux) lu au budget précédent, en % du PIB :
+        # référence de la variation de l'année.
+        self._niveaux_impulsion = {}
         self.measure_registry = self._load_measure_config()
         self.debug_logs.append(f"Measure registry: {list(self.measure_registry.keys())}")
         self.mesures = mesures or {}
@@ -701,8 +709,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # faux) et avis (bloc vide, plafond 5 % PIB : lus tels quels).
         self._corrections = {}
         self._avis = {}
-        self._last_measures_hash = None
         self._fiscal_impulses = {}  # Reset profils temporels multiplicateurs
+        self._niveaux_impulsion = {}
         self._potential_growth_bonus = 0.0
         self._supply_years = {}
         self._supply_bonus_by_key = {}
@@ -728,38 +736,6 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         # --- Random seed (résultats reproductibles) ---
         np.random.seed(42)
-
-    def _get_active_measures_hash(self) -> str:
-        """Hash des mesures actives basé sur self.mesures pour détecter changements"""
-        # Levier à `null` = levier ABSENT (même règle qu'apply_measures, qui le
-        # saute) : retiré AVANT le test de vacuité, sinon `{"x": null}` seul
-        # rendrait un hash ≠ "no_measures" et divergerait de l'absence.
-        mesures = leviers_presents(self.mesures)
-        if not mesures:
-            return "no_measures"
-
-        # Créer snapshot des mesures actuelles
-        snapshot = {}
-        for measure_id, params in mesures.items():
-            # Bloc MAL FORMÉ (liste, nombre, str) : `.items()` levait ici, HORS
-            # de tout `try` (appel depuis calculate_growth dès qu'une autre
-            # mesure bouge) → toute la simulation tombait (500 API). Le hash ne
-            # sert qu'à détecter un CHANGEMENT de mesures entre années ; un
-            # bloc constant y est neutre. Il reste signalé par la porte unique
-            # d'apply_measures (ERROR + HANDLER_FAILED_KEY).
-            if not isinstance(params, dict):
-                snapshot[measure_id] = {}
-                continue
-            # Garder seulement les valeurs sérialisables
-            snapshot[measure_id] = {
-                k: v for k, v in params.items()
-                if isinstance(v, (int, float, str, bool))
-            }
-
-        # Créer hash MD5
-        return hashlib.md5(
-            json.dumps(snapshot, sort_keys=True).encode()
-        ).hexdigest()
 
     def _load_measure_config(self):
         """Charge la configuration des mesures depuis JSON.

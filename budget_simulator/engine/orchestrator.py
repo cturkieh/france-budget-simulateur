@@ -747,17 +747,15 @@ class OrchestratorMixin:
                 # Mise à jour croissance potentielle
                 self.update_potential_growth(growth, year_idx)
 
-                # Multiplicateur pour logs — réutiliser la valeur stockée dans _fiscal_impulses
-                # (le weighted blend a déjà été calculé dans calculate_growth)
-                # Chercher l'impulse la plus récente (pas juste year_idx,
-                # car l'impulse n'est stockée que l'année où les mesures changent)
-                if year_idx in self._fiscal_impulses:
-                    multiplier = self._fiscal_impulses[year_idx][1]
-                elif self._fiscal_impulses:
-                    latest_year = max(self._fiscal_impulses.keys())
-                    multiplier = self._fiscal_impulses[latest_year][1]
-                else:
-                    multiplier = 1.0
+                # Multiplicateur pour logs (colonne `Multiplicateur`) : effet
+                # d'impact des impulsions de l'année par unité d'impulsion
+                # BRUTE, signé (> 0 = soutien), Σ(−k·Δ) / Σ|Δ|. Une année sans
+                # impulsion garde la valeur de la dernière année qui en a eu.
+                du_jour = [(d, k) for (an, *_), (d, k, _p) in self._fiscal_impulses.items()
+                           if an == year_idx]
+                if du_jour:
+                    multiplier = (sum(-k * d for d, k in du_jour)
+                                  / sum(abs(d) for d, _ in du_jour))
 
                 # Stockage pour année suivante
                 self.inflation_precedente = inflation
