@@ -38,10 +38,9 @@ def test_pa_calcul_theorique():
     growth_avg = df.iloc[1:11]['Croissance %'].mean()
     inflation_avg = df.iloc[1:11]['Inflation %'].mean()
 
-    from budget_simulator.constants import INDEXATION_BASELINE_RATIO
-    gap_macro = growth_avg - inflation_avg
-    indexation = INDEXATION_BASELINE_RATIO * inflation_avg
-    gap_net = gap_macro + indexation
+    # v0.6.7 (lot 3E) : l'indice macro suit la croissance RÉELLE ; l'ancienne
+    # formule g − π + 0,54 π retranchait l'inflation une seconde fois.
+    gap_net = growth_avg
 
     # PA théorique après 10 ans
     pa_theorique = 100 * (1 + gap_net/100)**10
@@ -49,8 +48,7 @@ def test_pa_calcul_theorique():
 
     print(f"Croissance moyenne 2026-2035:  {growth_avg:.2f}%")
     print(f"Inflation moyenne 2026-2035:   {inflation_avg:.2f}%")
-    print(f"Gap macro (Cr - Inf):          {gap_macro:+.2f}%")
-    print(f"Indexation ({INDEXATION_BASELINE_RATIO*100:.0f}% × Inf):        {indexation:+.2f}%")
+    print("(l'inflation n'entre plus dans l'indice macro depuis v0.6.7)")
     print(f"Gap net annuel:                {gap_net:+.2f}%")
     print()
     print(f"PA théorique 2035: {pa_theorique:.2f}")

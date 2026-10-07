@@ -23,12 +23,15 @@ def test_statut_quo_pa_stable(statu_quo):
 
     # RECALIBRAGE refonte 2026-06-10 : le statu quo dégage désormais +0,37 %/an
     # de PA réel (mesuré 103,8 en 2035) — l'ancien « plat à 100 » était un
-    # artefact de l'inflation forcée à 2,33 % (g − 0,46·π ≈ 0). Avec π ~1,2 %,
-    # pa_macro_net ≈ +0,35 %/an, dans la fourchette historique INSEE du RDB
-    # réel par tête (+0,3-0,8 %/an hors crises). Fenêtre [100 ; 107] : borne
-    # basse = pas de retour de l'austérité fantôme (PA écrasé), haute = pas
-    # d'emballement (>0,7 %/an non justifiable en statu quo mou).
-    assert 100.0 < pa_2035 < 107.0, f"PA 2035 ({pa_2035:.1f}) hors fenêtre statu quo [100;107]"
+    # artefact de l'inflation forcée à 2,33 % (g − 0,46·π ≈ 0).
+    # v0.6.7 (lot 3E, audit Codex bloc C constat 4) : la soustraction de
+    # l'inflation à une croissance déjà RÉELLE est retirée — au statu quo
+    # l'indice vaut EXACTEMENT 100 × Π (1 + g_t) (tests/test_pouvoir_achat_v067.py),
+    # mesuré 108,7 en 2035 (g moyen 0,84 %/an). Ce n'est pas le RDB réel par
+    # UC de l'INSEE (+0,3-0,8 %/an), mais un indice synthétique — d'où la
+    # fenêtre dérivée du corridor de croissance du statu quo (0,5-1,5 %/an,
+    # test_calibration_guard) : [105 ; 116].
+    assert 105.0 < pa_2035 < 116.0, f"PA 2035 ({pa_2035:.1f}) hors fenêtre statu quo [105;116]"
 
 
 def test_autres_indicateurs_inchanges(statu_quo):

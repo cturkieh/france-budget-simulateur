@@ -60,12 +60,10 @@ constantes de classe (``INVESTMENT_FLOW_MEASURES`` ...), et tout l'état
 d'instance initialisé dans ``__init__`` / ``_reset_state``.
 
 ``_BUDGET_KEYS`` (détail interne, aucun consommateur externe) est
-local à ce module. ``INDEXATION_BASELINE_RATIO`` (constante calibrée
-sourcée, importée par un test) est déplacée vers
-``budget_simulator/constants.py`` (foyer canonique des constantes
-économiques, cohérent avec ``HANDLER_FAILED_KEY`` /
-``CHARGES_INTERET_MD_EUR``). Retrait symétrique de ``simulator.py``
-dans le même commit (leçon Phase 1.4→1.7).
+local à ce module. (``INDEXATION_BASELINE_RATIO``, « protection
+d'indexation » du pouvoir d'achat, a été SUPPRIMÉE en v0.6.7 : elle ne
+compensait qu'une double soustraction de l'inflation, cf. bloc PA de
+``simulate``.)
 
 Catch large pré-existant : ``apply_measures`` enveloppe chaque mesure
 d'un ``except Exception`` qui logge ``logger.error(exc_info=True)`` +
@@ -95,7 +93,6 @@ from ..constants import (
     GINI_SOFT_FLOOR,
     COMPETITIVITE_VARIATION_ANNUELLE_MAX,
     HANDLER_FAILED_KEY,
-    INDEXATION_BASELINE_RATIO,
     PA_VARIATION_ANNUELLE_MAX,
 )
 from ._param_domain import (
@@ -820,17 +817,18 @@ class OrchestratorMixin:
                         f"de son domaine de validité)")
                 self.gini_courant = np.clip(self.gini_courant, GINI_SOFT_FLOOR, GINI_HARD_CEILING)
 
-            # Pouvoir d'achat (macro + micro) - Mise à jour INCRÉMENTALE
-            # Sources : INSEE, OFCE 2024 - PA = f(Croissance, Inflation, Mesures fiscales/sociales)
+            # Indice SYNTHÉTIQUE de pouvoir d'achat (macro + micro) — mise à jour
+            # INCRÉMENTALE. Non comparable au RDB réel par UC de l'INSEE (refonte
+            # en RDB : v0.6.8). Formule exacte publiée dans METHODOLOGIE.
             if year_idx > 0:  # Pas de mise à jour pour l'année de base (2025)
-                # Effet macro brut : Croissance - Inflation (PIB/tête réel)
-                pa_macro = growth - inflation
-
-                # Protection indexation française (cf. constante INDEXATION_BASELINE_RATIO).
-                indexation_baseline = INDEXATION_BASELINE_RATIO * inflation
-
-                # Effet macro net (après protection sociale)
-                pa_macro_net = pa_macro + indexation_baseline
+                # Effet macro : croissance RÉELLE du PIB agrégé (pas par tête).
+                # v0.6.7 (audit Codex 10/2026, bloc C constat 4) : la v0.6.6
+                # calculait `growth − inflation + 0,54 × inflation` — or `growth`
+                # est déjà réelle (le nominal porte le déflateur) : l'inflation
+                # était retranchée une seconde fois, compensée à 54 % par une
+                # « protection d'indexation » qui n'existait que pour corriger
+                # cette soustraction (net g − 0,46 π).
+                pa_macro_net = growth
 
                 # Effet micro : Impacts directs des mesures fiscales/sociales permanentes.
                 # Les mesures permanentes (TVA, IR, CSG...) affectent le PA chaque année,
@@ -868,7 +866,7 @@ class OrchestratorMixin:
 
                 if abs(pa_micro) > 0.001:
                     _log_debug(self.debug_logs,
-                        f"Y{year}: PA = {purchasing_power:.1f} (macro {pa_macro:+.2%}, micro {pa_micro:+.2%})")
+                        f"Y{year}: PA = {purchasing_power:.1f} (macro {pa_macro_net:+.2%}, micro {pa_micro:+.2%})")
 
             # Compétitivité des entreprises - Mise à jour MULTIPLICATIVE (comme PA)
             # Sources : OCDE 2024, Banque de France, DG Trésor

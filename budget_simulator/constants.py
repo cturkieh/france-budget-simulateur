@@ -1303,10 +1303,10 @@ ASU_TRANSITION_ANNEES = 4                    # durée de la montée en charge (A
 # Assiette : le dossier v0.6.1 cite « environ 1 700 Md€ » comme ORDRE DE
 # GRANDEUR non sourcé et renvoie explicitement à l'assiette du moteur. On
 # retient donc les 1 380 Md€ déjà utilisés dans ce fichier pour dériver
-# INDEXATION_BASELINE_RATIO (INSEE 2024, revenu disponible brut). L'écart entre
+# l'ex-INDEXATION_BASELINE_RATIO (INSEE 2024, revenu disponible brut). L'écart entre
 # les deux assiettes n'est pas arbitré : avec 1 700 Md€ l'effet PA serait 19 %
 # plus faible. Sensibilité à publier, pas à masquer.
-RDB_MENAGES_MD_EUR = 1380.0   # assiette « revenus des ménages » du moteur (cf. INDEXATION_BASELINE_RATIO)
+RDB_MENAGES_MD_EUR = 1380.0   # assiette « revenus des ménages » du moteur (INSEE 2024, RDB)
 #
 # GINI — ⚠️ AUCUNE SOURCE NE PUBLIE L'EFFET GINI DE L'ASU (§ B.3-25). Les
 # scénarios officiels donnent un TAUX DE PAUVRETÉ ; convertir −1,1 pt de
@@ -1560,15 +1560,14 @@ def fraude_budget_saturant_md_eur(phasing: float, asu_ph: float = 0.0) -> float:
     return gisement / rendement if rendement > 0 else float('inf')
 
 # === CALIBRATION ÉCONOMIQUE ===
-# Ratio des revenus français indexés sur l'inflation. Calcul empirique pondéré
-# (INSEE 2024 - Revenus disponibles bruts) :
-#   (SMIC 135Md€×100% + Retraites 330×90% + RSA/APL 150×80%
-#    + Point FP 100×30% + Salaires privés 665×25%) / 1380 = 54.22%
-# Cohérent avec OFCE Plane & Sampognaro 2024 (indexation effective ~50-55%).
-INDEXATION_BASELINE_RATIO = 0.54
+# INDEXATION_BASELINE_RATIO (0,54, « protection d'indexation » des revenus des
+# ménages, assiette 1 380 Md€) : SUPPRIMÉE en v0.6.7 (audit Codex 10/2026, bloc C
+# constat 4). Le pouvoir d'achat retranchait l'inflation d'une croissance déjà
+# RÉELLE, puis en rendait 54 % ; l'indice suit désormais la croissance réelle
+# (engine/orchestrator.py). Ne pas réintroduire : il n'y a plus rien à compenser.
 
 # === PART DES DÉPENSES PUBLIQUES INDEXÉES SUR L'INFLATION PASSÉE ===
-# Contrat DISTINCT de INDEXATION_BASELINE_RATIO (qui chiffre la protection des
+# Contrat DISTINCT de l'ex-INDEXATION_BASELINE_RATIO (qui chiffrait la protection des
 # REVENUS DES MÉNAGES pour le pouvoir d'achat, assiette 1 380 Md€ de revenus) :
 # celui-ci chiffre la part de la DÉPENSE PUBLIQUE (assiette 1 649 Md€ de
 # primaire) revalorisée sur l'inflation de l'année PRÉCÉDENTE — pensions

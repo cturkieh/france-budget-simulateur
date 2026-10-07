@@ -56,9 +56,13 @@ Une seule variable sert TROIS indices économiquement différents :
   (i)   **déflateur du PIB** — ``self.deflateur_cumule *= (1 + inflation)``
         dans ``engine/orchestrator.py``, donc le DÉNOMINATEUR du ratio de
         dette, c'est-à-dire la sortie principale du site ;
-  (ii)  **IPC**, pour le pouvoir d'achat (``pa_macro = growth - inflation``) ;
-  (iii) **indice d'indexation** des prestations
-        (``INDEXATION_BASELINE_RATIO * inflation``).
+  (ii)  **IPC**, pour le pouvoir d'achat — jusqu'en v0.6.6 seulement
+        (``pa_macro = growth − inflation + 0,54 × inflation``, double
+        retranchement : depuis v0.6.7 l'indice suit la croissance RÉELLE, que
+        le déflateur affecte déjà) ;
+  (iii) **indice d'indexation** des pensions et prestations (désindexations,
+        ``handlers/depenses.py``, et part indexée de la dépense,
+        ``INDEXATION_DEPENSES_INFLATION_PASSEE``).
 
 Arbitrage v0.6.1 : la variable est CALÉE SUR LE DÉFLATEUR. L'INSEE tranche
 explicitement (blog « Inflation : les déflateurs en comptabilité

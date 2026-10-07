@@ -1559,7 +1559,7 @@ documente ici parce que la correction ci-dessus le rend visible.
 
 **Effets NIVEAU (ONE-TIME)** — Appliques UNIQUEMENT annee de mise en oeuvre via `_is_first_year_change()`.
 Sur l'indice PA base 100, un effet de niveau modifie la consommation/revenu disponible UNE FOIS,
-puis l'indice evolue selon la trajectoire macro (growth - inflation). Cumul multiplicatif sur
+puis l'indice evolue selon la trajectoire macro (croissance réelle, v0.6.7 — cf. § Indicateurs Macroeconomiques). Cumul multiplicatif sur
 plusieurs annees produirait une erosion artificielle (OFCE Plane & Sampognaro 2024 :
 choc TVA permanent = -0,5% PA en pic puis convergence asymptotique, pas erosion lineaire).
 
@@ -1812,10 +1812,33 @@ Resultat sur les programmes 2027 : LFI 2030 ≈ 0,269, PS ≈ 0,276, RN ≈ 0,28
 avec les evaluations IPP/OFCE, vitesse compatible avec l'historique INSEE,
 classement inchange. Proprietes verrouillees par tests dedies.
 
-**Pouvoir d'Achat :**
+**Indice de pouvoir d'achat (synthétique, non comparable au RDB INSEE) :**
 - Baseline 2025 : 100 (indice)
 - Positif = Hausse pouvoir achat
 - Negatif = Baisse pouvoir achat
+- **Formule exacte (v0.6.7)** — c'est tout ce que l'indice contient :
+
+  ```
+  PA(2025) = 100
+  PA(t)    = PA(t−1) × (1 + borne(g(t) + micro(t)))
+  micro(t) = Σ_mesures impacts['pouvoir_achat'](t) × (1 en 2026, 0,5 ensuite)
+  borne    = ± PA_VARIATION_ANNUELLE_MAX (filet, ne mord sur aucun scénario publié)
+  ```
+
+  `g(t)` est la croissance RÉELLE du PIB agrégé — pas par tête, pas le revenu disponible ;
+  `micro(t)` est la somme des effets forfaitaires des mesures, atténués de moitié après
+  l'an 1 (adaptation comportementale). **Ce n'est pas le RDB réel par unité de
+  consommation de l'INSEE** (historique +0,3 à +0,8 %/an hors crises) : au statu quo,
+  l'indice croît comme le PIB réel (108,7 en 2035). Il se lit en ÉCART entre programmes,
+  pas en niveau. Refonte en RDB réel par UC : v0.6.8.
+- **Corrigé en v0.6.7 (audit externe Codex, 10/2026)** : la v0.6.6 calculait
+  `g − π + 0,54 × π` — l'inflation retranchée d'une croissance déjà réelle (le nominal
+  porte le déflateur), puis rendue à 54 % par une « protection d'indexation »
+  (`INDEXATION_BASELINE_RATIO`, supprimée) qui n'existait que pour compenser cette
+  soustraction ; le commentaire du code parlait de « PIB/tête » sans division par la
+  population. Effet : +2,0 à +3,4 pt d'indice en 2029 pour les dix scénarios publiés,
+  presque uniforme (un peu plus pour les programmes à inflation plus haute, pénalisés
+  deux fois auparavant).
 
 **Competitivite :**
 - Baseline 2025 : 100 (indice)

@@ -296,20 +296,22 @@ Deficit max = 2,5% x 115% = 2,9% du PIB
 
 ### 1. Composante Macro
 
-**Formule :**
+**Formule (v0.6.7) :**
 ```
-PA macro = Croissance - Inflation
+PA macro = Croissance réelle du PIB
 ```
 
 **Mecanisme :**
-- Croissance : Production par tete en hausse
-- Inflation : Prix en hausse
-- Gap = Pouvoir d'achat reel
+- La croissance du moteur est déjà RÉELLE (le PIB nominal porte le déflateur) : elle mesure
+  directement la hausse du volume de revenus. Jusqu'en v0.6.6 le moteur en retranchait encore
+  l'inflation (`Croissance − Inflation`), puis en rendait 54 % (« protection d'indexation ») :
+  l'inflation était comptée deux fois. Corrigé (audit externe Codex, 10/2026).
+- Indice SYNTHÉTIQUE : PIB agrégé (pas par tête), pas le revenu disponible — non comparable au
+  RDB réel par UC de l'INSEE ; il se lit en écart entre programmes.
 
 **Exemple (regime statu quo du moteur) :**
-- Croissance : 1,0%
-- Inflation : 1,2% (effective statu quo)
-- **PA macro = -0,2%/an** (avant protection d'indexation des revenus, cf `INDEXATION_BASELINE_RATIO` = 54%)
+- Croissance réelle : 0,84 %/an en moyenne 2026-2035
+- **PA macro = +0,84 %/an** → indice 108,7 en 2035
 
 ---
 
@@ -328,7 +330,7 @@ PA micro = Somme(Impacts mesures)
 
 **Formule totale :**
 ```
-PA final = PA initial x Produit(1 + Croissance - Inflation + PA micro)
+PA final = PA initial x Produit(1 + Croissance reelle + PA micro)   (PA micro x 0,5 apres l'an 1)
 ```
 
 ---
