@@ -833,9 +833,10 @@ RDB_MENAGES_2025_MD_EUR = 1870.0
 TAUX_EPARGNE_MENAGES_2025 = 0.179
 # Croissance annuelle du nombre d'UC : l'effet « par UC » retire 0,5 pt au
 # pouvoir d'achat en 2024 et 0,3 pt en 2025 (Insee Première n° 2105, note de la
-# fig. 4) ; moyenne arrondie 0,4 %. Moyenne longue 2010-2024 : 0,6 %/an (France
-# portrait social 2025) — non retenue, la croissance démographique ralentit
-# (acquis 2026 : 0,3 pt, Informations rapides n° 212 du 28/08/2026). Constante,
+# fig. 4) ; moyenne arrondie 0,4 %, celle qu'implique la prévision 2026 de
+# l'INSEE (pouvoir d'achat −0,3 %, −0,7 % par UC : Note de conjoncture de juin
+# 2026, vue d'ensemble). Moyenne longue 2010-2024 : 0,6 %/an (France portrait
+# social 2025) — non retenue, la croissance démographique ralentit. Constante,
 # identique pour tous les scénarios : elle fixe le NIVEAU de tous les indices,
 # pas leurs écarts.
 CROISSANCE_UC_ANNUELLE = 0.004

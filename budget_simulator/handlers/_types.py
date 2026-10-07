@@ -41,6 +41,32 @@ from typing import Dict, Protocol, Tuple
 
 ImpactsDict = Dict[str, float]
 
+# Canaux par lesquels une mesure change DIRECTEMENT le revenu disponible ou les
+# prix des ménages (v0.6.8, indice de pouvoir d'achat RDB-moteur,
+# engine/rdb.py). Montants en Md€ courants de l'année, écart au statu quo :
+# - ``prelevements_directs`` : impôts et cotisations payés par les ménages
+#   (IR, CSG, cotisations salariales, patrimoine) — > 0 = hausse ;
+# - ``prelevements_indirects`` : TVA et accises (> 0 = hausse), via les prix ;
+# - ``prestations`` : prestations versées aux ménages (> 0 = hausse) ;
+# - ``remunerations_publiques`` : COÛT employeur des hausses de rémunération
+#   des agents en place (point d'indice, revalorisations) ; le moteur n'en
+#   retient que la part nette (PART_NETTE_REMUNERATIONS_APU) ;
+# - ``salaires_prives`` : salaires NETS privés imposés par la mesure (SMIC).
+# Tout le reste (impôts sur les entreprises, embauches publiques,
+# investissement, efficience) n'a AUCUN effet direct : il passe par la
+# croissance et l'emploi (arbitrage du mainteneur, v0.6.8). Chaque handler
+# émet la clé ``menages`` (``canaux_menages``), à zéro s'il n'en a pas.
+CANAUX_MENAGES = ('prelevements_directs', 'prelevements_indirects', 'prestations',
+                  'remunerations_publiques', 'salaires_prives')
+
+
+def canaux_menages(**montants: float) -> Dict[str, float]:
+    """Dict des cinq canaux ménages, à 0 sauf ceux nommés (nom inconnu → erreur)."""
+    inconnus = set(montants) - set(CANAUX_MENAGES)
+    if inconnus:
+        raise KeyError(f"canal ménages inconnu : {sorted(inconnus)}")
+    return {canal: float(montants.get(canal, 0.0)) for canal in CANAUX_MENAGES}
+
 
 class Handler(Protocol):
     """Contrat d'appel d'un handler de mesure (méthode liée ``self._apply_*``).
@@ -118,4 +144,4 @@ class _SimulatorState(Protocol):
     _chomage_params_prev: Dict
 
 
-__all__ = ['ImpactsDict', 'Handler', '_SimulatorState']
+__all__ = ['ImpactsDict', 'CANAUX_MENAGES', 'canaux_menages', 'Handler', '_SimulatorState']
