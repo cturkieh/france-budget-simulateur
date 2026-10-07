@@ -40,7 +40,7 @@ api.py                   API FastAPI (4 endpoints, voir ci-dessous)
 
 | Verbe | Chemin | Description |
 |-------|--------|-------------|
-| `POST` | `/simulate` | Lance une simulation budgétaire (mesures + horizon en années) |
+| `POST` | `/simulate` | Lance une simulation budgétaire (mesures + horizon de 1 à 10 ans) |
 | `GET` | `/scenarios` | Retourne les scénarios prédéfinis (status_quo, austerite, scandinave, relance_verte) |
 | `GET` | `/health` | Health check |
 | `GET` | `/` | Info API + liste endpoints |
@@ -55,6 +55,16 @@ curl -X POST http://localhost:8000/simulate \
   -H "Content-Type: application/json" \
   -d '{"mesures": {"impot_societes": {"taux": 0.30}}, "periods": 10}'
 ```
+
+Contrat de `/simulate` (détail dans la docstring de `api.py`) :
+
+- **422** : levier inconnu, `periods` hors de [1, 10] (horizon de calibration du moteur) ; en mode
+  strict (`BUDGETLAB_STRICT=1` côté serveur), toute valeur invalide (non numérique, non finie, hors domaine).
+- **200 en mode tolérant** : une valeur hors domaine est ramenée à la borne, une valeur non finie est
+  retirée (défaut du levier), une valeur non numérique fait échouer le levier (effet nul). Chaque
+  correction est listée dans `report.warnings` et passe `report.valid` à `false`.
+- `report.valid` dit si le résultat se lit tel quel (aucune entrée corrigée, aucun levier en échec,
+  aucune borne de sortie atteinte) ; il ne juge pas la soutenabilité (voir `report.critical`).
 
 ## Contribuer
 
