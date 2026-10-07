@@ -31,12 +31,12 @@ colonne « Pouvoir d'Achat » change ; toutes les autres sorties sont bit-identi
   `COEFF_PA_NICHES_SOCIALES_TGE`.
 - **Sources** (constantes nommées, `constants.py` § INDICE DE POUVOIR D'ACHAT) : INSEE
   (RDB 2024-2025, taux d'épargne, unités de consommation, Note de conjoncture de juin
-  2026), FIPECO (masse salariale publique 2025), service-public.fr F468, DG Trésor (part
-  ménages de la TVA), Benzarti, Carloni, Harju & Kosonen (JPE 2020), Carbonnier (JPubE
+  2026), FIPECO (masse salariale publique 2025), service-public.fr F468, DG Trésor via le Sénat
+  (part de la TVA pesant sur la consommation des ménages, 56,0 %), Benzarti, Carloni, Harju & Kosonen (JPE 2020), Carbonnier (JPubE
   2007), Benzarti & Carloni (AEJ:EP 2019). Deux valeurs non sourcées en ligne, signalées :
   part des primes dans le brut public (~25 %), part nette du brut privé (0,78).
 - **Effet** (2030, v0.6.7 → v0.6.8) : statu quo 106,0 → 103,6 ; étendue des dix
-  scénarios 20,2 → 13,3 pt (2035 : 22,1 → 9,9). Tableau complet et lecture :
+  scénarios 20,2 → 13,2 pt (2035 : 22,1 → 9,9). Tableau complet et lecture :
   `docs/METHODOLOGIE.md` § Indice de pouvoir d'achat.
 - **Limite déclarée** : statu quo 2026 à +0,8 % par UC contre −0,7 % prévu par l'INSEE
   (juin 2026) — écart porté par la croissance et l'inflation 2026 du moteur, antérieures

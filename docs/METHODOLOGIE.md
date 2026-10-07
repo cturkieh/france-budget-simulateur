@@ -1001,7 +1001,7 @@ statique dans les deux sens, monotonie, ancre DG Tresor).
 
 **Impacts :**
 - Gini : TVA +2% = +0,005 (REGRESSIF, ONE-TIME)
-- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : par les prix, τ+ = 1,0 (hausse), τ− = 0,5 (baisse), part ménages 65,1 %
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : par les prix, τ+ = 1,0 (hausse), τ− = 0,5 (baisse), part de la consommation des ménages 56,0 %
 
 ### Impot sur le Revenu (IR)
 
@@ -1385,7 +1385,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 - Si TVA 5,5% : 6,6 Md EUR -> perte 17,4 Md EUR
 
 **Impacts (effet NIVEAU annee 1) :**
-- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : baisse répercutée à τ− = 0,5 sur la part ménages (65,1 %)
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : baisse répercutée à τ− = 0,5 sur la part de la consommation des ménages (56,0 %)
 - Gini : Baisse TVA = -0,0073 (progressif car 15% budget classes pop. vs 7% aisees)
 - Competitivite : 0 (entreprises ont TVA deductible)
 
@@ -1987,7 +1987,7 @@ classement inchange. Proprietes verrouillees par tests dedies.
   | γ (UC) | 0,4 %/an | INSEE : effet « par UC » −0,5 pt (2024), −0,3 pt (2025), Insee Première n° 2105 ; 0,4 implicite dans la prévision 2026 (Note de conjoncture de juin 2026 : −0,3 % / −0,7 % par UC) |
   | n | 0,535 | FIPECO 2025 : 247,6 Md€ bruts / 370,0 Md€ cotisations employeurs incluses × 0,80 du brut au net (taux de service-public.fr F468 ; part de primes ~25 % **non sourcée**) ; avant impôt sur le revenu |
   | R_pub | n × 370,0 ≈ 198 Md€ | idem |
-  | p | 65,1 % | DG Trésor, *Analyse de la composition des recettes de TVA* (2022) ; appliqué aussi aux accises énergie et à la taxe carbone (approximation) |
+  | p | 56,0 % | DG Trésor, *Analyse de la composition des recettes de TVA* (2022), citée par le Sénat (rapport n° 942, 2024-2025) : 65,1 % des recettes de TVA nette proviennent des ménages, « dont 86 % de leur consommation et 14 % de leurs investissements » ; 0,651 × 0,86. Appliqué aussi aux accises énergie et à la taxe carbone (approximation) |
   | τ+ / τ− | 1,0 / 0,5 | Benzarti, Carloni, Harju & Kosonen, JPE 128(12), 2020 : « prices respond twice as much to VAT increases as to VAT decreases » ; Carbonnier, JPubE 91(5-6), 2007 : baisses répercutées à 57 % et 77 % ; Benzarti & Carloni, AEJ:EP 11(1), 2019 : baisse de la restauration, consommateurs les moins bénéficiaires |
   | D(t) | déflateur du PIB du moteur | — |
   | v | 0,6 %/an | volume tendanciel de la masse salariale du statu quo du moteur (`spending_growth_rates`, « GVT + point d'indice ») |
@@ -2022,12 +2022,16 @@ classement inchange. Proprietes verrouillees par tests dedies.
   nette des rémunérations publiques est avant impôt sur le revenu ; une mesure à recette nulle
   (CSG progressive) ne change pas le RDB agrégé : son effet est sur le Gini.
 - **Ancrage INSEE** : statu quo 2026-2035, +0,64 %/an par UC en moyenne — INSEE +0,4 %/an en
-  2011-2019, +0,5 %/an depuis 2010 (test : [0 ; 1] %/an). Année 2026 : +0,8 % servi contre
-  −0,7 % prévu par l'INSEE (Note de conjoncture de juin 2026) ; l'indice suit le PIB réel par
-  UC (vérifié à 0,15 pt), et la croissance 2026 du moteur (1,24 %) comme son déflateur
-  (1,34 %) précèdent le choc énergétique de 2026 décrit par l'INSEE. L'écart vient de la
-  macro de l'année, pas du passage au RDB ; tolérance du test : 1,6 pt (question ouverte :
-  recalage 2026 de la croissance et de l'inflation, release dédiée).
+  2011-2019, +0,5 %/an depuis 2010 (test : [0 ; 1] %/an). Année 2026 : +0,8 % servi (budget
+  voté : +0,7 %) contre −0,7 % par UC prévu par l'INSEE (Note de conjoncture du 17/06/2026,
+  vue d'ensemble) — la Note du 10/09/2026 confirme : pouvoir d'achat −0,4 % (≈ −0,8 % par
+  UC), PIB +0,4 %, inflation 2,4 % en août. L'indice suit le PIB réel par UC (vérifié à
+  0,15 pt) : l'écart (≈ 1,5 pt) vient de la croissance 2026 du moteur (1,24 % contre 0,4 %,
+  ≈ 0,8 pt) et de son prix — déflateur du PIB 1,34 % contre des prix de consommation
+  tirés par l'énergie importée (≈ 2 %, ≈ 0,6 pt) —, pas du passage au RDB. Tolérance du
+  test : 1,6 pt. Correctifs possibles (non appliqués) : recaler la macro 2026 (toutes les
+  colonnes, release dédiée) ; ou un coin « prix importés » 2026 dans le seul prix de la
+  consommation, à sourcer (déflateurs INSEE 2026 non trouvés en page HTML).
 - **Ce qui a disparu (v0.6.7 → v0.6.8)** : `PA(t) = PA(t−1) × (1 + g(t) + micro(t))`, où
   `micro(t)` sommait vingt coefficients forfaitaires (un seul nommé, aucun sourcé),
   transmettant de 2 % à 175 % de leurs euros, sept d'entre eux réémis chaque année (un niveau
@@ -2041,22 +2045,22 @@ classement inchange. Proprietes verrouillees par tests dedies.
   |---|---|---|---|---|
   | Statu quo | 106,0 | 103,6 | 111,5 | 106,6 |
   | Budget 2026 voté (plf_2026) | 105,7 | 103,3 | 111,3 | 106,5 |
-  | RN | 110,3 | 105,0 | 116,0 | 107,9 |
+  | RN | 110,3 | 105,0 | 116,0 | 107,8 |
   | LFI | 117,4 | 108,0 | 123,2 | 109,3 |
   | Renaissance | 107,2 | 104,8 | 110,3 | 107,1 |
   | Horizons | 110,9 | 102,4 | 116,9 | 105,8 |
   | LR | 110,3 | 105,2 | 115,1 | 107,5 |
   | PS | 113,5 | 106,4 | 119,7 | 108,7 |
   | Écologistes | 112,2 | 104,8 | 119,1 | 108,0 |
-  | Institut Montaigne, rabot | 97,2 | 94,7 | 101,1 | 99,4 |
+  | Institut Montaigne, rabot | 97,2 | 94,8 | 101,1 | 99,4 |
   | Institut Montaigne, compétitivité | 109,4 | 104,2 | 115,5 | 107,3 |
-  | **Étendue (10 scénarios)** | **20,2** | **13,3** | **22,1** | **9,9** |
+  | **Étendue (10 scénarios)** | **20,2** | **13,2** | **22,1** | **9,9** |
 
   Lecture : environ −2,4 pt pour tous en 2030 (−4,9 en 2035) viennent du passage « par UC »
   (0,4 %/an, identique pour tous) ; le reste est l'effet de la définition. Écarts au statu
   quo en 2030, v0.6.7 → v0.6.8 : budget voté −0,3 → −0,3 ; RN +4,3 → +1,4 ; LFI +11,4 →
   +4,4 ; Renaissance +1,2 → +1,2 ; Horizons +4,9 → −1,2 ; LR +4,3 → +1,6 ; PS +7,5 → +2,8 ;
-  Écologistes +6,2 → +1,2 ; rabot −8,8 → −8,9 ; compétitivité +3,4 → +0,6. Sept écarts se
+  Écologistes +6,2 → +1,2 ; rabot −8,8 → −8,8 ; compétitivité +3,4 → +0,6. Sept écarts se
   resserrent, trois sont inchangés à 0,1 pt près. Ceux qui se resserrent le plus sont les
   programmes dont l'indice reposait sur des coefficients sans source — impôts de production
   (175 % de transmission pour un impôt d'entreprise), point d'indice et dépenses comptés en

@@ -860,12 +860,17 @@ PART_NETTE_REMUNERATIONS_APU = (REMUNERATIONS_APU_BRUT_2025_MD_EUR
 # cotisations salariales de 22 % retenu par le moteur, handler
 # cotisations_salariales, « URSSAF 2024 ») — NON sourcée en ligne ici.
 PART_NETTE_DU_BRUT_SALAIRES_PRIVES = 0.78
-# Part des recettes de TVA acquittée par les ménages : 65,1 % en 2022 (DG
-# Trésor, « Analyse de la composition des recettes de TVA » : 14,1 % APU,
-# 19,4 % entreprises, 1,5 % associations). Appliquée à toute la fiscalité
-# indirecte (TVA, TVA énergie, taxe carbone) : approximation pour les accises
-# énergétiques, faute de répartition dédiée vérifiée.
-PART_MENAGES_FISCALITE_INDIRECTE = 0.651
+# Part des recettes de TVA qui pèse sur la CONSOMMATION des ménages : 65,1 % des
+# recettes de TVA nette 2022 proviennent des ménages, « dont 86 % provenaient de
+# leur consommation et 14 % de leurs investissements » (DG Trésor, « Analyse de
+# la composition des recettes de TVA », citée par le Sénat, rapport n° 942
+# (2024-2025) ; vie-publique.fr : 14,1 % APU, 19,4 % entreprises). Seule la part
+# consommation entre dans le prix de la consommation : 0,651 × 0,86 = 0,560.
+# Appliquée à toute la fiscalité indirecte (TVA, TVA énergie, taxe carbone) :
+# approximation pour les accises énergétiques, faute de répartition dédiée.
+PART_MENAGES_TVA_2022 = 0.651
+PART_CONSOMMATION_DANS_TVA_MENAGES = 0.86
+PART_MENAGES_FISCALITE_INDIRECTE = PART_MENAGES_TVA_2022 * PART_CONSOMMATION_DANS_TVA_MENAGES
 # Répercussion d'une variation de fiscalité indirecte sur les prix à la
 # consommation, ASYMÉTRIQUE :
 #  - Benzarti, Carloni, Harju & Kosonen (2020), « What Goes Up May Not Come

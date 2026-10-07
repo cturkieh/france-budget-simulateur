@@ -29,6 +29,7 @@ from budget_simulator.constants import (
     TAUX_EPARGNE_MENAGES_2025,
 )
 from budget_simulator.engine import rdb as rdb_module
+from budget_simulator.handlers._types import canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45
 
 PA = "Pouvoir d'Achat"
@@ -336,3 +337,124 @@ def test_handler_sans_canaux_menages_echoue_bruyamment(monkeypatch, caplog):
         _, _, rapport = sim.simulate()
     assert rapport['measure_impacts_by_year'][1]['impot_revenu'][HANDLER_FAILED_KEY] is True
     assert any('sans canaux ménages' in r.getMessage() for r in caplog.records)
+
+
+# --- Constats du réfuteur v0.6.8 et leviers dans les deux sens ---------------
+
+def _base_publique_reelle(t):
+    """Masse publique de base déflatée par le DÉFLATEUR (hors coin fiscal)."""
+    deflateur = t.prix / (1 + t.coin_indirect / ((1 - TAUX_EPARGNE_MENAGES_2025) * t.rdb_base))
+    return (t.rdb_base - t.rdb_prive) / deflateur
+
+
+@pytest.mark.parametrize('mesures', [
+    {'rabot_uniforme': {'taux_reduction': 0.08, 'exclure_dette': 1,
+                        'exclure_defense': 1, 'exclure_ue': 1}},
+    {'fonction_publique': {'point_indice': 5.0}},
+    {'sante': {'effort_hopital': 15, 'effort_ambu': 20, 'effort_prev_org': 10}},
+])
+def test_constats_1_2_masse_publique_de_base_insensible_aux_mesures(statu_quo, mesures):
+    """Réfuteur v0.6.8, constats 1-2 (RED sur 403c549) : indexée sur la catégorie
+    de dépense organique, la masse publique de base suivait l'écart de
+    production (volume) et l'inflation passée (prix) — rabot 8 % : −16,4 Md€
+    nominaux en 2035 ; point d'indice +5 : +2,35 Md€ en 2035 EN PLUS de son
+    canal. Désormais identique en réel au statu quo, chaque année."""
+    trace = _run(mesures)[0]._rdb_trace
+    for an, t in trace.items():
+        assert _base_publique_reelle(t) == pytest.approx(
+            _base_publique_reelle(statu_quo[an]), rel=1e-12), an
+
+
+def test_constat_5_canal_sans_contrepartie_budgetaire_plafonne(monkeypatch):
+    """Réfuteur v0.6.8, constat 5 : un canal ménages sans dépense ni recette
+    échappait au plafond de 5 % du PIB par mesure. Il est borné, avec l'avis."""
+    sim = BudgetSimulatorV45(periods=2, mesures={'impot_revenu': {'taux_superieur': 0.5}})
+
+    def _sans_budget(measure, params, year, gdp, inflation, unemployment):
+        return 0.0, 0.0, {'menages': canaux_menages(prestations=1.0e6)}
+
+    monkeypatch.setitem(sim.measure_handlers, 'impot_revenu', _sans_budget)
+    df, _, rapport = sim.simulate()
+    pib_2026 = df.set_index('Année').loc[2026, 'PIB']
+    assert sim._rdb_trace[2026].effet_mesures == pytest.approx(0.05 * pib_2026, rel=1e-3)
+    assert any('plafonné à 5 % du PIB' in w for w in rapport['warnings'])
+
+
+def test_constat_5_rdb_de_base_non_positif_leve():
+    with pytest.raises(ValueError):
+        rdb_module.rdb_annee({}, 0.0, 2900.0, 1.0, 0.0, 1)
+
+
+def _canal_et_trace(mesures, mesure, canal):
+    sim, impacts = _run(mesures)
+    return sim._rdb_trace, {an: imp[mesure] for an, imp in impacts.items() if mesure in imp}
+
+
+@pytest.mark.parametrize('plafonnement', [0.5, 0.65, 0.7])
+def test_asu_identite_et_signe(plafonnement):
+    """ASU : transfert = effort × montée en charge + recours (identité),
+    toujours ≥ 0 (le handler n'a pas de barème moins généreux que l'actuel :
+    effort ∈ [0 ; 2] Md€ sur le domaine) ; l'indice le lit tel quel."""
+    from budget_simulator.constants import asu_cout_recours_md_eur, asu_effort_perenne_md_eur
+    from budget_simulator.handlers._phasing import asu_phasing
+    mesures = {'asu': {'asu_activation': 1, 'asu_plafonnement': plafonnement}}
+    trace, imp = _canal_et_trace(mesures, 'asu', 'prestations')
+    for an, i in imp.items():
+        ph = asu_phasing(mesures, an)
+        attendu = asu_effort_perenne_md_eur(plafonnement) * ph + asu_cout_recours_md_eur(ph)
+        assert i['menages']['prestations'] == pytest.approx(attendu, abs=1e-12), an
+        assert i['menages']['prestations'] >= 0
+        assert trace[an].effet_mesures == pytest.approx(attendu, abs=1e-12), an
+
+
+@pytest.mark.parametrize('params, signe', [
+    ({'indexation': 0.8}, -1), ({'indexation': 1.2}, +1),
+    ({'age_depart': 64.0}, -1), ({'age_depart': 61.0}, +1),
+    ({'duree_cotisation': 44.0}, -1), ({'duree_cotisation': 41.0}, +1),
+])
+def test_retraites_deux_sens(statu_quo, params, signe):
+    """Retraites : pensions non versées (ou versées en plus) = la dépense du
+    levier, chaque année (identité), de signe attendu dans les deux sens ;
+    l'année où le canal s'ouvre, l'écart d'indice au statu quo est −Δ€/RDB
+    (le revenu d'activité des seniors maintenus en emploi passe par la
+    croissance, laguée)."""
+    sim, impacts = _run({'retraites': params})
+    actives = [an for an, i in impacts.items()
+               if abs(i.get('retraites', {}).get('depenses', 0.0)) > 1e-9]
+    assert actives, 'levier sans effet : test sans objet'
+    for an in actives:
+        i = impacts[an]['retraites']
+        assert i['menages']['prestations'] == pytest.approx(i['depenses'], rel=1e-12), an
+        assert sim._rdb_trace[an].effet_mesures == pytest.approx(i['depenses'], rel=1e-12), an
+        assert signe * i['menages']['prestations'] > 0, an
+
+
+@pytest.mark.parametrize('intensite', [-0.3, 0.3])
+def test_fiscalite_patrimoine_deux_sens(statu_quo, intensite):
+    """IFI + foncière (impôts courants des ménages) entrent au RDB, pas les
+    droits de succession (transfert en capital, INSEE) : part 38/53 de la
+    recette ; signe opposé à l'intensité, symétrique."""
+    sim, impacts = _run({'fiscalite_patrimoine': {'intensite': intensite}})
+    i = impacts[AN1]['fiscalite_patrimoine']
+    assert i['menages']['prelevements_directs'] == pytest.approx(i['recettes'] * 38 / 53, rel=1e-12)
+    ecart = _ecart_an1(sim._rdb_trace, statu_quo)
+    assert ecart == pytest.approx(-i['menages']['prelevements_directs']
+                                  / sim._rdb_trace[AN1].rdb_base, rel=1e-9)
+    assert ecart * intensite < 0
+
+
+@pytest.mark.parametrize('taux', [0.05, 0.10])
+def test_rabot_details_coupes(taux):
+    """Rabot uniforme : seules les coupes des cinq catégories de prestations
+    (details_coupes) entrent au RDB, au montant de l'année (identité recalculée
+    depuis les facteurs de volume du moteur) ; linéaire dans le taux."""
+    from budget_simulator.handlers.montaigne import _CATEGORIES_PRESTATIONS
+    sim = BudgetSimulatorV45(periods=1, mesures={'rabot_uniforme': {'taux_reduction': taux}})
+    _, _, rapport = sim.simulate()
+    canal = rapport['measure_impacts_by_year'][1]['rabot_uniforme']['menages']['prestations']
+    phasing_2026 = 0.5
+    attendu = -sum(sim.spending_categories_base[c] * sim._spending_factors[c]
+                   for c in _CATEGORIES_PRESTATIONS) * taux * phasing_2026
+    assert canal == pytest.approx(attendu, rel=1e-12)
+    assert canal < 0
+    assert sim._rdb_trace[AN1].effet_mesures == pytest.approx(canal, rel=1e-12)
