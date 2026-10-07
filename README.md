@@ -65,6 +65,10 @@ Contrat de `/simulate` (détail dans la docstring de `api.py`) :
   correction est listée dans `report.warnings` et passe `report.valid` à `false`.
 - `report.valid` dit si le résultat se lit tel quel (aucune entrée corrigée, aucun levier en échec,
   aucune borne de sortie atteinte) ; il ne juge pas la soutenabilité (voir `report.critical`).
+- **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` simulations par minute depuis la même adresse
+  (défaut 120, `0` = désactivé) ; l'en-tête `Retry-After` donne le délai en secondes. Seau à jetons en
+  mémoire, par processus ; adresse = premier élément de `X-Forwarded-For` (posé par le proxy de
+  Render), sinon le pair TCP — hors d'un tel proxy, filtrer cet en-tête en amont.
 
 ## Contribuer
 

@@ -4,17 +4,33 @@
 # local uniquement.
 #
 # Le contrat de simulation (/simulate, /scenarios) vit dans `router` : c'est la
-# SOURCE unique. Un déploiement qui ajoute sa propre infrastructure (monitoring,
-# CORS de production, limitation de débit) inclut ce routeur dans son app au
-# lieu de recopier les endpoints — une copie diverge (constaté en v0.6.6 : un
-# levier inconnu rendait 200 sur une copie, 422 ici).
+# SOURCE unique, limitation de débit de /simulate comprise (v0.6.7). Un
+# déploiement qui ajoute sa propre infrastructure (monitoring, CORS de
+# production) inclut ce routeur dans son app au lieu de recopier les endpoints —
+# une copie diverge (constaté en v0.6.6 : un levier inconnu rendait 200 sur une
+# copie, 422 ici).
+#
+# Limitation de débit de POST /simulate : seau à jetons EN MÉMOIRE par adresse
+# cliente, BUDGETLAB_RATE_LIMIT_PER_MIN requêtes par minute (défaut 120 ; 0 =
+# désactivé, comme dans les tests). Au-delà : 429 + `Retry-After`. Adresse
+# cliente = PREMIER élément de `X-Forwarded-For`, validé comme adresse IP —
+# Render y place l'adresse réelle du client (réponse de Render, 28/05/2021) —,
+# sinon le pair TCP ; une adresse IPv6 compte pour son /64. Hors d'un proxy qui
+# pose ce premier élément, un client peut le choisir : un tel déploiement doit
+# filtrer l'en-tête en amont. Limite PAR PROCESSUS (plusieurs workers = autant de
+# seaux) ; mémoire bornée (_RATE_LIMIT_CLES_MAX adresses suivies).
+import ipaddress
 import json
 import logging
+import math
 import os
+import threading
+import time
+from collections import OrderedDict
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -36,6 +52,116 @@ logger = logging.getLogger(__name__)
 # Au-delà, la trajectoire sort du domaine de validité (v0.6.7 : sur 50 ans, une
 # consolidation maximale rendait une dette négative avec `valid: true`).
 PERIODS_MAX = 10
+
+# Limitation de débit de /simulate (cf. en-tête). 120/min : le simulateur du site
+# relance un calcul au plus une fois par seconde de réglage (anti-rebond d'1 s),
+# soit ~60/min pour un visiteur actif ; le double laisse passer deux visiteurs
+# derrière la même adresse (établissement, rédaction, NAT d'opérateur) et borne
+# un client automatisé à 2 calculs par seconde.
+RATE_LIMIT_PAR_MIN_DEFAUT = 120
+_RATE_LIMIT_CLES_MAX = 10_000
+
+
+def _lire_limite_par_min() -> float:
+    """BUDGETLAB_RATE_LIMIT_PER_MIN, ou le défaut si absente ou vide. Une valeur
+    invalide fait échouer le démarrage : une limite mal écrite ne se replie pas
+    en silence sur une autre."""
+    brut = os.getenv("BUDGETLAB_RATE_LIMIT_PER_MIN", "").strip()
+    if not brut:
+        return float(RATE_LIMIT_PAR_MIN_DEFAUT)
+    valeur = float(brut)
+    if not math.isfinite(valeur) or valeur < 0:
+        raise ValueError(
+            f"BUDGETLAB_RATE_LIMIT_PER_MIN={brut!r} : nombre fini ≥ 0 attendu (0 = désactivé)")
+    return valeur
+
+
+class _LimiteurDebit:
+    """Seau à jetons par clé : `capacite` jetons au plus, rechargés au débit de
+    `capacite` par minute ; une requête consomme un jeton. Au-delà de `cles_max`
+    clés, la moins récemment vue est oubliée — l'équivalent d'un seau plein, donc
+    sans effet pour une clé restée inactive une minute."""
+
+    def __init__(self, par_minute: float, cles_max: int = _RATE_LIMIT_CLES_MAX,
+                 horloge=time.monotonic):
+        self.capacite = float(par_minute)
+        self._debit = self.capacite / 60.0  # jetons par seconde
+        self._cles_max = cles_max
+        self._horloge = horloge
+        self._seaux: OrderedDict[str, tuple[float, float, bool]] = OrderedDict()
+        self._verrou = threading.Lock()
+
+    def prendre(self, cle: str) -> tuple[float, bool]:
+        """(0.0, False) si la requête passe ; sinon (secondes avant le prochain
+        jeton, True au premier refus d'un épisode — pour le tracer une fois)."""
+        maintenant = self._horloge()
+        with self._verrou:
+            jetons, dernier, en_refus = self._seaux.pop(cle, (self.capacite, maintenant, False))
+            jetons = min(self.capacite, jetons + (maintenant - dernier) * self._debit)
+            if jetons >= 1.0:
+                resultat, en_refus = (0.0, False), False
+                jetons -= 1.0
+            else:
+                resultat, en_refus = ((1.0 - jetons) / self._debit, not en_refus), True
+            self._seaux[cle] = (jetons, maintenant, en_refus)
+            while len(self._seaux) > self._cles_max:
+                self._seaux.popitem(last=False)
+        return resultat
+
+
+def _adresse_cliente(request: Request) -> str:
+    """Clé du seau : premier élément de `X-Forwarded-For` s'il est une adresse
+    IP, sinon le pair TCP ; IPv6 regroupée par /64 (l'unité qu'un abonné reçoit)."""
+    candidats = [request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()]
+    if request.client is not None:
+        candidats.append(request.client.host)
+    for brut in candidats:
+        try:
+            ip = ipaddress.ip_address(brut)
+        except ValueError:
+            continue
+        if ip.version == 6 and ip.ipv4_mapped is not None:
+            ip = ip.ipv4_mapped
+        if ip.version == 6:
+            return str(ipaddress.ip_network(f"{ip}/64", strict=False))
+        return str(ip)
+    return request.client.host if request.client is not None else "inconnu"
+
+
+def _cle_masquee(cle: str) -> str:
+    """La clé tronquée pour les journaux (IPv4 /24, IPv6 /48) : pas d'adresse
+    complète dans les logs."""
+    try:
+        reseau = ipaddress.ip_network(cle, strict=False)
+    except ValueError:
+        return cle
+    return str(reseau.supernet(new_prefix=24 if reseau.version == 4 else 48))
+
+
+_limite_par_min = _lire_limite_par_min()
+_limiteur = _LimiteurDebit(_limite_par_min) if _limite_par_min > 0 else None
+
+
+def _limiter_debit(request: Request) -> None:
+    """Dépendance de POST /simulate : 429 au-delà de la limite (cf. en-tête). Le
+    refus passe par le gestionnaire d'exceptions de FastAPI, donc par le CORS de
+    l'app : le navigateur le lit comme un refus, pas comme une panne réseau."""
+    if _limiteur is None:
+        return
+    cle = _adresse_cliente(request)
+    attente, nouveau_refus = _limiteur.prendre(cle)
+    if attente == 0.0:
+        return
+    secondes = max(1, math.ceil(attente))
+    if nouveau_refus:
+        logger.warning("Limite de débit /simulate atteinte (%s, %g/min) : 429",
+                       _cle_masquee(cle), _limiteur.capacite)
+    raise HTTPException(
+        status_code=429,
+        detail=(f"Trop de simulations en peu de temps depuis cette connexion : "
+                f"réessayez dans {secondes} s."),
+        headers={"Retry-After": str(secondes)},
+    )
 
 
 class SimulationRequest(BaseModel):
@@ -72,7 +198,7 @@ def _erreurs_d_entree(groupe: BaseExceptionGroup) -> list[str] | None:
     return messages
 
 
-@router.post("/simulate")
+@router.post("/simulate", dependencies=[Depends(_limiter_debit)])
 async def simulate(request: SimulationRequest):
     """Lance une simulation budgétaire.
 
@@ -109,6 +235,10 @@ async def simulate(request: SimulationRequest):
         requête sans cette clé. Un levier INCONNU reste rejeté en 422, même à
         `null`.
       Préférer omettre la clé ; le serveur trace un WARNING `PARAM_NULL`.
+    - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` requêtes par minute
+      (défaut 120) depuis la même adresse cliente ; `Retry-After` donne le
+      délai en secondes. Limite par processus, désactivée à 0 (cf. en-tête du
+      module).
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
       Le nom d'un paramètre n'est pas validé : une faute de frappe
       (`{"tva_rate": {"tauxx": 0.25}}`) applique le défaut du levier.
