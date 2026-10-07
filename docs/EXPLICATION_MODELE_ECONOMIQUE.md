@@ -231,7 +231,7 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 (vote) »**, qui encode la loi de
-> finances et rend -5,17 % de deficit 2026, 128,65 % de dette 2030 et 149,77 %
+> finances et rend -5,17 % de deficit 2026, 128,63 % de dette 2030 et 149,74 %
 > en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -403,15 +403,18 @@ Le multiplicateur mesure l'impact sur le PIB d'une variation des depenses ou rec
 
 ### Valeurs du Modele
 
+Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB réel 4 ans après une impulsion permanente de 1 % du PIB, mesuré dans le moteur complet, tombe sur la valeur centrale de la littérature (entre parenthèses ; détail et sources : METHODOLOGIE § Table des Multiplicateurs de Base).
+
 | Type de mesure | Multiplicateur | Source |
 |----------------|----------------|--------|
 | **Consolidation** | | |
-| Hausse impots (anticipee) | **-0,50** | Blanchard & Leigh 2013 (0,3-0,5) |
-| Coupes depenses (anticipee) | **-0,40** | Alesina & Ardagna 2010 (0,3-0,5 graduel) |
+| Hausse impots | **-0,615** (effet 0,65) | Gechert 2015 (méta-analyse, 104 études) |
+| Coupes depenses generiques | **-0,81** (effet 0,8) | Ramey 2019 (« 0.6 to 1 ») |
+| Coupe d'investissement public | **-1,20** | symetrique de la hausse |
 | **Expansion** | | |
-| Investissement public | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 |
-| Transferts sociaux | **0,50** | IMF 0,3-0,6 |
-| Baisses impots | **0,35** | IMF 0,1-0,5 |
+| Investissement public | **1,20** (effet 1,41) | FMI WEO oct. 2014 (1,5 a 4 ans) |
+| Transferts sociaux | **0,71** (effet 0,65), meme coefficient pour une coupe | Gechert 2015 |
+| Baisses impots | **0,63** (effet 0,65, comme la hausse) | aucune asymetrie de signe etablie (v0.6.7) |
 | **Cas speciaux** | | |
 | SMIC | **0,15** | Kramarz & Philippon 2001 (quasi-zero) |
 | Fraude fiscale | **-0,40** | Enforcement, pas nouvelle taxe |
@@ -748,8 +751,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,17% pour le scenario de reference** « Budget 2026 (vote) », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,12% PIB en statu quo NU ; 128,65% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,17% PIB en statu quo NU ; 149,77% pour le scenario de reference. Deficit 2035 : -9,05% / -8,69%
+- Dette 2030 : 129,12% PIB en statu quo NU ; 128,63% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,17% PIB en statu quo NU ; 149,74% pour le scenario de reference. Deficit 2035 : -9,05% / -8,68%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,228 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

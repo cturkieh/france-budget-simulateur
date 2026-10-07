@@ -236,7 +236,7 @@ class FiscalMultipliers:
                                          #  l'échelle de coût). v0.5.1 : canal ABSENT (audit 08/2026).
             },
             'expansion': {
-                'tax_cuts': MULT_BAISSE_IMPOTS,        # Baisses impôts (IMF: 0.1-0.5)
+                'tax_cuts': MULT_BAISSE_IMPOTS,        # Baisses impôts : effectif = hausse (v0.6.7, symétrie en signe)
                 'transferts': MULT_TRANSFERTS,      # Transferts sociaux (IMF: 0.3-0.6)
                 'investissement': MULT_INVESTISSEMENT,   # Investissement public (IMF: 0.9-1.5, OFCE: 1.0-1.3)
             }

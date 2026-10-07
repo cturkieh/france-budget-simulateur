@@ -58,9 +58,9 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
 | Deficit 2026 | -5,30 % | **-5,17 %** (loi votee : -5,0 %) |
-| Dette 2030 | 129,12 % | **128,65 %** (mission IGF : 130,5) |
-| Dette 2035 | 151,17 % | **149,77 %** |
-| Deficit 2035 | -9,05 % | **-8,69 %** |
+| Dette 2030 | 129,12 % | **128,63 %** (mission IGF : 130,5) |
+| Dette 2035 | 151,17 % | **149,74 %** |
+| Deficit 2035 | -9,05 % | **-8,68 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
@@ -1352,7 +1352,7 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 | Coupe d'investissement public | **-1,20** | SYMETRIQUE de la hausse (Gechert 2015 et Mesange : linearite en signe ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) |
 | Expansion investissement | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) |
 | Expansion transferts | **0,71** | v0.6.7 : calé « central » | 0,50 (v0.6.6), 0,80 (v2.0) |
-| Expansion baisses impots | **0,455** | v0.6.7 : calé « central » (asymétrie hausse/baisse 0,7 conservée) | 0,35 (v0.6.6), 0,40 (v2.0) |
+| Expansion baisses impots | **0,63** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie | 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
 
@@ -1365,13 +1365,15 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 
 | Famille (profil) | Cible centrale, niveau à 4 ans | Source vérifiée | Moteur avant (k v0.6.6) | Moteur après | 10 ans (niveau / cumulé Ramey) |
 |---|---|---|---|---|---|
-| Investissement public (INVEST) | 1,5 | FMI WEO oct. 2014 ch. 3 : « +0,4 % la même année, +1,5 % quatre ans après » ; Gechert 2015 : dépenses ≈ 1, investissement ≈ +0,5 | 1,41 (k = 1,2) | **inchangé** (−6 %) | 0,40 / 0,92 |
+| Investissement public (INVEST) | 1,5 | FMI WEO oct. 2014 ch. 3 : « +0,4 % la même année, +1,5 % quatre ans après » ; Gechert 2015 : dépenses ≈ 1, investissement ≈ +0,5 — borne haute de lecture : Banque mondiale, GEP juin 2024 ch. 3, niveau ≈ 1,1 à 5 ans (≤ 1,6), économies émergentes et en développement | 1,41 (k = 1,2) | **inchangé** (−6 %) | 0,40 / 0,92 |
 | Coupe de dépenses générique (TAXES) | 0,8 | Ramey 2019 JEP : « 0.6 to 1 for spending multipliers » (milieu) ; Gechert ≈ 1 | 0,58 (k = 0,60) | 0,79 (k = 0,81) | 0,15 / 0,56 |
 | Transferts (TRANSFERS) | 0,65 | Gechert 2015 : « 0.3 to 0.4 units » sous les dépenses (≈ 1) | 0,44 (k = 0,50) | 0,65 (k = 0,71) | 0,01 / 0,43 |
 | Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 |
-| Baisse d'impôts (TAXES) | 0,455 | asymétrie hausse/baisse du moteur conservée (0,35/0,50) — borne haute de lecture pour l'investissement : Banque mondiale, GEP juin 2024 ch. 3, niveau ≈ 1,1 à 5 ans (≤ 1,6), économies émergentes et en développement | 0,33 (k = 0,35) | 0,45 (k = 0,455) | 0,09 / 0,28 |
+| Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 |
 
 **Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée** : en moteur complet, la coupe coûte encore 4,4 % de plus que la hausse ne rapporte ; c'est l'éviction (« crowding-out »), qui pénalise les seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Verrouillé par `tests/test_symetrie_transferts_v067.py`.
+
+**Baisse d'impôts symétrique de la hausse (v0.6.7 — GO de Cyril : « pas prouvé = valeur centrale »).** Jusqu'ici une baisse d'impôts valait 0,7 fois une hausse (k 0,455 contre 0,615 ; « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », un héritage sans source) : rendre 1 point de PIB d'impôts rapportait 0,45 point de PIB à 4 ans quand le prélever en coûtait 0,65 — 0,2 point de PIB de pénalité par point de PIB pour tout programme qui baisse un impôt. Vérification en ligne du 07/10/2026 : les études de référence estiment UN coefficient pour les deux signes (Romer & Romer 2010, *AER* 100(3), 763-801, chocs narratifs : « tax increases are highly contractionary », modèle linéaire ; Mertens & Ravn 2013, *AER* 103(4), 1212-47, impôts sur le revenu et sur les sociétés, « short run output effects of tax shocks are large » ; méta-analyse Gechert 2015, *Oxford Economic Papers* 67(3), qui classe par instrument) ; les seules estimations d'une asymétrie de signe se contredisent : aux États-Unis c'est la BAISSE qui l'emporte (Hussain & Malik 2016, *Journal of Economic Dynamics and Control* 69, 268-300 : « the output response to a tax increase is statistically insignificant, but output shows a significantly positive and permanent increase following a tax decrease » ; Jones, Olson & Wohar 2015, *Journal of Macroeconomics* 43, 38-48 : « in the U.S. positive tax shocks—tax increases—do not affect output while negative tax shocks—tax cuts—have large, positive effects »), au Royaume-Uni la HAUSSE (même article : « In the U.K., tax increases substantially reduce output while tax cuts have no significant effect »). Aucune asymétrie n'est établie dans un sens : la baisse prend la valeur centrale de la hausse, 0,65 d'effet de niveau à 4 ans. Le coefficient d'impact est un peu plus haut (k = 0,63 contre 0,615) parce que l'éviction du moteur (« crowding-out », `engine/growth.py`) ne frappe que les expansions au-delà de 100 % du PIB de dette : à k égal, la baisse ne vaudrait que 0,631 (−3 %) ; éviction neutralisée, k égaux donnent un rapport 1,001 — c'est le même calage sur l'EFFECTIF que les transferts, mesurés eux aussi en expansion. Déplace les seuls scénarios qui baissent un impôt (dette 2035 : LR −2,84 pt, Horizons −2,72, RN −1,70, Renaissance −1,58, IM Compétitivité −1,05, LFI −0,88, PS −0,77, Budget 2026 voté −0,03) et 5 cas isolés du golden master ; les 31 autres cas, dont le statu quo, Écologistes et IM Rabot, sont identiques au bit. Verrouillé par `tests/test_symetrie_impots_v067.py` (trois leviers fiscaux, rapport baisse/hausse à 4 ans à ±3 %).
 
 Le rappel vers le potentiel rend les effets de demande transitoires : à 10 ans le niveau est revenu
 près de zéro (l'effet durable du capital public passe par le canal d'offre `SUPPLY_EFFECTS`). **Aucun
@@ -1529,7 +1531,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
 - L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,42 / 1,45 / 1,46 / 1,46%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,426%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
-- **Marge a declarer** : la moyenne du scenario servi est a 0,026 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,85 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
+- **Marge a declarer** : la moyenne du scenario servi est a 0,026 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,87 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -1924,21 +1926,21 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 |---|---|---|---|---|---|---|
 | 2026 | 117,84 | 118,4 | −0,56 | −5,17 | −5,00 | 0,37 % |
 | 2027 | 120,22 | 121,4 | −1,18 | −5,35 | −5,88 | 0,24 % |
-| 2028 | 122,78 | 124,2 | −1,42 | −5,58 | −6,21 | 0,01 % |
-| 2029 | 125,57 | 127,3 | −1,73 | −5,85 | −6,57 | −0,05 % |
-| 2030 | 128,65 | 130,5 | −1,85 | −6,20 | −6,76 | −0,12 % |
+| 2028 | 122,77 | 124,2 | −1,43 | −5,57 | −6,21 | 0,01 % |
+| 2029 | 125,56 | 127,3 | −1,74 | −5,85 | −6,57 | −0,05 % |
+| 2030 | 128,63 | 130,5 | −1,87 | −6,20 | −6,76 | −0,12 % |
 
-Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,12 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,85 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
+Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,12 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,87 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
 | Deficit | **-5,17 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30) |
-| Dette | **128,65 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,85 pt depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
+| Dette | **128,63 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,87 pt depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
 | Dette | **129,12 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **151,17 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,77) |
-| Deficit | **-9,05 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,69) |
+| Dette | **151,17 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,74) |
+| Deficit | **-9,05 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,68) |
 | Croissance potentielle | tendanciel 1,228 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,128 pt (-0,005 x (115,6 - 90) %) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |

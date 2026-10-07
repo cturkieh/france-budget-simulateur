@@ -399,15 +399,31 @@ MULT_CIBLE_NIVEAU_4ANS = {
     'coupe_depenses': 0.8,   # Ramey 2019 : milieu de 0,6-1 (Gechert ≈ 1 : borne prudente)
     'transferts': 0.65,      # Gechert 2015 : ≈ 1 − 0,35
     'hausse_impots': 0.65,   # Gechert 2015 : ≈ 1 − 0,35
-    'baisse_impots': 0.455,  # asymétrie hausse/baisse du moteur conservée (0,35/0,50 = 0,7)
+    'baisse_impots': 0.65,   # = hausse : aucune asymétrie de signe sourcée (cf. ci-dessous)
 }
+# Baisse d'impôts SYMÉTRIQUE de la hausse (v0.6.7, GO Cyril : « pas prouvé = valeur
+# centrale »). Jusqu'ici 0,7 × la hausse (« asymétrie hausse/baisse du moteur
+# conservée (0,35/0,50) »), héritage sans source qui retirait 0,2 pt de PIB à 4 ans
+# par point de PIB d'impôts rendu. Vérifié en ligne le 07/10/2026 : les études de
+# référence (Romer & Romer 2010, Mertens & Ravn 2013, méta-analyse Gechert 2015)
+# estiment UN coefficient pour les deux signes ; les seules estimations d'asymétrie
+# se contredisent — États-Unis, la BAISSE l'emporte (Hussain & Malik 2016, JEDC 69 :
+# « the output response to a tax increase is statistically insignificant, but output
+# shows a significantly positive and permanent increase following a tax decrease » ;
+# Jones, Olson & Wohar 2015, J. Macroeconomics 43, même sens) ; Royaume-Uni, la
+# HAUSSE (Jones et al. : « tax cuts have no significant effect »). Pas d'asymétrie
+# établie dans un sens : valeur centrale (METHODOLOGIE § Multiplicateurs). Verrouillé
+# par tests/test_symetrie_impots_v067.py (rapport baisse/hausse à 4 ans, ±3 %).
 # Coefficients d'impact k (FiscalMultipliers.base_multipliers) qui réalisent ces
 # cibles dans le moteur, mesurés le 07/10/2026 (niveau à 4 ans avant → après) :
 MULT_INVESTISSEMENT = 1.2     # inchangé : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %)
 MULT_COUPE_DEPENSES = 0.81    # 0,60 → 0,81 : 0,58 → 0,79
 MULT_TRANSFERTS = 0.71        # 0,50 → 0,71 : 0,44 → 0,65
 MULT_HAUSSE_IMPOTS = 0.615    # 0,50 → 0,615 : 0,52 → 0,65
-MULT_BAISSE_IMPOTS = 0.455    # 0,35 → 0,455 : 0,33 → 0,45
+MULT_BAISSE_IMPOTS = 0.63     # 0,35 → 0,455 → 0,63 : 0,33 → 0,45 → 0,65. k > k hausse :
+                              # l'éviction (engine/growth.py) ne frappe que les expansions
+                              # (dette > 100 %) : à k = 0,615 la baisse vaudrait 0,631 (−3 %) ;
+                              # éviction neutralisée, k égaux → rapport baisse/hausse 1,001
 TAUX_PRELEVEMENTS_AUTOFINANCEMENT = 0.51  # recettes/PIB du moteur : seuil d'autofinancement = 1 / 0,51
 
 # BCE_PLANCHER_ACCOMMODANT : seuil bas de la règle monétaire du moteur, pendant
