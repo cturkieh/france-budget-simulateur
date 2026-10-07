@@ -247,9 +247,15 @@ class GrowthMixin:
 
         Sens (consolidation / expansion) : celui du NIVEAU du flux par rapport
         au statu quo, pas celui de la variation. Retirer une hausse d'impôts
-        porte donc le multiplicateur d'une hausse : l'effet cumulé d'une mesure
-        retirée revient exactement à zéro, et le cumul ne dépend que du niveau
-        atteint, pas du chemin (même état macro). Un flux qui change de signe
+        porte donc le multiplicateur d'une hausse : la somme des effets
+        d'IMPULSION d'une mesure retirée revient exactement à zéro, et ce cumul
+        ne dépend que du niveau atteint, pas du chemin (même état macro). Ce
+        n'est PAS le niveau du PIB : le rappel vers le potentiel (calculate_growth,
+        OUTPUT_GAP_RAPPEL) « rembourse » pendant la mesure l'écart qu'elle ouvre,
+        si bien qu'au retrait le PIB passe SOUS la référence avant d'y revenir
+        lentement. Mesuré (lot 3b) : +1 % du PIB de transferts pendant 4 ans →
+        +0,8 % de PIB au pic, puis −0,46 % en 2033-2034 et −0,35 % en 2039, dont
+        ≈ 0,2 pt de traînée de la dette accumulée (−0,15 % sans elle). Un flux qui change de signe
         dans l'année est scindé en zéro.
 
         Aucun plafond sur la taille : la littérature qui calibre ces
