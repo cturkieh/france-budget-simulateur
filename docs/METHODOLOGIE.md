@@ -791,9 +791,12 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
 
 ### Impacts Macroeconomiques
 
-- **Gini effectifs** : -10k effectifs = +0,001 Gini
-- **Gini indice** : +1% point indice = -0,0005 Gini
-- **Pouvoir d'achat** : +1% point indice = +0,0005 PA
+- **Gini** : aucun effet (le handler pose 0 : salaires de la fonction publique déjà
+  compressés). Les règles « −10k effectifs = +0,001 » et « +1 % de point d'indice = −0,0005 »
+  publiées ici jusqu'au 07/10/2026 n'étaient pas celles du moteur.
+- **Pouvoir d'achat** : +1 % de point d'indice = +0,003 PA, une fois (l'année d'entrée en
+  vigueur) ; créations de postes : +10 000 postes = +0,00025 PA, servi au rythme de la rampe
+  2027-2032 ; suppressions : aucun effet (attrition naturelle, pas de licenciement).
 
 ---
 
