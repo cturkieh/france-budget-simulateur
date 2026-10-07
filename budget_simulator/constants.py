@@ -815,6 +815,76 @@ PARAM_DOMAINS = _deriver_param_domains()
 PA_VARIATION_ANNUELLE_MAX = 0.15            # ±15 % de l'indice par an
 COMPETITIVITE_VARIATION_ANNUELLE_MAX = 10.0  # ±10 points de % par an
 
+# === INDICE DE POUVOIR D'ACHAT : RDB-MOTEUR (v0.6.8, engine/rdb.py) ===
+# Définition INSEE : revenu disponible brut (RDB) des ménages déflaté par le
+# prix de leur dépense de consommation, rapporté au nombre d'unités de
+# consommation (UC). Sources vérifiées en ligne le 07/10/2026 (pages HTML et
+# résumés d'articles, aucun PDF) ; une valeur sans source en ligne le dit.
+#
+# RDB 2025 : 1 861,1 Md€ en 2024 (INSEE, France portrait social, « Revenu
+# disponible brut et pouvoir d'achat des ménages », 18/11/2025, fig. 2) × (1 +
+# 0,5 %), évolution en valeur 2025 (INSEE, « La consommation des ménages en
+# 2025 », fig. 3 ; Insee Première n° 2105, « Les comptes de la Nation en
+# 2025 », mai 2026). Dérivé : le niveau 2024 peut avoir été révisé en mai 2026.
+RDB_MENAGES_2025_MD_EUR = 1870.0
+# Taux d'épargne 2025 : 17,9 % du RDB (INSEE, « La consommation des ménages en
+# 2025 », fig. 3). Sert à passer du RDB à la dépense de consommation, assiette
+# de l'effet prix de la fiscalité indirecte.
+TAUX_EPARGNE_MENAGES_2025 = 0.179
+# Croissance annuelle du nombre d'UC : l'effet « par UC » retire 0,5 pt au
+# pouvoir d'achat en 2024 et 0,3 pt en 2025 (Insee Première n° 2105, note de la
+# fig. 4) ; moyenne arrondie 0,4 %. Moyenne longue 2010-2024 : 0,6 %/an (France
+# portrait social 2025) — non retenue, la croissance démographique ralentit
+# (acquis 2026 : 0,3 pt, Informations rapides n° 212 du 28/08/2026). Constante,
+# identique pour tous les scénarios : elle fixe le NIVEAU de tous les indices,
+# pas leurs écarts.
+CROISSANCE_UC_ANNUELLE = 0.004
+# Rémunérations des APU 2025 : 370,0 Md€ cotisations des employeurs incluses,
+# 247,6 Md€ en brut (FIPECO, « Le niveau et l'évolution de la masse salariale
+# publique »). Part nette du brut : 0,80 — calculée à partir des taux de
+# service-public.fr (fiche F468 : retenue pour pension 11,10 % du traitement
+# indiciaire ; CSG-CRDS 9,7 % sur 98,25 % du brut) avec une part de primes de
+# l'ordre de 25 % du brut (RAFP 5 % des primes) ; cette part de primes n'est PAS
+# sourcée en ligne ici. Avant impôt sur le revenu (non déduit : borne haute).
+REMUNERATIONS_APU_2025_MD_EUR = 370.0
+REMUNERATIONS_APU_BRUT_2025_MD_EUR = 247.6
+PART_NETTE_DU_BRUT_AGENTS_PUBLICS = 0.80
+# Part de la dépense salariale publique (coût employeur) qui devient un revenu
+# disponible des agents : 247,6 / 370,0 × 0,80 ≈ 0,535.
+PART_NETTE_REMUNERATIONS_APU = (REMUNERATIONS_APU_BRUT_2025_MD_EUR
+                                / REMUNERATIONS_APU_2025_MD_EUR
+                                * PART_NETTE_DU_BRUT_AGENTS_PUBLICS)
+# Part nette du brut d'un salaire privé au voisinage du SMIC : 0,78 (taux de
+# cotisations salariales de 22 % retenu par le moteur, handler
+# cotisations_salariales, « URSSAF 2024 ») — NON sourcée en ligne ici.
+PART_NETTE_DU_BRUT_SALAIRES_PRIVES = 0.78
+# Part des recettes de TVA acquittée par les ménages : 65,1 % en 2022 (DG
+# Trésor, « Analyse de la composition des recettes de TVA » : 14,1 % APU,
+# 19,4 % entreprises, 1,5 % associations). Appliquée à toute la fiscalité
+# indirecte (TVA, TVA énergie, taxe carbone) : approximation pour les accises
+# énergétiques, faute de répartition dédiée vérifiée.
+PART_MENAGES_FISCALITE_INDIRECTE = 0.651
+# Répercussion d'une variation de fiscalité indirecte sur les prix à la
+# consommation, ASYMÉTRIQUE :
+#  - Benzarti, Carloni, Harju & Kosonen (2020), « What Goes Up May Not Come
+#    Down: Asymmetric Incidence of Value-Added Taxes », JPE 128(12), 4438-4474 :
+#    « prices respond twice as much to VAT increases as to VAT decreases »,
+#    asymétrie persistante plusieurs années, retrouvée sur toutes les
+#    variations de TVA de l'UE 1996-2015 ;
+#  - Carbonnier (2007), « Who pays sales taxes? Evidence from French VAT
+#    reforms, 1987-1999 », JPubE 91(5-6), 1219-1229 : BAISSES de TVA, part du
+#    consommateur 57 % (automobiles) et 77 % (travaux d'entretien du logement) ;
+#  - Benzarti & Carloni (2019), « Who Really Benefits from Consumption Tax
+#    Cuts? », AEJ: Economic Policy 11(1), 38-63 : baisse de TVA de la
+#    restauration (2009), « firm owners pocketed more than 55 percent »,
+#    consommateurs les moins bénéficiaires.
+# Hausse : répercussion complète (1,0), hypothèse standard que l'asymétrie ×2
+# rend cohérente avec des baisses répercutées à 50-77 %. Baisse : 0,5 = la
+# hausse / 2 (JPE 2020), entre le cas restauration (< 0,2) et Carbonnier (0,57
+# à 0,77) — la mesure-cadre de l'UE, pas un secteur isolé.
+REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE = 1.0
+REPERCUSSION_BAISSE_FISCALITE_INDIRECTE = 0.5
+
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés
 # pour la garde CODE→DOC de tests/test_methodologie_consistency.py — la dérive
