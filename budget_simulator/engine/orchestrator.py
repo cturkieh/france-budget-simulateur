@@ -358,19 +358,15 @@ class OrchestratorMixin:
                 # Plafonne impacts individuels à 5% PIB (FMI, 2010)
                 max_impact = 0.05 * gdp
                 # Detection clip : signal une mesure aux ordres de grandeur suspects (calibration ou bug)
-                if abs(delta_spending) > max_impact or abs(delta_revenue) > max_impact:
-                    # Une ligne par levier et par simulation (v0.6.7) : le
-                    # plafond mord en général chaque année, à l'identique.
-                    if (measure_id, 'CLIP_5') not in self._domain_clamp_warned:
-                        self._domain_clamp_warned.add((measure_id, 'CLIP_5'))
-                        logger.warning(
-                            "CLIP 5%% PIB Y%d %s : delta_spending=%.1f delta_revenue=%.1f (max=%.1f)",
-                            year, measure_id, delta_spending, delta_revenue, max_impact,
-                        )
-                    self._avis.setdefault(
-                        (measure_id, 'CLIP_5'),
-                        f"{measure_id} : impact plafonné à 5 % du PIB par "
-                        f"mesure (plafond du modèle, FMI 2010), dès {year}")
+                plafonnee = abs(delta_spending) > max_impact or abs(delta_revenue) > max_impact
+                # Une ligne par levier et par simulation (v0.6.7) : le
+                # plafond mord en général chaque année, à l'identique.
+                if plafonnee and (measure_id, 'CLIP_5') not in self._domain_clamp_warned:
+                    self._domain_clamp_warned.add((measure_id, 'CLIP_5'))
+                    logger.warning(
+                        "CLIP 5%% PIB Y%d %s : delta_spending=%.1f delta_revenue=%.1f (max=%.1f)",
+                        year, measure_id, delta_spending, delta_revenue, max_impact,
+                    )
                 clip_dep = np.clip(delta_spending, -max_impact, max_impact)
                 clip_rec = np.clip(delta_revenue, -max_impact, max_impact)
                 if 'menages' in measure_impacts:
@@ -384,12 +380,13 @@ class OrchestratorMixin:
                         clip_rec / delta_revenue if delta_revenue else 1.0)
                     bornes = {c: float(np.clip(v, -max_impact, max_impact))
                               for c, v in canaux.items()}
-                    if bornes != canaux:
-                        self._avis.setdefault(
-                            (measure_id, 'CLIP_5'),
-                            f"{measure_id} : impact plafonné à 5 % du PIB par "
-                            f"mesure (plafond du modèle, FMI 2010), dès {year}")
+                    plafonnee = plafonnee or bornes != canaux
                     measure_impacts['menages'] = bornes
+                if plafonnee:
+                    self._avis.setdefault(
+                        (measure_id, 'CLIP_5'),
+                        f"{measure_id} : impact plafonné à 5 % du PIB par "
+                        f"mesure (plafond du modèle, FMI 2010), dès {year}")
                 delta_spending, delta_revenue = clip_dep, clip_rec
                 # Propager le clip aux measure_impacts (sinon multiplicateur calculé sur valeur
                 # non-clip mais budget appliqué sur valeur clip → incohérence interne)
@@ -908,9 +905,10 @@ class OrchestratorMixin:
             # (spending_growth_rates, 0,6 %/an) au prix du déflateur : identique en
             # réel pour tous les scénarios, ni la croissance, ni l'écart de
             # production, ni l'indexation passée n'y touchent (arbitrage 2 : seules
-            # les mesures de rémunération la déplacent, par leur canal). Remplace « croissance du PIB + Σ coefficients
-            # forfaitaires × 0,5 après 2026 » de la v0.6.7 (formule et tableau
-            # avant/après : METHODOLOGIE § Indice de pouvoir d'achat).
+            # les mesures de rémunération la déplacent, par leur canal).
+            # Remplace « croissance du PIB + Σ coefficients forfaitaires × 0,5
+            # après 2026 » de la v0.6.7 (formule et tableau avant/après :
+            # METHODOLOGIE § Indice de pouvoir d'achat).
             rdb = rdb_annee(
                 impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
                 ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx

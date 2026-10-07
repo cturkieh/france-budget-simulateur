@@ -113,14 +113,6 @@ def canaux_des_mesures(impacts: Mapping[str, object]) -> Iterable[Mapping[str, f
             yield donnees['menages']
 
 
-def rdb_base_md_eur(pib_nominal: float, pib_nominal_2025: float,
-                    indice_masse_publique: float) -> float:
-    """RDB sans mesures : part privée au PIB nominal, part publique à sa masse."""
-    privee = RDB_MENAGES_2025_MD_EUR - REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR
-    return (privee * pib_nominal / pib_nominal_2025
-            + REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR * indice_masse_publique)
-
-
 def indice_pouvoir_achat(rdb: float, prix: float, annees: int) -> float:
     """100 × RDB réel par UC rapporté à 2025."""
     return (100.0 * rdb / RDB_MENAGES_2025_MD_EUR / prix
@@ -130,12 +122,14 @@ def indice_pouvoir_achat(rdb: float, prix: float, annees: int) -> float:
 def rdb_annee(impacts: Mapping[str, object], pib_nominal: float, pib_nominal_2025: float,
               deflateur: float, indice_masse_publique: float, annees: int) -> RdbAnnee:
     """Indice de l'année à partir des grandeurs de l'année (aucun état)."""
-    base = rdb_base_md_eur(pib_nominal, pib_nominal_2025, indice_masse_publique)
+    # RDB sans mesures : part privée au PIB nominal, part publique à sa masse.
+    prive = ((RDB_MENAGES_2025_MD_EUR - REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR)
+             * pib_nominal / pib_nominal_2025)
+    base = prive + REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR * indice_masse_publique
     if not base > 0:
         # PIB nominal et déflateur sont strictement positifs par construction :
         # une base nulle ou négative est un bug d'appel, pas une entrée.
         raise ValueError(f"RDB de base non positif ({base!r})")
-    prive = base - REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR * indice_masse_publique
     canaux = list(canaux_des_mesures(impacts))
     effet = sum(effet_revenu_md_eur(c) for c in canaux)
     coin = sum(coin_indirect_md_eur(c) for c in canaux)
