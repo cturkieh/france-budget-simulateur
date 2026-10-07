@@ -1,7 +1,7 @@
 """Tests-propriétés du re-encodage d'octobre 2026 (v0.6.6) — RN, Horizons, LR.
 
 Contrat posé par la règle symétrique d'encodage (METHODOLOGIE § « Règle d'encodage
-des programmes ») : un scénario de parti ne porte QUE des écarts au droit voté
+des programmes politiques ») : un scénario de parti ne porte QUE des écarts au droit voté
 (`plf_2026`) que sa source vivante chiffre ou paramètre. Tout le reste revient au
 droit en vigueur ; un levier absent de la source vivante est retiré.
 
@@ -18,13 +18,19 @@ Entrées (arbitrages du 07/10/2026 sur le dossier de sourcing du même jour) :
                 (LCI 22/09) ; durée de cotisation = droit en vigueur (aucune annoncée).
 
 Propriétés verrouillées :
-  (a) RN : les deux clés retirées n'existent plus, aucune clé nouvelle n'apparaît ;
+  (a) RN : les deux mesures retirées sont posées au droit voté (pas omises), et
+      rn_2027 porte exactement le jeu de leviers de plf_2026 ;
   (b) RN : chaque paramètre hors écarts sourcés vaut EXACTEMENT le droit voté —
       c'est la forme exécutable de « aucune économie ni dépense non sourcée » ;
   (c) RN : les écarts sourcés valent les arbitrages ;
   (d) Horizons / LR : les paramètres re-encodés valent les arbitrages ;
-  (e) omettre une clé ≡ la poser au droit voté (trajectoire bit-identique) — le
-      retrait n'introduit pas d'effet caché.
+  (e) pourquoi « retirer » = poser au droit voté et JAMAIS omettre la clé : une clé
+      absente vaut le DÉFAUT DU MOTEUR (config.py, année 2025), pas la loi votée —
+      et pour `taxe_superprofits` le handler à intensité 0 émet encore −0,002 de
+      compétitivité (branche `tous_secteurs` fausse, dette moteur tracée v0.6.7),
+      que portent les neuf autres scénarios. Omettre la clé chez le seul RN lui
+      retirerait cet artefact : traitement asymétrique. La propriété vérifie que la
+      trajectoire RN est celle du droit voté pour ces deux leviers, à l'identique.
 """
 import sys
 from pathlib import Path
@@ -77,14 +83,16 @@ def _params(scenario):
 
 
 @_SCENARIOS
-def test_a_rn_cles_retirees_et_aucune_cle_nouvelle():
+def test_a_rn_mesures_retirees_au_droit_vote_et_meme_jeu_de_leviers():
     rn, ref = SCENARIOS['rn_2027'], SCENARIOS['plf_2026']
-    presentes = [c for c in RN_CLES_RETIREES if c in rn]
-    assert not presentes, f"clés retirées encore présentes dans rn_2027 : {presentes}"
-    attendues = set(ref) - set(RN_CLES_RETIREES)
-    assert set(rn) == attendues, (
-        f"leviers rn_2027 ≠ droit voté moins les retraits : "
-        f"en trop={set(rn) - attendues} ; manquants={attendues - set(rn)}"
+    for cle in RN_CLES_RETIREES:
+        assert rn.get(cle) == ref[cle], (
+            f"{cle} : {rn.get(cle)!r} dans rn_2027, droit voté {ref[cle]!r} — "
+            "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (e))"
+        )
+    assert set(rn) == set(ref), (
+        f"leviers rn_2027 ≠ plf_2026 : en trop={set(rn) - set(ref)} ; "
+        f"manquants={set(ref) - set(rn)}"
     )
 
 
@@ -116,10 +124,15 @@ def test_d_horizons_lr_arbitrages(sid, cle, attendu):
 
 
 @_SCENARIOS
-def test_e_omettre_une_cle_equivaut_au_droit_vote():
-    ref = SCENARIOS['plf_2026']
-    avec = {**SCENARIOS['rn_2027'], **{c: dict(ref[c]) for c in RN_CLES_RETIREES}}
-    sans = SCENARIOS['rn_2027']
-    df_avec, _, _ = BudgetSimulatorV45(periods=10, mesures=avec).simulate()
-    df_sans, _, _ = BudgetSimulatorV45(periods=10, mesures=sans).simulate()
-    assert df_avec.equals(df_sans), "retirer une clé au droit voté déplace la trajectoire"
+def test_e_retrait_au_droit_vote_et_non_par_omission():
+    """Poser les deux leviers au droit voté ≠ les omettre : l'omission décale la
+    trajectoire RN (artefact du handler superprofits à intensité 0) — c'est ce qui
+    interdit la forme « clé absente » pour un retrait."""
+    rn = SCENARIOS['rn_2027']
+    omis = {k: v for k, v in rn.items() if k not in RN_CLES_RETIREES}
+    df_vote, _, _ = BudgetSimulatorV45(periods=10, mesures=rn).simulate()
+    df_omis, _, _ = BudgetSimulatorV45(periods=10, mesures=omis).simulate()
+    assert not df_vote.equals(df_omis), (
+        "l'omission est devenue neutre (artefact superprofits corrigé ?) : la "
+        "forme « clé absente » redevient admissible — mettre à jour (e) et (a)"
+    )
