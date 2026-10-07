@@ -984,9 +984,13 @@ def main():
     md = render_markdown(reg)
     js = json.dumps(reg, indent=2, ensure_ascii=False, sort_keys=True)
     if a.check:
+        # Compare les artefacts DÉSIGNÉS (défaut : les fichiers commités). La
+        # garde de drift des tests passe des COPIES corrompues : elle ne
+        # réécrit plus le fichier commité en place, ce qui exposait toute
+        # collecte pytest concurrente à un JSON tronqué (« Extra data »).
         drift = [
             str(path)
-            for path, content in ((DEFAULT_MD, md), (DEFAULT_JSON, js))
+            for path, content in ((a.out_md, md), (a.out_json, js))
             if not path.exists() or path.read_text("utf-8") != content
         ]
         if drift:

@@ -35,9 +35,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _run_check() -> subprocess.CompletedProcess:
+def _run_check(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, "scripts/generate_measure_registry.py", "--check"],
+        [sys.executable, "scripts/generate_measure_registry.py", "--check", *args],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -54,17 +54,24 @@ def test_registry_in_sync_with_code():
     )
 
 
-def test_check_detects_drift_red():
+def test_check_detects_drift_red(tmp_path):
     """Rouge automatisé : un artefact corrompu → exit 1 + message DRIFT.
 
-    Sauvegarde/restauration en `finally` (sûr même si l'assertion échoue)."""
+    v0.6.7 : sur des COPIES (`--out-md/--out-json` désignent les artefacts
+    comparés). La version précédente corrompait le fichier commité EN PLACE
+    le temps du sous-processus : toute lecture concurrente (deux suites pytest
+    en parallèle, `make test` + `make test-strict`) voyait un JSON tronqué
+    (« Extra data »), et un arrêt brutal entre l'écriture et le `finally`
+    laissait l'artefact corrompu dans l'arbre."""
+    md = tmp_path / "MEASURE_REGISTRY.md"
+    js = tmp_path / "measure_registry.json"
+    md.write_text((ROOT / "docs" / "MEASURE_REGISTRY.md").read_text("utf-8"), "utf-8")
     original = JSON_ARTIFACT.read_text("utf-8")
-    try:
-        JSON_ARTIFACT.write_text(original + "\n/* drift */\n", "utf-8")
-        r = _run_check()
-        assert r.returncode == 1, "la garde doit rougir sur artefact périmé"
-        assert "DRIFT" in r.stderr
-    finally:
-        JSON_ARTIFACT.write_text(original, "utf-8")
-    # Restauration effective : le nominal repasse au vert.
-    assert _run_check().returncode == 0
+    js.write_text(original, "utf-8")
+    assert _run_check("--out-md", str(md), "--out-json", str(js)).returncode == 0
+    js.write_text(original + "\n/* drift */\n", "utf-8")
+    r = _run_check("--out-md", str(md), "--out-json", str(js))
+    assert r.returncode == 1, "la garde doit rougir sur artefact périmé"
+    assert "DRIFT" in r.stderr
+    # L'artefact commité n'a jamais été touché.
+    assert JSON_ARTIFACT.read_text("utf-8") == original
