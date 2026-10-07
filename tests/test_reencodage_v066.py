@@ -15,7 +15,9 @@ Entrées (arbitrages du 07/10/2026 sur le dossier de sourcing du même jour) :
                 paramètres hérités sans source revenus au droit voté.
   horizons_2027 réforme des retraites du 29/09/2026 : 65 ans / 45 annuités.
   lr_2027       projet avecretailleau.fr (mesures 24, 25, 34) + effectifs annoncés
-                (LCI 22/09) ; durée de cotisation = droit en vigueur (aucune annoncée).
+                (Capital 23/09, Figaro 29/09) ; durée de cotisation = droit en vigueur
+                (aucune annoncée) ; tout levier hérité sans source → droit en vigueur
+                (arbitrage du 07/10/2026, volet « Comptes publics » encore « à venir »).
 
 Propriétés verrouillées :
   (a) RN : les deux mesures retirées sont posées au droit voté (pas omises) ;
@@ -29,8 +31,9 @@ Propriétés verrouillées :
       compétitivité (branche `tous_secteurs` fausse, dette moteur tracée v0.6.7),
       que portent les six autres scénarios à intensité 0 (trois autres sont à
       intensité positive, cf. docstring du test). Omettre la clé chez le seul RN lui
-      retirerait cet artefact : traitement asymétrique. La propriété vérifie que la
-      trajectoire RN est celle du droit voté pour ces deux leviers, à l'identique.
+      retirerait cet artefact : traitement asymétrique. La propriété prouve qu'omettre
+      ces deux clés CHANGE la trajectoire (donc que l'omission n'est pas neutre) ;
+      c'est (a) qui vérifie que leur valeur est bien celle du droit voté.
 """
 import sys
 from pathlib import Path
