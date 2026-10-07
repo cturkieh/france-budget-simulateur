@@ -140,12 +140,12 @@ from ..constants import (
     RDB_MENAGES_MD_EUR,
     RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
-    RETRAITES_EROSION_INDEXATION_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
     RETRAITES_GINI_PAR_ANNEE_ECART,
     RETRAITES_GINI_PAR_POINT_DESINDEXATION,
     RETRAITES_GINI_RESIDU_FLUX,
     RETRAITES_PA_GEL_TOTAL,
+    RETRAITES_PART_MASSE_INDEXEE,
     RETRAITES_REF_DUREE_ANS,
     asu_cout_annuel_md_eur,
     asu_cout_recours_md_eur,
@@ -174,6 +174,27 @@ else:
 
 class DepensesMixin(_MixinBase):
     """Handlers Section 2 — Maîtrise des dépenses."""
+
+    def _ecart_revalorisations(self, delta: float, year: int, inflation: float,
+                               max_revalorisations: int) -> float:
+        """Écart de NIVEAU d'une masse sous-indexée (part de la masse), v0.6.7.
+
+        ``1 − Π_s (1 − δ × max(π_s, 0))`` sur les revalorisations écoulées : une
+        par an dès POLICY_START_YEAR (la première année simulée — un gel voté
+        pour 2026 rapporte en 2026), au plus ``max_revalorisations``, chacune à
+        l'inflation de SON année (``_inflation_par_annee``, écrit par
+        ``simulate()`` avant les handlers ; l'année courante et, hors
+        simulation, toute année absente valent l'inflation de l'appel). Une
+        revalorisation n'est jamais négative : une année de déflation n'ouvre
+        pas d'écart, sans effacer les précédents. δ < 0 (sur-indexation) rend
+        un écart négatif : surcoût miroir au premier ordre.
+        """
+        dernier = min(year, POLICY_START_YEAR + max_revalorisations - 1)
+        facteur = 1.0
+        for annee in range(POLICY_START_YEAR, dernier + 1):
+            pi = inflation if annee == year else self._inflation_par_annee.get(annee, inflation)
+            facteur *= 1 - delta * max(pi, 0.0)
+        return 1.0 - facteur
 
     def _apply_retraites(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         # Convention : les handlers ne sont jamais appeles en annee baseline (year=2025).
@@ -244,12 +265,17 @@ class DepensesMixin(_MixinBase):
         # ces mêmes prestations. Sources : constants.py § CANAL EMPLOI SENIORS.
         delta_spending += economie_brute_age * phasing_age * FUITE_SOCIALE_RESIDUELLE
         delta_spending -= RETRAITES_COEFF_DUREE_MD_EUR * (duration - RETRAITES_REF_DUREE_ANS) * phasing
-        # Indexation : erosion CUMULATIVE — RETRAITES_EROSION_INDEXATION_MD_EUR
-        # par annee ecoulee et par point d'ecart a la pleine indexation,
-        # plateau RETRAITES_EROSION_PLATEAU_ANS (renouvellement des cohortes).
-        delta_spending -= RETRAITES_EROSION_INDEXATION_MD_EUR * (1 - indexation) * min(
-            year_idx + 1, RETRAITES_EROSION_PLATEAU_ANS
-        )
+        # Indexation (v0.6.7, audit Codex bloc B constat 2) : écart de NIVEAU
+        # composé des revalorisations écoulées, chacune à l'inflation de SON
+        # année, sur la masse nominale indexée de l'année — même forme que
+        # les prestations. Plateau RETRAITES_EROSION_PLATEAU_ANS
+        # revalorisations (renouvellement des cohortes). Jusqu'en v0.6.6 :
+        # 1,5 Md€ × (1 − indexation) × années, insensible à l'inflation
+        # (inflation implicite 0,39 % sur la masse des pensions).
+        delta_spending -= (RETRAITES_PART_MASSE_INDEXEE
+                           * self.masse_categorie_nominale('retraites')
+                           * self._ecart_revalorisations(1.0 - indexation, year, inflation,
+                                                         RETRAITES_EROSION_PLATEAU_ANS))
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
@@ -1007,7 +1033,8 @@ class DepensesMixin(_MixinBase):
         """
         Indexation des prestations sociales (hors pensions de retraite)
 
-        Prestations concernées (90 Md€ total):
+        Prestations concernées (90 Md€ en 2025 = catégorie `minima_sociaux` ;
+        assiette = sa masse NOMINALE de l'année depuis v0.6.7):
         - RSA: 12 Md€
         - APL (aides au logement): 15 Md€
         - Allocations familiales: 50 Md€
@@ -1042,15 +1069,7 @@ class DepensesMixin(_MixinBase):
             return 0, 0, {}
 
         # === BUDGET IMPACT ===
-        total_prestations = 90  # Md€
         indexation_ref = 1.0  # Référence: indexation complète
-
-        # Effet cumulatif sur les années (cap à 10 ans)
-        year_idx = year - 2025
-        if year_idx <= 0:
-            years_effect = 0
-        else:
-            years_effect = min(year_idx, 10)
 
         # Érosion composée : chaque revalorisation écarte la base de prestations
         # de (1 - delta_indexation * π) par rapport à l'indexation complète.
@@ -1059,28 +1078,21 @@ class DepensesMixin(_MixinBase):
         # signe historique (`delta_indexation > 0`) rendait la sur-indexation
         # budgétairement gratuite alors que Gini et PA y répondaient déjà.
         #
-        # v0.6.7 (audit Codex, bloc B constat 2) : produit des revalorisations
-        # RÉELLEMENT écoulées, chacune à l'inflation de SON année
-        # (self._inflation_par_annee, écrit par simulate()). L'ancienne écriture
-        # (1 - δ·π_t)^k réécrivait tout l'écart passé à l'inflation du jour
-        # (gel total : −1,80 Md€ en 2027 à π = 2 %, 0,00 en 2028 à π = 0). Une
-        # revalorisation n'est jamais négative : une année de déflation n'ouvre
-        # pas d'écart (max(π, 0), ce que faisait l'ancien `inflation > 0`, mais
-        # sans effacer les années passées). Calendrier INCHANGÉ : 2026 = 0, puis
-        # une revalorisation par an (2027..année), neuf au plus — à inflation
-        # constante, le résultat est exactement l'ancien. Hors simulate() (appel
-        # direct), une année absente de l'historique vaut l'inflation de l'appel.
-        revalorisations = max(years_effect - 1, 0)
-        if revalorisations > 0:
-            delta_indexation = indexation_ref - indexation
-            facteur = 1.0
-            for annee in range(year - revalorisations + 1, year + 1):
-                pi = inflation if annee == year else self._inflation_par_annee.get(annee, inflation)
-                facteur *= 1 - delta_indexation * max(pi, 0.0)
-            adjusted_base = total_prestations * facteur
-            delta_spending = -(total_prestations - adjusted_base)  # <0 économie, >0 surcoût
-        else:
-            delta_spending = 0
+        # v0.6.7 (audit Codex, bloc B constat 2, lot 2) : produit des
+        # revalorisations RÉELLEMENT écoulées, chacune à l'inflation de SON
+        # année — l'ancienne écriture (1 - δ·π_t)^k réécrivait tout l'écart passé
+        # à l'inflation du jour (gel total : −1,80 Md€ en 2027 à π = 2 %, 0,00 en
+        # 2028 à π = 0).
+        # v0.6.7 (lot 3C) : même convention que les pensions
+        # (`_ecart_revalorisations`) — assiette = masse NOMINALE de la catégorie
+        # `minima_sociaux` de l'année (90 Md€ en 2025 : RSA, prime d'activité,
+        # APL, prestations familiales) au lieu de 90 Md€ figés en euros 2025, et
+        # première revalorisation dès POLICY_START_YEAR (2026 valait 0 : un gel
+        # voté pour 2026 ne rapportait rien en 2026). Dix revalorisations au plus
+        # (l'ancien plafond « 10 ans »), sans plateau de cohortes : un barème
+        # sous-indexé le reste pour tous les bénéficiaires.
+        ecart = self._ecart_revalorisations(indexation_ref - indexation, year, inflation, 10)
+        delta_spending = -self.masse_categorie_nominale('minima_sociaux') * ecart  # <0 économie, >0 surcoût
 
         # === MACRO IMPACTS ===
 
@@ -1113,7 +1125,7 @@ class DepensesMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
             f"Y{year}: Prestations indexation - Taux {indexation*100:.0f}%, "
-            f"Inflation {inflation*100:.1f}%, Cumul {years_effect} ans, "
+            f"Inflation {inflation*100:.1f}%, Écart de niveau {ecart*100:.2f} %, "
             f"Économies {-delta_spending:+.1f}Md€"
         )
 

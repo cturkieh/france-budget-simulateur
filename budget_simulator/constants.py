@@ -752,8 +752,24 @@ def retraites_ref_age_ans(year: int) -> float:
 RETRAITES_COEFF_AGE_MD_EUR = 6.0
 
 RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
-RETRAITES_EROSION_INDEXATION_MD_EUR = 1.5  # Md€/an par année écoulée pour un gel total (proportionnel à l'écart)
-RETRAITES_EROSION_PLATEAU_ANS = 7        # renouvellement des cohortes : l'écart au statu quo cesse de croître
+# --- Désindexation des pensions (v0.6.7, audit Codex 10/2026, bloc B constat 2) ---
+# Économie = PART × masse nominale de la catégorie `retraites` de l'année ×
+# [1 − Π (1 − δ × max(π_s, 0))], δ = 1 − indexation, une revalorisation par an
+# dès POLICY_START_YEAR, chacune à l'inflation de SON année (handlers/depenses.py).
+# Remplace RETRAITES_EROSION_INDEXATION_MD_EUR = 1,5 Md€/an par année et par
+# point d'écart, indépendant de l'inflation et non sourcé : sur 380 Md€ de
+# pensions, une inflation implicite de 0,39 % — quatre fois moins qu'une
+# revalorisation réelle (1,1 à 1,6 %).
+# PART INDEXÉE : la masse sur laquelle porte une désindexation décidée par la
+# loi (régimes de base et pensions publiques ; Agirc-Arrco est revalorisé par
+# les partenaires sociaux). Calée sur l'OFCE — P. Madec, billet du 30/06/2025
+# « Impôts et prestations : quels effets attendre d'une « année blanche » ? » :
+# gel au 1er janvier 2026 d'une revalorisation de 1,1 % = 3,7 Md€ d'économie,
+# soit 336 Md€ de masse indexée, rapportés à la masse nominale 2026 de la
+# catégorie du moteur au statu quo (390,7 Md€) : 336 / 390,7 = 0,86.
+# Verrouillé par tests/test_desindexation_v067.py (ancrage OFCE à 0,05 Md€).
+RETRAITES_PART_MASSE_INDEXEE = 0.86
+RETRAITES_EROSION_PLATEAU_ANS = 7        # revalorisations comptées au plus : renouvellement des cohortes, l'écart au statu quo cesse de croître
 
 # --- Canal redistributif du levier d'âge -----------------------------------
 # Reculer l'âge de départ pénalise davantage les catégories à faible espérance

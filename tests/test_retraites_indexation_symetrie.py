@@ -3,9 +3,11 @@
 Contrat verrouillé (cf METHODOLOGIE.md § Retraites) :
 - sur-indexation (> 100 %) = surcoût budgétaire, miroir exact de l'économie
   de sous-indexation ;
-- érosion CUMULATIVE : RETRAITES_EROSION_INDEXATION_MD_EUR par année écoulée
-  pour un gel total, proportionnelle à l'écart, plateau
-  RETRAITES_EROSION_PLATEAU_ANS ;
+- érosion CUMULATIVE (v0.6.7) : écart de niveau composé des revalorisations
+  écoulées, chacune à l'inflation de son année, sur la masse indexée
+  (RETRAITES_PART_MASSE_INDEXEE × masse nominale), plateau
+  RETRAITES_EROSION_PLATEAU_ANS revalorisations — détail et ancrage OFCE :
+  tests/test_desindexation_v067.py ;
 - trajectoires ≤ 100 % par ailleurs inchangées — couvertes par les golden
   masters (renaissance_2027 à 0.9, im_competitivite_2029 à 0.8).
 """
@@ -41,12 +43,15 @@ def test_surindexation_a_un_cout_budgetaire():
 
 
 def test_symetrie_sous_sur_indexation():
-    """±20 % d'écart à la pleine indexation → impacts budgétaires miroirs."""
+    """±20 % d'écart à la pleine indexation → impacts budgétaires miroirs AU
+    PREMIER ORDRE (v0.6.7) : exacts la première année, puis la composition des
+    revalorisations les écarte de O((δπ)²) — (1+x)ⁿ − 1 contre 1 − (1−x)ⁿ."""
     for year in (POLICY_START_YEAR, POLICY_START_YEAR + 2,
                  POLICY_START_YEAR + 4, POLICY_START_YEAR + 9):
         economie = _delta_depenses(0.8, year)
         surcout = _delta_depenses(1.2, year)
-        assert surcout == pytest.approx(-economie), (
+        n = min(year - POLICY_START_YEAR + 1, RETRAITES_EROSION_PLATEAU_ANS)
+        assert surcout == pytest.approx(-economie, rel=n * 0.2 * _INFLATION), (
             f"asymétrie en {year} : économie {economie:+.2f} vs surcoût {surcout:+.2f}"
         )
 
@@ -80,12 +85,14 @@ def test_symetrie_age_et_duree():
         -delta({'duree_cotisation': 41.5}))
 
 
-def test_gel_total_erosion_lineaire_puis_plateau():
-    """Caractérisation (comportement pré-existant, verrou anti-régression) :
-    valeurs épinglées en littéral à dessein — 1,5 Md€ × années écoulées."""
-    assert _delta_depenses(0.0, POLICY_START_YEAR) == pytest.approx(-1.5)
-    assert _delta_depenses(0.0, POLICY_START_YEAR + 4) == pytest.approx(-7.5)
-    assert _delta_depenses(0.0, _PLATEAU_YEAR) == pytest.approx(-10.5)
+def test_gel_total_erosion_composee_puis_plateau():
+    """Caractérisation, valeurs épinglées en littéral à dessein (v0.6.7) : hors
+    simulation, masse = base 2025 (380 Md€) × 0,86, π = 2 % chaque année ;
+    écart = 326,8 × [1 − 0,98ⁿ]. (v0.6.6 : 1,5 Md€ × années, soit −1,5 / −7,5 /
+    −10,5 quelle que soit l'inflation.)"""
+    assert _delta_depenses(0.0, POLICY_START_YEAR) == pytest.approx(-6.536)
+    assert _delta_depenses(0.0, POLICY_START_YEAR + 4) == pytest.approx(-31.3987, abs=1e-4)
+    assert _delta_depenses(0.0, _PLATEAU_YEAR) == pytest.approx(-43.0966, abs=1e-4)
     # Plateau : au-delà, l'écart au statu quo n'augmente plus.
     assert _delta_depenses(0.0, POLICY_START_YEAR + 9) == pytest.approx(
         _delta_depenses(0.0, _PLATEAU_YEAR)

@@ -134,7 +134,7 @@ Le chainage sur le niveau de l'annee precedente supprime PAR CONSTRUCTION l'anci
 |-----------|-----------|--------|
 | Age legal | le DROIT EN VIGUEUR de l'annee simulee : 62,75 ans (62 ans 9 mois) en 2026-2027, puis +3 mois par an jusqu'a 64,0 ans en 2032 | bareme PLAT et SYMETRIQUE : +/-6,0 Md EUR par annee d'age d'ecart a la reference, sur tout le domaine 60-67 ans ; phasing cohortes 5 ans |
 | Duree cotisation | 42,5 ans (170 trimestres) | +/-2 Md EUR par semestre (+/-4 Md EUR par annee, phasing 5 ans) |
-| Indexation | 100% inflation | +/-1,5 Md EUR par annee ecoulee pour un ecart de 100%, proportionnel et SYMETRIQUE, plateau 7 ans |
+| Indexation | 100% inflation | v0.6.7 : écart de niveau composé des revalorisations évitées (chacune à l'inflation de son année) sur 0,86 de la masse nominale des pensions, SYMETRIQUE au premier ordre, plateau 7 ans |
 
 ### Hypotheses Economiques
 
@@ -437,13 +437,27 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 **Indexation des pensions :**
 - Base : 17 millions de retraites x pension moyenne
 - Indexation 100% = maintien pouvoir d'achat (statu quo legal, impact budgetaire nul)
-- Erosion CUMULATIVE : impact annuel = 1,5 Md EUR x (part d'inflation non compensee)
-  x annees ecoulees, plafonne a 7 ans — le stock de pensions erode se renouvelle
-  (nouvelles pensions liquidees sur les salaires, extinction des cohortes anciennes)
-- Exemples : gel partiel 80% = ~2,1 Md EUR/an au plateau ; gel total = 7,5 Md EUR/an
-  en 2030 et 10,5 Md EUR/an au plateau (2032+)
-- SYMETRIQUE : la sur-indexation (>100%) est un surcout miroir (ex. 120% =
-  +2,1 Md EUR/an au plateau) — verrouille par tests/test_retraites_indexation_symetrie.py
+- Erosion CUMULATIVE (v0.6.7, audit externe Codex 10/2026) : `économie(t) = 0,86 de la masse
+  nominale des pensions de l'année × [1 − Π_s (1 − δ × max(π_s, 0))]`, δ = 1 − indexation, une
+  revalorisation par an dès 2026, chacune à l'inflation de SON année, sept au plus (plateau 7 ans) —
+  le stock de pensions erode se renouvelle (nouvelles pensions liquidees sur les salaires,
+  extinction des cohortes anciennes) ; l'écart constitué subsiste ensuite, sans se rembourser.
+- Part indexée 0,86 : la masse que porte une désindexation décidée par la loi (régimes de base
+  et pensions publiques ; l'Agirc-Arrco est revalorisé par les partenaires sociaux), calée sur
+  l'OFCE — P. Madec, « Impôts et prestations : quels effets attendre d'une « année blanche » ? »,
+  blog de l'OFCE, 30/06/2025 : gel au 1er janvier 2026 d'une revalorisation de 1,1 % = **3,7 Md EUR**,
+  soit 336 Md EUR de masse indexée, pour 390,7 Md EUR de masse nominale 2026 dans le moteur. Le même
+  billet chiffre l'« année blanche » COMPLÈTE à ~6 Md EUR (pensions 3,7 + prestations hors chômage
+  0,8 + allocations chômage 0,4 + gel du barème de l'IR 1,2) : le « 5,7-6 Md EUR » parfois cité pour
+  les seules pensions est ce total.
+- Jusqu'en v0.6.6 : `1,5 Md EUR × (1 − indexation) × années` (plateau 7 ans), sans inflation et sans
+  source — sur 380 Md EUR de pensions, une inflation implicite de 0,39 %, quatre fois moins qu'une
+  revalorisation réelle. Effet de la correction : renaissance_2027 (indexation 0,9) et
+  im_competitivite_2029 (0,8) gagnent 0,46 pt de dette 2035 chacun ; aucun autre scénario publié
+  ne désindexe les pensions.
+- SYMETRIQUE au premier ordre : la sur-indexation (>100%) est un surcout miroir, exact la première
+  année, puis écarté de O((δπ)²) par la composition des revalorisations — verrouille par
+  tests/test_retraites_indexation_symetrie.py et tests/test_desindexation_v067.py
 - Caveat : le plateau 7 ans s'applique au canal BUDGETAIRE ; l'effet pouvoir
   d'achat de la desindexation reste recurrent (applique chaque annee, sans
   plafond de duree — cf § Effets FLUX)
@@ -1577,16 +1591,18 @@ Liste exhaustive PA one-time :
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
   taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires) ;
   SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir. Formule
-  (v0.6.7) : `écart = 90 × [1 − Π (1 − δ × max(π_s, 0))]`, δ = 1 − taux_indexation,
-  produit sur les revalorisations écoulées (2027 → année, neuf au plus ; 2026 = 0),
+  (v0.6.7) : `écart = masse nominale minima_sociaux de l'année × [1 − Π (1 − δ × max(π_s, 0))]`,
+  δ = 1 − taux_indexation, produit sur les revalorisations écoulées (2026 → année, dix au plus),
   chacune à l'inflation de SON année. Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
   l'écart passé à l'inflation du jour (gel total : −1,8 Md EUR en 2027 à 2 %, 0 en 2028
   si l'inflation tombait à 0 ; audit externe Codex, 10/2026). À inflation constante, les
-  deux formules coïncident. Limites connues, non traitées : base de 90 Md EUR en euros
-  2025 et première revalorisation en 2027 (un gel voté pour 2026 ne rapporte rien en 2026)
-- Retraites (indexation) : `1,5 Md EUR × (1 − indexation) × années` (plateau 7 ans),
-  sans dépendance à l'inflation — pas de mémoire à perdre ; le calibrage de la
-  constante est un arbitrage ouvert (v0.6.7)
+  deux formules coïncident. Les deux limites signalées au lot 2 sont levées au lot 3C, par
+  alignement sur la convention des pensions : l'assiette n'est plus 90 Md EUR figés en euros 2025
+  mais la masse nominale de la catégorie `minima_sociaux` (90 Md EUR en 2025), et la première
+  revalorisation est celle de 2026 (un gel voté pour 2026 rapporte en 2026)
+- Retraites (indexation) : même forme que les prestations depuis v0.6.7 — `0,86 × masse
+  nominale des pensions × [1 − Π (1 − δ × max(π_s, 0))]`, sept revalorisations au plus
+  (§ Retraites ; la constante 1,5 Md EUR, insensible à l'inflation, a disparu)
 - Transition ecologique COMPOSANTE renovation : Primes versees chaque annee a de nouveaux beneficiaires
 - Fraude fiscale/sociale : Recettes recuperees annuellement
 - Cotisations recurrentes : Impact budgetaire chaque annee

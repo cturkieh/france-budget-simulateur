@@ -196,12 +196,15 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             doc_patterns=("4 Md EUR par annee",),
         ),
         CriticalConstant(
-            name="retraites érosion indexation (Md EUR/an, gel total)",
-            source="constants.RETRAITES_EROSION_INDEXATION_MD_EUR",
-            raw_value=constants.RETRAITES_EROSION_INDEXATION_MD_EUR,
-            representations=("1,5", "1.5"),
+            # v0.6.7 : remplace RETRAITES_EROSION_INDEXATION_MD_EUR (1,5 Md€/an,
+            # insensible à l'inflation) — part de la masse des pensions que
+            # porte une désindexation, calée sur l'OFCE (année blanche 2026).
+            name="retraites part de la masse indexée (OFCE 2026)",
+            source="constants.RETRAITES_PART_MASSE_INDEXEE",
+            raw_value=constants.RETRAITES_PART_MASSE_INDEXEE,
+            representations=("0,86", "0.86"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
-            doc_patterns=("1,5 Md EUR par annee",),
+            doc_patterns=("0,86 de la masse",),
         ),
         CriticalConstant(
             name="retraites plateau érosion (années)",

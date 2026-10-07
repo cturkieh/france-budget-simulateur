@@ -343,44 +343,56 @@ def test_lot2_superprofits_omis_ou_pose_a_zero_bit_identique(pleine_precision):
 # Correction : produit des revalorisations RÉELLEMENT écoulées, Π (1 − δ·π_s).
 # ---------------------------------------------------------------------------
 
-PRESTATIONS_BASE_MD = 90.0   # depenses._apply_prestations_indexation
+# v0.6.7 lot 3C : assiette = masse NOMINALE de la catégorie `minima_sociaux` de
+# l'année (90 Md€ en 2025), première revalorisation en 2026 — même convention que
+# les pensions (tests/test_desindexation_v067.py). Les propriétés du lot 2
+# (mémoire de l'écart, inflation variable) sont conservées, exprimées en PART de
+# la masse.
 
 
 class _InflationScriptee(BudgetSimulatorV45):
-    """Le moteur, avec une trajectoire d'inflation imposée (année civile → π)."""
+    """Le moteur, avec une trajectoire d'inflation imposée (année civile → π) ;
+    relève l'assiette nominale lue par le handler chaque année."""
 
     script = {}
 
     def calculate_inflation(self, year, economic_state):
         return self.script[self.annee_base + year]
 
+    def _apply_prestations_indexation(self, measure, params, year, gdp, inflation, unemployment):
+        self.assiettes[year] = self.masse_categorie_nominale('minima_sociaux')
+        return super()._apply_prestations_indexation(measure, params, year, gdp, inflation, unemployment)
+
 
 def _prestations(taux, script):
+    """Écart en PART de l'assiette de l'année (négatif = économie)."""
     cls = type('_Script', (_InflationScriptee,), {'script': script})
-    _, _, rapport = cls(periods=10, mesures={
-        'prestations_indexation': {'taux_indexation': taux}}).simulate()
-    return {an['Année']: an.get('prestations_indexation', {}).get('depenses', 0.0)
-            for an in rapport['measure_impacts_by_year']}
+    sim = cls(periods=10, mesures={'prestations_indexation': {'taux_indexation': taux}})
+    sim.assiettes = {}
+    _, _, rapport = sim.simulate()
+    return {an['Année']: an['prestations_indexation']['depenses'] / sim.assiettes[an['Année']]
+            for an in rapport['measure_impacts_by_year'] if an['Année'] >= 2026}
 
 
 def _ecart_attendu(delta, script, annee):
-    """Écart de niveau après les revalorisations 2027..annee (convention de calendrier
-    INCHANGÉE : 2026 = 0, puis une revalorisation par an, neuf au plus)."""
+    """Écart de niveau (part de l'assiette) après les revalorisations 2026..annee,
+    dix au plus."""
     facteur = 1.0
-    for s in range(max(2027, annee - 8), annee + 1):
+    for s in range(2026, min(annee, 2035) + 1):
         facteur *= 1 - delta * max(script[s], 0.0)
-    return -PRESTATIONS_BASE_MD * (1 - facteur)
+    return -(1 - facteur)
 
 
 def test_lot2_prestations_l_ecart_constitue_ne_disparait_pas():
     """RED v0.6.6 : gel total, π = 2 % jusqu'en 2027 puis 0 : −1,80 Md€ en 2027,
     0,00 en 2028. Une année sans inflation n'ouvre pas d'écart NOUVEAU ; elle ne
-    rembourse pas pour autant celui des années passées."""
+    rembourse pas pour autant celui des années passées (deux revalorisations
+    évitées, 2026 et 2027 : 1 − 0,98² de l'assiette)."""
     script = {a: (0.02 if a <= 2027 else 0.0) for a in range(2025, 2036)}
     dep = _prestations(0.0, script)
-    assert dep[2027] == pytest.approx(-1.80, abs=1e-9)
-    for annee in range(2028, 2036):
-        assert dep[annee] == pytest.approx(-1.80, abs=1e-9), annee
+    assert dep[2026] == pytest.approx(-0.02, abs=1e-12)
+    for annee in range(2027, 2036):
+        assert dep[annee] == pytest.approx(-(1 - 0.98 ** 2), abs=1e-12), annee
 
 
 def test_lot2_prestations_historique_conserve_inflation_variable():
@@ -392,18 +404,18 @@ def test_lot2_prestations_historique_conserve_inflation_variable():
     dep = _prestations(0.8, script)
     for annee in range(2026, 2036):
         assert dep[annee] == pytest.approx(_ecart_attendu(0.2, script, annee), rel=1e-12, abs=1e-12)
-    assert all(dep[a + 1] <= dep[a] for a in range(2026, 2035))
+    # (tolérance d'un ulp : part = montant / assiette, recalculée chaque année)
+    assert all(dep[a + 1] <= dep[a] + 1e-15 for a in range(2026, 2035))
 
 
-def test_lot2_prestations_inflation_constante_formule_inchangee():
-    """Non-régression : à inflation constante, le produit historisé est exactement
-    l'ancienne puissance — seule la mémoire des années passées change."""
+def test_lot2_prestations_inflation_constante_puissance():
+    """À inflation constante, le produit historisé est la puissance du nombre de
+    revalorisations (2026 incluse depuis v0.6.7)."""
     script = {a: 0.015 for a in range(2025, 2036)}
     dep = _prestations(0.8, script)
     for annee in range(2026, 2036):
-        k = annee - 2026
-        assert dep[annee] == pytest.approx(-PRESTATIONS_BASE_MD * (1 - (1 - 0.2 * 0.015) ** k),
-                                           rel=1e-12, abs=1e-12)
+        k = annee - 2025
+        assert dep[annee] == pytest.approx(-(1 - (1 - 0.2 * 0.015) ** k), rel=1e-12, abs=1e-12)
 
 
 # ---------------------------------------------------------------------------

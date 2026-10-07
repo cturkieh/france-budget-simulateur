@@ -99,6 +99,10 @@ class _SimulatorState(Protocol):
     def _is_first_year_change(self, measure_id: str, params: Dict) -> bool:
         ...
 
+    # Assiette nominale des désindexations (v0.6.7, engine/expenditures.py).
+    def masse_categorie_nominale(self, categorie: str) -> float:
+        ...
+
     # --- Attributs hôte lus par les mixins ---
     mesures: Dict[str, Dict]
     base_params: Dict[str, float]

@@ -58,6 +58,24 @@ from ..constants import INDEXATION_DEPENSES_INFLATION_PASSEE
 class ExpendituresMixin:
     """Bloc moteur — Dépenses publiques (récurrence chaînée + plafonds)."""
 
+    def masse_categorie_nominale(self, categorie: str) -> float:
+        """Masse NOMINALE d'une catégorie de dépense, l'année en cours (v0.6.7).
+
+        Les facteurs ``_spending_factors`` ne portent que le VOLUME ; le niveau
+        nominal vit dans le chaînage ``depenses_primaires_precedentes``. Leur
+        rapport à Σ base × facteur est EXACTEMENT l'indice de prix cumulé des
+        dépenses (Π (1 + π_idx)) : la masse de la catégorie vaut donc base ×
+        facteur × cet indice. Lue par les handlers après
+        ``calculate_expenditures`` de l'année (ordre de ``simulate``) ; hors
+        simulation (facteurs à 1, chaînage au niveau de base), c'est la base
+        2025. Sert d'assiette aux désindexations (pensions, prestations), qui
+        portaient jusqu'en v0.6.6 un montant figé en euros 2025.
+        """
+        volume = sum(base * self._spending_factors[cat]
+                     for cat, base in self.spending_categories_base.items())
+        return (self.spending_categories_base[categorie] * self._spending_factors[categorie]
+                * self.depenses_primaires_precedentes / volume)
+
     def calculate_expenditures(self, gdp: float, inflation: float, inflation_prev: float,
                                unemployment: float, year: int, output_gap: float) -> float:
         """Dépenses primaires nominales de l'année (récurrence unique, toutes années ≥ 1).
