@@ -90,10 +90,22 @@ def test_canal_inconnu_refuse():
 
 
 def test_part_nette_remunerations_publiques():
-    """FIPECO 2025 : 247,6 Md€ bruts pour 370,0 Md€ cotisations employeurs
-    incluses ; × 0,80 du brut au net (taux de service-public.fr F468)."""
-    assert PART_NETTE_REMUNERATIONS_APU == pytest.approx(247.6 / 370.0 * 0.80)
-    assert 0.50 <= PART_NETTE_REMUNERATIONS_APU <= 0.60
+    """Part nette du brut des agents, REDÉRIVÉE ici des taux légaux de
+    service-public.fr (fiche F468), indépendamment de la constante du code :
+    retenue pour pension 11,10 % du traitement indiciaire ; CSG-CRDS 9,7 % sur
+    98,25 % du brut ; RAFP 5 % des primes, primes plafonnées à 20 % du
+    traitement ; avec des primes de 20 à 30 % du brut (non sourcé) → 0,808 à
+    0,820 (0,814 à 25 %). La constante (0,80) est cette dérivation arrondie
+    par défaut : tolérance 0,01 sous la fourchette, pas au-dessus (borne haute
+    du revenu des agents déjà assumée : avant impôt sur le revenu)."""
+    def net_du_brut(part_primes):
+        traitement = 1 - part_primes
+        rafp = 0.05 * min(part_primes, 0.20 * traitement)
+        return 1 - 0.111 * traitement - 0.097 * 0.9825 - rafp
+    bas, haut = net_du_brut(0.20), net_du_brut(0.30)
+    from budget_simulator.constants import PART_NETTE_DU_BRUT_AGENTS_PUBLICS
+    assert bas - 0.01 <= PART_NETTE_DU_BRUT_AGENTS_PUBLICS <= haut, (bas, haut)
+    assert 247.6 / 370.0 * (bas - 0.01) <= PART_NETTE_REMUNERATIONS_APU <= 247.6 / 370.0 * haut
 
 
 def test_croissance_uc_conforme_insee_2026():

@@ -129,39 +129,47 @@ def test_aucun_levier_ne_transmet_plus_que_ses_euros(statu_quo, nom):
         f"(Δ = {euros:.1f} Md€, transmission {ecart / (euros / assiette):.0%})")
 
 
-def test_un_niveau_permanent_ne_compose_pas(statu_quo):
-    """Rabot de 7,5 % : chaque année, l'effet direct est le montant des coupes
-    de prestations DE L'ANNÉE — pas la somme des années passées. v0.6.7 :
-    8 années stables, micro cumulé −4,50 % (un niveau devenait une croissance)."""
-    sim, impacts = _run({'rabot_uniforme': {'taux_reduction': 0.075}})
-    stables = 0
-    for an, decomposition in sim._rdb_trace.items():
-        if an == 2025:
-            continue
-        canal = impacts[an]['rabot_uniforme']['menages']['prestations']
-        assert decomposition.effet_mesures == pytest.approx(canal, rel=1e-12), an
-        precedent = impacts.get(an - 1, {}).get('rabot_uniforme')
-        if precedent and abs(canal - precedent['menages']['prestations']) < 0.02 * abs(canal):
-            stables += 1
-            # Montant stable → part dans le RDB stable (aucune dérive composée).
-            part = decomposition.effet_mesures / decomposition.rdb_base
-            part_prec = sim._rdb_trace[an - 1].effet_mesures / sim._rdb_trace[an - 1].rdb_base
-            assert part == pytest.approx(part_prec, rel=0.05), an
-    assert stables >= 5, 'montant jamais stabilisé : test sans objet'
+def _niveau_constant(monkeypatch, **canaux):
+    """Simulation où un levier émet, chaque année dès 2026, un canal ménages
+    CONSTANT posé à la main, sans aucun euro budgétaire : la macro (PIB,
+    déflateur) reste celle du statu quo, seul l'indice peut bouger."""
+    sim = BudgetSimulatorV45(periods=10, mesures={'impot_revenu': {'taux_superieur': 0.5}})
+
+    def _constant(measure, params, year, gdp, inflation, unemployment):
+        return 0.0, 0.0, {'menages': canaux_menages(**canaux)}
+
+    monkeypatch.setitem(sim.measure_handlers, 'impot_revenu', _constant)
+    df, _, _ = sim.simulate()
+    return sim._rdb_trace, df.set_index('Année')['PIB']
 
 
-def test_pas_d_attenuation_calendaire():
-    """Un niveau émis en 2027+ compte en entier : ASU (montée en charge sur
-    quatre ans). v0.6.7 : × 0,5 selon l'ANNÉE CALENDAIRE (effectifs FP :
-    part retenue 0,50) — les effectifs n'ont plus d'effet direct (arbitrage
-    du mainteneur), le test porte sur un transfert phasé."""
-    sim, impacts = _run({'asu': {'asu_activation': 1}})
-    tardives = [an for an in range(2027, 2036)
-                if impacts[an]['asu']['menages']['prestations'] > 0]
-    assert len(tardives) >= 5
-    for an in tardives:
-        canal = impacts[an]['asu']['menages']['prestations']
-        assert sim._rdb_trace[an].effet_mesures / canal == pytest.approx(1.0, abs=1e-12), an
+@pytest.mark.parametrize('canal, montant, effet_rdb', [
+    ('prestations', 10.0, 10.0),
+    ('prelevements_directs', 10.0, -10.0),
+    ('salaires_prives', 10.0, 10.0),
+])
+def test_un_niveau_permanent_ne_compose_pas(monkeypatch, statu_quo, canal, montant, effet_rdb):
+    """Un même montant chaque année (10 Md€, posé à la main) déplace l'indice
+    de la même fraction du RDB de base CHAQUE année : ni composition d'une
+    année sur l'autre (v0.6.7 : rabot de 7,5 %, 8 années stables, micro cumulé
+    −4,50 %), ni atténuation calendaire à partir de 2027 (v0.6.7 : × 0,5 selon
+    l'année). Propriété indépendante des handlers."""
+    trace, pib = _niveau_constant(monkeypatch, **{canal: montant})
+    _, pib_sq = _niveau_constant(monkeypatch)
+    for an in range(2026, 2036):
+        assert pib[an] == pytest.approx(pib_sq[an], rel=1e-12), an   # macro intacte
+        ecart = trace[an].indice / statu_quo[an].indice - 1
+        assert ecart == pytest.approx(effet_rdb / statu_quo[an].rdb_base, rel=1e-9), an
+
+
+def test_un_prix_permanent_ne_compose_pas(monkeypatch, statu_quo):
+    """Même propriété par les prix : +10 Md€ de fiscalité indirecte des ménages
+    chaque année (répercussion complète d'une hausse) → prix × (1 + 10 / C(t)),
+    sans cumul."""
+    trace, _ = _niveau_constant(monkeypatch, prelevements_indirects=10.0)
+    for an in range(2026, 2036):
+        conso = (1 - 0.179) * statu_quo[an].rdb_base
+        assert trace[an].prix / statu_quo[an].prix == pytest.approx(1 + 10.0 / conso, rel=1e-12), an
 
 
 # --- Arbitrages du mainteneur (v0.6.8) ---------------------------------------
