@@ -57,6 +57,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 from ..constants import (
     ETI_TRANCHE_SUPERIEURE,
     PART_CONSOMMATION_MENAGES_TVA_TOTALE,
+    PART_MENAGES_TAXE_FONCIERE,
     POLICY_START_YEAR,
 )
 from .._logging import _log_debug
@@ -501,13 +502,15 @@ class FiscaliteMenagesMixin(_MixinBase):
         delta_revenue = TOTAL_BASE * intensite
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
-        # Revenu disponible (v0.6.8) : IFI et taxe foncière sont des impôts
-        # COURANTS des ménages ; les droits de succession sont un transfert en
-        # capital, hors du RDB au sens de l'INSEE — exclus du canal ménages.
+        # Revenu disponible (v0.6.8) : l'IFI et la part MÉNAGES de la taxe
+        # foncière sont des impôts COURANTS des ménages ; la foncière des
+        # entreprises est un impôt d'entreprise (par la croissance) et les
+        # droits de succession un transfert en capital, hors du RDB au sens
+        # de l'INSEE — exclus du canal ménages.
         impacts = {
             'recettes': delta_revenue,
             'menages': canaux_menages(prelevements_directs=(
-                delta_revenue * (IFI_BASE + FONCIERE_BASE) / TOTAL_BASE)),
+                intensite * (IFI_BASE + PART_MENAGES_TAXE_FONCIERE * FONCIERE_BASE))),
         }
 
         # Gini: Impact ONE-TIME (changement structure fiscale)

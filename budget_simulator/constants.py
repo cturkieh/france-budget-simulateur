@@ -888,6 +888,15 @@ PART_CONSOMMATION_MENAGES_TVA_TOTALE = PART_MENAGES_TVA_2022 * PART_CONSOMMATION
 # Md€, dont 5,3 Md€ de composante carbone, hors TVA » payables par les
 # ménages). Carburants et chauffage : consommation, pas investissement.
 PART_MENAGES_COMPOSANTE_CARBONE = 5.3 / 8.2
+# Part des taxes foncières payée par les ménages : 26,1 Md€ sur 42,9 Md€ en
+# 2024 (FIPECO, « Les taxes foncières payées par les ménages » : « Les taxes
+# foncières ont rapporté 42,9 Md€ aux communes et à leurs groupements en
+# 2024, dont 26,1 Md€ payés par les ménages et 16,8 Md€ payés surtout par les
+# entreprises »). La part entreprises est un impôt d'entreprise : aucun effet
+# direct sur le pouvoir d'achat (arbitrage 1). Sert au seul canal
+# ``prelevements_directs`` de ``_apply_fiscalite_patrimoine`` (le budget garde
+# la recette entière).
+PART_MENAGES_TAXE_FONCIERE = 26.1 / 42.9
 # Répercussion d'une variation de fiscalité indirecte sur les prix à la
 # consommation, ASYMÉTRIQUE :
 #  - Benzarti, Carloni, Harju & Kosonen (2020), « What Goes Up May Not Come

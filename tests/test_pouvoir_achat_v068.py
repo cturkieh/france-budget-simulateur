@@ -450,12 +450,18 @@ def test_retraites_deux_sens(statu_quo, params, signe):
 
 @pytest.mark.parametrize('intensite', [-0.3, 0.3])
 def test_fiscalite_patrimoine_deux_sens(statu_quo, intensite):
-    """IFI + foncière (impôts courants des ménages) entrent au RDB, pas les
-    droits de succession (transfert en capital, INSEE) : part 38/53 de la
-    recette ; signe opposé à l'intensité, symétrique."""
+    """IFI + part ménages de la foncière (impôts courants des ménages) entrent
+    au RDB, pas les droits de succession (transfert en capital, INSEE) ni la
+    foncière des entreprises (arbitrage 1) ; signe opposé à l'intensité,
+    symétrique."""
     sim, impacts = _run({'fiscalite_patrimoine': {'intensite': intensite}})
     i = impacts[AN1]['fiscalite_patrimoine']
-    assert i['menages']['prelevements_directs'] == pytest.approx(i['recettes'] * 38 / 53, rel=1e-12)
+    # À la main : IFI 2 Md€ + taxe foncière 36 Md€ × part des ménages (FIPECO,
+    # 2024 : 26,1 Md€ sur 42,9 Md€ de taxes foncières, le reste « payé surtout
+    # par les entreprises » — revue passe 1, L3) ; succession 15 Md€ exclue.
+    assert i['recettes'] == pytest.approx(53.0 * intensite, rel=1e-12)
+    assert i['menages']['prelevements_directs'] == pytest.approx(
+        intensite * (2.0 + 36.0 * 26.1 / 42.9), rel=1e-12)
     ecart = _ecart_an1(sim._rdb_trace, statu_quo)
     assert ecart == pytest.approx(-i['menages']['prelevements_directs']
                                   / sim._rdb_trace[AN1].rdb_base, rel=1e-9)
