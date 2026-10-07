@@ -120,13 +120,19 @@ def asu_is_active(mesures: Dict) -> bool:
     if not asu or not isinstance(asu, dict):
         return False
     activation = asu.get('asu_activation', 0)
-    if activation is None:
+    # v0.6.7 (réfutation des handlers) : actif ssi RÉEL FINI non nul, la
+    # sémantique de la porte. Une activation NON NUMÉRIQUE (« 1 », [1]) fait
+    # échouer `_apply_asu` à la porte (signalé) ; le prédicat la déclarait
+    # active (`'0' != 0`) et neutralisait en silence la désindexation des
+    # prestations pour une ASU jamais appliquée. Un booléen reste un 0/1, comme
+    # dans la porte ; `None` et le non-fini sont inactifs, comme avant.
+    if not isinstance(activation, (int, float)):
         return False
     try:
         if not math.isfinite(activation):
             return False
-    except TypeError:
-        pass  # non numérique : même traitement qu'avant (véracité booléenne)
+    except OverflowError:  # entier JSON trop grand : non fini pour la porte
+        return False
     return activation != 0
 
 
