@@ -910,7 +910,7 @@ class OrchestratorMixin:
             # production, ni l'indexation passée n'y touchent (arbitrage 2 : seules
             # les mesures de rémunération la déplacent, par leur canal). Remplace « croissance du PIB + Σ coefficients
             # forfaitaires × 0,5 après 2026 » de la v0.6.7 (formule et tableau
-            # avant/après : METHODOLOGIE § Pouvoir d'achat).
+            # avant/après : METHODOLOGIE § Indice de pouvoir d'achat).
             rdb = rdb_annee(
                 impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
                 ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx

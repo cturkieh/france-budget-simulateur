@@ -1001,7 +1001,7 @@ statique dans les deux sens, monotonie, ancre DG Tresor).
 
 **Impacts :**
 - Gini : TVA +2% = +0,005 (REGRESSIF, ONE-TIME)
-- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : par les prix, τ+ = 1,0 (hausse), τ− = 0,5 (baisse), part de la consommation des ménages 56,0 %
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : par les prix, τ+ = 1,0 (hausse), τ− = 0,5 (baisse) ; la base du levier étant la consommation des ménages, toute la recette pèse sur elle (part 1,0)
 
 ### Impot sur le Revenu (IR)
 
@@ -1135,7 +1135,7 @@ pas reecrite.
 **Impacts :**
 - Gini : +5 Md EUR renovation = **-0,0017** (redistributif ; recalibre v0.6.1,
   cf. § Aides Renovation Energetique)
-- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : rénovation = aide à l'investissement (hors RDB), par la croissance ; taxe carbone par les prix
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : rénovation = aide à l'investissement (hors RDB), par la croissance ; taxe carbone par les prix, pour sa part payée par les ménages (64,6 %)
 - Competitivite : +10 Md EUR = +0,002 (competitivite verte LT)
 - L'investissement vert lui-meme n'a **aucun** canal Gini : aucune source ne
   donne l'incidence distributive d'un euro d'investissement (a la difference
@@ -1385,7 +1385,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 - Si TVA 5,5% : 6,6 Md EUR -> perte 17,4 Md EUR
 
 **Impacts (effet NIVEAU annee 1) :**
-- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : baisse répercutée à τ− = 0,5 sur la part de la consommation des ménages (56,0 %)
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : baisse répercutée à τ− = 0,5 sur la part de la TVA nette qui pèse sur la consommation des ménages (56,0 %, la base de 120 Md€ comprenant l'énergie des entreprises)
 - Gini : Baisse TVA = -0,0073 (progressif car 15% budget classes pop. vs 7% aisees)
 - Competitivite : 0 (entreprises ont TVA deductible)
 
@@ -1963,7 +1963,13 @@ Resultat sur les programmes 2027 : LFI 2030 ≈ 0,269, PS ≈ 0,276, RN ≈ 0,28
 avec les evaluations IPP/OFCE, vitesse compatible avec l'historique INSEE,
 classement inchange. Proprietes verrouillees par tests dedies.
 
-**Indice de pouvoir d'achat (RDB-moteur, v0.6.8) :**
+**Competitivite :**
+- Baseline 2025 : 100 (indice)
+- Positif = Amelioration competitivite entreprises
+- Negatif = Degradation competitivite
+
+### Indice de pouvoir d'achat (RDB-moteur, v0.6.8)
+
 - Baseline 2025 : 100 (indice). Positif = hausse du pouvoir d'achat par unité de consommation.
 - **Définition (celle de l'INSEE)** : revenu disponible brut (RDB) des ménages, déflaté par le
   prix de leur consommation, rapporté au nombre d'unités de consommation (UC). Indice de
@@ -1975,7 +1981,7 @@ classement inchange. Proprietes verrouillees par tests dedies.
          + R_pub × (1 + v)^(t − 2025) × D(t)                           rémunérations publiques nettes
          + Σ_mesures [ prestations − prélèvements directs
                        + n × rémunérations publiques + salaires privés nets ]   (Md€ de l'année)
-  P(t)   = D(t) × (1 + Σ_mesures τ± × p × prélèvements indirects / C(t)),   C(t) = (1 − s) × RDB_base(t)
+  P(t)   = D(t) × (1 + Σ_mesures τ± × p_m × prélèvements indirects_m / C(t)),   C(t) = (1 − s) × RDB_base(t)
   PA(t)  = 100 × [RDB(t) / RDB₂₀₂₅] / P(t) / (1 + γ)^(t − 2025)
   borne  = variation annuelle ± PA_VARIATION_ANNUELLE_MAX (filet, ne mord sur aucun scénario publié)
   ```
@@ -1987,7 +1993,9 @@ classement inchange. Proprietes verrouillees par tests dedies.
   | γ (UC) | 0,4 %/an | INSEE : effet « par UC » −0,5 pt (2024), −0,3 pt (2025), Insee Première n° 2105 ; 0,4 implicite dans la prévision 2026 (Note de conjoncture de juin 2026 : −0,3 % / −0,7 % par UC) |
   | n | 0,535 | FIPECO 2025 : 247,6 Md€ bruts / 370,0 Md€ cotisations employeurs incluses × 0,80 du brut au net (taux de service-public.fr F468 ; part de primes ~25 % **non sourcée**) ; avant impôt sur le revenu |
   | R_pub | n × 370,0 ≈ 198 Md€ | idem |
-  | p | 56,0 % | DG Trésor, *Analyse de la composition des recettes de TVA* (2022), citée par le Sénat (rapport n° 942, 2024-2025) : 65,1 % des recettes de TVA nette proviennent des ménages, « dont 86 % de leur consommation et 14 % de leurs investissements » ; 0,651 × 0,86. Appliqué aussi aux accises énergie et à la taxe carbone (approximation) |
+  | p_m (TVA taux normal) | 1,0 | la base du levier est la consommation des ménages (0,53 × PIB ≈ (1 − s) × RDB) : toute la recette pèse sur elle |
+  | p_m (TVA énergie) | 56,0 % | base = toute l'énergie, entreprises comprises. DG Trésor, *Analyse de la composition des recettes de TVA* (2022), citée par le Sénat (rapport n° 942, 2024-2025) : 65,1 % des recettes de TVA nette proviennent des ménages, « dont 86 % de leur consommation et 14 % de leurs investissements » ; 0,651 × 0,86. Moyenne tous biens appliquée à l'énergie faute de répartition propre sourcée (approximation) |
+  | p_m (taxe carbone) | 64,6 % | recette totale de la composante carbone. Conseil général de l'économie, *Les outils de régulation économique du carbone*, § 5.6 : 5,3 Md€ payables par les ménages sur 8,2 Md€ (2019) |
   | τ+ / τ− | 1,0 / 0,5 | Benzarti, Carloni, Harju & Kosonen, JPE 128(12), 2020 : « prices respond twice as much to VAT increases as to VAT decreases » ; Carbonnier, JPubE 91(5-6), 2007 : baisses répercutées à 57 % et 77 % ; Benzarti & Carloni, AEJ:EP 11(1), 2019 : baisse de la restauration, consommateurs les moins bénéficiaires |
   | D(t) | déflateur du PIB du moteur | — |
   | v | 0,6 %/an | volume tendanciel de la masse salariale du statu quo du moteur (`spending_growth_rates`, « GVT + point d'indice ») |
@@ -1998,12 +2006,12 @@ classement inchange. Proprietes verrouillees par tests dedies.
 
   | Canal | Leviers | Effet sur l'indice |
   |---|---|---|
-  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, abattement retraités, ISF climatique, IFI et taxe foncière (`fiscalite_patrimoine`, hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
-  | prélèvements indirects | TVA générale, TVA énergie, taxe carbone | par les prix : τ± × p |
-  | prestations | retraites (âge, durée, indexation), allocations chômage, ASU (effort + recours, hors coût de bascule), indexation des minima, franchises santé, part « prestations » du rabot uniforme, prestations indexées sur le SMIC | +1 € de RDB par € |
+  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, abattement retraités, ISF climatique, IFI et part ménages de la taxe foncière (`fiscalite_patrimoine` : 26,1 Md€ sur 42,9, FIPECO 2024 ; la part des entreprises passe par la croissance ; hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
+  | prélèvements indirects | TVA générale, TVA énergie, taxe carbone | par les prix : τ± × p_m (part ménages propre à la base du levier) |
+  | prestations | retraites (âge, durée, indexation), allocations chômage, ASU (effort + recours, hors coût de bascule), indexation des minima, franchises santé, part « prestations en espèces » du rabot uniforme (pensions, chômage, minima, AAH ; santé et APA, transferts en nature, à 0 comme dans le levier santé), prestations indexées sur le SMIC | +1 € de RDB par € |
   | rémunérations publiques | point d'indice, revalorisation des enseignants, surcoût SMIC dans la fonction publique | n = 0,535 € par € de coût |
   | salaires privés | SMIC (2,7 M de salariés privés, sans diffusion) | net du brut × 0,78 |
-  | **aucun** (par la croissance) | impôts de production, IS, cotisations patronales, niches et subventions des entreprises, superprofits, exonérations de cotisations patronales, embauches et suppressions de postes publics, investissement, rénovation (aide à l'investissement, hors RDB), recherche, efficience, fraude, gestion de la dette | 0 direct |
+  | **aucun** (par la croissance) | impôts de production, IS, cotisations patronales, niches et subventions des entreprises, superprofits, exonérations de cotisations patronales, embauches et suppressions de postes publics, investissement, rénovation (aide à l'investissement, hors RDB), recherche, efficience, fraude, gestion de la dette ; mesures « formule » côté dépenses (côté recettes : avis explicite dans la réponse, aucune n'existe au registre) | 0 direct |
 
 - **Arbitrages du mainteneur (v0.6.8)** : (1) un impôt sur les entreprises n'a aucun effet
   direct sur le pouvoir d'achat, il passe par la croissance et l'emploi ; (2) la dépense
@@ -2046,32 +2054,29 @@ classement inchange. Proprietes verrouillees par tests dedies.
   | Statu quo | 106,0 | 103,6 | 111,5 | 106,6 |
   | Budget 2026 voté (plf_2026) | 105,7 | 103,3 | 111,3 | 106,5 |
   | RN | 110,3 | 105,0 | 116,0 | 107,8 |
-  | LFI | 117,4 | 108,0 | 123,2 | 109,3 |
+  | LFI | 117,4 | 108,1 | 123,2 | 109,4 |
   | Renaissance | 107,2 | 104,8 | 110,3 | 107,1 |
   | Horizons | 110,9 | 102,4 | 116,9 | 105,8 |
   | LR | 110,3 | 105,2 | 115,1 | 107,5 |
-  | PS | 113,5 | 106,4 | 119,7 | 108,7 |
-  | Écologistes | 112,2 | 104,8 | 119,1 | 108,0 |
-  | Institut Montaigne, rabot | 97,2 | 94,8 | 101,1 | 99,4 |
+  | PS | 113,5 | 106,5 | 119,7 | 108,8 |
+  | Écologistes | 112,2 | 105,0 | 119,1 | 108,2 |
+  | Institut Montaigne, rabot | 97,2 | 95,9 | 101,1 | 100,6 |
   | Institut Montaigne, compétitivité | 109,4 | 104,2 | 115,5 | 107,3 |
-  | **Étendue (10 scénarios)** | **20,2** | **13,2** | **22,1** | **9,9** |
+  | **Étendue (10 scénarios)** | **20,2** | **12,2** | **22,1** | **8,8** |
 
-  Lecture : environ −2,4 pt pour tous en 2030 (−4,9 en 2035) viennent du passage « par UC »
-  (0,4 %/an, identique pour tous) ; le reste est l'effet de la définition. Écarts au statu
-  quo en 2030, v0.6.7 → v0.6.8 : budget voté −0,3 → −0,3 ; RN +4,3 → +1,4 ; LFI +11,4 →
-  +4,4 ; Renaissance +1,2 → +1,2 ; Horizons +4,9 → −1,2 ; LR +4,3 → +1,6 ; PS +7,5 → +2,8 ;
-  Écologistes +6,2 → +1,2 ; rabot −8,8 → −8,8 ; compétitivité +3,4 → +0,6. Sept écarts se
-  resserrent, trois sont inchangés à 0,1 pt près. Ceux qui se resserrent le plus sont les
+  Lecture : environ −2,1 pt pour tous en 2030 (−4,3 en 2035) viennent du passage « par UC »
+  (0,4 %/an, identique pour tous ; mesuré sur le statu quo : indice × (1,004ⁿ − 1)) ; le
+  reste est l'effet de la définition. Écarts au statu quo en 2030 (valeurs du tableau),
+  v0.6.7 → v0.6.8 : budget voté −0,3 → −0,3 ; RN +4,3 → +1,4 ; LFI +11,4 → +4,5 ;
+  Renaissance +1,2 → +1,2 ; Horizons +4,9 → −1,2 ; LR +4,3 → +1,6 ; PS +7,5 → +2,9 ;
+  Écologistes +6,2 → +1,4 ; rabot −8,8 → −7,7 ; compétitivité +3,4 → +0,6. Huit écarts se
+  resserrent, deux sont inchangés à 0,1 pt près. Ceux qui se resserrent le plus sont les
   programmes dont l'indice reposait sur des coefficients sans source — impôts de production
   (175 % de transmission pour un impôt d'entreprise), point d'indice et dépenses comptés en
   sus de la croissance, rénovation réémise chaque année. En 2035 le rabot passe de −10,4 à
-  −7,2 : ses coupes de prestations sont comptées en euros de l'année au lieu d'un
-  coefficient composé chaque année.
-
-**Competitivite :**
-- Baseline 2025 : 100 (indice)
-- Positif = Amelioration competitivite entreprises
-- Negatif = Degradation competitivite
+  −6,0 : ses coupes de prestations sont comptées en euros de l'année au lieu d'un
+  coefficient composé chaque année, et seules les prestations en espèces entrent au RDB
+  (la santé et l'APA, transferts en nature, n'y entrent pas, comme dans le levier santé).
 
 ### Calibration Baseline Validee (v0.6.0)
 

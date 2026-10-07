@@ -240,7 +240,7 @@ def test_prelevement_direct_symetrique(statu_quo):
 # --- Formule exacte et ancrage INSEE -----------------------------------------
 
 def test_formule_exacte_rejouee(monkeypatch):
-    """La formule publiée (METHODOLOGIE § Pouvoir d'achat), rejouée de bout en
+    """La formule publiée (METHODOLOGIE § Indice de pouvoir d'achat), rejouée de bout en
     bout sur un programme mixte à partir des SORTIES publiques (colonnes PIB,
     Déflateur, RDB_Ménages_Md€ et impacts par mesure de l'API) : canaux € de
     l'année, prix = déflateur × coin fiscal, indice par UC. Remplace les tests

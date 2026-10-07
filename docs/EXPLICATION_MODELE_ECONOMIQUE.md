@@ -311,10 +311,12 @@ PA(t)   = 100 × RDB réel(t) / RDB(2025) / UC(t)
 - La croissance agit sur la part privée du revenu (salaires, revenus d'activité et du
   patrimoine) : c'est par elle que passent les impôts sur les entreprises, les embauches et
   l'investissement publics.
-- Les mesures qui touchent DIRECTEMENT les ménages entrent en euros : prestations (pensions,
-  allocations, minima), impôts directs (IR, CSG, cotisations salariales), rémunérations des
-  agents en place (point d'indice, à 0,535 € net par € de coût), salaires au SMIC. La TVA et
-  les accises passent par les prix (hausse répercutée en entier, baisse à moitié).
+- Les mesures qui touchent DIRECTEMENT les ménages entrent en euros : prestations en espèces
+  (pensions, allocations, minima, AAH ; la santé et l'APA sont des transferts en nature, hors
+  revenu disponible), impôts directs (IR, CSG, cotisations salariales, part ménages de la taxe
+  foncière), rémunérations des agents en place (point d'indice, à 0,535 € net par € de coût),
+  salaires au SMIC. La TVA et les accises passent par les prix, pour leur part payée par les
+  ménages (hausse répercutée en entier, baisse à moitié).
 - Indice de NIVEAU : chaque année ne lit que les montants de l'année ; une mesure permanente
   pèse son niveau, chaque année, sans se composer.
 
