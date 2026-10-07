@@ -104,6 +104,7 @@ class _SimulatorState(Protocol):
     base_params: Dict[str, float]
     spending_categories_base: Dict[str, float]
     _spending_factors: Dict[str, float]
+    _inflation_par_annee: Dict[int, float]
 
     # --- État cross-année propre à un seul handler (lu ET écrit) ---
     _chomage_params_prev: Dict

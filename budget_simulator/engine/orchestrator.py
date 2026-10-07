@@ -514,6 +514,11 @@ class OrchestratorMixin:
                 _log_debug(self.debug_logs, f"Y{year_idx}: Base: rec={revenues_base:.1f}, dep={spending_base:.1f}")
 
                 # --- 5. Mesures de l'année (handlers à l'inflation contemporaine) ---
+                # Mémoire de l'inflation par année civile, lue par les handlers
+                # qui cumulent un écart de prix sur plusieurs revalorisations
+                # (v0.6.7 : désindexation des prestations — sans elle, l'écart
+                # passé était réécrit à l'inflation du jour).
+                self._inflation_par_annee[year] = inflation
                 spending_after, revenues_after, impacts = self.apply_measures(
                     year, spending_base, revenues_base, gdp_nominal,
                     inflation, unemployment

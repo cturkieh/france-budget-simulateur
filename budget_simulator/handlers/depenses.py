@@ -1052,15 +1052,32 @@ class DepensesMixin(_MixinBase):
         else:
             years_effect = min(year_idx, 10)
 
-        # Érosion composée : chaque année, la base de prestations s'écarte de
-        # (1 - delta_indexation * inflation) par rapport à l'indexation complète.
+        # Érosion composée : chaque revalorisation écarte la base de prestations
+        # de (1 - delta_indexation * π) par rapport à l'indexation complète.
         # SYMETRIQUE (aligné sur les retraites, revue 2026-08-04) : sous-
         # indexation = économie, sur-indexation = surcoût miroir — le gate de
         # signe historique (`delta_indexation > 0`) rendait la sur-indexation
         # budgétairement gratuite alors que Gini et PA y répondaient déjà.
-        if years_effect > 0 and inflation > 0:
+        #
+        # v0.6.7 (audit Codex, bloc B constat 2) : produit des revalorisations
+        # RÉELLEMENT écoulées, chacune à l'inflation de SON année
+        # (self._inflation_par_annee, écrit par simulate()). L'ancienne écriture
+        # (1 - δ·π_t)^k réécrivait tout l'écart passé à l'inflation du jour
+        # (gel total : −1,80 Md€ en 2027 à π = 2 %, 0,00 en 2028 à π = 0). Une
+        # revalorisation n'est jamais négative : une année de déflation n'ouvre
+        # pas d'écart (max(π, 0), ce que faisait l'ancien `inflation > 0`, mais
+        # sans effacer les années passées). Calendrier INCHANGÉ : 2026 = 0, puis
+        # une revalorisation par an (2027..année), neuf au plus — à inflation
+        # constante, le résultat est exactement l'ancien. Hors simulate() (appel
+        # direct), une année absente de l'historique vaut l'inflation de l'appel.
+        revalorisations = max(years_effect - 1, 0)
+        if revalorisations > 0:
             delta_indexation = indexation_ref - indexation
-            adjusted_base = total_prestations * (1 - delta_indexation * inflation) ** max(years_effect - 1, 0)
+            facteur = 1.0
+            for annee in range(year - revalorisations + 1, year + 1):
+                pi = inflation if annee == year else self._inflation_par_annee.get(annee, inflation)
+                facteur *= 1 - delta_indexation * max(pi, 0.0)
+            adjusted_base = total_prestations * facteur
             delta_spending = -(total_prestations - adjusted_base)  # <0 économie, >0 surcoût
         else:
             delta_spending = 0

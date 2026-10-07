@@ -332,3 +332,75 @@ def test_lot2_superprofits_omis_ou_pose_a_zero_bit_identique(pleine_precision):
         periods=10, mesures={'taxe_superprofits': {'intensite': 0}}).simulate()
     df_omis, sec_omis, _ = BudgetSimulatorV45(periods=10, mesures={}).simulate()
     assert df_0.equals(df_omis) and sec_0.equals(sec_omis)
+
+
+# ---------------------------------------------------------------------------
+# Lot 2 — désindexation des prestations : historique d'inflation (bloc B, constat 2).
+# ``depenses._apply_prestations_indexation`` calculait 90 × [1 − (1 − δ·π_t)^k] :
+# l'inflation COURANTE élevée au nombre de revalorisations écoulées. L'écart déjà
+# constitué était donc réécrit chaque année à l'inflation du jour (gel total, 2027 à
+# π = 2 % : −1,80 Md€ ; 2028 à π = 0 : 0,00 — l'écart de 2027 disparaissait).
+# Correction : produit des revalorisations RÉELLEMENT écoulées, Π (1 − δ·π_s).
+# ---------------------------------------------------------------------------
+
+PRESTATIONS_BASE_MD = 90.0   # depenses._apply_prestations_indexation
+
+
+class _InflationScriptee(BudgetSimulatorV45):
+    """Le moteur, avec une trajectoire d'inflation imposée (année civile → π)."""
+
+    script = {}
+
+    def calculate_inflation(self, year, economic_state):
+        return self.script[self.annee_base + year]
+
+
+def _prestations(taux, script):
+    cls = type('_Script', (_InflationScriptee,), {'script': script})
+    _, _, rapport = cls(periods=10, mesures={
+        'prestations_indexation': {'taux_indexation': taux}}).simulate()
+    return {an['Année']: an.get('prestations_indexation', {}).get('depenses', 0.0)
+            for an in rapport['measure_impacts_by_year']}
+
+
+def _ecart_attendu(delta, script, annee):
+    """Écart de niveau après les revalorisations 2027..annee (convention de calendrier
+    INCHANGÉE : 2026 = 0, puis une revalorisation par an, neuf au plus)."""
+    facteur = 1.0
+    for s in range(max(2027, annee - 8), annee + 1):
+        facteur *= 1 - delta * max(script[s], 0.0)
+    return -PRESTATIONS_BASE_MD * (1 - facteur)
+
+
+def test_lot2_prestations_l_ecart_constitue_ne_disparait_pas():
+    """RED v0.6.6 : gel total, π = 2 % jusqu'en 2027 puis 0 : −1,80 Md€ en 2027,
+    0,00 en 2028. Une année sans inflation n'ouvre pas d'écart NOUVEAU ; elle ne
+    rembourse pas pour autant celui des années passées."""
+    script = {a: (0.02 if a <= 2027 else 0.0) for a in range(2025, 2036)}
+    dep = _prestations(0.0, script)
+    assert dep[2027] == pytest.approx(-1.80, abs=1e-9)
+    for annee in range(2028, 2036):
+        assert dep[annee] == pytest.approx(-1.80, abs=1e-9), annee
+
+
+def test_lot2_prestations_historique_conserve_inflation_variable():
+    """Propriété durable : sur une trajectoire d'inflation quelconque (déflation
+    comprise — une revalorisation n'est jamais négative), l'écart vaut le produit des
+    revalorisations écoulées, et une sous-indexation n'en rend jamais une partie."""
+    pis = [0.011, 0.01, 0.03, 0.005, -0.01, 0.02, 0.0, 0.015, 0.04, 0.012, 0.018]
+    script = dict(zip(range(2025, 2036), pis))
+    dep = _prestations(0.8, script)
+    for annee in range(2026, 2036):
+        assert dep[annee] == pytest.approx(_ecart_attendu(0.2, script, annee), rel=1e-12, abs=1e-12)
+    assert all(dep[a + 1] <= dep[a] for a in range(2026, 2035))
+
+
+def test_lot2_prestations_inflation_constante_formule_inchangee():
+    """Non-régression : à inflation constante, le produit historisé est exactement
+    l'ancienne puissance — seule la mémoire des années passées change."""
+    script = {a: 0.015 for a in range(2025, 2036)}
+    dep = _prestations(0.8, script)
+    for annee in range(2026, 2036):
+        k = annee - 2026
+        assert dep[annee] == pytest.approx(-PRESTATIONS_BASE_MD * (1 - (1 - 0.2 * 0.015) ** k),
+                                           rel=1e-12, abs=1e-12)

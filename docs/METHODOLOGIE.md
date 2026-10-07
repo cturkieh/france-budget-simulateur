@@ -1559,9 +1559,18 @@ Liste exhaustive PA one-time :
 **Effets FLUX (RECURRENT)** — Appliques CHAQUE ANNEE legitimement :
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
   taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires) ;
-  SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir
+  SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir. Formule
+  (v0.6.7) : `écart = 90 × [1 − Π (1 − δ × max(π_s, 0))]`, δ = 1 − taux_indexation,
+  produit sur les revalorisations écoulées (2027 → année, neuf au plus ; 2026 = 0),
+  chacune à l'inflation de SON année. Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
+  l'écart passé à l'inflation du jour (gel total : −1,8 Md EUR en 2027 à 2 %, 0 en 2028
+  si l'inflation tombait à 0 ; audit externe Codex, 10/2026). À inflation constante, les
+  deux formules coïncident. Limites connues, non traitées : base de 90 Md EUR en euros
+  2025 et première revalorisation en 2027 (un gel voté pour 2026 ne rapporte rien en 2026)
+- Retraites (indexation) : `1,5 Md EUR × (1 − indexation) × années` (plateau 7 ans),
+  sans dépendance à l'inflation — pas de mémoire à perdre ; le calibrage de la
+  constante est un arbitrage ouvert (v0.6.7)
 - Transition ecologique COMPOSANTE renovation : Primes versees chaque annee a de nouveaux beneficiaires
-- Retraites (indexation) : Erosion annuelle similaire prestations
 - Fraude fiscale/sociale : Recettes recuperees annuellement
 - Cotisations recurrentes : Impact budgetaire chaque annee
 - Depenses courantes : Budget annuel

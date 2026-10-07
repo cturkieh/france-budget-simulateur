@@ -595,6 +595,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.pib_reel_base2025 = self.base_params['pib_base']
         self.pib_nominal = self.base_params['pib_base']
         self.deflateur_cumule = 1.000
+        # Inflation contemporaine par année CIVILE, écrite par simulate() avant
+        # les handlers (v0.6.7) : mémoire des revalorisations passées pour les
+        # handlers qui cumulent un écart de prix (désindexation des prestations).
+        self._inflation_par_annee: Dict[int, float] = {}
 
         self.output_gap_courant = OUTPUT_GAP_INITIAL  # source unique (constants.py)
         self.debt_structure = {
@@ -664,6 +668,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.deflateur_cumule = 1.000
 
         # --- Mémoire inter-années ---
+        self._inflation_par_annee = {}
         self.inflation_precedente = self.base_params['inflation_base']
         self.recettes_precedentes = self.base_params['recettes_base']
         self.gini_courant = self.base_params['gini_base']
