@@ -458,9 +458,18 @@ Pic decale a l'annee 2 (0,65 au lieu de 0,45 en annee 0). Cela reflete les delai
 |----------|-------------|-----------|
 | Recession | x1,15 | Output gap < -2% ou chomage gap > 2% |
 | Expansion | x0,85 | Output gap > 2% et chomage gap < -1% |
-| Dette elevee | x0,95 | Ratio > 110% (Ricardo-Barro) |
+| Dette elevee | x0,95 | Ratio > 110% — calibration prudente du moteur, pas une valeur citee (voir ci-dessous) |
 | Confiance | /1,10 | Consolidation spending-led, annee > 1 |
 | ZLB | x1,30 | Taux < 2% et output gap < -2% |
+
+**Coefficient « dette elevee » (x0,95 au-dela de 110 %)** : le SENS est celui de la litterature
+— des multiplicateurs plus faibles quand la position budgetaire est degradee (Huidrom, Kose, Lim &
+Ohnsorge, « Why do fiscal multipliers depend on fiscal positions? », *Journal of Monetary Economics*
+114, 2020, p. 109-125 : canaux ricardien et de taux ; Ilzetzki, Mendoza & Vegh, « How big (small?)
+are fiscal multipliers? », *Journal of Monetary Economics* 60(2), 2013, p. 239-254 : multiplicateurs
+negatifs dans les pays tres endettes). Le SEUIL (110 %) et l'AMPLITUDE (-5 %) sont des choix du
+moteur, qu'aucune de ces deux sources ne fournit : elles decrivent un effet plus fort (multiplicateur
+de long terme nul ou negatif en position faible), d'ou le qualificatif de calibration prudente.
 
 ### Mecanismes Supprimes (v3.0)
 
