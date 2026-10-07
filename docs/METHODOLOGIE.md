@@ -486,7 +486,7 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 ### Impacts Macroeconomiques
 
 - **Inegalites** : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee. L'effet plein est servi l'annee ou la mesure OUVRE son ecart au calendrier legal (et non l'annee ou elle apparait), puis 10 % de residu annuel : cf. § « Effets NIVEAU vs FLUX », 4e pattern.
-- **Pouvoir d'achat** : Gel total indexation retraites = -0,007 PA agrégé/an récurrent (OFCE Brief 124, 15/02/2024)
+- **Pouvoir d'achat** (v0.6.8) : les pensions non versées (âge, durée, indexation) sortent du RDB des ménages au montant du budget, canal `prestations` (l'ancien −0,007/an pour un gel total se composait d'une année sur l'autre)
 - **Competitivite** : Impact neutre (pas de lien direct entreprises)
 - **Croissance et chomage** : depuis la v0.6.1, le levier d'age agit aussi par
   le canal emploi seniors (section ci-dessus) — croissance potentielle a la
@@ -687,7 +687,7 @@ et par un meilleur ciblage, pas par une depense additionnelle.
 
 **NEUTRALITE TOTALE** : Mesures d'efficience pure
 - Gini : 0 (pas de changement redistributif)
-- Pouvoir d'achat : 0 (pas de changement reste a charge)
+- Pouvoir d'achat : 0 (pas de changement reste a charge ; canaux ménages nuls)
 - Competitivite : 0 (optimisation interne)
 
 ---
@@ -760,8 +760,8 @@ par an de 2027 à 2032, la cible pleine en 2032 et au-delà. 2032 est l'année q
 les sources du RN (« trajectoire 2027-2032 ») et de LR (« sur le quinquennat ») ; aucune
 source de programme n'annonce une cible plus rapide. Exemple : −201 000 postes donnent
 −33 500 en 2027 et −201 000 en 2032. Une création de postes suit la même rampe
-(+60 000 donnent +10 000 en 2027), et son effet de pouvoir d'achat est servi au même
-rythme, par incréments annuels.
+(+60 000 donnent +10 000 en 2027) ; elle n'a pas d'effet direct sur le pouvoir d'achat
+(v0.6.8 : par la croissance seulement).
 
 **Plafond partagé avec la réforme de l'État.** Une réduction opère par non-remplacement
 des départs (157 000 par an), le vivier de la réforme. Réforme + curseur ne suppriment
@@ -799,8 +799,10 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
 - **Gini** : aucun effet (le handler pose 0 : salaires de la fonction publique déjà
   compressés). Les règles « −10k effectifs = +0,001 » et « +1 % de point d'indice = −0,0005 »
   publiées ici jusqu'au 07/10/2026 n'étaient pas celles du moteur.
-- **Pouvoir d'achat** : +1 % de point d'indice = +0,003 PA, une fois (l'année d'entrée en
-  vigueur) ; créations de postes : +10 000 postes = +0,00025 PA, servi au rythme de la rampe
+- **Pouvoir d'achat** (v0.6.8, arbitrage du mainteneur) : le point d'indice est un revenu
+  des agents en place, canal `rémunérations publiques`, compté à sa part nette (0,535 € par €
+  de coût) chaque année ; les créations et suppressions de postes n'ont pas d'effet direct
+  (elles passent par la croissance)
   2027-2032 ; suppressions : aucun effet (attrition naturelle, pas de licenciement).
 
 ---
@@ -834,7 +836,7 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
   ni RSA ni ASS — Dares Focus n° 53 × DREES E&R n° 1368 ; cf. M35)
 - Degressivite : son facteur (±15 % d'allocations) s'applique aux DEUX canaux
   ET au Gini (v0.6.4, fin du free lunch — meme famille que le fix PA v0.6.3)
-- PA : 0,002 par 5 Md EUR sur le canal € total (taux ET duree, v0.6.3)
+- PA : canal € total (taux ET duree, v0.6.3) ; v0.6.8 : les allocations elles-mêmes, canal `prestations`
 
 > **Note historique** : avant la reforme d'avril 2025 la base etait 45 Md EUR
 > × 24 mois ; de v0.6.3 a v0.6.4 le canal taux portait 40 Md EUR — un agregat
@@ -881,7 +883,7 @@ correspondance entre un niveau de plafond et un montant.
 | Cout de transition | +1,1 Md EUR par an sur 4 ans | fourchette officielle 2 a 13,4 Md EUR cumules, **plancher retenu**, + 2,4 Md EUR de hausse du recours |
 | Effet emploi | **0** | aucun effet observable (Cour des comptes / IPP) |
 | Competitivite | **0** | aucune source |
-| Pouvoir d'achat | effort / revenu disponible brut | nul a cout constant |
+| Pouvoir d'achat | effort + recours, en euros de l'année (canal `prestations`, v0.6.8) | nul a cout constant |
 | Gini | borne theorique proportionnelle a l'effort | nul a cout constant |
 
 **Pourquoi l'economie de gestion ne peut pas depasser un ordre de grandeur.**
@@ -928,8 +930,9 @@ l'effort** : dans la variante a cout constant, la reforme compte **4,0 millions
 de perdants pour 3,9 millions de gagnants** — c'est un pur transfert entre
 menages, dont l'effet agrege est nul par construction.
 
-**Effets de NIVEAU, pas de flux.** Le Gini et le pouvoir d'achat de l'ASU sont
-emis sous forme d'**increment de montee en charge** : leur somme sur les quatre
+**Effets de NIVEAU, pas de flux.** Le Gini de l'ASU est
+emis sous forme d'**increment de montee en charge** (le pouvoir d'achat, depuis la
+v0.6.8, lit le niveau du transfert de l'année, en euros) : leur somme sur les quatre
 annees vaut exactement le niveau atteint, et ils valent zero une fois le regime
 permanent installe. Une reforme de baremes deplace le niveau des transferts une
 fois ; elle ne reduit pas les inegalites un peu plus chaque annee pour toujours,
@@ -998,7 +1001,7 @@ statique dans les deux sens, monotonie, ancre DG Tresor).
 
 **Impacts :**
 - Gini : TVA +2% = +0,005 (REGRESSIF, ONE-TIME)
-- PA : TVA +1pt = -0,002 PA (ONE-TIME, ajustement de niveau ; INSEE 2018 "Hausse TVA et inégalités")
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : par les prix, τ+ = 1,0 (hausse), τ− = 0,5 (baisse), part ménages 65,1 %
 
 ### Impot sur le Revenu (IR)
 
@@ -1009,7 +1012,7 @@ statique dans les deux sens, monotonie, ancre DG Tresor).
 
 **Impacts :**
 - Gini : Taux 45%->50% = -0,008 (PROGRESSIF, redistribution forte)
-- PA : Hausse taux sup = -0,001
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : prélèvement direct, −1 € de RDB par €
 
 ### CSG/CRDS
 
@@ -1132,7 +1135,7 @@ pas reecrite.
 **Impacts :**
 - Gini : +5 Md EUR renovation = **-0,0017** (redistributif ; recalibre v0.6.1,
   cf. § Aides Renovation Energetique)
-- PA : +5 Md EUR = +0,001 (economies energie)
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : rénovation = aide à l'investissement (hors RDB), par la croissance ; taxe carbone par les prix
 - Competitivite : +10 Md EUR = +0,002 (competitivite verte LT)
 - L'investissement vert lui-meme n'a **aucun** canal Gini : aucune source ne
   donne l'incidence distributive d'un euro d'investissement (a la difference
@@ -1293,7 +1296,7 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
 ```
 
 **Impacts (annee 1 seulement - effet NIVEAU) :**
-- PA : +100 EUR SMIC = +0,5% PA
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : salaires nets des 2,7 M de salariés privés au SMIC (sans diffusion) + surcoût FP (part nette) + prestations indexées
 - Competitivite : +100 EUR = -0,3%
 - Gini : +100 EUR = -0,002 (progressif)
 
@@ -1336,7 +1339,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 
 **Impacts :**
 - Gini : -0,020 pour 12 Md EUR (reduction forte inegalites)
-- PA : -0,001 (quasi-neutre, touche 1% population)
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : prélèvement direct, −1 € de RDB par €
 - Competitivite : -0,002 (risque exil entrepreneurs)
 
 ### Taxe Superprofits
@@ -1359,7 +1362,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 
 **Impacts :**
 - Gini : -0,01 pour 15 Md EUR (redistribution capital->Etat)
-- PA : Neutre (taxe entreprises)
+- PA : aucun effet direct (taxe entreprises, par la croissance)
 - Competitivite : -0,005 pour 15 Md EUR tous secteurs
 - Taux nul (intensité 0) : mesure inactive, neutre sur tous les canaux. Jusqu'à v0.6.6,
   la branche « énergie seule » émettait -0,002 de compétitivité à intensité 0, sans
@@ -1373,7 +1376,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 ### TVA Energie Differenciee
 
 **Debat politique :**
-- NFP/RN : TVA 5,5% -> -17 Md EUR recettes, +1,5% PA
+- NFP/RN : TVA 5,5% -> -17 Md EUR recettes
 - Centre : Maintien 20% + bouclier tarifaire
 
 **Modele economique :**
@@ -1382,7 +1385,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 - Si TVA 5,5% : 6,6 Md EUR -> perte 17,4 Md EUR
 
 **Impacts (effet NIVEAU annee 1) :**
-- PA : Baisse 20%->5,5% = +1,45%
+- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : baisse répercutée à τ− = 0,5 sur la part ménages (65,1 %)
 - Gini : Baisse TVA = -0,0073 (progressif car 15% budget classes pop. vs 7% aisees)
 - Competitivite : 0 (entreprises ont TVA deductible)
 
@@ -1703,27 +1706,16 @@ documente ici parce que la correction ci-dessus le rend visible.
 
 ### Effets NIVEAU vs FLUX
 
-**Distinction cruciale pour le pouvoir d'achat (PA) :**
+**Pouvoir d'achat : plus de gating (v0.6.8).** L'indice de pouvoir d'achat est un indice de
+NIVEAU (RDB des ménages / prix / UC, § Indice de pouvoir d'achat) : chaque année, chaque levier
+émet le montant de l'année par canal ménages, et l'indice ne lit que l'année courante. Un
+changement permanent compte donc pour son niveau, chaque année, sans composition ni
+atténuation — la question « one-time ou récurrent » ne se pose plus pour lui. Jusqu'en v0.6.7,
+douze leviers émettaient un coefficient la première année seulement, sept chaque année (un
+niveau devenait une croissance), le tout atténué de moitié à partir de 2027.
 
-**Effets NIVEAU (ONE-TIME)** — Appliques UNIQUEMENT annee de mise en oeuvre via `_is_first_year_change()`.
-Sur l'indice PA base 100, un effet de niveau modifie la consommation/revenu disponible UNE FOIS,
-puis l'indice evolue selon la trajectoire macro (croissance réelle, v0.6.7 — cf. § Indicateurs Macroeconomiques). Cumul multiplicatif sur
-plusieurs annees produirait une erosion artificielle (OFCE Plane & Sampognaro 2024 :
-choc TVA permanent = -0,5% PA en pic puis convergence asymptotique, pas erosion lineaire).
-
-Liste exhaustive PA one-time :
-- SMIC : Hausse salaire (annee 1 uniquement)
-- ISF / superprofits / exonerations salaires : Changement structure
-- TVA energie + TVA generale : Ajustement niveau de prix relatif
-- Impot sur le revenu (taux superieur, decote) : Changement bareme
-- Impots de production : Repercussion prix one-time
-- Elargissement IR (nouveaux contribuables) : Changement bareme
-- Fiscalite patrimoine : Changement structure fiscale
-- Transition ecologique COMPOSANTE taxe carbone : Niveau de prix
-- CSG (taux et progressivite) : Niveau revenu disponible
-- Cotisations salariales/patronales : Niveau salaire net
-- Chomage allocations : Niveau allocation versee
-- Fonction publique (point indice + creations postes) : Niveau salaire FP
+**Effets NIVEAU (ONE-TIME) — Gini et compétitivité** : appliqués UNIQUEMENT l'année de mise en
+oeuvre via `_is_first_year_change()` (ou `years_elapsed == 0`) ; l'indice cumule le niveau.
 
 > **MAJ v0.6.1 — l'ASU change de famille.** Ses effets Gini et pouvoir d'achat
 > etaient classes FLUX et emis a l'identique chaque annee dans des agregateurs
@@ -1795,11 +1787,10 @@ Liste exhaustive PA one-time :
 > chantier v0.7 : la valeur de `GINI_IMPACT_SCALE` n'est pas re-derivable tant
 > que les coefficients ne sont pas tous sources.
 
-**Asymetrie volontaire** : `_apply_fonction_publique` n'applique pas d'effet PA negatif sur
-les SUPPRESSIONS de postes — en France elles se font par non-remplacement de departs en
-retraite (attrition naturelle), pas par licenciements creant du chomage direct. Seules les
-CREATIONS de postes ajoutent du PA (calibration INSEE : 10k postes = 0,4 Md€ salaires nets
-≈ +0,025% PA via /40000 × 0,001).
+**Effectifs de la fonction publique (v0.6.8)** : ni les créations ni les suppressions de postes
+n'ont d'effet direct sur le pouvoir d'achat (arbitrage du mainteneur) — elles passent par la
+croissance, qui contient la production publique de ces agents. L'ancienne asymétrie (créations
++0,025 % par 10 000 postes, suppressions 0) a disparu avec elle.
 
 **Convention semantique critique** :
 - `taux_indexation` (prestations_indexation) et `indexation` (retraites) sont des coefficients
@@ -1810,15 +1801,14 @@ CREATIONS de postes ajoutent du PA (calibration INSEE : 10k postes = 0,4 Md€ s
   - `1.2` = sur-indexation (+20% au-dessus de l'inflation, rattrapage)
 - NE PAS confondre avec un taux d'inflation cible (0,02, 0,025) — passer ces valeurs comme coefficient produirait un quasi-gel (~98%) au lieu d'une indexation pleine.
 
-**Note technique sur les patterns de gating** :
-Le code utilise 3 patterns equivalents pour gater un effet PA one-time :
-1. `if self._is_first_year_change('<measure>_pa', {...}): pa = ... else: pa = 0.0` (preferentiel pour les nouveaux handlers, ex. `tva_rate_pa`, `impot_revenu_pa`).
-2. `is_first_year = self._is_first_year_change('<measure>', {...})` puis branchement (ex. `cotisations_salariales` l.3338).
+**Note technique sur les patterns de gating** (Gini et compétitivité ; le pouvoir d'achat
+n'est plus gaté depuis la v0.6.8) :
+1. `if self._is_first_year_change('<measure>_<canal>', {...}): x = ... else: x = 0.0`.
+2. `is_first_year = self._is_first_year_change('<measure>', {...})` puis branchement (ex. `cotisations_salariales`).
 3. `if years_elapsed == 0` (ex. `_apply_csg`, `_apply_chomage_alloc`).
 
-Les 12 mesures listees ci-dessus utilisent l'un des 3 patterns. Le test de garde-fou
-`tests/test_political_scenarios_2027.py::test_pa_2029_garde_fou_gating_one_time` verifie
-le comportement integre (8 scenarios, tolerance ±1.5 pt sur PA 2029).
+Le test de garde-fou `tests/test_political_scenarios_2027.py::test_pa_2029_garde_fou_gating_one_time`
+verifie l'indice de pouvoir d'achat integre (10 scenarios, tolerance ±1,5 pt sur 2029).
 
 **4e pattern, une seule mesure — l'horloge du CHOC (v0.6.1, lot 7)**. Les trois
 patterns ci-dessus partent tous de l'annee ou la MESURE apparait, ce qui suppose
@@ -1973,33 +1963,105 @@ Resultat sur les programmes 2027 : LFI 2030 ≈ 0,269, PS ≈ 0,276, RN ≈ 0,28
 avec les evaluations IPP/OFCE, vitesse compatible avec l'historique INSEE,
 classement inchange. Proprietes verrouillees par tests dedies.
 
-**Indice de pouvoir d'achat (synthétique, non comparable au RDB INSEE) :**
-- Baseline 2025 : 100 (indice)
-- Positif = Hausse pouvoir achat
-- Negatif = Baisse pouvoir achat
-- **Formule exacte (v0.6.7)** — c'est tout ce que l'indice contient :
+**Indice de pouvoir d'achat (RDB-moteur, v0.6.8) :**
+- Baseline 2025 : 100 (indice). Positif = hausse du pouvoir d'achat par unité de consommation.
+- **Définition (celle de l'INSEE)** : revenu disponible brut (RDB) des ménages, déflaté par le
+  prix de leur consommation, rapporté au nombre d'unités de consommation (UC). Indice de
+  NIVEAU : l'année t ne lit que les grandeurs de l'année t (`engine/rdb.py`, fonctions pures).
+- **Formule exacte** :
 
   ```
-  PA(2025) = 100
-  PA(t)    = PA(t−1) × (1 + borne(g(t) + micro(t)))
-  micro(t) = Σ_mesures impacts['pouvoir_achat'](t) × (1 en 2026, 0,5 ensuite)
-  borne    = ± PA_VARIATION_ANNUELLE_MAX (filet, ne mord sur aucun scénario publié)
+  RDB(t) = (RDB₂₀₂₅ − R_pub) × PIB_nominal(t) / PIB_nominal(2025)      revenus privés et de base
+         + R_pub × M(t) / M(2025)                                      rémunérations publiques nettes
+         + Σ_mesures [ prestations − prélèvements directs
+                       + n × rémunérations publiques + salaires privés nets ]   (Md€ de l'année)
+  P(t)   = D(t) × (1 + Σ_mesures τ± × p × prélèvements indirects / C(t)),   C(t) = (1 − s) × RDB_base(t)
+  PA(t)  = 100 × [RDB(t) / RDB₂₀₂₅] / P(t) / (1 + γ)^(t − 2025)
+  borne  = variation annuelle ± PA_VARIATION_ANNUELLE_MAX (filet, ne mord sur aucun scénario publié)
   ```
 
-  `g(t)` est la croissance RÉELLE du PIB agrégé — pas par tête, pas le revenu disponible ;
-  `micro(t)` est la somme des effets forfaitaires des mesures, atténués de moitié après
-  l'an 1 (adaptation comportementale). **Ce n'est pas le RDB réel par unité de
-  consommation de l'INSEE** (historique +0,3 à +0,8 %/an hors crises) : au statu quo,
-  l'indice croît comme le PIB réel (108,7 en 2035). Il se lit en ÉCART entre programmes,
-  pas en niveau. Refonte en RDB réel par UC : v0.6.8.
-- **Corrigé en v0.6.7 (audit externe Codex, 10/2026)** : la v0.6.6 calculait
-  `g − π + 0,54 × π` — l'inflation retranchée d'une croissance déjà réelle (le nominal
-  porte le déflateur), puis rendue à 54 % par une « protection d'indexation »
-  (`INDEXATION_BASELINE_RATIO`, supprimée) qui n'existait que pour compenser cette
-  soustraction ; le commentaire du code parlait de « PIB/tête » sans division par la
-  population. Effet : +2,0 à +3,4 pt d'indice en 2029 pour les dix scénarios publiés,
-  presque uniforme (un peu plus pour les programmes à inflation plus haute, dont
-  l'inflation était auparavant retranchée deux fois).
+  | Symbole | Valeur | Source (vérifiée en ligne le 07/10/2026, pages HTML et résumés) |
+  |---|---|---|
+  | RDB₂₀₂₅ | 1 870 Md€ | INSEE : 1 861,1 Md€ en 2024 (*France portrait social*, 18/11/2025) × 1,005 (évolution 2025 en valeur, *La consommation des ménages en 2025* ; Insee Première n° 2105) |
+  | s | 17,9 % | INSEE, taux d'épargne 2025 (*La consommation des ménages en 2025*) |
+  | γ (UC) | 0,4 %/an | INSEE : effet « par UC » −0,5 pt (2024), −0,3 pt (2025), Insee Première n° 2105 ; 0,4 implicite dans la prévision 2026 (Note de conjoncture de juin 2026 : −0,3 % / −0,7 % par UC) |
+  | n | 0,535 | FIPECO 2025 : 247,6 Md€ bruts / 370,0 Md€ cotisations employeurs incluses × 0,80 du brut au net (taux de service-public.fr F468 ; part de primes ~25 % **non sourcée**) ; avant impôt sur le revenu |
+  | R_pub | n × 370,0 ≈ 198 Md€ | idem |
+  | p | 65,1 % | DG Trésor, *Analyse de la composition des recettes de TVA* (2022) ; appliqué aussi aux accises énergie et à la taxe carbone (approximation) |
+  | τ+ / τ− | 1,0 / 0,5 | Benzarti, Carloni, Harju & Kosonen, JPE 128(12), 2020 : « prices respond twice as much to VAT increases as to VAT decreases » ; Carbonnier, JPubE 91(5-6), 2007 : baisses répercutées à 57 % et 77 % ; Benzarti & Carloni, AEJ:EP 11(1), 2019 : baisse de la restauration, consommateurs les moins bénéficiaires |
+  | D(t) | déflateur du PIB du moteur | — |
+  | M(t) | catégorie `masse_salariale` organique du moteur | — |
+  | part nette du brut privé | 0,78 | cotisations salariales de 22 % retenues par le moteur (**non sourcée en ligne**) ; SMIC uniquement |
+
+- **Canaux par levier** (chaque handler émet la clé `menages`, `handlers/_types.canaux_menages`,
+  en Md€ de l'année, écart au statu quo ; contrat verrouillé pour les 33 handlers) :
+
+  | Canal | Leviers | Effet sur l'indice |
+  |---|---|---|
+  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, abattement retraités, ISF climatique, IFI et taxe foncière (`fiscalite_patrimoine`, hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
+  | prélèvements indirects | TVA générale, TVA énergie, taxe carbone | par les prix : τ± × p |
+  | prestations | retraites (âge, durée, indexation), allocations chômage, ASU (effort + recours, hors coût de bascule), indexation des minima, franchises santé, part « prestations » du rabot uniforme, prestations indexées sur le SMIC | +1 € de RDB par € |
+  | rémunérations publiques | point d'indice, revalorisation des enseignants, surcoût SMIC dans la fonction publique | n = 0,535 € par € de coût |
+  | salaires privés | SMIC (2,7 M de salariés privés, sans diffusion) | net du brut × 0,78 |
+  | **aucun** (par la croissance) | impôts de production, IS, cotisations patronales, niches et subventions des entreprises, superprofits, exonérations de cotisations patronales, embauches et suppressions de postes publics, investissement, rénovation (aide à l'investissement, hors RDB), recherche, efficience, fraude, gestion de la dette | 0 direct |
+
+- **Arbitrages du mainteneur (v0.6.8)** : (1) un impôt sur les entreprises n'a aucun effet
+  direct sur le pouvoir d'achat, il passe par la croissance et l'emploi ; (2) la dépense
+  publique n'a aucun effet direct — exception : une hausse de rémunération des agents en place
+  est un revenu, comptée UNE fois, à sa part nette ; la masse salariale publique de base suit
+  la dépense organique du moteur (`M(t)`), pas la croissance, qui n'agit que sur la part
+  privée ; (3) répercussion asymétrique de la fiscalité indirecte, sourcée ; (4) les baisses
+  d'indice qui résultent de la suppression de coefficients non sourcés sont acceptées et
+  publiées (tableau ci-dessous) ; (5) indice par UC, ancré sur l'INSEE.
+- **Hypothèses affichées** : salaires privés, revenus des indépendants et du patrimoine,
+  prestations et prélèvements DE BASE évoluent à parts constantes du PIB nominal (le moteur ne
+  les modélise pas séparément) ; l'emploi agit à travers le PIB (un facteur « emploi » en sus
+  compterait deux fois les effets de la loi d'Okun) — les effets directs d'une mesure sur le
+  chômage (SMIC, progressivité de la CSG) ne sont donc pas retranchés des salaires ; la part
+  nette des rémunérations publiques est avant impôt sur le revenu ; une mesure à recette nulle
+  (CSG progressive) ne change pas le RDB agrégé : son effet est sur le Gini.
+- **Ancrage INSEE** : statu quo 2026-2035, +0,64 %/an par UC en moyenne — INSEE +0,4 %/an en
+  2011-2019, +0,5 %/an depuis 2010 (test : [0 ; 1] %/an). Année 2026 : +0,8 % servi contre
+  −0,7 % prévu par l'INSEE (Note de conjoncture de juin 2026) ; l'indice suit le PIB réel par
+  UC (vérifié à 0,15 pt), et la croissance 2026 du moteur (1,24 %) comme son déflateur
+  (1,34 %) précèdent le choc énergétique de 2026 décrit par l'INSEE. L'écart vient de la
+  macro de l'année, pas du passage au RDB ; tolérance du test : 1,6 pt (question ouverte :
+  recalage 2026 de la croissance et de l'inflation, release dédiée).
+- **Ce qui a disparu (v0.6.7 → v0.6.8)** : `PA(t) = PA(t−1) × (1 + g(t) + micro(t))`, où
+  `micro(t)` sommait vingt coefficients forfaitaires (un seul nommé, aucun sourcé),
+  transmettant de 2 % à 175 % de leurs euros, sept d'entre eux réémis chaque année (un niveau
+  devenu croissance), atténués de moitié à partir de 2027 selon l'année calendaire, et
+  ajoutés à la croissance que les mêmes dépenses produisaient déjà (double compte).
+  Diagnostic : `docs/plans/v068-pouvoir-achat.md` du dépôt parent.
+- **Avant / après (dix scénarios publiés, statu quo, même moteur par ailleurs : toutes les
+  autres colonnes sont bit-identiques)** :
+
+  | Scénario | 2030 v0.6.7 | 2030 v0.6.8 | 2035 v0.6.7 | 2035 v0.6.8 |
+  |---|---|---|---|---|
+  | Statu quo | 106,0 | 103,6 | 111,5 | 106,6 |
+  | Budget 2026 voté (plf_2026) | 105,7 | 103,3 | 111,3 | 106,4 |
+  | RN | 110,3 | 105,0 | 116,0 | 107,8 |
+  | LFI | 117,4 | 107,9 | 123,2 | 109,3 |
+  | Renaissance | 107,2 | 104,8 | 110,3 | 107,0 |
+  | Horizons | 110,9 | 102,4 | 116,9 | 105,8 |
+  | LR | 110,3 | 105,2 | 115,1 | 107,5 |
+  | PS | 113,5 | 106,3 | 119,7 | 108,6 |
+  | Écologistes | 112,2 | 104,7 | 119,1 | 108,0 |
+  | Institut Montaigne, rabot | 97,2 | 94,8 | 101,1 | 99,3 |
+  | Institut Montaigne, compétitivité | 109,4 | 104,2 | 115,5 | 107,3 |
+  | **Étendue (10 scénarios)** | **20,2** | **13,1** | **22,1** | **10,0** |
+
+  Lecture : environ −2,4 pt pour tous en 2030 (−4,9 en 2035) viennent du passage « par UC »
+  (0,4 %/an, identique pour tous) ; le reste est l'effet de la définition. Écarts au statu
+  quo en 2030, v0.6.7 → v0.6.8 : budget voté −0,3 → −0,3 ; RN +4,3 → +1,4 ; LFI +11,4 →
+  +4,3 ; Renaissance +1,2 → +1,2 ; Horizons +4,9 → −1,2 ; LR +4,3 → +1,6 ; PS +7,5 → +2,7 ;
+  Écologistes +6,2 → +1,1 ; rabot −8,8 → −8,8 ; compétitivité +3,4 → +0,6. Sept écarts se
+  resserrent, trois sont inchangés à 0,1 pt près. Ceux qui se resserrent le plus sont les
+  programmes dont l'indice reposait sur des coefficients sans source — impôts de production
+  (175 % de transmission pour un impôt d'entreprise), point d'indice et dépenses comptés en
+  sus de la croissance, rénovation réémise chaque année. En 2035 le rabot passe de −10,4 à
+  −7,3 : ses coupes de prestations sont comptées en euros de l'année au lieu d'un
+  coefficient composé chaque année.
 
 **Competitivite :**
 - Baseline 2025 : 100 (indice)
@@ -2395,7 +2457,7 @@ Jusqu'en v0.6.6, le niveau d'effort multiplié était plafonné à 2 % du PIB (a
 
 ### L6. Modele a agent representatif (pas de microsimulation par decile)
 
-Les coefficients Gini, pouvoir d'achat et competitivite sont calcules au niveau macro avec des coefficients calibres sur parts de budget INSEE (Budget des Familles 2017/2022), pas via une microsimulation par decile. **Justification** : architecture standard de tous les modeles macro reduits (RA-DSGE, MESANGE, e-mod). Pour la distribution par decile, complement OpenFisca-France (INRIA) et TAXIPP (IPP) recommandes. Cette limitation est partagee par tous les outils macro grand public.
+Les coefficients Gini et competitivite sont calcules au niveau macro avec des coefficients calibres sur parts de budget INSEE (Budget des Familles 2017/2022), pas via une microsimulation par decile ; le pouvoir d'achat (v0.6.8) est un agregat comptable (RDB des menages en euros, § Indice de pouvoir d'achat), sans distribution par decile. **Justification** : architecture standard de tous les modeles macro reduits (RA-DSGE, MESANGE, e-mod). Pour la distribution par decile, complement OpenFisca-France (INRIA) et TAXIPP (IPP) recommandes. Cette limitation est partagee par tous les outils macro grand public.
 
 ### L7. Pas de backtesting historique (chocs 2008/COVID/energie 2022)
 

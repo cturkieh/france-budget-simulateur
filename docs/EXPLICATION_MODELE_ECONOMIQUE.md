@@ -294,44 +294,36 @@ Deficit max = 2,5% x 115% = 2,9% du PIB
 
 ## Pouvoir d'Achat
 
-### 1. Composante Macro
+**Définition (v0.6.8, celle de l'INSEE)** : revenu disponible brut (RDB) des ménages, déflaté
+par le prix de leur consommation, par unité de consommation, base 100 en 2025
+(`engine/rdb.py`). Formule exacte, sources et tableau avant/après : METHODOLOGIE,
+§ Indice de pouvoir d'achat.
 
-**Formule (v0.6.7) :**
 ```
-PA macro = Croissance réelle du PIB
-```
-
-**Mecanisme :**
-- La croissance du moteur est déjà RÉELLE (le PIB nominal porte le déflateur) : elle mesure
-  directement la hausse du volume de revenus. Jusqu'en v0.6.6 le moteur en retranchait encore
-  l'inflation (`Croissance − Inflation`), puis en rendait 54 % (« protection d'indexation ») :
-  l'inflation était comptée deux fois. Corrigé (audit externe Codex, 10/2026).
-- Indice SYNTHÉTIQUE : PIB agrégé (pas par tête), pas le revenu disponible — non comparable au
-  RDB réel par UC de l'INSEE ; il se lit en écart entre programmes.
-
-**Exemple (regime statu quo du moteur) :**
-- Croissance réelle : 0,84 %/an en moyenne 2026-2035
-- **PA macro = +0,84 %/an** → indice 108,7 en 2035
-
----
-
-### 2. Composante Micro (Mesures)
-
-**Agregation des impacts :**
-```
-PA micro = Somme(Impacts mesures)
+RDB(t)  = part privée × PIB nominal(t)          (salaires privés, indépendants, patrimoine)
+        + part publique × masse salariale(t)    (rémunérations publiques nettes)
+        + euros des mesures de l'année           (prestations − impôts directs + ...)
+Prix(t) = déflateur(t) × (1 + TVA/accises répercutées / consommation)
+PA(t)   = 100 × RDB réel(t) / RDB(2025) / UC(t)
 ```
 
-**Sources de gains :**
-- CSG progressive : +0,4%
-- ASU : +1,2%
-- TVA energie reduite : +1,45%
-- Baisse cotisations salariales : +1,5%
+**Mécanisme :**
+- La croissance agit sur la part privée du revenu (salaires, revenus d'activité et du
+  patrimoine) : c'est par elle que passent les impôts sur les entreprises, les embauches et
+  l'investissement publics.
+- Les mesures qui touchent DIRECTEMENT les ménages entrent en euros : prestations (pensions,
+  allocations, minima), impôts directs (IR, CSG, cotisations salariales), rémunérations des
+  agents en place (point d'indice, à 0,535 € net par € de coût), salaires au SMIC. La TVA et
+  les accises passent par les prix (hausse répercutée en entier, baisse à moitié).
+- Indice de NIVEAU : chaque année ne lit que les montants de l'année ; une mesure permanente
+  pèse son niveau, chaque année, sans se composer.
 
-**Formule totale :**
-```
-PA final = PA initial x Produit(1 + Croissance reelle + PA micro)   (PA micro x 0,5 apres l'an 1)
-```
+**Exemple (statu quo)** : +0,64 %/an par UC en moyenne 2026-2035 (INSEE : +0,4 à +0,5 %/an
+sur longue période) → indice 106,6 en 2035.
+
+**Jusqu'en v0.6.7** : indice SYNTHÉTIQUE, `PA × (1 + croissance réelle + Σ coefficients
+forfaitaires)`, coefficients atténués de moitié après l'an 1 — vingt coefficients non sourcés,
+ajoutés à la croissance que les mêmes dépenses produisaient déjà.
 
 ---
 
@@ -699,7 +691,7 @@ chomage et deficit 2030 etaient encore celles d'etats anterieurs.
 - Retraite 60 ans : -44 Md EUR/an a plein regime (16 Md EUR x 2,75 annees, montee en charge 5 ans)
 
 **Impacts macro :**
-- Pouvoir d'achat : +3-4% (SMIC, TVA energie)
+- Pouvoir d'achat : hausse (SMIC, TVA energie, transferts) — chiffres a jour : METHODOLOGIE
 - Gini : -0,04 (forte reduction inegalites)
 - Competitivite : -1% (ISF, charges)
 - SMIC : multiplicateur 0,15 (quasi-zero, Kramarz & Philippon)
@@ -717,7 +709,7 @@ chomage et deficit 2030 etaient encore celles d'etats anterieurs.
 - Gel prestations : +4 Md EUR
 
 **Impacts macro :**
-- Pouvoir d'achat : -2% (gel prestations)
+- Pouvoir d'achat : baisse (gel prestations) — chiffres a jour : METHODOLOGIE
 - Gini : +0,02 (hausse inegalites)
 - Competitivite : +0,5% (baisse charges)
 - Risque cicatrice d'austerite si effort cumule > 3% PIB
