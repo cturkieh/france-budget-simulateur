@@ -408,11 +408,15 @@ class EfficienceMixin(_MixinBase):
 
         delta_spending = 0
 
+        # Montants calés en euros 2025 → euros de l'année (v0.6.7) : coûts,
+        # pénalité et économies au même indice de prix des dépenses.
+        indice = self.indice_prix_depenses()
+
         # PHASE 1: COÛTS INITIAUX (2026-2029)
         if 1 <= year_idx <= 4:
             # Coûts: audits, formation, systèmes IT
-            # Formule: 0.15 Md€ par point d'intensité/an
-            cout_annuel = intensite_totale * 0.15
+            # Formule: 0.15 Md€ (euros 2025) par point d'intensité/an
+            cout_annuel = intensite_totale * 0.15 * indice
             delta_spending += cout_annuel
             _log_debug(self.debug_logs, f"Y{year}: Réforme FP - Coûts investissement: +{cout_annuel:.1f} Md€")
 
@@ -424,8 +428,7 @@ class EfficienceMixin(_MixinBase):
         # de l'année depuis v0.6.7 (indice de prix des dépenses, comme le curseur).
         if year_idx >= 2:
             postes_cumules = self._reforme_fp_reduction_cumulee(year)
-            economie_cumulee = (postes_cumules * COUT_MOYEN_AGENT_FP_EUR
-                                * self.indice_prix_depenses() / 1e9)
+            economie_cumulee = postes_cumules * COUT_MOYEN_AGENT_FP_EUR * indice / 1e9
             delta_spending -= economie_cumulee
 
             _log_debug(self.debug_logs,
@@ -435,7 +438,7 @@ class EfficienceMixin(_MixinBase):
 
         # Impact qualité service si intensité excessive sans digitalisation
         if fusion > 7 and digitalisation < 3 and year_idx >= 3:
-            penalite = 0.3  # Dégradation service public
+            penalite = 0.3 * indice  # Dégradation service public (0,3 Md€ en euros 2025)
             delta_spending += penalite
             _log_debug(self.debug_logs, f"Y{year}: Pénalité dégradation service: +{penalite:.1f} Md€")
 
@@ -461,7 +464,7 @@ class EfficienceMixin(_MixinBase):
             return 0, 0, {}
 
         # Constantes FP
-        masse_salariale_base = 330  # Md€
+        masse_salariale_base = 330  # Md€, euros 2025 (exprimée en euros de l'année ci-dessous)
         # Source unique v0.6.0, calée en euros 2025 ; v0.6.7 : en euros de
         # l'année (indice de prix des dépenses, celui de la masse salariale du
         # statu quo) — figé, il valorisait un poste 60 k€ en 2035 comme en 2026.
@@ -511,9 +514,13 @@ class EfficienceMixin(_MixinBase):
                 f"réalisé {variation_residuelle:+,.0f} = {impact_effectifs:+.1f} Md€")
 
         # 2. POINT D'INDICE
-        # Hausse de X% = X% × masse salariale
+        # Hausse de X% = X% × masse salariale de l'année. v0.6.7 : même indice
+        # que le coût d'un agent — figée en euros 2025, la masse sous-estimait
+        # le coût d'une hausse de rémunération quand les économies d'une
+        # réduction d'effectifs, elles, étaient indexées.
         if hausse_point_indice != 0:
-            impact_point_indice = (hausse_point_indice / 100) * masse_salariale_base
+            impact_point_indice = ((hausse_point_indice / 100) * masse_salariale_base
+                                   * self.indice_prix_depenses())
             delta_spending += impact_point_indice
             _log_debug(self.debug_logs,
                 f"Y{year}: FP Point indice - {hausse_point_indice:+.1f}% = {impact_point_indice:+.1f} Md€")

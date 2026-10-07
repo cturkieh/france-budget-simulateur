@@ -216,3 +216,85 @@ def test_reforme_et_curseur_valorisent_un_poste_au_meme_cout():
         economie = -par_an[annee]['fonction_publique_reforme']['depenses']
         assert economie == pytest.approx(postes * COUT_MOYEN_AGENT_FP_EUR * sim.indice[annee] / 1e9,
                                          rel=1e-9), annee
+
+
+# ---------------------------------------------------------------------------
+# Toute masse de la fonction publique en euros de l'année (v0.6.7, suite de
+# la réfutation) : après l'indexation du coût d'un agent, trois montants FP
+# restaient en euros 2025 — la masse salariale du point d'indice (330 Md€), la
+# part FP de la hausse du SMIC (50 Md€) et les coûts de la réforme de l'État
+# (0,15 Md€ par point d'intensité, pénalité 0,3 Md€). Les économies d'une
+# réduction d'effectifs étaient indexées, pas le coût d'une hausse de
+# rémunération : asymétrie résiduelle. Même indice pour tous.
+# ---------------------------------------------------------------------------
+
+class _ReleveFP(BudgetSimulatorV45):
+    """Relève l'indice de prix des dépenses par un chemin indépendant (masse
+    nominale de la catégorie / volume) à chaque appel d'un handler FP."""
+
+    def _relever(self, year):
+        ms = 'masse_salariale'
+        self.indice[year] = (self.masse_categorie_nominale(ms)
+                             / (self.spending_categories_base[ms] * self._spending_factors[ms]))
+
+    def _apply_fonction_publique(self, measure, params, year, *args):
+        self._relever(year)
+        return super()._apply_fonction_publique(measure, params, year, *args)
+
+    def _apply_fonction_publique_reforme(self, measure, params, year, *args):
+        self._relever(year)
+        return super()._apply_fonction_publique_reforme(measure, params, year, *args)
+
+    def _apply_smic(self, measure, params, year, *args):
+        self._relever(year)
+        return super()._apply_smic(measure, params, year, *args)
+
+
+def _depenses_fp(mesures, levier):
+    sim = _ReleveFP(periods=10, mesures=mesures)
+    sim.indice = {}
+    _, _, rapport = sim.simulate()
+    return sim, {an['Année']: an.get(levier, {}).get('depenses', 0.0)
+                 for an in rapport['measure_impacts_by_year'] if an['Année'] >= 2026}
+
+
+def test_point_d_indice_sur_la_masse_salariale_de_l_annee():
+    """RED : +3 % de point d'indice = 9,9 Md€ en 2035 comme en 2026."""
+    sim, dep = _depenses_fp({'fonction_publique': {'effectifs': 0, 'point_indice': 3.0}},
+                            'fonction_publique')
+    for annee in range(2026, 2036):
+        assert dep[annee] == pytest.approx(0.03 * 330 * sim.indice[annee], rel=1e-9), annee
+    assert sim.indice[2035] > 1.1
+
+
+def test_part_fp_du_smic_sur_la_masse_de_l_annee():
+    """RED : la part FP d'une hausse du SMIC (15 % des agents, 50 Md€ de masse)
+    restait en euros 2025 ; la part « aides sociales » n'est pas une masse FP."""
+    hausse = (2000 - 1800) / 1800
+    sim, dep = _depenses_fp({'smic': {'montant_brut': 2000}}, 'smic')
+    for annee in range(2026, 2036):
+        part_fp = dep[annee] - 12 * hausse
+        assert part_fp == pytest.approx(50 * hausse * sim.indice[annee], rel=1e-9), annee
+
+
+def test_couts_de_la_reforme_sur_l_indice_de_l_annee():
+    """RED : 0,15 Md€ par point d'intensité et par an (2026-2029) en euros 2025.
+    En 2026 la réforme n'a que des coûts ; ensuite coûts − économies, les deux
+    au même indice."""
+    # Intensité 20 : soldes 2026-2029 tous au-delà du filtre de significativité
+    # du rapport (|Δ| > 0,1 Md€) ; à intensité 10, 2027 y tombe (+0,09).
+    sim, dep = _depenses_fp({'fonction_publique_reforme': REFORME_MAX}, 'fonction_publique_reforme')
+    for annee in range(2026, 2030):
+        postes = sim._reforme_fp_reduction_cumulee(annee)
+        attendu = (20 * 0.15 - postes * COUT_MOYEN_AGENT_FP_EUR / 1e9) * sim.indice[annee]
+        assert dep[annee] == pytest.approx(attendu, rel=1e-9), annee
+
+
+def test_penalite_de_degradation_du_service_indexee():
+    """Fusion > 70 sans numérisation : +0,3 Md€/an dès 2028, au même indice."""
+    params = {'fusion_agences': 80, 'digitalisation': 0}
+    sim, dep = _depenses_fp({'fonction_publique_reforme': params}, 'fonction_publique_reforme')
+    for annee in (2030, 2035):
+        postes = sim._reforme_fp_reduction_cumulee(annee)
+        attendu = (0.3 - postes * COUT_MOYEN_AGENT_FP_EUR / 1e9) * sim.indice[annee]
+        assert dep[annee] == pytest.approx(attendu, rel=1e-9), annee

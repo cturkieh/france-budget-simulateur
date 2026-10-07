@@ -706,7 +706,7 @@ et par un meilleur ciblage, pas par une depense additionnelle.
 | Parametre | Impact | Cout/Economie |
 |-----------|--------|---------------|
 | Effectifs | Cible atteinte en 2032 (rampe 2027-2032) | 60 k EUR/agent/an en euros 2025, indexé |
-| Point d'indice | Hausse salaires | 2 Md EUR/point |
+| Point d'indice | Hausse salaires | 3,3 Md EUR par point de % (330 Md EUR en euros 2025), indexé |
 | Fusion agences | Economies structurelles | Variable |
 
 ### Montee en Puissance
@@ -728,7 +728,13 @@ départs de son année. Chaque poste vaut le coût complet chargé `COUT_MOYEN_A
 du moteur depuis v0.6.7 — celui qui fait croître la masse salariale du statu quo (~70 k
 EUR en 2035). Figé jusqu'en v0.6.6, il sous-estimait les économies d'une réduction comme le
 coût d'une création, d'environ 15 % en fin d'horizon. Le curseur « effectifs » applique le
-même coût, la même année : un poste vaut autant pour les deux leviers. Ordres de grandeur
+même coût, la même année : un poste vaut autant pour les deux leviers. Toutes les masses de
+la fonction publique suivent ce même indice : la masse salariale du point d'indice (330 Md
+EUR), la part FP d'une hausse du SMIC (50 Md EUR), les coûts de la réforme (0,15 Md EUR par
+point d'intensité, 2026-2029) et sa pénalité de dégradation du service (0,3 Md EUR), tous
+calés en euros 2025. Indexer les économies d'une réduction d'effectifs sans indexer le coût
+d'une hausse de rémunération aurait laissé une asymétrie (effet sur la dette 2035 : LFI
++0,73 pt, PS +0,47, Écologistes +0,35). Ordres de grandeur
 calculés (au coût 2025) : intensité 10 →
 215 875 postes en 2030 (13,0 Md EUR/an), 529 875 au plateau (31,8 Md EUR/an) ; intensité
 20 → 289 272 postes en 2030 (17,4 Md EUR/an), 710 032 au plateau (42,6 Md EUR/an). Les
@@ -1266,7 +1272,7 @@ deployee — hypothese conservatrice assumee).
 
 **Parametres economiques :**
 - Salaries concernes : 3,2 millions (DARES 2024)
-- Masse salariale FP : 15% agents cat. C = ~50 Md EUR
+- Masse salariale FP : 15% agents cat. C = ~50 Md EUR (euros 2025, indexée par l'indice de prix des dépenses depuis v0.6.7)
 - Cotisations sociales : +20% de la hausse brute
 
 **Multiplicateur specifique (v3.0)** : 0,15
