@@ -238,7 +238,9 @@ class InflationMixin:
             inertia * self.inflation_precedente
         )
 
-        if abs(effort_budgetaire) > 0.001:
+        # v0.6.7 (lot 3b) : plus de porte à 0,1 % du PIB — l'effet, proportionnel
+        # à l'effort, vaut déjà 0 en 0 (la porte créait un saut de 0,012 pt).
+        if effort_budgetaire != 0:
             if effort_budgetaire > 0:
                 inflation_impact = -0.12 * effort_budgetaire
                 inflation += inflation_impact
@@ -271,7 +273,11 @@ class InflationMixin:
         # suit l'entrée en vigueur des mesures, toutes actives dès Y1 dans ce
         # moteur — POLICY_START_YEAR). One-shot délibéré : pas de re-pass-through
         # les années suivantes (la persistance passe par l'inertie ρ = 0,5).
-        if year == 2 and tva_impact > 0.003:
+        # v0.6.7 (lot 3b) : plus de porte à 0,3 % du PIB de recettes de TVA — le
+        # pass-through (30 %, plafonné à 0,2 pt) vaut déjà 0 en 0 ; la porte le
+        # faisait naître d'un coup à +0,09 pt (curseur TVA à 20,63 % : −0,30 pt
+        # de dette 2035, statu quo compris).
+        if year == 2 and tva_impact > 0:
             tva_pass_through = min(tva_impact * 0.3, 0.002)
             inflation += tva_pass_through
             _log_debug(self.debug_logs, f"Y{year}: Impact TVA +{tva_pass_through*100:.2f}%")

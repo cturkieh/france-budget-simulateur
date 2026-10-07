@@ -1072,13 +1072,30 @@ def test_asu_la_moins_genereuse_coute_le_recours_rien_de_plus():
     Borne bilatérale : en deçà, le recours aurait cessé d'être payé ; au-delà,
     un coût non sourcé se serait glissé. (Ancienne propriété « quasi neutre »
     < 1,0 pt : re-déclarée en acte le 30/08/2026 — la quasi-neutralité était
-    celle d'un monde où résorber le non-recours était gratuit.)"""
+    celle d'un monde où résorber le non-recours était gratuit.)
+
+    RE-DÉCLARÉ v0.6.7 (lot 3b, 07/10/2026). La borne basse « > 0,5 pt » de dette
+    2035 servait d'indicateur INDIRECT de « le recours est payé » ; or l'écart de
+    ratio porte aussi les rétroactions macro de la dépense, qui ont changé :
+    ≈ +1,0 (v0.6.3) → +0,59 (output gap en niveau, multiplicateurs centraux,
+    23723db) → +0,46 ici, la porte « effort > 0,1 % du PIB » de l'inflation
+    retirée (l'effort de la variante, 0,08 % du PIB, n'avait jusqu'ici aucun
+    effet prix). La propriété est désormais vérifiée LÀ OÙ ELLE VIT, au budget :
+    2,4 Md€/an payés chaque année dès 2030 (ASU_COUT_RECOURS_MD_EUR) ; au ratio,
+    la réforme doit COÛTER (> 0) et la borne haute (aucun coût non sourcé) ne
+    bouge pas."""
+    sim = BudgetSimulatorV45(periods=10, mesures={'asu': {'asu_activation': 1,
+                                                          'asu_plafonnement': 0.50}})
+    df, _, rapport = sim.simulate()
+    paye = {a['Année']: a['asu']['depenses'] for a in rapport['measure_impacts_by_year'] if 'asu' in a}
+    for annee in range(2030, 2036):
+        assert paye[annee] == pytest.approx(constants.ASU_COUT_RECOURS_MD_EUR, abs=1e-9), (
+            f"{annee} : {paye[annee]:.3f} Md€ — le recours pérenne n'est plus payé")
     sans = _simuler({})['Dette/PIB %'].iloc[-1]
-    avec = _simuler({'asu': {'asu_activation': 1,
-                             'asu_plafonnement': 0.50}})['Dette/PIB %'].iloc[-1]
-    assert 0.5 < (avec - sans) < 1.6, (
+    avec = df['Dette/PIB %'].iloc[-1]
+    assert 0 < (avec - sans) < 1.6, (
         f"écart de dette 2035 {avec - sans:+.2f} pt pour la variante à coût "
-        f"constant — attendu ≈ +1,0 pt (le recours pérenne, rien d'autre)")
+        f"constant — mesuré +0,46 (le recours pérenne, rien d'autre)")
 
 
 # ===========================================================================

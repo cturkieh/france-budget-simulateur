@@ -227,6 +227,9 @@ class OrchestratorMixin:
         delta_spending_total = 0
         delta_revenue_total = 0
         impacts = {}
+        # Leviers publiés au RAPPORT (measure_impacts de l'API) — cf. le filtre de
+        # significativité plus bas ; le moteur, lui, lit `impacts` en entier.
+        self._impacts_publies = set()
         # Log des mesures actives en 2026 pour débogage
         if year == 2026:
             active_measures = self.detect_active_measures()
@@ -362,9 +365,18 @@ class OrchestratorMixin:
                     abs(measure_impacts.get('competitivite', 0)) > 0.0001
                 )
 
-                # Inclure si impact budgétaire OU macro
+                # v0.6.7 (lot 3b) : TOUT levier évalué entre dans `impacts`, que lit
+                # le moteur (impulsions et multiplicateurs, effets directs sur le
+                # chômage, impact TVA, Gini, compétitivité, clip 10 %) ; un levier
+                # aux effets nuls n'y change rien. Le filtre de significativité ne
+                # décide plus que du RAPPORT (measure_impacts de l'API, inchangé).
+                # Appliqué au moteur, il comptait le BUDGET d'un levier à |Δ| ≤ 0,1
+                # Md€ sans son effet macro, qui « apparaissait » d'un coup au seuil :
+                # prévention de im_rabot_2029 à 7,6 Md€, gap 2027 −2,0002 → −1,9992,
+                # bascule de régime, −1,67 pt de dette 2035 (08810ad).
+                impacts[measure_id] = measure_impacts
                 if has_budget_impact or has_macro_impact:
-                    impacts[measure_id] = measure_impacts
+                    self._impacts_publies.add(measure_id)
                     if has_budget_impact:
                         _log_debug(self.debug_logs,
                             f"Mesure {measure_id}: "
@@ -397,6 +409,7 @@ class OrchestratorMixin:
                 # _handler_failed évite qu'une régression silencieuse passe quand la mesure
                 # était à default (delta=0 attendu == 0 obtenu sur crash). Voir
                 # docs/REFACTOR_SPLIT_PLAN.md Phase 0.7.
+                self._impacts_publies.add(measure_id)  # un échec est toujours publié
                 impacts[measure_id] = {
                     'erreur': str(e),
                     'depenses': 0,
@@ -643,7 +656,7 @@ class OrchestratorMixin:
                 # NOUVEAU: Stocker les impacts de cette année pour le frontend
                 year_impacts = {'Année': year}
                 for measure_id, measure_data in impacts.items():
-                    if isinstance(measure_data, dict):
+                    if isinstance(measure_data, dict) and measure_id in self._impacts_publies:
                         year_impacts[measure_id] = measure_data.copy()
                 measure_impacts_by_year.append(year_impacts)
 

@@ -507,7 +507,11 @@ class GrowthMixin:
                 # FMI WEO oct. 2010 ch. 3 ; Fieldhouse & Mertens 2025 pour la
                 # R&D). v0.5.1 ne testait que `delta > 0.1` : les coupes
                 # étaient structurellement gratuites côté offre.
-                if abs(delta) > 0.1:  # > 100 M€ d'écart au défaut
+                # v0.6.7 (lot 3b) : plus de porte à 0,1 Md€. Le bonus vaut
+                # coeff × log2(1 + |delta|), nul en 0 : la porte ne faisait que le
+                # faire naître d'un coup à coeff × log2(1,1) (transition_ecologique
+                # à 0,1 Md€ : −0,80 pt de dette 2035 sur « Budget 2026 (voté) »).
+                if delta != 0:
                     years_active = self._supply_years.get(key, 0) + 1
                     self._supply_years[key] = years_active
 
