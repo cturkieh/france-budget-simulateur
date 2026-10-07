@@ -56,7 +56,8 @@ def test_generique_consolidation_releve(sim):
     Ramey/Gechert), × high_debt 0,95 ÷ confiance 1,10 (atténuation conservée,
     AFG 2019)."""
     coupe = sim.multipliers.get_multiplier('consolidation', COMPO_DEPENSE, ETAT_NEUTRE, 3, 'aide_sociale')
-    assert coupe == pytest.approx(-0.60 * 0.95 / 1.10, abs=1e-9)
+    from budget_simulator.constants import MULT_COUPE_DEPENSES
+    assert coupe == pytest.approx(-MULT_COUPE_DEPENSES * 0.95 / 1.10, abs=1e-9)
 
 
 def test_confiance_pas_sur_investissement(sim):
@@ -64,7 +65,8 @@ def test_confiance_pas_sur_investissement(sim):
     non-investissement d'une consolidation mixte."""
     compo_mixte = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.5}
     mixte = sim.multipliers.get_multiplier('consolidation', compo_mixte, ETAT_NEUTRE, 3, 'mix')
-    attendu = (0.5 * -1.2 + 0.5 * (-0.60 / 1.10)) * 0.95
+    from budget_simulator.constants import MULT_COUPE_DEPENSES
+    attendu = (0.5 * -1.2 + 0.5 * (-MULT_COUPE_DEPENSES / 1.10)) * 0.95
     assert mixte == pytest.approx(attendu, abs=1e-9)
 
 

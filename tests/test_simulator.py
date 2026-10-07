@@ -18,8 +18,10 @@ def test_get_multiplier_consolidation(multipliers):
     # part_dep 0.3 ≤ 0.5 → pas d'atténuation confiance
     # output_gap=-0.02 is NOT < -0.02, ug=0.02 NOT > 0.02 → no recession adj
     # high_debt (1.2 > 1.10): *0.95 → -0.53 * 0.95 = -0.5035
-    expected = -0.5035
-    assert abs(multiplier - expected) < 0.01, f"Expected ~{expected:.3f}, got {multiplier:.2f}"
+    # v0.6.7 : coefficients recalibrés « centraux » (constants.MULT_*).
+    from budget_simulator.constants import MULT_COUPE_DEPENSES, MULT_HAUSSE_IMPOTS
+    expected = -(0.7 * MULT_HAUSSE_IMPOTS + 0.3 * MULT_COUPE_DEPENSES) * 0.95
+    assert abs(multiplier - expected) < 1e-9, f"Expected ~{expected:.3f}, got {multiplier:.2f}"
 
 def test_get_multiplier_expansion(multipliers):
     economic_state = {
@@ -34,8 +36,9 @@ def test_get_multiplier_expansion(multipliers):
     # base = (0.6/0.8)*1.2 + (0/0.8)*0.50 + (0.2/0.8)*0.35 = 0.90 + 0 + 0.0875 = 0.9875
     # Expansion adjustment: *0.85 = 0.8394
     # No Ricardo-Barro (debt < 1.10)
-    expected = 0.9875 * 0.85  # ≈ 0.839
-    assert abs(multiplier - expected) < 0.01, f"Expected {expected:.2f}, got {multiplier:.2f}"
+    from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT
+    expected = ((0.6 / 0.8) * MULT_INVESTISSEMENT + (0.2 / 0.8) * MULT_BAISSE_IMPOTS) * 0.85
+    assert abs(multiplier - expected) < 1e-9, f"Expected {expected:.2f}, got {multiplier:.2f}"
 
 def test_calculate_growth_austerity(simulator):
     economic_state = {
@@ -64,7 +67,8 @@ def test_calculate_growth_austerity(simulator):
     # croissance corrige 20 % de l'output gap de t−1 (rappel, +0,2 × 1,5 %).
     pot = simulator.croissance_potentielle_totale()
     assert pot == simulator.base_params['croissance_potentielle'] - 0.005 * (1.156 - 0.9)
-    keynes = -0.95 * (0.60 * 0.61 + 0.50 * 0.39) * 0.034 * 0.90
+    from budget_simulator.constants import MULT_COUPE_DEPENSES, MULT_HAUSSE_IMPOTS
+    keynes = -0.95 * (MULT_COUPE_DEPENSES * 0.61 + MULT_HAUSSE_IMPOTS * 0.39) * 0.034 * 0.90
     cicatrice = max(-0.10 * (0.034 - 0.03), -0.003)
     expected = pot + 0.2 * 0.015 + keynes + cicatrice
     assert abs(growth - expected) < 1e-12, f"{growth:.6f} vs {expected:.6f}"
@@ -278,7 +282,8 @@ def test_get_multiplier_long_term(multipliers):
     # base = (0.4/0.7)*1.2 + (0/0.7)*0.50 + (0.3/0.7)*0.35 = 0.6857 + 0 + 0.15 = 0.8357
     # No conjunctural adjustment (output_gap=0, unemployment_gap=0)
     # No Ricardo-Barro (debt < 1.10)
-    expected = (0.4/0.7)*1.2 + (0.3/0.7)*0.35  # ≈ 0.836
+    from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT
+    expected = (0.4/0.7)*MULT_INVESTISSEMENT + (0.3/0.7)*MULT_BAISSE_IMPOTS
     assert abs(multiplier - expected) < 0.01, f"Expected {expected:.2f}, got {multiplier:.2f}"
 
 # Test pour apply_measures (somme impacts plafonnés 10% PIB)
@@ -416,7 +421,8 @@ def test_calculate_growth_zlb(simulator):
         growth = simulator.calculate_growth(year=1, economic_state=economic_state)
     # v0.6.7, forme fermée : potentiel − traînée de dette + flux par flux
     # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (dette = 100 %, seuil strict).
-    keynes = 1.15 * 1.3 * (1.2 * 0.004 * 0.45 + 0.35 * 0.006 * 0.90)
+    from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT
+    keynes = 1.15 * 1.3 * (MULT_INVESTISSEMENT * 0.004 * 0.45 + MULT_BAISSE_IMPOTS * 0.006 * 0.90)
     # v0.6.7 B3 : traînée de dette dans le potentiel total, rappel +0,2 × 3 %.
     exact = simulator.croissance_potentielle_totale() + 0.2 * 0.03 + keynes
     assert abs(growth - exact) < 1e-12, f"{growth:.6f} vs {exact:.6f}"

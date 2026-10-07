@@ -44,6 +44,13 @@ def _effets(impacts_par_annee, etat=ETAT):
     graine → même bruit, même traînée de dette)."""
     def suite(seq):
         sim = BudgetSimulatorV45(periods=10, mesures={'tva_rate': {'taux': 0.21}})
+        # Table de multiplicateurs de l'AUDIT (v0.6.6 : 0,50 / 0,35 / 0,60 / 0,50) :
+        # le banc reproduit les chiffres de l'auditeur ; les propriétés testées
+        # (somme signée, additivité, résidus) ne dépendent pas des valeurs de k,
+        # recalibrées « centrales » plus loin en v0.6.7.
+        m = sim.multipliers.base_multipliers
+        m['consolidation'].update(tax_based=-0.50, spending_based=-0.60)
+        m['expansion'].update(tax_cuts=0.35, transferts=0.50)
         sim.pib_nominal = PIB
         out = []
         for t, impacts in enumerate(seq, start=1):

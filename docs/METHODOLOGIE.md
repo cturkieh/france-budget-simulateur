@@ -58,9 +58,9 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
 | Deficit 2026 | -5,28 % | **-5,15 %** (loi votee : -5,0 %) |
-| Dette 2030 | 128,99 % | **128,42 %** (mission IGF : 130,5) |
-| Dette 2035 | 157,90 % | **156,20 %** |
-| Deficit 2035 | -10,60 % | **-10,19 %** |
+| Dette 2030 | 128,99 % | **128,52 %** (mission IGF : 130,5) |
+| Dette 2035 | 157,90 % | **156,48 %** |
+| Deficit 2035 | -10,60 % | **-10,23 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
@@ -1345,14 +1345,37 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 
 | Type | Valeur | Source | Ancien |
 |------|--------|--------|--------|
-| Consolidation fiscale (anticipee) | **-0,50** | Blanchard & Leigh 2013 | -0,92 (v2.0) |
-| Consolidation depenses generique | **-0,60** | Ramey 2019 (« 0,6 to 1 », bas de fourchette) ; Gechert & Rannenberg 0,4-0,7 | -0,40 (v3.0-v5.1, sous le consensus) |
+| Consolidation fiscale (anticipee) | **-0,615** | v0.6.7 : calé « central » (tableau ci-dessous) | -0,50 (v0.6.6), -0,92 (v2.0) |
+| Consolidation depenses generique | **-0,81** (v0.6.7, calé « central » ; -0,60 en v0.6.6) | Ramey 2019 (« 0,6 to 1 », bas de fourchette) ; Gechert & Rannenberg 0,4-0,7 | -0,40 (v3.0-v5.1, sous le consensus) |
 | Coupe d'investissement public | **-1,20** | SYMETRIQUE de la hausse (Gechert 2015 et Mesange : linearite en signe ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) |
 | Expansion investissement | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) |
-| Expansion transferts | **0,50** | IMF 0,3-0,6 | 0,80 (v2.0) |
-| Expansion baisses impots | **0,35** | IMF 0,1-0,5 | 0,40 (v2.0) |
+| Expansion transferts | **0,71** | v0.6.7 : calé « central » | 0,50 (v0.6.6), 0,80 (v2.0) |
+| Expansion baisses impots | **0,455** | v0.6.7 : calé « central » (asymétrie hausse/baisse 0,7 conservée) | 0,35 (v0.6.6), 0,40 (v2.0) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
+
+**Recalibrage « central » des familles (v0.6.7, GO de Cyril du 07/10/2026)** — règle : chaque
+famille est calée sur la valeur CENTRALE de la littérature, en effet de NIVEAU sur le PIB réel 4 ans
+après le début d'une impulsion PERMANENTE de 1 % du PIB (définition du FMI), MESURÉ DANS LE MOTEUR
+COMPLET (rappel vers le potentiel λ = 0,2, Phillips, Okun, dette) et non en `k × Σ profil`. Une
+famille déjà centrale ne bouge pas. Constantes `MULT_*` et `MULT_CIBLE_NIVEAU_4ANS` (constants.py),
+test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
+
+| Famille (profil) | Cible centrale, niveau à 4 ans | Source vérifiée | Moteur avant (k v0.6.6) | Moteur après | 10 ans (niveau / cumulé Ramey) |
+|---|---|---|---|---|---|
+| Investissement public (INVEST) | 1,5 | FMI WEO oct. 2014 ch. 3 : « +0,4 % la même année, +1,5 % quatre ans après » ; Gechert 2015 : dépenses ≈ 1, investissement ≈ +0,5 | 1,41 (k = 1,2) | **inchangé** (−6 %) | 0,40 / 0,92 |
+| Coupe de dépenses générique (TAXES) | 0,8 | Ramey 2019 JEP : « 0.6 to 1 for spending multipliers » (milieu) ; Gechert ≈ 1 | 0,58 (k = 0,60) | 0,79 (k = 0,81) | 0,15 / 0,56 |
+| Transferts (TRANSFERS) | 0,65 | Gechert 2015 : « 0.3 to 0.4 units » sous les dépenses (≈ 1) | 0,44 (k = 0,50) | 0,65 (k = 0,71) | 0,01 / 0,43 |
+| Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 |
+| Baisse d'impôts (TAXES) | 0,455 | asymétrie hausse/baisse du moteur conservée (0,35/0,50) | 0,33 (k = 0,35) | 0,45 (k = 0,455) | 0,09 / 0,28 |
+
+Le rappel vers le potentiel rend les effets de demande transitoires : à 10 ans le niveau est revenu
+près de zéro (l'effet durable du capital public passe par le canal d'offre `SUPPLY_EFFECTS`). **Aucun
+investissement ne s'autofinance** : multiplicateur cumulé 10 ans × 0,51 = 0,47 < 1, et 11 % seulement
+du coût brut d'une impulsion permanente d'investissement revient au solde public sur 2026-2036
+(intérêts compris) — jusqu'en v0.6.6, `k × Σ profil` = 1,2 × 1,98 = 2,38 en effet permanent impliquait
+l'autofinancement (2,38 × 0,51 > 1), masqué par l'impulsion unique. Le recalibrage RELÈVE trois familles
+sur quatre : la v0.6.6 était sous la valeur centrale pour les impôts, les transferts et les coupes.
 
 **Perimetre du canal investissement (v0.6.0)** : education, recherche publique,
 transition ecologique UNIQUEMENT (`INVESTMENT_CORE_MEASURES`). La sante courante
@@ -1489,7 +1512,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
-- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,33 / 1,52 / 1,51 / 1,54 / 1,60%, ecart annuel <= 0,13 pt, **moyenne 2026-2030 = 1,500%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,33 / 1,53 / 1,55 / 1,60 / 1,67%. Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
+- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,33 / 1,52 / 1,51 / 1,54 / 1,59%, ecart annuel <= 0,13 pt, **moyenne 2026-2030 = 1,498%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,33 / 1,53 / 1,55 / 1,60 / 1,67%. Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
 - **Marge a declarer** : la moyenne du scenario servi est a 0,068 pt du plancher de la fourchette (contre 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` est tombee a 0,046 pt entre 0,25 et 0,50 (0,062 avant) — desormais SOUS le seuil < 0,05 demande par le brief : la calibration depend moins du seul parametre que personne ne publie. La conformite tient sur toute la plage plausible de `rho`, et c'est verrouille par un test. En sens inverse, la marge du corridor de DETTE s'est resserree (deviation annuelle max 1,51 pt pour une tolerance de 1,6) : declare ici plutot que tu.
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
@@ -1884,10 +1907,10 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
 | Deficit | **-5,15 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,28) |
-| Dette | **128,42 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -2,08 pt apres les recalages Phillips v4.1, sourcing v4.2 et impulsions v0.6.7 — la v4.0 affichait +2,4 pt) |
+| Dette | **128,52 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,98 pt apres les recalages Phillips v4.1, sourcing v4.2 et impulsions v0.6.7 — la v4.0 affichait +2,4 pt) |
 | Dette | **128,99 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **157,90 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 156,20) |
-| Deficit | **-10,60 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,19) |
+| Dette | **157,90 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 156,48) |
+| Deficit | **-10,60 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -10,23) |
 | Croissance potentielle | 1,1% | Sentier mission IGF 07/2026 (1,2/1,2/1,0/1,0), extensible a 1,3% |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |

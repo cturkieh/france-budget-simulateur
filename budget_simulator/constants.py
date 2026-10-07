@@ -343,6 +343,41 @@ OUTPUT_GAP_INITIAL = -0.007  # −0,7 % — RAA 2026 T2 p. 20 / HCFP n° 2026-3 
 # jamais : tout choc de demande devenait un écart permanent.
 OUTPUT_GAP_RAPPEL = 0.2
 
+# === MULTIPLICATEURS BUDGÉTAIRES — recalibrage « central » (v0.6.7, GO Cyril 07/10/2026) ===
+# Règle : chaque famille est calée sur la valeur CENTRALE de la littérature, mesurée
+# dans le MOTEUR COMPLET (rappel vers le potentiel, Phillips, Okun, dette compris) :
+# effet de NIVEAU sur le PIB réel, 4 ans après le début d'une impulsion PERMANENTE de
+# 1 % du PIB (définition du FMI, WEO oct. 2014). Une famille déjà centrale ne bouge
+# pas. Aucun investissement ne s'autofinance (multiplicateur cumulé × 0,51 < 1).
+# Verrouillé par tests/test_multiplicateurs_centraux_v067.py (mesure dans le moteur).
+# Sources vérifiées en ligne :
+#  - FMI, WEO oct. 2014, ch. 3 « Is it time for an infrastructure push? » : +1 pt de
+#    PIB d'investissement public → niveau de production +0,4 % la même année, +1,5 %
+#    quatre ans après (économies avancées).
+#  - Gechert S. (2015), « What fiscal policy is most effective? A meta-regression
+#    analysis », Oxford Economic Papers 67(3), 553-580 (104 études) : dépenses
+#    publiques ≈ 1, impôts et transferts 0,3 à 0,4 de moins, investissement public
+#    ≈ +0,5 de plus.
+#  - Ramey V. (2019), « Ten Years after the Financial Crisis », JEP 33(2), 89-114 :
+#    « 0.6 to 1 for spending multipliers and −2 to −3 for tax change multipliers »
+#    (États-Unis, chocs narratifs ; la fourchette fiscale n'est pas retenue comme
+#    centrale pour la France, Gechert l'est).
+MULT_CIBLE_NIVEAU_4ANS = {
+    'investissement': 1.5,   # WEO 2014 ch. 3 (1,5 à 4 ans) ; Gechert ≈ 1 + 0,5
+    'coupe_depenses': 0.8,   # Ramey 2019 : milieu de 0,6-1 (Gechert ≈ 1 : borne prudente)
+    'transferts': 0.65,      # Gechert 2015 : ≈ 1 − 0,35
+    'hausse_impots': 0.65,   # Gechert 2015 : ≈ 1 − 0,35
+    'baisse_impots': 0.455,  # asymétrie hausse/baisse du moteur conservée (0,35/0,50 = 0,7)
+}
+# Coefficients d'impact k (FiscalMultipliers.base_multipliers) qui réalisent ces
+# cibles dans le moteur, mesurés le 07/10/2026 (niveau à 4 ans avant → après) :
+MULT_INVESTISSEMENT = 1.2     # inchangé : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %)
+MULT_COUPE_DEPENSES = 0.81    # 0,60 → 0,81 : 0,58 → 0,79
+MULT_TRANSFERTS = 0.71        # 0,50 → 0,71 : 0,44 → 0,65
+MULT_HAUSSE_IMPOTS = 0.615    # 0,50 → 0,615 : 0,52 → 0,65
+MULT_BAISSE_IMPOTS = 0.455    # 0,35 → 0,455 : 0,33 → 0,45
+TAUX_PRELEVEMENTS_AUTOFINANCEMENT = 0.51  # recettes/PIB du moteur : seuil d'autofinancement = 1 / 0,51
+
 # BCE_PLANCHER_ACCOMMODANT : seuil bas de la règle monétaire du moteur, pendant
 # symétrique de BCE_CIBLE_INFLATION (seuil haut) — nommé en v0.6.1 pour que la
 # règle monétaire ne porte plus un seuil en littéral quand l'autre est une

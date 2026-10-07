@@ -8,6 +8,11 @@ from asteval import Interpreter
 
 from ._logging import _log_debug
 from .constants import (
+    MULT_BAISSE_IMPOTS,
+    MULT_COUPE_DEPENSES,
+    MULT_HAUSSE_IMPOTS,
+    MULT_INVESTISSEMENT,
+    MULT_TRANSFERTS,
     PIB_BASE_2025_MD_EUR, DETTE_RATIO_2025, RECETTES_BASE_MD_EUR,
     DEPENSES_BASE_MD_EUR, CHOMAGE_BASE, CHOMAGE_DEPENSE_BASELINE_MD,
     CHOMAGE_NAIRU, GINI_BASE,
@@ -211,21 +216,25 @@ class FiscalMultipliers:
         # - IMF Fiscal Monitor 2014 : investment 0.9-1.5, transfers 0.3-0.6, tax 0.5-1.0
         # - Alesina & Ardagna 2010 : spending cuts 0.5-0.7
         # - Romer & Romer 2010 : tax multiplier 0.5-1.0 (milieu de fourchette)
+        # v0.6.7 : valeurs = constantes nommées et sourcées de constants.py
+        # (MULT_*, recalibrage « central » sur le multiplicateur EFFECTIF mesuré
+        # dans le moteur complet) ; les commentaires ci-dessous gardent
+        # l'historique des valeurs v0.6.0-v0.6.6 (−0,50 / −0,60 / 0,35 / 0,50).
         self.base_multipliers = {
             'consolidation': {
-                'tax_based': -0.50,      # Hausse impôts anticipée (Blanchard & Leigh 2013: 0.3-0.5 ; OCDE France IR 0.6)
-                'spending_based': -0.60, # Coupes dépenses hors investissement — bas de fourchette
+                'tax_based': -MULT_HAUSSE_IMPOTS,      # Hausse impôts anticipée (Blanchard & Leigh 2013: 0.3-0.5 ; OCDE France IR 0.6)
+                'spending_based': -MULT_COUPE_DEPENSES, # Coupes dépenses hors investissement — bas de fourchette
                                          # (Ramey 2019 JEP « 0.6 to 1 » ; Gechert & Rannenberg 0.4-0.7 ;
                                          #  OFCE PB146 1.0). v0.5.1 : -0.40, sous le consensus.
-                'investissement': -1.2,  # Coupe d'investissement public, SYMÉTRIQUE de la hausse
+                'investissement': -MULT_INVESTISSEMENT,  # Coupe d'investissement public, SYMÉTRIQUE de la hausse
                                          # (Gechert 2015 et Mésange : linéarité en signe ; FMI WEO
                                          #  oct.2010 ch.3 : coupes d'investissement au haut de
                                          #  l'échelle de coût). v0.5.1 : canal ABSENT (audit 08/2026).
             },
             'expansion': {
-                'tax_cuts': 0.35,        # Baisses impôts (IMF: 0.1-0.5)
-                'transferts': 0.50,      # Transferts sociaux (IMF: 0.3-0.6)
-                'investissement': 1.2,   # Investissement public (IMF: 0.9-1.5, OFCE: 1.0-1.3)
+                'tax_cuts': MULT_BAISSE_IMPOTS,        # Baisses impôts (IMF: 0.1-0.5)
+                'transferts': MULT_TRANSFERTS,      # Transferts sociaux (IMF: 0.3-0.6)
+                'investissement': MULT_INVESTISSEMENT,   # Investissement public (IMF: 0.9-1.5, OFCE: 1.0-1.3)
             }
         }
 

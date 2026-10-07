@@ -231,7 +231,7 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 (vote) »**, qui encode la loi de
-> finances et rend -5,15 % de deficit 2026, 128,42 % de dette 2030 et 156,20 %
+> finances et rend -5,15 % de deficit 2026, 128,52 % de dette 2030 et 156,48 %
 > en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -746,8 +746,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,28% PIB en statu quo NU ; **-5,15% pour le scenario de reference** « Budget 2026 (vote) », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 128,99% PIB en statu quo NU ; 128,42% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 157,90% PIB en statu quo NU ; 156,20% pour le scenario de reference. Deficit 2035 : -10,60% / -10,19%
+- Dette 2030 : 128,99% PIB en statu quo NU ; 128,52% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 157,90% PIB en statu quo NU ; 156,48% pour le scenario de reference. Deficit 2035 : -10,60% / -10,23%
 - Croissance potentielle : 1,0% (extensible a 1,2% avec investissement soutenu)
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

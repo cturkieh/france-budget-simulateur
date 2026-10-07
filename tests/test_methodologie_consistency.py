@@ -156,7 +156,7 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             name="multiplicateur consolidation dépenses générique",
             source="base_multipliers['consolidation']['spending_based']",
             raw_value=mults['consolidation']['spending_based'],
-            representations=("-0,60", "-0.60"),
+            representations=("-0,81", "-0.81"),
             must_appear_in=(METHODO, PUBLIC_METHODO),
         ),
         CriticalConstant(
