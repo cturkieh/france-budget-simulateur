@@ -16,6 +16,7 @@ os.environ['BUDGET_DEBUG'] = 'true'
 # tests, qui ne doivent pas dépendre de leur propre rythme d'appels ;
 # tests/test_api_rate_limit_v067.py la règle explicitement.
 os.environ.setdefault('BUDGETLAB_RATE_LIMIT_PER_MIN', '0')
+os.environ.setdefault('BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN', '0')
 
 from budget_simulator import BudgetSimulatorV45, FiscalMultipliers, load_default_values
 

@@ -1,33 +1,57 @@
 """Limite de débit de POST /simulate (v0.6.7, lot 4 — prévue, absente jusqu'à la
-réfutation des handlers).
+réfutation des handlers ; clé d'adresse durcie après la revue de sécurité).
 
-Contrat : seau à jetons en mémoire par adresse cliente, BUDGETLAB_RATE_LIMIT_PER_MIN
-requêtes par minute (défaut 120, 0 = désactivé), porté par le ROUTEUR (un
-déploiement qui l'inclut, comme la production, en hérite). Au-delà : 429 avec
-`Retry-After` (secondes entières), et les en-têtes CORS, sans quoi le navigateur
-lirait le refus comme une panne réseau. Adresse cliente = PREMIER élément de
-`X-Forwarded-For` (Render y place l'adresse réelle), validé comme adresse IP,
-sinon l'adresse du pair TCP ; une adresse IPv6 compte pour son /64. Aucun en-tête
-`X-RateLimit-*` : il n'y aurait rien de juste à y mettre par processus.
+Contrat : seaux à jetons en mémoire, portés par le ROUTEUR (un déploiement qui
+l'inclut, comme la production, en hérite) — BUDGETLAB_RATE_LIMIT_PER_MIN par
+adresse (défaut 120) et BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN toutes adresses
+confondues (défaut 600), 0 = désactivé. Au-delà : 429 avec `Retry-After`
+(secondes entières) et les en-têtes CORS, sans quoi le navigateur lirait le refus
+comme une panne réseau. Adresse = le pair TCP ; `X-Forwarded-For` n'est lu que si
+BUDGETLAB_TRUST_PROXY = N déclare N proxys de confiance, et alors au N-ième
+élément EN PARTANT DE LA FIN — jamais en tête, que le client écrit (une clé de
+tête rendait la limite inopérante : changer d'« adresse » à chaque requête).
+Une adresse IPv6 compte pour son /64. Aucun en-tête `X-RateLimit-*`.
 """
 import importlib.util
+import logging
 import pathlib
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 
 API_FILE = pathlib.Path(__file__).resolve().parent.parent / 'api.py'
 
 
-def _api(monkeypatch, limite):
-    if limite is None:
-        monkeypatch.delenv('BUDGETLAB_RATE_LIMIT_PER_MIN', raising=False)
-    else:
-        monkeypatch.setenv('BUDGETLAB_RATE_LIMIT_PER_MIN', str(limite))
+def _api(monkeypatch, limite, proxys=None, globale=0):
+    for nom, valeur in (('BUDGETLAB_RATE_LIMIT_PER_MIN', limite),
+                        ('BUDGETLAB_TRUST_PROXY', proxys),
+                        ('BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN', globale)):
+        if valeur is None:
+            monkeypatch.delenv(nom, raising=False)
+        else:
+            monkeypatch.setenv(nom, str(valeur))
     spec = importlib.util.spec_from_file_location('api_rate_limit_v067', API_FILE)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+class _Journal(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.lignes = []
+
+    def emit(self, record):
+        self.lignes.append((record.levelno, record.getMessage()))
+
+
+def _journal(api):
+    """api.py appelle logging.basicConfig(force=True) à l'import, qui retire le
+    handler de caplog : on écoute le logger du module directement."""
+    journal = _Journal()
+    api.logger.addHandler(journal)
+    return journal
 
 
 def _post(client, xff=None, origin=None):
@@ -39,8 +63,13 @@ def _post(client, xff=None, origin=None):
     return client.post('/simulate', json={'mesures': {}, 'periods': 1}, headers=headers)
 
 
+def _requete(xff, pair='10.0.0.1'):
+    en_tetes = [(b'x-forwarded-for', xff.encode())] if xff is not None else []
+    return Request({'type': 'http', 'headers': en_tetes, 'client': (pair, 1234)})
+
+
 def test_au_dela_de_la_limite_429_avec_retry_after(monkeypatch):
-    client = TestClient(_api(monkeypatch, 3).app)
+    client = TestClient(_api(monkeypatch, 3, proxys=1).app)
     assert [_post(client, '203.0.113.7').status_code for _ in range(3)] == [200, 200, 200]
     refus = _post(client, '203.0.113.7')
     assert refus.status_code == 429
@@ -50,9 +79,69 @@ def test_au_dela_de_la_limite_429_avec_retry_after(monkeypatch):
     assert _post(client, '198.51.100.1').status_code == 200   # une autre adresse n'est pas touchée
 
 
+def test_sans_proxy_de_confiance_un_x_forwarded_for_force_ne_change_pas_la_cle(monkeypatch):
+    """RED revue de sécurité : la clé était le PREMIER élément de X-Forwarded-For,
+    écrit par le client — une valeur neuve à chaque requête, et la limite ne
+    mordait jamais. Sans BUDGETLAB_TRUST_PROXY, l'en-tête n'est pas lu."""
+    api = _api(monkeypatch, 2)
+    client = TestClient(api.app)
+    codes = [_post(client, xff).status_code
+             for xff in ('203.0.113.1', '203.0.113.2', '198.51.100.3', '192.0.2.4, 192.0.2.5')]
+    assert codes == [200, 200, 429, 429]
+    assert api._adresse_cliente(_requete('203.0.113.1, 198.51.100.2'), 0) == '10.0.0.1'
+
+
+def test_avec_proxys_de_confiance_la_cle_est_lue_en_partant_de_la_fin():
+    """« a, b, c » : c avec un proxy de confiance (le dernier élément, ajouté par
+    lui), b avec deux ; liste trop courte ou élément invalide → le pair TCP."""
+    import api as module   # conftest : limites désactivées, aucune requête ici
+    xff = '203.0.113.1, 198.51.100.2, 192.0.2.3'
+    assert module._adresse_cliente(_requete(xff), 1) == '192.0.2.3'
+    assert module._adresse_cliente(_requete(xff), 2) == '198.51.100.2'
+    assert module._adresse_cliente(_requete(xff), 4) == '10.0.0.1'
+    assert module._adresse_cliente(_requete('203.0.113.1, pas-une-ip'), 1) == '10.0.0.1'
+    assert module._adresse_cliente(_requete(None), 1) == '10.0.0.1'
+
+
+def test_avec_un_proxy_forger_la_tete_n_ouvre_pas_de_seau_neuf(monkeypatch):
+    client = TestClient(_api(monkeypatch, 2, proxys=1).app)
+    assert _post(client, '1.1.1.1, 203.0.113.9').status_code == 200
+    assert _post(client, '2.2.2.2, 3.3.3.3, 203.0.113.9').status_code == 200
+    assert _post(client, '4.4.4.4, 203.0.113.9').status_code == 429
+    assert _post(client, '4.4.4.4, 198.51.100.9').status_code == 200
+
+
+def test_x_forwarded_for_sans_confiance_signale_une_fois(monkeypatch):
+    """Derrière un proxy sans BUDGETLAB_TRUST_PROXY, tous les visiteurs partagent
+    la clé du proxy : la mauvaise configuration se voit dans les journaux, une fois."""
+    api = _api(monkeypatch, 100)
+    journal = _journal(api)
+    client = TestClient(api.app)
+    for _ in range(3):
+        _post(client, '203.0.113.1')
+    avis = [m for niveau, m in journal.lignes if 'sans BUDGETLAB_TRUST_PROXY' in m]
+    assert len(avis) == 1
+
+
+def test_plafond_global_toutes_adresses_confondues(monkeypatch):
+    """Borne qu'aucune usurpation ni aucun réseau d'adresses ne contourne :
+    trois adresses distinctes épuisent un plafond global de 3/min. Refus tracé
+    en ERROR (systémique), une fois par épisode."""
+    api = _api(monkeypatch, 100, proxys=1, globale=3)
+    journal = _journal(api)
+    client = TestClient(api.app)
+    assert [_post(client, f'203.0.113.{i}').status_code for i in (1, 2, 3)] == [200, 200, 200]
+    refus = [_post(client, f'198.51.100.{i}') for i in (1, 2)]
+    assert [r.status_code for r in refus] == [429, 429]
+    assert 'trop de demandes' in refus[0].json()['detail']
+    assert int(refus[0].headers['Retry-After']) >= 1
+    erreurs = [m for niveau, m in journal.lignes if niveau == logging.ERROR]
+    assert len(erreurs) == 1 and 'Plafond global' in erreurs[0]
+
+
 def test_le_refus_porte_les_en_tetes_cors(monkeypatch):
     """Sans CORS, le front lirait le 429 comme une panne réseau — et la retenterait."""
-    client = TestClient(_api(monkeypatch, 1).app)
+    client = TestClient(_api(monkeypatch, 1, proxys=1).app)
     origine = 'http://localhost:5173'
     assert _post(client, '203.0.113.8', origin=origine).status_code == 200
     refus = _post(client, '203.0.113.8', origin=origine)
@@ -60,24 +149,16 @@ def test_le_refus_porte_les_en_tetes_cors(monkeypatch):
     assert refus.headers['access-control-allow-origin'] == origine
 
 
-def test_seul_le_premier_ip_de_x_forwarded_for_compte(monkeypatch):
-    """« client, proxy… » : faire varier les éléments suivants n'ouvre pas de seau neuf."""
-    client = TestClient(_api(monkeypatch, 2).app)
-    assert _post(client, '203.0.113.9, 10.0.0.1').status_code == 200
-    assert _post(client, ' 203.0.113.9 ,10.0.0.2, 10.0.0.3').status_code == 200
-    assert _post(client, '203.0.113.9, 10.0.0.4').status_code == 429
-
-
 def test_x_forwarded_for_invalide_retombe_sur_le_pair(monkeypatch):
     """Un premier élément qui n'est pas une adresse IP n'est pas une clé : chaque
     valeur fantaisiste ouvrirait sinon un seau neuf."""
-    client = TestClient(_api(monkeypatch, 2).app)
+    client = TestClient(_api(monkeypatch, 2, proxys=1).app)
     codes = [_post(client, xff).status_code for xff in ('pas-une-ip', 'x' * 500, '', None)]
     assert codes[:2] == [200, 200] and codes[2:] == [429, 429]
 
 
 def test_ipv6_compte_par_reseau_64(monkeypatch):
-    client = TestClient(_api(monkeypatch, 1).app)
+    client = TestClient(_api(monkeypatch, 1, proxys=1).app)
     assert _post(client, '2001:db8:1:2::1').status_code == 200
     assert _post(client, '2001:db8:1:2:ffff::9').status_code == 429
     assert _post(client, '2001:db8:1:3::1').status_code == 200
@@ -88,10 +169,12 @@ def test_desactivable(monkeypatch):
     assert {_post(client, '203.0.113.10').status_code for _ in range(10)} == {200}
 
 
-def test_defaut_120_par_minute(monkeypatch):
-    api = _api(monkeypatch, None)
-    assert api.RATE_LIMIT_PAR_MIN_DEFAUT == 120
-    assert api._limiteur is not None and api._limiteur.capacite == 120
+def test_defauts(monkeypatch):
+    """120/min par adresse, 600/min au total, pair TCP (aucun proxy de confiance)."""
+    api = _api(monkeypatch, None, proxys=None, globale=None)
+    assert api.RATE_LIMIT_PAR_MIN_DEFAUT == 120 and api._limiteur.capacite == 120
+    assert api.RATE_LIMIT_GLOBAL_PAR_MIN_DEFAUT == 600 and api._limiteur_global.capacite == 600
+    assert api._proxys_de_confiance == 0
 
 
 def test_valeur_invalide_echoue_au_demarrage(monkeypatch):
@@ -99,6 +182,11 @@ def test_valeur_invalide_echoue_au_demarrage(monkeypatch):
     for valeur in ('abc', '-5', 'nan', 'inf'):
         with pytest.raises(ValueError):
             _api(monkeypatch, valeur)
+        with pytest.raises(ValueError):
+            _api(monkeypatch, 0, globale=valeur)
+    for proxys in ('true', '-1', '1.5', 'abc'):
+        with pytest.raises(ValueError):
+            _api(monkeypatch, 0, proxys=proxys)
 
 
 def test_scenarios_non_limite(monkeypatch):

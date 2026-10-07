@@ -66,9 +66,11 @@ Contrat de `/simulate` (détail dans la docstring de `api.py`) :
 - `report.valid` dit si le résultat se lit tel quel (aucune entrée corrigée, aucun levier en échec,
   aucune borne de sortie atteinte) ; il ne juge pas la soutenabilité (voir `report.critical`).
 - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` simulations par minute depuis la même adresse
-  (défaut 120, `0` = désactivé) ; l'en-tête `Retry-After` donne le délai en secondes. Seau à jetons en
-  mémoire, par processus ; adresse = premier élément de `X-Forwarded-For` (posé par le proxy de
-  Render), sinon le pair TCP — hors d'un tel proxy, filtrer cet en-tête en amont.
+  (défaut 120), ou plus de `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` toutes adresses confondues (défaut
+  600) ; `0` désactive chacune. L'en-tête `Retry-After` donne le délai en secondes. Seaux à jetons en
+  mémoire, par processus. Adresse = le pair TCP ; derrière N proxys de confiance, poser
+  `BUDGETLAB_TRUST_PROXY=N` : la clé devient le N-ième élément de `X-Forwarded-For` en partant de la
+  fin (1 = le dernier). Les éléments de tête sont écrits par le client et ne sont jamais lus.
 
 ## Contribuer
 
