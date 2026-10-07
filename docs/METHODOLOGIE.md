@@ -1242,6 +1242,18 @@ delta_fp = max(0, hausse_smic - hausse_point_indice)
 
 **Potentiel** : 0-18 Md EUR selon bareme
 
+**Curseur d'intensité — courbe continue (v0.6.7, audit externe Codex 10/2026, arbitrage de
+Cyril)** : `recette totale = IFI + intensité × (ISF complet − IFI)`, donc écart au statu quo =
+`intensité × (ISF complet − IFI)`, où « ISF complet » est le point NFP ci-dessous (seuil 1,3 M EUR,
+taux 1 %, bonus vert 30 % : +7,90 Md EUR en 2030, IFI de 2,16 Md EUR déduit). Gini, pouvoir
+d'achat et compétitivité sont interpolés de la même façon. Monotone, nul à 0, identique au bit à 1
+(`tests/test_isf_continu_v067.py`, grille de 1 000 points). Jusqu'en v0.6.6, l'intensité pilotait
+seuil, taux et bonus avec des paliers de foyers et d'assiette en escalier : dès 10⁻⁶ l'IFI était
+supprimé alors que le nouvel impôt ne rapportait presque rien (−2,17 Md EUR en 2030), puis deux
+falaises (+1,26 Md EUR à 0,571 ; +2,82 Md EUR entre 0,999 et 1). Scénarios publiés : LFI et
+Écologistes (intensité 1) inchangés au bit ; `ps_2027` (0,6) passe de +2,0 à +4,7 Md EUR/an
+environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
+
 **Distribution patrimoniale (IPP 2024) :**
 - 1,3M EUR : 350k foyers (top 1,5%, seuil NFP)
 - 2,0M EUR : 130k foyers (top 0,5%)

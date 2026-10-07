@@ -563,17 +563,25 @@ class FiscaliteMenagesMixin(_MixinBase):
         """ISF climatique. Slider intensité 0-100%. NFP: seuil 1.3M€, taux 1%, bonus 30% → 0-18 Md€. Remplace IFI (2 Md€).
         Sources: NFP 2027, OFCE 2024, EU Tax Observatory 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
         # ===== PARAMÈTRES - SLIDER INTENSITÉ UNIQUE =====
-        # intensite : 0% (IFI maintenu) → 100% (ISF NFP maximal)
-        # Mapping automatique : intensité → (seuil, taux, bonus)
+        # v0.6.7 (audit Codex 10/2026, bloc B constat 5 — arbitrage de Cyril) :
+        # COURBE CONTINUE. Recette totale = IFI (droit en vigueur) + intensité ×
+        # (ISF complet − IFI) ; l'écart au statu quo vaut donc intensité ×
+        # (ISF complet − IFI), et les effets macro sont interpolés de même.
+        # « ISF complet » = point NFP (seuil 1,3 M€, taux 1 %, bonus vert 30 %),
+        # déjà servi à l'intensité 1 — recette identique au bit en 0 et en 1.
+        # Jusqu'en v0.6.6 l'intensité pilotait seuil, taux et bonus, avec des
+        # paliers de foyers et d'assiette en escalier : dès 10⁻⁶ l'IFI était
+        # supprimé (−2,2 Md€), puis deux falaises (+1,3 Md€ à 0,571 ; +2,8 Md€
+        # entre 0,999 et 1). Δ recettes 2030 : 0 → 0 ; 10⁻⁶ → −2,17 ; 0,571 →
+        # +0,75 ; 0,572 → +2,02 ; 1 → +7,90.
         intensite = params.get('intensite', 0.0)  # 0.0 à 1.0 (0% à 100%)
-
-        # Interpolation linéaire selon intensité
-        # Intensité 0%   : IFI maintenu (seuil 2.0M€, taux 0%)
-        # Intensité 50%  : ISF modéré (seuil 1.4M€, taux 0.6%, bonus 25%)
-        # Intensité 100% : ISF NFP (seuil 1.3M€, taux 1%, bonus 30%)
-        seuil_entree = 2.0 - (intensite * 0.7)  # 2.0 → 1.3 M€
-        taux_max = intensite * 0.01  # 0% → 1.0%
-        bonus_eco = 0.20 + (intensite * 0.10)  # 20% → 30%
+        if intensite == 0:
+            # IFI maintenu : aucun changement budgétaire vs la baseline (l'IFI
+            # continue à y générer ses ~2 Md€/an).
+            return 0, 0, {'recettes': 0}
+        seuil_entree = 1.3   # M€ (NFP)
+        taux_max = 0.01      # 1 % (NFP)
+        bonus_eco = 0.20 + 0.10  # abattement vert 30 % (NFP), écrit comme l'ancienne interpolation à l'intensité 1 : identité au bit
 
         # Année de référence
         years_elapsed = year - POLICY_START_YEAR
@@ -582,42 +590,19 @@ class FiscaliteMenagesMixin(_MixinBase):
         # IFI actuel avec croissance +2%/an (inflation patrimoniale INSEE 2015-2025)
         ifi_actuel = 2.0 * (1.02 ** max(0, years_elapsed))
 
-        # Si maintien IFI actuel (seuil très élevé ou taux nul)
-        # → Retourner 0 (pas de changement budgétaire par rapport à la baseline)
-        # L'IFI continue à générer ses 2 Md€/an dans la baseline, mais aucun delta ici
-        if seuil_entree >= 2.0 or taux_max == 0:
-            return 0, 0, {'recettes': 0}
-
         # ===== PHASING 2 ANS (cadastre fiscal) =====
         # 0.5 l'année de mise en place, 1.0 ensuite (plein effet)
         phasing = _year_phasing(years_elapsed, (0.5, 1.0))
 
         # ===== NOMBRE DE FOYERS CONCERNÉS =====
-        # Distribution patrimoniale française (IPP 2024) :
-        # - 0.8M€ : 500k foyers (top 3%)
-        # - 1.3M€ : 350k foyers (top 1.5%, proposition NFP)
-        # - 1.6M€ : 220k foyers (top 1%)
-        # - 2.0M€ : 130k foyers (top 0.5%)
-        if seuil_entree <= 0.8:
-            foyers_concernes = 500_000
-        elif seuil_entree <= 1.3:
-            foyers_concernes = 350_000
-        elif seuil_entree <= 1.6:
-            foyers_concernes = 220_000
-        else:
-            foyers_concernes = 130_000
+        # Distribution patrimoniale française (IPP 2024) : 350k foyers au-dessus
+        # de 1,3 M€ (top 1,5 %, proposition NFP).
+        foyers_concernes = 350_000
 
         # ===== ASSIETTE MOYENNE PAR FOYER =====
-        # Patrimoine moyen au-dessus du seuil (INSEE 2024, IPP 2025)
-        # Calibré pour correspondre aux estimations OFCE 2024 (12 Md€ brutes pour NFP)
-        if seuil_entree <= 0.8:
-            assiette_moyenne = 3.0  # M€ (top 3%)
-        elif seuil_entree <= 1.3:
-            assiette_moyenne = 4.8  # M€ (top 1.5%, NFP cible)
-        elif seuil_entree <= 1.6:
-            assiette_moyenne = 5.5  # M€ (top 1%)
-        else:
-            assiette_moyenne = 6.5  # M€ (ultra-riches top 0.5%)
+        # Patrimoine moyen au-dessus du seuil (INSEE 2024, IPP 2025) — calibré
+        # pour correspondre aux estimations OFCE 2024 (12 Md€ brutes pour NFP)
+        assiette_moyenne = 4.8  # M€ (top 1.5%, NFP cible)
 
         # ===== BARÈME PROGRESSIF =====
         # Simplifié : taux effectif moyen = 75% du taux max
@@ -648,10 +633,9 @@ class FiscaliteMenagesMixin(_MixinBase):
         if recettes_nettes > plafond_max:
             recettes_nettes = plafond_max
 
-        # ===== RECETTES NETTES (après remplacement IFI) =====
-        # L'ISF Climatique REMPLACE l'IFI actuel
-        # → Delta = Recettes ISF - Recettes IFI perdues (avec croissance +2%/an)
-        delta_revenue = recettes_nettes - ifi_actuel
+        # ===== RECETTES NETTES (après remplacement IFI), INTERPOLÉES =====
+        # L'ISF complet REMPLACE l'IFI ; l'intensité règle la part du chemin.
+        delta_revenue = intensite * (recettes_nettes - ifi_actuel)
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # Basés sur recettes_nettes (assiette totale taxée, effet redistributif absolu)
@@ -672,13 +656,13 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         impacts = {
             'recettes': delta_revenue,
-            'gini': impact_gini,
-            'pouvoir_achat': impact_pa,
-            'competitivite': impact_competitivite
+            'gini': intensite * impact_gini,
+            'pouvoir_achat': intensite * impact_pa,
+            'competitivite': intensite * impact_competitivite
         }
 
         _log_debug(self.debug_logs,
-            f"Y{year}: ISF climatique - Seuil {seuil_entree}M€, Taux {taux_max*100:.1f}%, "
+            f"Y{year}: ISF climatique - intensité {intensite:.2f} du point NFP (seuil {seuil_entree}M€, taux {taux_max*100:.1f}%), "
             f"Foyers {foyers_concernes/1000:.0f}k, Brutes {recettes_brutes:.1f} Md€, "
             f"Nettes {recettes_nettes:.1f} Md€, IFI {ifi_actuel:.1f} Md€, Delta {delta_revenue:+.1f} Md€"
         )
