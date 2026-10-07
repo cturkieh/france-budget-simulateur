@@ -133,19 +133,14 @@ class MontaigneMixin(_MixinBase):
         # NOTE: L'impact croissance du rabot est capturé via le multiplicateur Keynésien
         # sur delta_spending. Pas de growth_shock séparé pour éviter le double-comptage.
 
-        # 4. Impact Chômage - HAUSSE (Okun)
-        # Moins de fonctionnaires, moins de commandes publiques. Effet de NIVEAU
-        # 0.004 × taux (+0,032 pt à 8 %) émis par INCRÉMENT de montée en charge
-        # (50 % puis 50 %, somme = le niveau, zéro ensuite), comme l'ASU depuis
-        # v0.6.1. v0.6.7 (audit Codex, même motif que les cotisations
-        # salariales) : il était réémis chaque année devant la convergence NAIRU
-        # d'engine/unemployment.py, donc composé vers ~15,7 fois sa valeur.
-        # Les canaux gini / pouvoir_achat / competitivite ci-dessus et ci-dessous
-        # restent émis chaque année : dette documentée (METHODOLOGIE § Effets
-        # NIVEAU vs FLUX, « rabot_uniforme … jamais auditée »), hors de ce lot.
-        increment_phasing = phasing - _year_phasing(years_elapsed - 1, _RABOT_PHASING)
-        impact_chomage = 0.004 * taux_reduction * increment_phasing
-
+        # 4. Impact Chômage : PAS d'effet direct (v0.6.7, lot 3). L'ancien terme
+        # (+0,004 × taux, « moins de fonctionnaires, moins de commandes
+        # publiques », étiqueté Okun) refaisait le chemin coupe → activité →
+        # chômage que le moteur fait déjà : le multiplicateur keynésien sur
+        # delta_spending (note 3 ci-dessus), puis la loi d'Okun. Même traitement
+        # que le levier fonction_publique, dont les suppressions de postes ne
+        # passent que par ce canal. Lot 1 : il avait d'abord été ramené de
+        # récurrent (×15,7 par la convergence NAIRU) à une émission par incrément.
         # 5. Impact Compétitivité - LÉGÈREMENT POSITIF (moins de prélèvements futurs)
         impact_competitivite = 0.002 * taux_reduction * phasing
 
@@ -157,7 +152,6 @@ class MontaigneMixin(_MixinBase):
             'gini': impact_gini,
             'pouvoir_achat': impact_pa,
             'competitivite': impact_competitivite,
-            'chomage': impact_chomage,
             # Métadonnées de debug. La valeur est un sous-dict, ce qui s'écarte
             # du contrat ImpactsDict = Dict[str, float]. Les agrégateurs du
             # moteur ne lisent que les clés numériques connues (gini,
@@ -179,8 +173,7 @@ class MontaigneMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
             f"Y{year}: RABOT UNIFORME - Taux {taux_reduction*100:.0f}%, Phasing {phasing*100:.0f}%, "
-            f"Économies {total_coupe:.1f} Md€, Gini {impact_gini:+.4f}, PA {impact_pa:+.2%}, "
-            f"Chômage {impact_chomage:+.3f} pt"
+            f"Économies {total_coupe:.1f} Md€, Gini {impact_gini:+.4f}, PA {impact_pa:+.2%}"
         )
 
         return delta_spending, 0, impacts

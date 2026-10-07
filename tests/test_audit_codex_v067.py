@@ -74,7 +74,10 @@ def test_lot1_cotisations_salariales_effet_direct_borne_par_le_niveau(points, pl
                           {'cotisations_salariales': {'baisse_points': points}})
     assert max(abs(e) for e in ecart) <= niveau_pt * 1.02, (
         f"effet direct max {max(abs(e) for e in ecart):.3f} pt > niveau déclaré {niveau_pt:.3f} pt")
-    assert ecart[2] < 0, "le canal doit exister (baisse du chômage l'année qui suit l'entrée)"
+    # v0.6.7 lot 3 : le canal direct est RETIRÉ (double comptage du canal
+    # consommation, que le multiplicateur keynésien applique déjà à la baisse de
+    # recettes) — l'écart est nul toutes les années.
+    assert all(e == 0.0 for e in ecart), ecart
 
 
 def test_lot1_rabot_effet_direct_borne_par_le_niveau(pleine_precision):
@@ -84,19 +87,22 @@ def test_lot1_rabot_effet_direct_borne_par_le_niveau(pleine_precision):
     ecart = _ecart_direct('rabot_uniforme', {'rabot_uniforme': {'taux_reduction': 0.08}})
     assert max(abs(e) for e in ecart) <= niveau_pt * 1.02, (
         f"effet direct max {max(abs(e) for e in ecart):.3f} pt > niveau déclaré {niveau_pt:.3f} pt")
-    assert ecart[2] > 0
+    # v0.6.7 lot 3 : canal direct RETIRÉ (double comptage de coupe → activité →
+    # Okun, que le multiplicateur sur la dépense fait déjà) — écart nul.
+    assert all(e == 0.0 for e in ecart), ecart
 
 
 @pytest.mark.parametrize('mesures,measure_id,niveau', [
-    ({'cotisations_salariales': {'baisse_points': 2.5}}, 'cotisations_salariales',
-     -NIVEAU_COTIS_SAL_PAR_POINT * 2.5),
-    ({'rabot_uniforme': {'taux_reduction': 0.08}}, 'rabot_uniforme',
-     NIVEAU_RABOT_PAR_POINT_DE_TAUX * 0.08),
+    ({'cotisations_salariales': {'baisse_points': 2.5}}, 'cotisations_salariales', 0.0),
+    ({'rabot_uniforme': {'taux_reduction': 0.08}}, 'rabot_uniforme', 0.0),
 ])
 def test_lot1_effet_de_niveau_emis_une_seule_fois(mesures, measure_id, niveau):
-    """Propriété durable : la SOMME des émissions annuelles vaut le niveau déclaré
-    (rampe comprise : le rabot monte à 50 % puis 100 %, il émet donc deux
-    incréments de moitié, comme l'ASU depuis v0.6.1)."""
+    """Propriété durable : la SOMME des émissions annuelles vaut le niveau déclaré.
+    v0.6.7 lot 3 : niveau déclaré NUL pour ces deux leviers — leur effet direct
+    (−0,05 pt par point de cotisations ; +0,004 × taux de rabot) refaisait le
+    chemin demande → activité → Okun que le multiplicateur keynésien fait déjà
+    sur leur flux budgétaire. Un effet direct de demande n'est légitime que pour
+    une mesure sans flux budgétaire (CSG progressive à recette nulle)."""
     _, par_annee = _chomage(mesures)
     emis = [an.get(measure_id, {}).get('chomage', 0.0) for an in par_annee]
     assert sum(emis) == pytest.approx(niveau, rel=1e-12)

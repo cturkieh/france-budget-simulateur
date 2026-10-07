@@ -1598,6 +1598,18 @@ Liste exhaustive PA one-time :
 > une fois la montée en charge finie (`tests/test_audit_codex_v067.py`). Un effet de
 > niveau PERMANENT se modélise comme la bosse seniors (terme ajouté après la
 > convergence, retiré de l'état reporté), pas par réémission.
+>
+> **MAJ v0.6.7, lot 3 — ces deux effets directs sont RETIRÉS.** Une fois les impulsions
+> budgétaires multipliées levier par levier, l'un et l'autre faisaient double emploi :
+> celui des cotisations salariales chiffrait le canal consommation (« +0,5 % PA → +0,3 %
+> conso → +0,05 % emploi, multiplicateur 0,6 ») que le multiplicateur keynésien applique
+> déjà à la baisse de recettes du levier ; celui du rabot (« moins de fonctionnaires, moins
+> de commandes publiques », étiqueté Okun) refaisait le chemin coupe → activité → Okun du
+> multiplicateur sur la dépense — c'est d'ailleurs le seul chemin du levier
+> `fonction_publique`. Règle : un effet chômage direct de DEMANDE n'est légitime que pour
+> une mesure sans flux budgétaire, invisible du multiplicateur (CSG progressive à recette
+> nulle). Effet : renaissance_2027 et lr_2027 +0,08 pt de chômage 2034, +0,18/+0,19 pt de
+> dette 2035 ; im_rabot_2029 −0,02 pt de chômage.
 
 **Effets FLUX (RECURRENT)** — Appliques CHAQUE ANNEE legitimement :
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
