@@ -24,7 +24,7 @@ et ``self.debug_logs`` — tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import POLICY_START_YEAR
+from ..constants import AAH_2025_MD_EUR, POLICY_START_YEAR
 from .._logging import _log_debug
 from ._phasing import _year_phasing
 from ._types import ImpactsDict, canaux_menages
@@ -41,9 +41,13 @@ else:
 
 # Montée en charge du rabot : 50 % la première année, 100 % ensuite.
 _RABOT_PHASING = (0.5, 1.0)
-# Catégories de dépense versées aux ménages (prestations en espèces et
-# remboursements), seules à toucher directement leur revenu (v0.6.8).
-_CATEGORIES_PRESTATIONS = ('retraites', 'sante', 'chomage', 'dependance', 'minima_sociaux')
+# Catégories de PRESTATIONS EN ESPÈCES, seules à toucher directement le revenu
+# disponible des ménages (v0.6.8) : pensions, allocations chômage, minima
+# sociaux, et l'AAH dans « dépendance » (AAH_2025_MD_EUR). La santé et l'APA
+# sont des transferts EN NATURE, hors RDB (INSEE) : un euro de santé coupé par
+# le rabot vaut zéro de revenu, comme dans le levier santé (_apply_sante, où
+# seules les franchises comptent).
+_CATEGORIES_ESPECES = ('retraites', 'chomage', 'minima_sociaux')
 
 
 class MontaigneMixin(_MixinBase):
@@ -128,15 +132,18 @@ class MontaigneMixin(_MixinBase):
                       details_coupes.get('dependance', 0)) / max(total_coupe, 0.1)
         impact_gini = 0.10 * taux_reduction * pct_social * phasing  # +0.008 à 8%
 
-        # 2. Pouvoir d'achat (v0.6.8) : les coupes des catégories de
-        # PRESTATIONS (pensions, remboursements de santé, chômage, dépendance,
-        # minima sociaux) sont un revenu retiré aux ménages — canal
-        # ``prestations``, en niveau de l'année. Les autres coupes (masse
-        # salariale, assimilée à des effectifs, fonctionnement, investissement,
-        # dotations, aides aux entreprises, UE) passent par la croissance.
-        # L'ancien « −0,15 × taux », réémis chaque année, composait −7,6 pts
-        # d'indice en 2035 pour un rabot de 7,5 %.
-        coupes_prestations = sum(details_coupes.get(c, 0.0) for c in _CATEGORIES_PRESTATIONS)
+        # 2. Pouvoir d'achat (v0.6.8) : les coupes de PRESTATIONS EN ESPÈCES
+        # (pensions, chômage, minima sociaux, AAH) sont un revenu retiré aux
+        # ménages — canal ``prestations``, en niveau de l'année. Santé, APA
+        # (transferts en nature) et autres coupes (masse salariale, assimilée
+        # à des effectifs, fonctionnement, investissement, dotations, aides
+        # aux entreprises, UE) passent par la croissance. L'ancien « −0,15 ×
+        # taux », réémis chaque année, composait −7,6 pts d'indice en 2035
+        # pour un rabot de 7,5 %.
+        coupe_aah = (AAH_2025_MD_EUR * self._spending_factors.get('dependance', 1.0)
+                     * taux_reduction * phasing)
+        coupes_prestations = (sum(details_coupes.get(c, 0.0) for c in _CATEGORIES_ESPECES)
+                              + coupe_aah)
 
         # 3. Impact Croissance
         # NOTE: L'impact croissance du rabot est capturé via le multiplicateur Keynésien

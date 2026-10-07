@@ -443,18 +443,73 @@ def test_fiscalite_patrimoine_deux_sens(statu_quo, intensite):
     assert ecart * intensite < 0
 
 
+# Part EN ESPÈCES de chaque catégorie de prestations du rabot, posée À LA MAIN
+# depuis les sources (pas depuis le code) : pensions, allocations chômage et
+# minima sociaux sont des revenus ; la santé est un transfert EN NATURE (hors
+# RDB, comme dans le levier santé) ; « dépendance » (APA + AAH, 35 Md€) n'est
+# en espèces que pour l'AAH, 15,9 Md€ en 2025 (Sénat, avis PLF 2025 n° 147
+# t. V) — l'APA est une prestation en nature (DREES).
+_PART_ESPECES_ATTENDUE = {'retraites': 1.0, 'chomage': 1.0, 'minima_sociaux': 1.0,
+                          'dependance': 15.9 / 35.0, 'sante': 0.0}
+
+
 @pytest.mark.parametrize('taux', [0.05, 0.10])
 def test_rabot_details_coupes(taux):
-    """Rabot uniforme : seules les coupes des cinq catégories de prestations
-    (details_coupes) entrent au RDB, au montant de l'année (identité recalculée
-    depuis les facteurs de volume du moteur) ; linéaire dans le taux."""
-    from budget_simulator.handlers.montaigne import _CATEGORIES_PRESTATIONS
+    """Rabot uniforme : seules les coupes de prestations EN ESPÈCES entrent au
+    RDB, au montant de l'année (recalculé depuis les facteurs de volume du
+    moteur et les parts posées à la main) ; linéaire dans le taux."""
     sim = BudgetSimulatorV45(periods=1, mesures={'rabot_uniforme': {'taux_reduction': taux}})
     _, _, rapport = sim.simulate()
     canal = rapport['measure_impacts_by_year'][1]['rabot_uniforme']['menages']['prestations']
     phasing_2026 = 0.5
-    attendu = -sum(sim.spending_categories_base[c] * sim._spending_factors[c]
-                   for c in _CATEGORIES_PRESTATIONS) * taux * phasing_2026
+    attendu = -sum(sim.spending_categories_base[c] * sim._spending_factors[c] * part
+                   for c, part in _PART_ESPECES_ATTENDUE.items()) * taux * phasing_2026
     assert canal == pytest.approx(attendu, rel=1e-12)
     assert canal < 0
     assert sim._rdb_trace[AN1].effet_mesures == pytest.approx(canal, rel=1e-12)
+
+
+def _rabot_direct(base_sante=None, base_dependance=None):
+    """Handler du rabot appelé seul (facteurs de volume à 1), bases modifiables."""
+    sim = BudgetSimulatorV45(periods=1, mesures={})
+    if base_sante is not None:
+        sim.spending_categories_base['sante'] = base_sante
+    if base_dependance is not None:
+        sim.spending_categories_base['dependance'] = base_dependance
+    dep, _, imp = sim._apply_rabot_uniforme({}, {'taux_reduction': 0.08}, 2027, 3000.0, 0.02, 0.075)
+    return dep, imp['menages']['prestations']
+
+
+def test_meme_euro_de_sante_meme_effet_rabot_et_levier_sante():
+    """Revue passe 1, M1 : un euro de dépense de santé économisé vaut le MÊME
+    effet direct sur le RDB par le rabot et par le levier santé — zéro (transfert
+    en nature, hors RDB INSEE ; seules les franchises touchent le revenu)."""
+    sim = BudgetSimulatorV45(periods=1, mesures={})
+    dep_sante, _, imp_sante = sim._apply_sante(
+        {}, {'effort_hopital': 50, 'effort_ambu': 50}, 2028, 3000.0, 0.02, 0.075)
+    assert dep_sante < -1.0
+    par_euro_levier = imp_sante['menages']['prestations'] / dep_sante
+
+    dep_a, canal_a = _rabot_direct(base_sante=250.0)
+    dep_b, canal_b = _rabot_direct(base_sante=350.0)
+    assert dep_b - dep_a == pytest.approx(-0.08 * 100.0)
+    par_euro_rabot = (canal_b - canal_a) / (dep_b - dep_a)
+    assert par_euro_rabot == pytest.approx(par_euro_levier, abs=1e-12)
+    assert par_euro_levier == 0.0
+
+
+def test_rabot_dependance_seule_l_aah_est_un_revenu():
+    """Un euro de dépendance coupé retire 15,9/35 € de revenu (part AAH) : la
+    part APA, prestation en nature, n'entre pas au RDB."""
+    dep_a, canal_a = _rabot_direct()
+    dep_b, canal_b = _rabot_direct(base_dependance=45.0)
+    # La part en espèces suit le niveau d'AAH (15,9 Md€), pas la base : 10 Md€
+    # de dépendance en plus sont 10 Md€ de prestations en nature.
+    assert dep_b - dep_a == pytest.approx(-0.08 * 10.0)
+    assert canal_b - canal_a == pytest.approx(0.0, abs=1e-12)
+    _, canal = _rabot_direct()
+    assert canal == pytest.approx(-0.08 * (380 + 15.9 + 90 + _chomage_base()), rel=1e-12)
+
+
+def _chomage_base():
+    return BudgetSimulatorV45(periods=1, mesures={}).spending_categories_base['chomage']

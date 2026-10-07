@@ -891,6 +891,14 @@ PART_MENAGES_FISCALITE_INDIRECTE = PART_MENAGES_TVA_2022 * PART_CONSOMMATION_DAN
 # à 0,77) — la mesure-cadre de l'UE, pas un secteur isolé.
 REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE = 1.0
 REPERCUSSION_BAISSE_FISCALITE_INDIRECTE = 0.5
+# Allocation aux adultes handicapés (AAH) 2025 : 15,9 Md€ (Sénat, avis n° 147
+# t. V sur le PLF 2025, « Solidarité, insertion et égalité des chances » :
+# « les crédits dédiés au versement de l'AAH représentent 15,9 milliards
+# d'euros pour 2025 »). Seule part EN ESPÈCES de la catégorie « dépendance »
+# du moteur (APA + AAH, 35 Md€) : l'APA est une prestation EN NATURE (elle
+# finance un plan d'aide, DREES), hors RDB comme les remboursements de santé.
+# Sert au canal ``prestations`` du rabot uniforme (handlers/montaigne.py).
+AAH_2025_MD_EUR = 15.9
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés
