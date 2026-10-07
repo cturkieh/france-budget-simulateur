@@ -2,13 +2,12 @@
 
 Identités comptables du module, indépendantes du reste du moteur : un euro
 de prestation vaut un euro de RDB, un euro de point d'indice sa part nette,
-une hausse de TVA renchérit les prix de τ+ × part ménages, une baisse de τ−.
+une hausse de TVA des ménages renchérit les prix de τ+, une baisse de τ−.
 """
 import pytest
 
 from budget_simulator.constants import (
     CROISSANCE_UC_ANNUELLE,
-    PART_MENAGES_FISCALITE_INDIRECTE,
     PART_NETTE_REMUNERATIONS_APU,
     RDB_MENAGES_2025_MD_EUR,
     REPERCUSSION_BAISSE_FISCALITE_INDIRECTE,
@@ -57,8 +56,9 @@ def test_un_milliard_par_canal(canal, euros_rdb):
 def test_fiscalite_indirecte_repercussion_asymetrique(montant, tau):
     an = rdb.rdb_annee(_une_mesure(prelevements_indirects=montant), PIB0, PIB0, 1.0, 1.0, 1)
     conso = (1 - TAUX_EPARGNE_MENAGES_2025) * an.rdb_base
-    assert an.coin_indirect == pytest.approx(tau * PART_MENAGES_FISCALITE_INDIRECTE * montant)
-    assert an.prix == pytest.approx(1 + tau * PART_MENAGES_FISCALITE_INDIRECTE * montant / conso)
+    # Le canal est déjà la part qui pèse sur la consommation des ménages.
+    assert an.coin_indirect == pytest.approx(tau * montant)
+    assert an.prix == pytest.approx(1 + tau * montant / conso)
 
 
 def test_repercussion_baisse_moitie_de_la_hausse():
@@ -74,9 +74,7 @@ def test_signe_par_mesure_pas_sur_le_solde():
     impacts = {'a': {'menages': canaux_menages(prelevements_indirects=5.0)},
                'b': {'menages': canaux_menages(prelevements_indirects=-5.0)}}
     an = rdb.rdb_annee(impacts, PIB0, PIB0, 1.0, 1.0, 1)
-    assert an.coin_indirect == pytest.approx(
-        PART_MENAGES_FISCALITE_INDIRECTE * 5.0
-        * (REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE - REPERCUSSION_BAISSE_FISCALITE_INDIRECTE))
+    assert an.coin_indirect == pytest.approx(5.0 * (1.0 - 0.5))
 
 
 def test_mesure_sans_canal_menages_ignoree():

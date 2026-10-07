@@ -41,6 +41,7 @@ from ..constants import (
     CARBONE_PRIX_REFERENCE_EUR_T,
     GINI_RENOVATION_PAR_MD_EUR,
     GINI_TAXE_CARBONE_PAR_EUR_TONNE,
+    PART_MENAGES_COMPOSANTE_CARBONE,
     POLICY_START_YEAR,
 )
 from .._logging import _log_debug
@@ -249,7 +250,8 @@ class InvestissementsMixin(_MixinBase):
         # === POUVOIR D'ACHAT (v0.6.8) ===
         # Taxe carbone : prélèvement indirect, via les prix (montant de l'année,
         # hors retours fiscaux de l'investissement, qui ne sont pas un impôt
-        # nouveau sur les ménages). Rénovation : aide à l'investissement des
+        # nouveau sur les ménages), à la part payée par les ménages (recette
+        # TOTALE de la composante carbone, PART_MENAGES_COMPOSANTE_CARBONE). Rénovation : aide à l'investissement des
         # ménages, transfert en capital hors RDB (INSEE) — par la croissance.
         # L'ancien « 0,001 × Md€ / 5 » était réémis chaque année et composé.
 
@@ -289,7 +291,8 @@ class InvestissementsMixin(_MixinBase):
             'recettes': delta_revenue,
             'gini': gini,
             'competitivite': competitivite,
-            'menages': canaux_menages(prelevements_indirects=recettes_carbone),
+            'menages': canaux_menages(prelevements_indirects=(
+                PART_MENAGES_COMPOSANTE_CARBONE * recettes_carbone)),
         }
 
         _log_debug(self.debug_logs,

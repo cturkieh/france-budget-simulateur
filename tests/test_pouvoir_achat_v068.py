@@ -22,7 +22,6 @@ import pytest
 from budget_simulator.constants import (
     CROISSANCE_UC_ANNUELLE,
     HANDLER_FAILED_KEY,
-    PART_MENAGES_FISCALITE_INDIRECTE,
     PART_NETTE_REMUNERATIONS_APU,
     REPERCUSSION_BAISSE_FISCALITE_INDIRECTE,
     REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE,
@@ -69,18 +68,42 @@ def _conso(an):
 # --- Les 9 défauts du diagnostic, re-testés en définition B -----------------
 
 def test_tva_taux_normal_repercussion_sourcee(statu_quo):
-    """+1 pt de TVA : le prix des ménages monte de τ+ × part ménages × Δrecettes
-    / consommation ; τ implicite ∈ [0,6 ; 1] (Benzarti et al. 2020).
-    v0.6.7 : τ implicite 0,22 (−0,2 %/pt fixe)."""
+    """+1 pt de TVA : la base du handler EST la consommation des ménages
+    (0,53 × PIB), donc chaque euro de recette pèse sur elle — identité entre
+    le chemin budgétaire (recettes) et le chemin prix : coin = 1,0 (hausse
+    répercutée en entier) × 1,0 (part ménages) × Δrecettes, prix + Δrecettes / C.
+    v0.6.7 : τ implicite 0,22 (−0,2 %/pt fixe) ; v0.6.8 avant revue : la part
+    0,56 (TVA TOTALE) réduisait deux fois une recette déjà « ménages »."""
     sim, impacts = _run({'tva_rate': {'taux': 0.21}})
     an = sim._rdb_trace[AN1]
     assert an.rdb_base == pytest.approx(statu_quo[AN1].rdb_base, rel=1e-12)
     delta_rec = impacts[AN1]['tva_rate']['recettes']
+    assert delta_rec > 5.0
+    assert an.coin_indirect == pytest.approx(1.0 * 1.0 * delta_rec, rel=1e-12)
     hausse_prix = an.prix / statu_quo[AN1].prix - 1
-    tau = hausse_prix * _conso(an) / (PART_MENAGES_FISCALITE_INDIRECTE * delta_rec)
-    assert 0.6 <= tau <= 1.0 + 1e-9, f"répercussion implicite τ = {tau:.2f}"
-    assert tau == pytest.approx(REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE, rel=1e-9)
+    assert hausse_prix == pytest.approx(delta_rec / _conso(an), rel=1e-9)
     assert _ecart_an1(sim._rdb_trace, statu_quo) == pytest.approx(1 / (1 + hausse_prix) - 1)
+
+
+@pytest.mark.parametrize('mesures, mesure, part, tau', [
+    # TVA énergie : base = TOUTE la consommation d'électricité et de gaz (120
+    # Md€, entreprises comprises) → part de la TVA nette sur la consommation
+    # des ménages, DG Trésor 2022 via Sénat n° 942 : 0,651 × 0,86 ; baisse.
+    ({'tva_energie': {'taux': 0.055}}, 'tva_energie', 0.651 * 0.86, 0.5),
+    # Taxe carbone : recette TOTALE → part payée par les ménages, 5,3 Md€ sur
+    # 8,2 Md€ de composante carbone en 2019 (CGE, « Les outils de régulation
+    # économique du carbone », § 5.6) ; hausse.
+    ({'transition_ecologique': {'taxe_carbone': 100.0}}, 'transition_ecologique',
+     5.3 / 8.2, 1.0),
+])
+def test_fiscalite_indirecte_part_menages_par_handler(statu_quo, mesures, mesure, part, tau):
+    """Revue passe 1, M2 : la part ménages dépend de la BASE de chaque handler,
+    posée ici à la main depuis la source : coin = τ × part × recette du levier."""
+    sim, impacts = _run(mesures)
+    i = impacts[AN1][mesure]
+    recette = i['recettes']   # 2026, sans investissement : la recette fiscale seule
+    assert abs(recette) > 1.0
+    assert sim._rdb_trace[AN1].coin_indirect == pytest.approx(tau * part * recette, rel=1e-9)
 
 
 @pytest.mark.parametrize('nom', ['impots_production', 'impot_revenu',
@@ -185,17 +208,13 @@ def test_point_d_indice_compte_une_fois_a_sa_part_nette(statu_quo):
 
 def test_tva_hausse_et_baisse_asymetriques(statu_quo):
     """Arbitrage 3 : une baisse de TVA est répercutée moitié moins qu'une
-    hausse (τ− / τ+ = 0,5), à euros égaux."""
+    hausse (τ− / τ+ = 0,5, Benzarti et al. 2020), à euros égaux."""
     taus = {}
     for taux in (0.21, 0.19):
         sim, impacts = _run({'tva_rate': {'taux': taux}})
-        delta = impacts[AN1]['tva_rate']['recettes']
-        an = sim._rdb_trace[AN1]
-        taus[taux] = (an.prix / statu_quo[AN1].prix - 1) * _conso(an) / (
-            PART_MENAGES_FISCALITE_INDIRECTE * delta)
-    assert taus[0.19] / taus[0.21] == pytest.approx(
-        REPERCUSSION_BAISSE_FISCALITE_INDIRECTE / REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE,
-        rel=1e-9)
+        taus[taux] = sim._rdb_trace[AN1].coin_indirect / impacts[AN1]['tva_rate']['recettes']
+    assert taus[0.21] == pytest.approx(1.0, rel=1e-12)
+    assert taus[0.19] == pytest.approx(0.5, rel=1e-12)
 
 
 def test_prelevement_direct_symetrique(statu_quo):

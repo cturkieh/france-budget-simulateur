@@ -47,7 +47,9 @@ ImpactsDict = Dict[str, float]
 # engine/rdb.py). Montants en Md€ courants de l'année, écart au statu quo :
 # - ``prelevements_directs`` : impôts et cotisations payés par les ménages
 #   (IR, CSG, cotisations salariales, patrimoine) — > 0 = hausse ;
-# - ``prelevements_indirects`` : TVA et accises (> 0 = hausse), via les prix ;
+# - ``prelevements_indirects`` : TVA et accises (> 0 = hausse), via les prix —
+#   la seule part qui pèse sur la CONSOMMATION des ménages, appliquée par le
+#   handler selon sa base (constants.py § part de la fiscalité indirecte) ;
 # - ``prestations`` : prestations versées aux ménages (> 0 = hausse) ;
 # - ``remunerations_publiques`` : COÛT employeur des hausses de rémunération
 #   des agents en place (point d'indice, revalorisations) ; le moteur n'en

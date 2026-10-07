@@ -54,7 +54,11 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import ETI_TRANCHE_SUPERIEURE, POLICY_START_YEAR
+from ..constants import (
+    ETI_TRANCHE_SUPERIEURE,
+    PART_CONSOMMATION_MENAGES_TVA_TOTALE,
+    POLICY_START_YEAR,
+)
 from .._logging import _log_debug
 from ._phasing import _one_time_level, _year_phasing
 from ._types import ImpactsDict, canaux_menages
@@ -105,6 +109,8 @@ class FiscaliteMenagesMixin(_MixinBase):
             'recettes': delta_revenue,
             'gini': gini,
             'competitivite': competitivite,
+            # Base = consommation des ménages : toute la recette pèse sur
+            # elle (part 1,0, constants.py § part de la fiscalité indirecte).
             'menages': canaux_menages(prelevements_indirects=delta_revenue),
         }
         return 0, delta_revenue, impacts
@@ -162,7 +168,10 @@ class FiscaliteMenagesMixin(_MixinBase):
             'recettes': delta_revenue,
             'gini': impact_gini,
             'competitivite': impact_competitivite,
-            'menages': canaux_menages(prelevements_indirects=delta_revenue),
+            # Base = toute la consommation d'énergie (entreprises comprises) :
+            # seule la part de la TVA nette sur la consommation des ménages.
+            'menages': canaux_menages(prelevements_indirects=(
+                PART_CONSOMMATION_MENAGES_TVA_TOTALE * delta_revenue)),
         }
 
         _log_debug(self.debug_logs,

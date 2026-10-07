@@ -860,17 +860,34 @@ PART_NETTE_REMUNERATIONS_APU = (REMUNERATIONS_APU_BRUT_2025_MD_EUR
 # cotisations salariales de 22 % retenu par le moteur, handler
 # cotisations_salariales, « URSSAF 2024 ») — NON sourcée en ligne ici.
 PART_NETTE_DU_BRUT_SALAIRES_PRIVES = 0.78
-# Part des recettes de TVA qui pèse sur la CONSOMMATION des ménages : 65,1 % des
-# recettes de TVA nette 2022 proviennent des ménages, « dont 86 % provenaient de
-# leur consommation et 14 % de leurs investissements » (DG Trésor, « Analyse de
-# la composition des recettes de TVA », citée par le Sénat, rapport n° 942
-# (2024-2025) ; vie-publique.fr : 14,1 % APU, 19,4 % entreprises). Seule la part
-# consommation entre dans le prix de la consommation : 0,651 × 0,86 = 0,560.
-# Appliquée à toute la fiscalité indirecte (TVA, TVA énergie, taxe carbone) :
-# approximation pour les accises énergétiques, faute de répartition dédiée.
+# PART DE LA FISCALITÉ INDIRECTE QUI PÈSE SUR LA CONSOMMATION DES MÉNAGES — elle
+# dépend de la BASE de chaque handler (revue passe 1 v0.6.8, M2), et c'est le
+# handler qui l'applique en émettant le canal ``prelevements_indirects`` :
+#  - TVA taux normal (``_apply_tva_rate``) : base = consommation des ménages
+#    (0,53 × PIB ≈ (1 − 17,9 %) × RDB) → part 1,0, aucune constante (la part
+#    TVA totale ci-dessous réduirait deux fois une recette déjà « ménages ») ;
+#  - TVA énergie (``_apply_tva_energie``) : base = TOUTE la consommation
+#    d'électricité et de gaz (120 Md€, entreprises comprises) → part de la TVA
+#    nette qui pèse sur la consommation des ménages : 65,1 % des recettes de
+#    TVA nette 2022 proviennent des ménages, « dont 86 % provenaient de leur
+#    consommation et 14 % de leurs investissements » (DG Trésor, « Analyse de
+#    la composition des recettes de TVA », citée par le Sénat, rapport n° 942
+#    (2024-2025) ; vie-publique.fr : 14,1 % APU, 19,4 % entreprises) →
+#    0,651 × 0,86 = 0,560. Moyenne TOUS BIENS appliquée à l'énergie faute de
+#    répartition propre sourcée (approximation déclarée) ;
+#  - taxe carbone (``_apply_transition_ecologique``) : recette TOTALE de la
+#    composante carbone → PART_MENAGES_COMPOSANTE_CARBONE ci-dessous.
 PART_MENAGES_TVA_2022 = 0.651
 PART_CONSOMMATION_DANS_TVA_MENAGES = 0.86
-PART_MENAGES_FISCALITE_INDIRECTE = PART_MENAGES_TVA_2022 * PART_CONSOMMATION_DANS_TVA_MENAGES
+PART_CONSOMMATION_MENAGES_TVA_TOTALE = PART_MENAGES_TVA_2022 * PART_CONSOMMATION_DANS_TVA_MENAGES
+# Part de la composante carbone payée par les ménages : 5,3 Md€ sur 8,2 Md€ en
+# 2019 (Conseil général de l'économie, « Les outils de régulation économique du
+# carbone », § 5.6 « Qui paye quoi » : « Les taxes sur les carburants et
+# combustibles représentent près de 36 Md€, dont 8,2 Md€ au titre de la
+# composante carbone. Elles sont payées à 65 % par les ménages » ; « […] 22,3
+# Md€, dont 5,3 Md€ de composante carbone, hors TVA » payables par les
+# ménages). Carburants et chauffage : consommation, pas investissement.
+PART_MENAGES_COMPOSANTE_CARBONE = 5.3 / 8.2
 # Répercussion d'une variation de fiscalité indirecte sur les prix à la
 # consommation, ASYMÉTRIQUE :
 #  - Benzarti, Carloni, Harju & Kosonen (2020), « What Goes Up May Not Come
