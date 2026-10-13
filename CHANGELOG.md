@@ -4,6 +4,42 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## v0.6.9 — conjoncture observée : le mécanisme, sans valeur (non publiée)
+
+**Ce qui change pour le lecteur** : rien. Toutes les sorties sont identiques au bit
+(golden masters inchangés, sans régénération ; empreinte pleine précision des dix
+scénarios publiés et du statu quo identique à la v0.6.8 : sorties non arrondies,
+trace du pouvoir d'achat, état final).
+
+**Ce que la case permet** : représenter un choc DÉJÀ CONSTATÉ par la statistique
+publique, que le moteur ne savait pas dire — sa croissance part toujours du
+potentiel et y revient. Deux tables par année calendaire, identiques pour tous les
+scénarios, vides dans cette version (`budget_simulator/constants.py` § CONJONCTURE
+OBSERVÉE) :
+
+- `CHOCS_DEMANDE_OBSERVES` : points de croissance ajoutés à l'année par
+  l'orchestrateur, après `calculate_growth` et avant tous ses lecteurs (PIB, Okun,
+  recettes, écart de production, hystérèse du potentiel). Choc de demande : la
+  Phillips le lit l'année suivante, le rappel vers le potentiel le referme ensuite ;
+  ni impulsion budgétaire, ni choc d'offre ; hors du filet [−3,5 % ; +2,5 %] de la
+  croissance modélisée (une donnée constatée n'est pas écrêtée).
+- `COIN_PRIX_CONSOMMATION` : prix de la consommation − prix du PIB, cumulé en niveau
+  (`engine/rdb.py`, nouvel argument `coin_prix_cumule`, neutre par défaut). Seul le
+  prix de l'indice de pouvoir d'achat le voit ; déflateur, recettes, dépenses
+  indexées, dette, Gini et compétitivité, non.
+- **Garde** (zéro échec silencieux) : année hors des années simulées (2026-2035),
+  clé non entière, valeur non numérique, non finie ou au-delà de ±0,10 (erreur
+  d'unité : −0,76 écrit pour −0,0076) → `ValueError` à l'import ET à chaque
+  simulation (la table est relue par le module et revalidée).
+- **Preuves** (`tests/test_conjoncture_observee_v069.py`, 110 tests, écrits rouges
+  avant le code) : tables injectées en test, jamais dans `constants.py` ; choc =
+  exactement le choc à son année chez tous les lecteurs de la croissance, rien avant,
+  rien de direct après, pour les dix scénarios ; écart de production, Okun et
+  Phillips de l'année suivante rejoués à la main ; aucune impulsion budgétaire
+  créée ; coin = seule la colonne « Pouvoir d'Achat » bouge, de 1 / Π(1 + coin) ;
+  `calculate_growth` et `calculate_unemployment` inchangées ; un seul point
+  d'application (l'orchestrateur).
+
 ## v0.6.8 — indice de pouvoir d'achat « RDB-moteur » (non publiée)
 
 **Ce qui change pour le lecteur** : l'indice de pouvoir d'achat suit désormais la
