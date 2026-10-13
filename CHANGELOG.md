@@ -15,7 +15,7 @@ trace du pouvoir d'achat, état final).
 publique, que le moteur ne savait pas dire — sa croissance part toujours du
 potentiel et y revient. Deux tables par année calendaire, identiques pour tous les
 scénarios, vides dans cette version (`budget_simulator/constants.py` § CONJONCTURE
-OBSERVÉE) :
+OBSERVÉE ; liste unique des noms : `ConjonctureObservee`) :
 
 - `CHOCS_DEMANDE_OBSERVES` : points de croissance ajoutés à l'année par
   l'orchestrateur, après `calculate_growth` et avant tous ses lecteurs (PIB, Okun,
@@ -24,21 +24,35 @@ OBSERVÉE) :
   ni impulsion budgétaire, ni choc d'offre ; hors du filet [−3,5 % ; +2,5 %] de la
   croissance modélisée (une donnée constatée n'est pas écrêtée).
 - `COIN_PRIX_CONSOMMATION` : prix de la consommation − prix du PIB, cumulé en niveau
-  (`engine/rdb.py`, nouvel argument `coin_prix_cumule`, neutre par défaut). Seul le
-  prix de l'indice de pouvoir d'achat le voit ; déflateur, recettes, dépenses
-  indexées, dette, Gini et compétitivité, non.
+  (`engine/rdb.py`, nouvel argument `facteur_prix_conjoncture`, neutre par défaut ;
+  champ de trace du même nom). Seul le prix de l'indice de pouvoir d'achat le voit :
+  la colonne « Pouvoir d'Achat » et la colonne détaillée `Prix_Consommation`, que
+  l'API sert dans `details` ; déflateur, recettes, dépenses indexées, dette, Gini et
+  compétitivité, non.
 - **Garde** (zéro échec silencieux) : année hors des années simulées (2026-2035),
-  clé non entière, valeur non numérique, non finie ou au-delà de ±0,10 (erreur
-  d'unité : −0,76 écrit pour −0,0076) → `ValueError` à l'import ET à chaque
-  simulation (la table est relue par le module et revalidée).
-- **Preuves** (`tests/test_conjoncture_observee_v069.py`, 110 tests, écrits rouges
-  avant le code) : tables injectées en test, jamais dans `constants.py` ; choc =
-  exactement le choc à son année chez tous les lecteurs de la croissance, rien avant,
-  rien de direct après, pour les dix scénarios ; écart de production, Okun et
-  Phillips de l'année suivante rejoués à la main ; aucune impulsion budgétaire
-  créée ; coin = seule la colonne « Pouvoir d'Achat » bouge, de 1 / Π(1 + coin) ;
-  `calculate_growth` et `calculate_unemployment` inchangées ; un seul point
-  d'application (l'orchestrateur).
+  clé non entière, valeur non numérique, non finie ou au-delà de ±0,03 →
+  `ValueError` à l'import. ±0,03 est le domaine du MÉCANISME : le choc n'est jamais
+  écrêté, mais au-delà les filets du modèle qui le reçoit mordent en silence (mesuré :
+  136 cas sur 220 à ±0,10 ; à ±0,03, 7 cas, tous sur le rebond de croissance de
+  l'année suivante, aucun sur une borne de sortie) ; un choc de l'ampleur de 2020
+  n'est donc pas encodable tel quel. À chaque simulation, les tables sont relues dans
+  le module, revalidées et figées ; une table devenue invalide après l'import lève
+  `RuntimeError` (défaut du serveur : l'API répond 500 et journalise une ERROR, pas
+  un 422 « paramètres invalides »).
+- **Preuves** (`tests/test_conjoncture_observee_v069.py`, écrits rouges avant le
+  code) : 141 tests sur douze cas (dix scénarios publiés, statu quo, programme
+  mixte) quand le `scenarios.json` du dépôt parent est présent ; la CI du dépôt
+  public seul en exécute 61, sur deux cas (statu quo, programme mixte). Tables
+  injectées en test, jamais dans `constants.py` ; tests des tables livrées écrits
+  pour valoir vides ou remplies (un seul test daté, à retirer en v0.6.10). Choc =
+  exactement le choc à son année chez tous les lecteurs de la croissance, dans le
+  niveau du PIB, sans écrêtage, rien avant, rien de direct après ; écart de
+  production, Okun et Phillips de l'année suivante rejoués à la main ; aucune
+  impulsion budgétaire créée ; aucun filet supplémentaire sous les tables livrées ;
+  coin = seule la colonne « Pouvoir d'Achat » bouge, de 1 / Π(1 + coin) ; tables
+  figées pendant une simulation ; contrat HTTP 500 + ERROR ; `calculate_growth` et
+  `calculate_unemployment` inchangées ; un seul point d'application
+  (l'orchestrateur). Dix mutations ciblées du mécanisme sont toutes détectées.
 
 ## v0.6.8 — indice de pouvoir d'achat « RDB-moteur » (non publiée)
 
