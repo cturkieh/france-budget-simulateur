@@ -672,22 +672,37 @@ POLICY_START_YEAR = 2026
 CHOCS_DEMANDE_OBSERVES: dict[int, float] = {}
 COIN_PRIX_CONSOMMATION: dict[int, float] = {}
 # Horizon des clés : années SIMULÉES servies par l'API (2025 est l'année de
-# base, un réalisé ; api.py, PERIODS_MAX = 10). Couplage vérifié en CI
+# base, un réalisé). Littéral : la limite de l'API (PERIODS_MAX = 10) vit dans
+# api.py, qui importe ce module — il n'existe pas de constante d'horizon du
+# moteur dont le dériver. Couplage aux deux sources vérifié en CI
 # (tests/test_conjoncture_observee_v069.py).
 CONJONCTURE_PREMIERE_ANNEE = POLICY_START_YEAR
 CONJONCTURE_DERNIERE_ANNEE = 2035
-# Garde d'UNITÉ, pas une calibration : au-delà de 10 points (le choc de 2020
-# reste en deçà), la valeur est presque sûrement écrite en points au lieu d'une
-# fraction (−0,76 pour −0,0076), soit un effet multiplié par 100.
-CONJONCTURE_AMPLITUDE_MAX = 0.10
+# Domaine du MÉCANISME, pas une calibration : |valeur| ≤ 0,03 (3 points de
+# croissance par an, 3 points de prix). Le choc observé n'est jamais écrêté,
+# mais le modèle qui le reçoit a des filets qui, eux, mordent en silence
+# (valid reste vrai) : mesuré le 14/10/2026 sur les dix scénarios publiés et le
+# statu quo, un choc d'une seule année, ±A, chaque année 2026-2035 (220 cas),
+# et un coin ±A chaque année : à ±0,10, le filet de croissance [−3,5 % ; +2,5 %]
+# (rebond tronqué alors que le choc ne l'est pas), les filets du chômage
+# (plancher et plafond) et le plancher d'inflation écrêtent dans 136 cas, et un
+# coin de ±0,10 par an porte l'indice de pouvoir d'achat 2035 vers 41 ou 306 ;
+# à ±0,03, aucune borne de sortie ne mord, seul le filet de
+# croissance, sur le rebond de l'année suivante d'un choc NÉGATIF, pour des
+# programmes déjà proches du plafond de +2,5 % (7 cas ; 1 à −0,01 ; aucun à
+# ±0,0076). Une valeur livrée est donc vérifiée par test (aucun filet
+# supplémentaire sous les tables livrées). Conséquence assumée : un choc de
+# l'ampleur de 2020 n'est PAS encodable tel quel dans cette case. La garde
+# attrape aussi l'erreur d'unité (−0,76 écrit pour −0,0076 : effet × 100).
+CONJONCTURE_AMPLITUDE_MAX = 0.03
 
 
 def valider_table_conjoncture(nom: str, table: object) -> None:
     """Lève ``ValueError`` si ``table`` n'est pas un dict {année simulée : nombre
-    fini d'amplitude plausible}. Appelée à l'import (ci-dessous) et à chaque
-    simulation (un dict reste mutable) : zéro échec silencieux, une table
-    fautive ne s'applique jamais en partie. ``raise`` et non ``assert`` :
-    ``python -O`` strip les asserts."""
+    fini dans le domaine du mécanisme}. Appelée à l'import (ci-dessous) et par
+    ``conjoncture_observee`` à chaque simulation (un dict reste mutable) : zéro
+    échec silencieux, une table fautive ne s'applique jamais en partie.
+    ``raise`` et non ``assert`` : ``python -O`` strip les asserts."""
     if type(table) is not dict:
         raise ValueError(f"{nom} : dict {{année: valeur}} attendu, reçu {type(table).__name__}")
     for annee, valeur in table.items():
@@ -703,12 +718,46 @@ def valider_table_conjoncture(nom: str, table: object) -> None:
             raise ValueError(f"{nom}[{annee}] = {valeur!r} : valeur non finie")
         if abs(valeur) > CONJONCTURE_AMPLITUDE_MAX:
             raise ValueError(
-                f"{nom}[{annee}] = {valeur!r} : au-delà de ±{CONJONCTURE_AMPLITUDE_MAX} — "
-                f"erreur d'unité probable (fraction attendue : −0,0076 pour −0,76 pt)")
+                f"{nom}[{annee}] = {valeur!r} : hors du domaine du mécanisme "
+                f"(±{CONJONCTURE_AMPLITUDE_MAX} : au-delà, les filets du modèle écrêtent "
+                f"en silence ; erreur d'unité ? fraction attendue, −0,0076 pour −0,76 pt)")
 
 
-valider_table_conjoncture('CHOCS_DEMANDE_OBSERVES', CHOCS_DEMANDE_OBSERVES)
-valider_table_conjoncture('COIN_PRIX_CONSOMMATION', COIN_PRIX_CONSOMMATION)
+class ConjonctureObservee(NamedTuple):
+    """Tables qu'applique UNE simulation (copies validées). Les champs portent
+    les noms des tables de ce module : c'est la SEULE liste de ces noms (garde
+    d'import, accesseur, messages, tests) — l'orchestrateur y accède par
+    attribut, une faute de frappe lève au lieu d'ignorer la table."""
+    CHOCS_DEMANDE_OBSERVES: dict[int, float]
+    COIN_PRIX_CONSOMMATION: dict[int, float]
+
+
+def conjoncture_observee() -> ConjonctureObservee:
+    """Tables que la simulation applique : relues dans CE module à l'appel (une
+    table remplacée en test ou par un recalage est bien celle appliquée, jamais
+    une liaison périmée ignorée), revalidées (un dict reste mutable après la
+    garde d'import), copiées et normalisées en {int: float} (une simulation
+    applique une table figée).
+
+    Une table devenue invalide APRÈS l'import est un défaut du serveur, pas une
+    entrée de l'appelant : ``RuntimeError`` — l'API répond 500 et journalise une
+    ERROR (remontée Sentry) —, jamais ``ValueError``, qu'elle traduit en 422
+    « paramètres invalides » avec un simple WARNING."""
+    copies = {}
+    for nom in ConjonctureObservee._fields:
+        table = globals()[nom]
+        try:
+            valider_table_conjoncture(nom, table)
+        except ValueError as e:
+            raise RuntimeError(f"Table de conjoncture invalide après l'import (défaut "
+                               f"du serveur, pas de l'appelant) : {e}") from e
+        copies[nom] = {int(annee): float(valeur) for annee, valeur in table.items()}
+    return ConjonctureObservee(**copies)
+
+
+for _nom in ConjonctureObservee._fields:
+    valider_table_conjoncture(_nom, globals()[_nom])
+del _nom
 
 # === FLAGS INTERNES (sentinelles dans dict d'impact) ===
 # Marque les mesures dont le handler a raise — détecté par golden master / tests stricts

@@ -11,13 +11,20 @@ Deux tables par année calendaire, vides en v0.6.9 (``constants.py``) :
 
 Les tables de test sont INJECTÉES (monkeypatch du module ``constants``), jamais
 écrites dans ``constants.py``. Toute comparaison « avec / sans » injecte les DEUX
-tables explicitement, pour rester valide quand les tables livrées seront remplies
-(v0.6.10). Plan : ``docs/plans/v069-recalage-macro-2026.md`` du dépôt parent,
-§ 4.1 (mécanisme) et § 7.1 (preuves).
+tables explicitement, et les tests sur les tables LIVRÉES sont écrits sous une
+forme vraie tables vides ou remplies : le fichier reste valide quand v0.6.10 les
+remplira (seul ``test_v069_tables_livrees_vides__a_retirer_en_v0610`` est daté).
+Plan : ``docs/plans/v069-recalage-macro-2026.md`` du dépôt parent, § 4.1
+(mécanisme) et § 7.1 (preuves).
+
+Sans le ``scenarios.json`` du dépôt parent (CI du dépôt public seul), les tests
+paramétrés tournent sur deux cas (statu quo, programme mixte) au lieu de douze.
 """
 import ast
 import functools
+import importlib.util
 import inspect
+import logging
 import re
 import sys
 import types
@@ -37,6 +44,7 @@ sys.path.insert(0, str(SNAPSHOTS_DIR))
 from run_scenarios_full import SCENARIOS  # noqa: E402  (10 scénarios publiés si présents)
 
 PA = "Pouvoir d'Achat"
+TABLES = C.ConjonctureObservee._fields   # source unique des noms de tables
 CHOC = -0.0076                     # ordre de grandeur du plan (§ 4.2), valeur de TEST
 COINS = ((2026, 0.005), (2028, 0.003))  # deux années : le cumul en niveau est testé
 # Toujours disponibles, même sans le scenarios.json du dépôt parent (fork moteur
@@ -102,16 +110,17 @@ def _simuler(nom, chocs=None, coins=None):
 
     ``chocs`` / ``coins`` : tuple de paires (année, valeur) INJECTÉ à la place de
     la table livrée ; ``None`` = table livrée telle quelle. Rend aussi le facteur
-    de coin effectivement reçu par ``rdb_annee`` pour chaque année.
+    de prix effectivement reçu par ``rdb_annee`` pour chaque année.
     LECTURE SEULE : le résultat est partagé entre tests."""
-    coins_recus = {}
+    facteurs_recus = {}
     vrai = orch.rdb_annee
     signature = inspect.signature(vrai)
 
     def espion_rdb(*args, **kwargs):
         lie = signature.bind(*args, **kwargs)
         lie.apply_defaults()
-        coins_recus[lie.arguments['annees']] = lie.arguments.get('coin_prix_cumule', ABSENT)
+        facteurs_recus[lie.arguments['annees']] = lie.arguments.get(
+            'facteur_prix_conjoncture', ABSENT)
         return vrai(*args, **kwargs)
 
     with pytest.MonkeyPatch.context() as mp:
@@ -123,7 +132,7 @@ def _simuler(nom, chocs=None, coins=None):
             mp.setattr(C, 'COIN_PRIX_CONSOMMATION', dict(coins), raising=False)
         sim = _Espion(periods=10, mesures=CAS[nom])
         df, det, rapport = sim.simulate()
-    return sim, df.set_index('Année'), det.set_index('Année'), rapport, coins_recus
+    return sim, df.set_index('Année'), det.set_index('Année'), rapport, facteurs_recus
 
 
 def _sans(nom):
@@ -150,12 +159,12 @@ def _lignes(df, annees):
 # 1. Les tables : source unique, vides en v0.6.9, garde d'import
 # ---------------------------------------------------------------------------
 
-def test_tables_livrees_vides_en_v069():
-    """v0.6.9 livre la CASE, pas les valeurs (v0.6.10, GO séparé). Ce test sera
-    réécrit par la release qui remplit les tables, avec sa source."""
-    assert C.CHOCS_DEMANDE_OBSERVES == {}
-    assert C.COIN_PRIX_CONSOMMATION == {}
-    assert type(C.CHOCS_DEMANDE_OBSERVES) is dict and type(C.COIN_PRIX_CONSOMMATION) is dict
+def test_v069_tables_livrees_vides__a_retirer_en_v0610():
+    """DATÉ — à RETIRER par la release qui remplit les tables (v0.6.10, GO
+    séparé) : v0.6.9 livre la case, pas les valeurs. C'est le seul test du fichier
+    qui exige des tables vides ; tous les autres valent tables vides ou remplies."""
+    for nom in TABLES:
+        assert getattr(C, nom) == {}, nom
 
 
 def test_horizon_des_tables_egal_a_l_horizon_simule_et_servi():
@@ -183,9 +192,11 @@ def test_horizon_des_tables_egal_a_l_horizon_simule_et_servi():
     ({2026: None}, 'nombre'),
     ({2026: True}, 'nombre'),
     ({2026: -0.76}, 'unité'),                # « −0,76 point » écrit en fraction : ×100
+    ({2026: 0.031}, 'domaine'),              # au-delà de ±0,03 : les filets mordent
+    ({2026: -0.031}, 'domaine'),
     ([(2026, -0.01)], 'dict'),
 ])
-@pytest.mark.parametrize('nom', ['CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'])
+@pytest.mark.parametrize('nom', TABLES)
 def test_garde_refuse_une_table_invalide(nom, table, motif):
     with pytest.raises(ValueError, match=motif) as erreur:
         C.valider_table_conjoncture(nom, table)
@@ -195,10 +206,11 @@ def test_garde_refuse_une_table_invalide(nom, table, motif):
 def test_garde_accepte_une_table_valide():
     assert C.valider_table_conjoncture('CHOCS_DEMANDE_OBSERVES', {}) is None
     assert C.valider_table_conjoncture(
-        'CHOCS_DEMANDE_OBSERVES', {2026: -0.0076, 2035: 0.0, 2030: 0.1, 2031: -0.1}) is None
+        'CHOCS_DEMANDE_OBSERVES', {2026: -0.0076, 2035: 0.0, 2030: 0.03, 2031: -0.03}) is None
+    assert C.CONJONCTURE_AMPLITUDE_MAX == 0.03
 
 
-@pytest.mark.parametrize('nom', ['CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'])
+@pytest.mark.parametrize('nom', TABLES)
 def test_garde_s_applique_a_l_import(nom):
     """La table DÉCLARÉE dans constants.py est validée à l'import : on rejoue le
     module avec une table fautive à la place de la sienne."""
@@ -212,30 +224,99 @@ def test_garde_s_applique_a_l_import(nom):
         exec(compile(fautive, C.__file__, 'exec'), module.__dict__)
 
 
-@pytest.mark.parametrize('nom', ['CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'])
+@pytest.mark.parametrize('nom', TABLES)
 def test_garde_s_applique_a_chaque_simulation(monkeypatch, nom):
     """Un dict reste mutable après la garde d'import : la simulation revalide la
-    table qu'elle applique (zéro échec silencieux, NaN compris)."""
+    table qu'elle applique (zéro échec silencieux, NaN compris). Une table devenue
+    invalide après l'import est un défaut du SERVEUR : RuntimeError, jamais
+    ValueError (que l'API traduit en 422 « paramètres invalides » + WARNING)."""
     monkeypatch.setattr(C, nom, {2026: float('nan')}, raising=False)
-    with pytest.raises(ValueError, match=nom):
+    with pytest.raises(RuntimeError, match=nom) as erreur:
         BudgetSimulatorV45(periods=10, mesures={}).simulate()
+    assert not isinstance(erreur.value, ValueError)
+    assert isinstance(erreur.value.__cause__, ValueError)
+
+
+class _Journal(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.lignes = []
+
+    def emit(self, record):
+        self.lignes.append((record.levelno, record.getMessage()))
+
+
+def test_table_invalide_apres_import_api_500_et_error(monkeypatch):
+    """Contrat HTTP (reproduction du réfuteur v0.6.9) : 500 et une ERROR
+    journalisée (remontée Sentry), pas un 422 « paramètres invalides » + WARNING
+    qui ferait passer un bug serveur pour une faute du visiteur. api.py est
+    chargé par chemin (depuis le dépôt parent, ``import api`` désigne l'API de
+    prod) ; il appelle logging.basicConfig(force=True), d'où l'écoute directe de
+    son logger."""
+    from fastapi.testclient import TestClient
+    spec = importlib.util.spec_from_file_location(
+        'api_conjoncture_v069', Path(__file__).resolve().parent.parent / 'api.py')
+    api = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(api)
+    journal = _Journal()
+    api.logger.addHandler(journal)
+    client = TestClient(api.app, raise_server_exceptions=False)
+    monkeypatch.setattr(C, 'CHOCS_DEMANDE_OBSERVES', {2026: float('nan')}, raising=False)
+    r = client.post('/simulate', json={'mesures': {}, 'periods': 10})
+    assert r.status_code == 500, r.text
+    assert any(niveau >= logging.ERROR and 'CHOCS_DEMANDE_OBSERVES' in message
+               for niveau, message in journal.lignes), journal.lignes
+    monkeypatch.setattr(C, 'CHOCS_DEMANDE_OBSERVES', {}, raising=False)
+    assert client.post('/simulate', json={'mesures': {}, 'periods': 10}).status_code == 200
 
 
 # ---------------------------------------------------------------------------
-# 2. Tables vides : aucun effet (la preuve chiffrée est le golden master)
+# 2. Tables LIVRÉES : appliquées telles quelles (vraies vides ou remplies ; à
+#    tables vides, le mécanisme est un no-op — preuve chiffrée : golden master)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize('nom', NOMS)
-def test_tables_livrees_vides_aucun_effet(nom):
-    """Tables livrées : chaque consommateur lit, au bit près, la croissance que
-    produit calculate_growth, et le prix de la consommation reçoit un facteur de
-    coin égal à 1 exactement — le mécanisme est un no-op."""
-    sim, *_, coins_recus = _simuler(nom)
-    for an, t in sim.espion.items():
+def test_tables_livrees_appliquees_telles_quelles(nom):
+    """Chaque lecteur de la croissance reçoit, au bit près, g_brut + le choc
+    livré de son année (g_brut seul si l'année est absente), et le prix de la
+    consommation reçoit Π (1 + coin livré) jusqu'à l'année (1 exactement sans coin)."""
+    sim, *_, facteurs_recus = _simuler(nom)
+    chocs, coins = C.CHOCS_DEMANDE_OBSERVES, C.COIN_PRIX_CONSOMMATION
+    for idx, t in sim.espion.items():
+        an = 2025 + idx
+        attendu = t['g_brut'] + chocs[an] if an in chocs else t['g_brut']
         for cle in CONSOMMATEURS:
-            assert t[cle] == t['g_brut'], (nom, an, cle)
-    assert set(coins_recus) == set(range(0, 11))
-    assert all(f == 1.0 and type(f) is float for f in coins_recus.values()), coins_recus
+            assert t[cle] == attendu, (nom, an, cle)
+    assert set(facteurs_recus) == set(range(0, 11))
+    facteur = 1.0
+    for idx in range(0, 11):
+        if 2025 + idx in coins:
+            facteur *= 1 + coins[2025 + idx]
+        assert facteurs_recus[idx] == facteur and type(facteurs_recus[idx]) is float, idx
+
+
+def _filets(sim):
+    """Écrêtages des filets du modèle, année par année : croissance
+    [−3,5 % ; +2,5 %], inflation [−0,3 % ; 3 %], chômage [CHOMAGE_CLIP_*]."""
+    touches = set()
+    for idx, t in sim.espion.items():
+        if t['g_brut'] in (-0.035, 0.025):
+            touches.add(('croissance', idx))
+        if t['inflation'] in (-0.003, 0.030):
+            touches.add(('inflation', idx))
+        if t['u'] in (C.CHOMAGE_CLIP_MIN, C.CHOMAGE_CLIP_MAX):
+            touches.add(('chomage', idx))
+    return touches
+
+
+@pytest.mark.parametrize('nom', NOMS)
+def test_aucun_filet_supplementaire_sous_les_tables_livrees(nom):
+    """Le choc observé n'est jamais écrêté, mais les filets du modèle qui le
+    reçoit mordent en silence (valid reste vrai) : une valeur livrée ne doit faire
+    mordre AUCUN filet de plus qu'à tables vides, dans aucun scénario (constants.py
+    § CONJONCTURE OBSERVÉE : à −0,01 en 2026, le rebond 2027 d'un programme est
+    déjà écrêté). Trivial à tables vides ; garde réelle dès qu'elles sont remplies."""
+    assert _filets(_simuler(nom)[0]) <= _filets(_sans(nom)[0])
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +345,34 @@ def test_choc_ajoute_exactement_a_la_croissance_de_son_annee(nom, annee):
         if an != t:
             for cle in CONSOMMATEURS:
                 assert e[cle] == e['g_brut'], (an, cle)
+
+
+@pytest.mark.parametrize('nom', NOMS)
+def test_choc_entre_dans_le_niveau_du_pib(nom):
+    """PIB nominal de l'année du choc : même déflateur (la Phillips de t ne le voit
+    pas), volume multiplié par (1 + g + choc) / (1 + g). Verrouille que le choc est
+    appliqué AVANT la mise à jour du PIB (proposé par le réfuteur v0.6.9 : la
+    mutation « choc après le PIB nominal » passait tous les autres tests)."""
+    sans, df_s, det_s, *_ = _sans(nom)
+    avec, df_a, det_a, *_ = _avec_choc(nom, 2026)
+    g = sans.espion[1]['g_brut']
+    assert df_a.loc[2025, 'PIB'] == df_s.loc[2025, 'PIB']
+    assert det_a.loc[2026, 'Déflateur'] == det_s.loc[2026, 'Déflateur']
+    assert df_a.loc[2026, 'PIB'] / df_s.loc[2026, 'PIB'] == pytest.approx(
+        (1 + g + CHOC) / (1 + g), rel=1e-14)
+
+
+def test_choc_hors_du_filet_n_est_pas_ecrete():
+    """Un choc qui sort la croissance de [−3,5 % ; +2,5 %] reste appliqué en
+    entier (donnée constatée). Amplitude admise par la garde (≤ 0,03) : un choc
+    positif de +2 points porte le statu quo 2026 au-dessus de +2,5 %."""
+    choc = 0.02
+    avec, df_a, *_ = _simuler('statu_quo', chocs=((2026, choc),), coins=())
+    t = avec.espion[1]
+    assert t['g_brut'] + choc > 0.025                 # garde : le filet mordrait
+    for cle in CONSOMMATEURS:
+        assert t[cle] == t['g_brut'] + choc, cle
+    assert df_a.loc[2026, 'Croissance %'] == pytest.approx(100 * (t['g_brut'] + choc), abs=1e-12)
 
 
 @pytest.mark.parametrize('nom', NOMS)
@@ -372,6 +481,32 @@ def test_coin_cumule_ne_persiste_pas_entre_deux_simulations(monkeypatch):
     assert list(sim.simulate()[0][PA]) == list(_sans('statu_quo')[1][PA])
 
 
+def test_tables_figees_pendant_une_simulation(monkeypatch):
+    """Une table modifiée PENDANT une simulation ne s'applique pas à celle-ci
+    (copie au départ) : une simulation lit une seule version des tables."""
+    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
+
+    class _MutePendant(BudgetSimulatorV45):
+        def calculate_growth(self, year, economic_state):
+            if year == 1:
+                C.CHOCS_DEMANDE_OBSERVES[2027] = -0.02
+                C.COIN_PRIX_CONSOMMATION[2027] = 0.02
+            return super().calculate_growth(year, economic_state)
+
+    def tables():
+        monkeypatch.setattr(C, 'CHOCS_DEMANDE_OBSERVES', {2026: CHOC}, raising=False)
+        monkeypatch.setattr(C, 'COIN_PRIX_CONSOMMATION', {2026: 0.005}, raising=False)
+
+    tables()
+    mutee = _MutePendant(periods=10, mesures={}).simulate()[0]
+    assert C.CHOCS_DEMANDE_OBSERVES[2027] == -0.02     # garde : la mutation a eu lieu
+    applique_ensuite = BudgetSimulatorV45(periods=10, mesures={}).simulate()[0]
+    tables()
+    reference = BudgetSimulatorV45(periods=10, mesures={}).simulate()[0]
+    assert mutee.equals(reference)
+    assert not applique_ensuite.equals(reference)     # la simulation suivante la voit
+
+
 # ---------------------------------------------------------------------------
 # 5. Fonctions pures intactes, un seul point d'application
 # ---------------------------------------------------------------------------
@@ -382,8 +517,8 @@ def test_rdb_annee_coin_par_defaut_neutre_et_multiplicatif():
                                  'prelevements_indirects': 4.0}}}
     args = (impacts, 3100.0, 2991.0, 1.02, 1.03, 1)
     defaut = rdb_module.rdb_annee(*args)
-    assert rdb_module.rdb_annee(*args, coin_prix_cumule=1.0) == defaut
-    choque = rdb_module.rdb_annee(*args, coin_prix_cumule=1.005)
+    assert rdb_module.rdb_annee(*args, facteur_prix_conjoncture=1.0) == defaut
+    choque = rdb_module.rdb_annee(*args, facteur_prix_conjoncture=1.005)
     assert choque.prix == pytest.approx(defaut.prix * 1.005, rel=1e-15)
     assert choque.indice == pytest.approx(defaut.indice / 1.005, rel=1e-14)
     assert (choque.rdb_base, choque.rdb_prive, choque.effet_mesures, choque.coin_indirect) == (
@@ -397,10 +532,8 @@ def test_fonctions_pures_inchangees():
         'self', 'year', 'economic_state']
     assert list(inspect.signature(UnemploymentMixin.calculate_unemployment).parameters) == [
         'self', 'growth', 'unemployment_prev', 'year', 'impacts']
-    assert inspect.signature(rdb_module.rdb_annee).parameters['coin_prix_cumule'].default == 1.0
-
-
-TABLES = {'CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'}
+    assert inspect.signature(rdb_module.rdb_annee).parameters[
+        'facteur_prix_conjoncture'].default == 1.0
 
 
 def _references_de_code(chemin):
@@ -409,7 +542,8 @@ def _references_de_code(chemin):
     for noeud in ast.walk(ast.parse(chemin.read_text(encoding='utf-8'))):
         if (isinstance(noeud, ast.Name) and noeud.id in TABLES
                 or isinstance(noeud, ast.Attribute) and noeud.attr in TABLES
-                or isinstance(noeud, ast.Constant) and noeud.value in TABLES):
+                or isinstance(noeud, ast.Constant) and isinstance(noeud.value, str)
+                and noeud.value in TABLES):
             yield noeud
 
 

@@ -86,7 +86,6 @@ import numpy as np
 import pandas as pd
 
 from .._logging import _log_debug
-from .. import constants as _constantes
 from ..constants import (
     CHARGES_INTERET_MD_EUR,
     GINI_CONVERGENCE_RATE,
@@ -96,6 +95,7 @@ from ..constants import (
     COMPETITIVITE_VARIATION_ANNUELLE_MAX,
     HANDLER_FAILED_KEY,
     PA_VARIATION_ANNUELLE_MAX,
+    conjoncture_observee,
 )
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
@@ -138,23 +138,6 @@ def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
     return float(np.clip(valeur, -borne, borne)), True
 
 _BUDGET_KEYS = frozenset({'depenses', 'recettes'})
-
-
-def _tables_conjoncture() -> Tuple[Dict[int, float], Dict[int, float]]:
-    """(chocs de demande, coins de prix) OBSERVÉS que la simulation applique
-    (v0.6.9, constants.py § CONJONCTURE OBSERVÉE).
-
-    Lues par le MODULE à chaque simulation, pas importées par nom : une table
-    remplacée (test, recalage) est bien celle qu'applique le moteur, jamais une
-    liaison périmée ignorée en silence. Revalidées ici, parce qu'un dict reste
-    mutable après la garde d'import. Copiées : une simulation applique une
-    table figée."""
-    tables = []
-    for nom in ('CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'):
-        table = getattr(_constantes, nom)
-        _constantes.valider_table_conjoncture(nom, table)
-        tables.append(dict(table))
-    return tables[0], tables[1]
 
 
 class OrchestratorMixin:
@@ -554,11 +537,13 @@ class OrchestratorMixin:
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
             raise ValueError(f"PIB_BASE invalide: {self.base_params['pib_base']}. Doit être > 0.")
-        # Conjoncture OBSERVÉE (v0.6.9) : mêmes tables pour tous les scénarios.
-        chocs_demande, coins_prix = _tables_conjoncture()
+        # Conjoncture OBSERVÉE (v0.6.9) : mêmes tables pour tous les scénarios,
+        # relues, revalidées et figées pour cette simulation (constants.py,
+        # conjoncture_observee : RuntimeError si une table est devenue invalide).
+        conjoncture = conjoncture_observee()
         # K_t = Π_{y ≤ t} (1 + coin_y) : prix de la consommation / prix du PIB,
         # en NIVEAU (engine/rdb.py). 1 en 2025 (année de base hors table).
-        coin_prix_cumule = 1.0
+        facteur_prix_conjoncture = 1.0
 
         results_list = []
         results_detailed = []
@@ -670,7 +655,7 @@ class OrchestratorMixin:
                 # lit pas la croissance de l'année. Hors du filet [−3,5 % ; +2,5 %]
                 # de calculate_growth : c'est une donnée constatée, pas une sortie
                 # du modèle. Absent de la table = aucune opération (bit-identique).
-                choc_demande = chocs_demande.get(year)
+                choc_demande = conjoncture.CHOCS_DEMANDE_OBSERVES.get(year)
                 if choc_demande is not None:
                     growth = growth + choc_demande
                     _log_debug(self.debug_logs,
@@ -951,14 +936,14 @@ class OrchestratorMixin:
             # METHODOLOGIE § Indice de pouvoir d'achat).
             # Coin de prix OBSERVÉ (v0.6.9) : n'entre QUE dans le prix de la
             # consommation de l'indice ; déflateur, flux et dette n'y voient rien.
-            coin_prix = coins_prix.get(year)
+            coin_prix = conjoncture.COIN_PRIX_CONSOMMATION.get(year)
             if coin_prix is not None:
-                coin_prix_cumule *= 1 + coin_prix
+                facteur_prix_conjoncture *= 1 + coin_prix
             rdb = rdb_annee(
                 impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
                 ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx
                  * self.deflateur_cumule),
-                year_idx, coin_prix_cumule=coin_prix_cumule)
+                year_idx, facteur_prix_conjoncture=facteur_prix_conjoncture)
             self._rdb_trace[year] = rdb
             # Même garde de finitude que le Gini : un NaN/inf ressortirait de la
             # borne comme une valeur plausible.
