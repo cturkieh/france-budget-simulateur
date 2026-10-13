@@ -10,7 +10,7 @@ par le prix de leur consommation, rapporté au nombre d'unités de consommation
           + R_pub × M_t                               rémunérations publiques nettes
           + Σ_mesures [prestations − prélèvements directs
                        + n × rémunérations publiques + salaires privés nets]
-    P_t   = D_t × (1 + Σ_mesures τ± × indirects_ménages / C_t)
+    P_t   = D_t × (1 + Σ_mesures τ± × indirects_ménages / C_t) × K_t
     PA_t  = 100 × (RDB_t / RDB_2025) / P_t / (1 + γ_UC)^(t − 2025)
 
 - ``PIB_t`` (nominal) porte la croissance RÉELLE et le déflateur du moteur :
@@ -35,6 +35,11 @@ par le prix de leur consommation, rapporté au nombre d'unités de consommation
   canal ``prelevements_indirects`` est DÉJÀ la part qui pèse sur la
   consommation des ménages : elle dépend de la base de chaque handler, qui
   l'applique (``constants.py`` § part de la fiscalité indirecte).
+- ``K_t`` = Π_{y ≤ t} (1 + coin_y) (v0.6.9) : écart cumulé entre le prix de la
+  consommation et le prix du PIB constaté par la statistique publique
+  (``constants.COIN_PRIX_CONSOMMATION``, termes de l'échange : prix importés
+  que le déflateur ne contient pas). Identique pour tous les scénarios,
+  calculé par l'orchestrateur ; 1 tant que la table est vide.
 - ``γ_UC`` : croissance des UC (INSEE), identique pour tous les scénarios.
 
 Sources et valeurs : ``constants.py`` § INDICE DE POUVOIR D'ACHAT. Fonctions
@@ -68,6 +73,7 @@ class RdbAnnee:
     coin_indirect: float   # Σ τ × fiscalité indirecte des ménages (Md€)
     prix: float            # prix de la consommation des ménages
     indice: float          # indice brut (avant la borne de variation annuelle)
+    coin_prix_cumule: float = 1.0  # K_t, conjoncture observée (v0.6.9), dans `prix`
 
     @property
     def rdb(self) -> float:
@@ -120,8 +126,12 @@ def indice_pouvoir_achat(rdb: float, prix: float, annees: int) -> float:
 
 
 def rdb_annee(impacts: Mapping[str, object], pib_nominal: float, pib_nominal_2025: float,
-              deflateur: float, indice_masse_publique: float, annees: int) -> RdbAnnee:
-    """Indice de l'année à partir des grandeurs de l'année (aucun état)."""
+              deflateur: float, indice_masse_publique: float, annees: int,
+              coin_prix_cumule: float = 1.0) -> RdbAnnee:
+    """Indice de l'année à partir des grandeurs de l'année (aucun état).
+
+    ``coin_prix_cumule`` = K_t (en-tête du module) : neutre par défaut, et
+    multiplier par 1,0 est exact — sans coin, le prix est inchangé au bit."""
     # RDB sans mesures : part privée au PIB nominal, part publique à sa masse.
     prive = ((RDB_MENAGES_2025_MD_EUR - REMUNERATIONS_PUBLIQUES_NETTES_2025_MD_EUR)
              * pib_nominal / pib_nominal_2025)
@@ -134,7 +144,8 @@ def rdb_annee(impacts: Mapping[str, object], pib_nominal: float, pib_nominal_202
     effet = sum(effet_revenu_md_eur(c) for c in canaux)
     coin = sum(coin_indirect_md_eur(c) for c in canaux)
     consommation = (1 - TAUX_EPARGNE_MENAGES_2025) * base
-    prix = deflateur * (1 + coin / consommation)
+    prix = deflateur * (1 + coin / consommation) * coin_prix_cumule
     return RdbAnnee(rdb_base=base, rdb_prive=prive, effet_mesures=effet,
                     coin_indirect=coin, prix=prix,
-                    indice=indice_pouvoir_achat(base + effet, prix, annees))
+                    indice=indice_pouvoir_achat(base + effet, prix, annees),
+                    coin_prix_cumule=coin_prix_cumule)

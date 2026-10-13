@@ -32,9 +32,10 @@ Le SEUL invariant que ce mixin porte en propre (non documentable côté
 producteur, car imposé par ``simulate`` seul) est le CONTRAT D'ORDRE
 des appels dans la boucle annuelle (refonte « assemblage temporel »
 2026-06) :
-``calculate_growth`` / ``calculate_inflation`` (macro de l'année,
-consomment l'impulsion budgétaire de t−1 : ``_budget_effort_prev`` /
-``_parts_prev`` / ``_last_impacts``) → mise à jour PIB (déflateur
+``calculate_growth`` (+ choc de demande OBSERVÉ de l'année, v0.6.9,
+ajouté avant tout lecteur de la croissance) / ``calculate_inflation``
+(macro de l'année, consomment l'impulsion budgétaire de t−1 :
+``_budget_effort_prev`` / ``_parts_prev`` / ``_last_impacts``) → mise à jour PIB (déflateur
 contemporain) → ``calculate_unemployment`` (Okun sur la croissance de
 l'année) → ``calculate_revenues`` / ``calculate_expenditures`` (flux
 organiques AUX PRIX DE L'ANNÉE) → ``apply_measures`` (deltas mesures ;
@@ -85,6 +86,7 @@ import numpy as np
 import pandas as pd
 
 from .._logging import _log_debug
+from .. import constants as _constantes
 from ..constants import (
     CHARGES_INTERET_MD_EUR,
     GINI_CONVERGENCE_RATE,
@@ -136,6 +138,23 @@ def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
     return float(np.clip(valeur, -borne, borne)), True
 
 _BUDGET_KEYS = frozenset({'depenses', 'recettes'})
+
+
+def _tables_conjoncture() -> Tuple[Dict[int, float], Dict[int, float]]:
+    """(chocs de demande, coins de prix) OBSERVÉS que la simulation applique
+    (v0.6.9, constants.py § CONJONCTURE OBSERVÉE).
+
+    Lues par le MODULE à chaque simulation, pas importées par nom : une table
+    remplacée (test, recalage) est bien celle qu'applique le moteur, jamais une
+    liaison périmée ignorée en silence. Revalidées ici, parce qu'un dict reste
+    mutable après la garde d'import. Copiées : une simulation applique une
+    table figée."""
+    tables = []
+    for nom in ('CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'):
+        table = getattr(_constantes, nom)
+        _constantes.valider_table_conjoncture(nom, table)
+        tables.append(dict(table))
+    return tables[0], tables[1]
 
 
 class OrchestratorMixin:
@@ -535,6 +554,11 @@ class OrchestratorMixin:
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
             raise ValueError(f"PIB_BASE invalide: {self.base_params['pib_base']}. Doit être > 0.")
+        # Conjoncture OBSERVÉE (v0.6.9) : mêmes tables pour tous les scénarios.
+        chocs_demande, coins_prix = _tables_conjoncture()
+        # K_t = Π_{y ≤ t} (1 + coin_y) : prix de la consommation / prix du PIB,
+        # en NIVEAU (engine/rdb.py). 1 en 2025 (année de base hors table).
+        coin_prix_cumule = 1.0
 
         results_list = []
         results_detailed = []
@@ -635,6 +659,22 @@ class OrchestratorMixin:
                     'deficit_ratio': deficit / gdp_nominal  # déficit t−1 / PIB fin t−1
                 }
                 growth = self.calculate_growth(year_idx, economic_state_growth)
+                # Choc de demande OBSERVÉ (v0.6.9, constants.py) : ajouté ICI, après
+                # la croissance modélisée et AVANT tous ses lecteurs — PIB (étape 2),
+                # Okun (3), recettes (4), écart de production et hystérèse du
+                # potentiel (fin d'année). Ni impulsion budgétaire (les impulsions
+                # sont lues dans _last_impacts, budget de t−1), ni choc d'offre (le
+                # potentiel ne le voit que par l'hystérèse, sur la croissance
+                # cyclique) ; la Phillips le lit en t+1 par l'écart de production,
+                # comme tout choc de demande — calculate_inflation, ci-dessous, ne
+                # lit pas la croissance de l'année. Hors du filet [−3,5 % ; +2,5 %]
+                # de calculate_growth : c'est une donnée constatée, pas une sortie
+                # du modèle. Absent de la table = aucune opération (bit-identique).
+                choc_demande = chocs_demande.get(year)
+                if choc_demande is not None:
+                    growth = growth + choc_demande
+                    _log_debug(self.debug_logs,
+                        f"Y{year_idx}: Choc de demande observé {choc_demande*100:+.2f} pt")
                 _log_debug(self.debug_logs, f"Y{year_idx}: Croissance = {growth:.3f}")
 
                 economic_state_inflation = {
@@ -909,11 +949,16 @@ class OrchestratorMixin:
             # Remplace « croissance du PIB + Σ coefficients forfaitaires × 0,5
             # après 2026 » de la v0.6.7 (formule et tableau avant/après :
             # METHODOLOGIE § Indice de pouvoir d'achat).
+            # Coin de prix OBSERVÉ (v0.6.9) : n'entre QUE dans le prix de la
+            # consommation de l'indice ; déflateur, flux et dette n'y voient rien.
+            coin_prix = coins_prix.get(year)
+            if coin_prix is not None:
+                coin_prix_cumule *= 1 + coin_prix
             rdb = rdb_annee(
                 impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
                 ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx
                  * self.deflateur_cumule),
-                year_idx)
+                year_idx, coin_prix_cumule=coin_prix_cumule)
             self._rdb_trace[year] = rdb
             # Même garde de finitude que le Gini : un NaN/inf ressortirait de la
             # borne comme une valeur plausible.

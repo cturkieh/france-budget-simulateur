@@ -400,12 +400,23 @@ def test_fonctions_pures_inchangees():
     assert inspect.signature(rdb_module.rdb_annee).parameters['coin_prix_cumule'].default == 1.0
 
 
+TABLES = {'CHOCS_DEMANDE_OBSERVES', 'COIN_PRIX_CONSOMMATION'}
+
+
+def _references_de_code(chemin):
+    """Références EXÉCUTABLES aux tables (nom, attribut, ou chaîne exacte passée à
+    getattr) — les commentaires et la documentation qui les citent n'en sont pas."""
+    for noeud in ast.walk(ast.parse(chemin.read_text(encoding='utf-8'))):
+        if (isinstance(noeud, ast.Name) and noeud.id in TABLES
+                or isinstance(noeud, ast.Attribute) and noeud.attr in TABLES
+                or isinstance(noeud, ast.Constant) and noeud.value in TABLES):
+            yield noeud
+
+
 def test_un_seul_point_d_application():
     """Anti-double comptage par construction : hors de constants.py, seul
-    l'orchestrateur nomme les tables."""
+    l'orchestrateur lit les tables."""
     paquet = Path(C.__file__).parent
-    lecteurs = sorted(
-        str(p.relative_to(paquet)) for p in paquet.rglob('*.py')
-        if p.name != 'constants.py'
-        and re.search(r'CHOCS_DEMANDE_OBSERVES|COIN_PRIX_CONSOMMATION', p.read_text(encoding='utf-8')))
+    lecteurs = sorted(str(p.relative_to(paquet)) for p in paquet.rglob('*.py')
+                      if p.name != 'constants.py' and any(_references_de_code(p)))
     assert lecteurs == ['engine/orchestrator.py']

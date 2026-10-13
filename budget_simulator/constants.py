@@ -4,6 +4,8 @@ All values documented with sources.
 """
 
 import json
+import math
+import numbers
 from pathlib import Path
 from typing import NamedTuple
 
@@ -639,6 +641,74 @@ ETI_TRANCHE_SUPERIEURE = 0.25
 # `year_start = 2026` dans chaque handler — centralisée ici pour qu'un
 # changement d'horizon (ex. campagne active 2027) ne soit pas un grep-replace.
 POLICY_START_YEAR = 2026
+
+# === CONJONCTURE OBSERVÉE (v0.6.9) — tables par année calendaire, VIDES ===
+# Pourquoi : la croissance de l'année part du potentiel et y revient (rappel
+# OUTPUT_GAP_RAPPEL) ; aucun terme ne représente un choc DÉJÀ CONSTATÉ par la
+# statistique publique (le cas qui motive la case est la croissance 2026 ; écarts
+# et sources : plan cité ci-dessous, § 1 et § 3). Le seul réglage existant capable
+# de faire tomber une année à la croissance observée serait un écart de production
+# absurde. D'où une case explicite, identique pour tous les scénarios, publiée et
+# sourcée année par année.
+# v0.6.9 livre le MÉCANISME seul (sortie bit-identique, golden masters
+# inchangés) ; les valeurs, sourcées INSEE/HCFP, sont une release distincte.
+# Plan : docs/plans/v069-recalage-macro-2026.md du dépôt parent, § 4.
+#
+# CHOCS_DEMANDE_OBSERVES[année] : points de croissance (fraction : −0,0076 =
+# −0,76 pt) AJOUTÉS à la croissance de l'année par l'orchestrateur, après
+# calculate_growth et avant tous ses lecteurs (PIB, Okun, recettes, écart de
+# production, hystérèse du potentiel). Choc de DEMANDE : il ouvre un écart de
+# production que la Phillips lit l'année suivante, comme tout choc de demande ;
+# il n'est ni une impulsion budgétaire (aucun multiplicateur) ni un choc
+# d'offre (le potentiel n'est touché que par l'hystérèse, qui lit la croissance
+# cyclique). Il n'est pas écrêté par le filet [−3,5 % ; +2,5 %] de la croissance
+# modélisée : c'est une donnée observée, pas une sortie du modèle.
+# COIN_PRIX_CONSOMMATION[année] : prix de la consommation des ménages − prix du
+# PIB (fraction), CUMULÉ en niveau (le coin d'une année reste acquis ensuite) :
+# P_t = déflateur × coin fiscal × Π_{y ≤ t}(1 + coin_y). Il ne touche QUE le
+# prix de l'indice de pouvoir d'achat (engine/rdb.py) : termes de l'échange,
+# hausse de prix IMPORTÉS que le déflateur du PIB ne contient pas. Déflateur,
+# recettes, dépenses indexées, dette, Gini et compétitivité n'y voient rien.
+CHOCS_DEMANDE_OBSERVES: dict[int, float] = {}
+COIN_PRIX_CONSOMMATION: dict[int, float] = {}
+# Horizon des clés : années SIMULÉES servies par l'API (2025 est l'année de
+# base, un réalisé ; api.py, PERIODS_MAX = 10). Couplage vérifié en CI
+# (tests/test_conjoncture_observee_v069.py).
+CONJONCTURE_PREMIERE_ANNEE = POLICY_START_YEAR
+CONJONCTURE_DERNIERE_ANNEE = 2035
+# Garde d'UNITÉ, pas une calibration : au-delà de 10 points (le choc de 2020
+# reste en deçà), la valeur est presque sûrement écrite en points au lieu d'une
+# fraction (−0,76 pour −0,0076), soit un effet multiplié par 100.
+CONJONCTURE_AMPLITUDE_MAX = 0.10
+
+
+def valider_table_conjoncture(nom: str, table: object) -> None:
+    """Lève ``ValueError`` si ``table`` n'est pas un dict {année simulée : nombre
+    fini d'amplitude plausible}. Appelée à l'import (ci-dessous) et à chaque
+    simulation (un dict reste mutable) : zéro échec silencieux, une table
+    fautive ne s'applique jamais en partie. ``raise`` et non ``assert`` :
+    ``python -O`` strip les asserts."""
+    if type(table) is not dict:
+        raise ValueError(f"{nom} : dict {{année: valeur}} attendu, reçu {type(table).__name__}")
+    for annee, valeur in table.items():
+        if isinstance(annee, bool) or not isinstance(annee, numbers.Integral):
+            raise ValueError(f"{nom} : clé {annee!r} non entière (année calendaire attendue)")
+        if not CONJONCTURE_PREMIERE_ANNEE <= annee <= CONJONCTURE_DERNIERE_ANNEE:
+            raise ValueError(
+                f"{nom}[{annee}] : hors horizon des années simulées "
+                f"[{CONJONCTURE_PREMIERE_ANNEE} ; {CONJONCTURE_DERNIERE_ANNEE}]")
+        if isinstance(valeur, bool) or not isinstance(valeur, numbers.Real):
+            raise ValueError(f"{nom}[{annee}] = {valeur!r} : nombre attendu")
+        if not math.isfinite(valeur):
+            raise ValueError(f"{nom}[{annee}] = {valeur!r} : valeur non finie")
+        if abs(valeur) > CONJONCTURE_AMPLITUDE_MAX:
+            raise ValueError(
+                f"{nom}[{annee}] = {valeur!r} : au-delà de ±{CONJONCTURE_AMPLITUDE_MAX} — "
+                f"erreur d'unité probable (fraction attendue : −0,0076 pour −0,76 pt)")
+
+
+valider_table_conjoncture('CHOCS_DEMANDE_OBSERVES', CHOCS_DEMANDE_OBSERVES)
+valider_table_conjoncture('COIN_PRIX_CONSOMMATION', COIN_PRIX_CONSOMMATION)
 
 # === FLAGS INTERNES (sentinelles dans dict d'impact) ===
 # Marque les mesures dont le handler a raise — détecté par golden master / tests stricts
