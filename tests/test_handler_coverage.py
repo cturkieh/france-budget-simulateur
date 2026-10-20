@@ -57,7 +57,7 @@ def standalone_master():
             f"Snapshot standalone manquant : {STANDALONE_MASTER_PATH}. "
             f"Régénérer en jouant tests/snapshots/coverage_scenarios.py."
         )
-    return json.loads(STANDALONE_MASTER_PATH.read_text())
+    return json.loads(STANDALONE_MASTER_PATH.read_text(encoding='utf-8'))
 
 
 @pytest.fixture(scope='module')

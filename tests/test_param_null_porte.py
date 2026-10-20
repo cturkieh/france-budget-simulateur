@@ -54,7 +54,7 @@ REGISTRE_JSON = ROOT / 'tests' / 'snapshots' / 'measure_registry.json'
 
 PERIODES = 10
 _SIM = BudgetSimulatorV45(periods=1)
-_REGISTRE = json.loads(REGISTRE_JSON.read_text())['mesures']
+_REGISTRE = json.loads(REGISTRE_JSON.read_text(encoding='utf-8'))['mesures']
 
 
 def _paires_mesure_param():

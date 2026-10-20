@@ -45,10 +45,12 @@ def test_bloc_confiance_et_stabilisateurs_supprimes():
         "        if 'Effet confiance' in l or 'Stabilisateur' in l:\n"
         "            print('DECLENCHE:', l)\n"
     )
-    env = dict(os.environ, BUDGET_DEBUG='true')
+    # PYTHONIOENCODING : sortie du sous-processus en UTF-8 quelle que soit la
+    # locale (cp1252 sous Windows), décodée en UTF-8 par le parent (V2-05).
+    env = dict(os.environ, BUDGET_DEBUG='true', PYTHONIOENCODING='utf-8')
     racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     res = subprocess.run([sys.executable, '-c', code], capture_output=True,
-                         text=True, env=env, cwd=racine)
+                         encoding='utf-8', env=env, cwd=racine)
     assert res.returncode == 0, res.stderr
     assert 'DECLENCHE:' not in res.stdout, res.stdout[:500]
 

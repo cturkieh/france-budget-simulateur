@@ -48,7 +48,7 @@ pytestmark = pytest.mark.skipif(
 def golden_master():
     if not GOLDEN_MASTER_PATH.exists():
         pytest.fail(f"Snapshot golden master manquant : {GOLDEN_MASTER_PATH}.\nRégénérer : {REGEN_CMD}")
-    return json.loads(GOLDEN_MASTER_PATH.read_text())
+    return json.loads(GOLDEN_MASTER_PATH.read_text(encoding='utf-8'))
 
 
 @pytest.fixture(scope='module')

@@ -67,7 +67,7 @@ def _load_registry() -> dict:
             "les mini-scénarios contre le vrai contrat — "
             "régénérer via scripts/generate_measure_registry.py"
         )
-    reg = json.loads(REGISTRY_PATH.read_text())
+    reg = json.loads(REGISTRY_PATH.read_text(encoding='utf-8'))
     if not isinstance(reg, dict) or not isinstance(reg.get('mesures'), dict):
         raise RuntimeError(
             f"registre malformé ({REGISTRY_PATH}) : clé 'mesures' (objet) "
@@ -112,7 +112,7 @@ def build_standalone_scenarios() -> dict[str, dict[str, dict]]:
     (vérité = handlers) : dé-tautologisation T4 — voir
     `_assert_param_in_contract`.
     """
-    config = json.loads((ROOT / 'policy_measures.json').read_text())
+    config = json.loads((ROOT / 'policy_measures.json').read_text(encoding='utf-8'))
     handler_ids = set(BudgetSimulatorV45().measure_handlers.keys())
     registry = _load_registry()
 
@@ -175,7 +175,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.out:
-        args.out.write_text(json.dumps(build_snapshot(), indent=2, ensure_ascii=False))
+        args.out.write_text(json.dumps(build_snapshot(), indent=2, ensure_ascii=False),
+                            encoding='utf-8')
         print(f"Snapshot écrit dans {args.out}")
     else:
         scenarios = build_standalone_scenarios()

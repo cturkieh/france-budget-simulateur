@@ -5,6 +5,7 @@ GÉNÉRÉS. Toute PR modifiant une lecture de `params` (ou `INTENSITE_DOMAINS`)
 sans régénérer fait ROUGIR `--check`. Rouge ET vert testés automatiquement
 (pas seulement "prouvé manuellement").
 """
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -35,12 +36,22 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _env_sortie_utf8() -> dict:
+    """Environnement du sous-processus : sortie standard encodée en UTF-8.
+
+    Sur un tube, Python encode stdout avec l'encodage de la locale (cp1252
+    sous Windows sans PYTHONUTF8=1) ; le parent décode en UTF-8 : les deux
+    côtés sont fixés, le résultat ne dépend plus de la machine (V2-05)."""
+    return dict(os.environ, PYTHONIOENCODING="utf-8")
+
+
 def _run_check(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, "scripts/generate_measure_registry.py", "--check", *args],
         cwd=ROOT,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        env=_env_sortie_utf8(),
     )
 
 

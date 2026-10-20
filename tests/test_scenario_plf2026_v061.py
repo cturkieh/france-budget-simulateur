@@ -75,7 +75,7 @@ def _mesures_publiees():
     chemin = _chemin_scenarios()
     if chemin is None:
         pytest.skip("scenarios.json introuvable (fork moteur public seul)")
-    with open(chemin) as f:
+    with open(chemin, encoding='utf-8') as f:
         return json.load(f)['plf_2026']['apiMeasures']
 
 

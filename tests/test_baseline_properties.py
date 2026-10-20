@@ -182,7 +182,7 @@ def test_e_non_regression_deltas_scenarios():
     """
     if not DELTAS_BASELINE_PATH.exists():
         pytest.fail(f"Snapshot deltas manquant : {DELTAS_BASELINE_PATH}\n→ {REGEN_DELTAS_CMD}")
-    reference = json.loads(DELTAS_BASELINE_PATH.read_text())
+    reference = json.loads(DELTAS_BASELINE_PATH.read_text(encoding='utf-8'))
     # Tolérances RESSERRÉES post-refonte (la référence est désormais capturée
     # sur le moteur refondu — vérification croisée 2026-06-10 : deltas de
     # DÉFICIT stables à ±0,3 pt vs pré-refonte sur les 3 scénarios, signes et
