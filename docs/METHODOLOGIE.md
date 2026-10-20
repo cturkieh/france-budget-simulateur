@@ -1449,10 +1449,10 @@ synthétique PERMANENTE de 1 % du PIB sur le levier éducation, à partir du sta
 2026-2036) : les recettes induites (+458 Md EUR, portées pour près des deux tiers par la hausse des prix)
 sont presque entièrement absorbées par les dépenses induites hors impulsion (+405 Md EUR : dépenses
 indexées sur les prix +262, intérêts +143) ; mesure distincte, en volume, sans prix ni intérêts :
-multiplicateur cumulé 10 ans × 0,51 = 0,47 < 1 ; (2) dette nominale —
-+101 Md EUR en 2030, +342 Md EUR en 2036 ; (3) ratio dette/PIB — le PIB plus haut gonfle le
-dénominateur : le ratio passe légèrement SOUS le statu quo en 2030-2031 (−0,05 pt) sans que le coût soit
-remboursé, puis le dépasse (+2,3 pt en 2035). C'est un garde-fou sur un choc, pas une démonstration pour
+multiplicateur cumulé 10 ans × 0,51 = 0,47 < 1 ; (2) dette nominale — +101 Md EUR en 2030, +342 Md EUR
+en 2036 ; (3) ratio dette/PIB — le PIB nominal plus haut (volume et prix : +2,33 % en 2030 pour +1,41 % en
+volume) gonfle le dénominateur : le ratio passe légèrement SOUS le statu quo en 2030 (−0,05 pt) et 2031
+(−0,01 pt) sans que le coût soit remboursé, puis le dépasse (+2,3 pt en 2035). C'est un garde-fou sur un choc, pas une démonstration pour
 tous les investissements, intensités, combinaisons et états macroéconomiques ; il est complété par le
 balayage du curseur éducation (`tests/test_symetrie_v060.py` : dette 2035 croissante de 45 à 85, en euros
 et en ratio). Jusqu'en v0.6.6, la somme analytique `k × Σ profil` = 1,2 × 1,98 = 2,38 en effet permanent
