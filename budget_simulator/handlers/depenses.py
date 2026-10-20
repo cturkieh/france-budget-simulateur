@@ -224,8 +224,9 @@ class DepensesMixin(_MixinBase):
 
         CALENDRIER : une revalorisation par an dès POLICY_START_YEAR (la première
         année simulée — un gel voté pour 2026 rapporte en 2026), au plus
-        ``max_revalorisations``, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE : la loi revalorise les pensions au
-        1er janvier et les prestations au 1er avril sur l'inflation passée, et
+        ``max_revalorisations``, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE : la
+        loi revalorise les pensions au 1er janvier et les prestations au 1er
+        avril sur l'inflation passée, et
         c'est elle que l'OFCE chiffre (gel 2026 : 1,1 %, 3,7 Md€ — l'ancrage de
         RETRAITES_PART_MASSE_INDEXEE). La revalorisation de 2026 porte
         ``taux_2026``, un fait que l'appelant fournit (pensions : le taux légal
