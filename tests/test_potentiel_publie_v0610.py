@@ -52,10 +52,16 @@ class _SimulateurInstrumente(BudgetSimulatorV45):
 
 def _simuler_brut(mesures):
     """Simulation 10 ans, colonnes NON arrondies, plus le potentiel consommé."""
+    df, detail, sim = _simuler_brut_avec_simulateur(mesures)
+    return df, detail, sim.potentiel_consomme
+
+
+def _simuler_brut_avec_simulateur(mesures):
+    """Comme ``_simuler_brut``, en rendant le simulateur (état d'entrée)."""
     sim = _SimulateurInstrumente(periods=10, mesures=mesures)
     with patch.object(orchestrator_module, 'round', lambda x, n=None: float(x), create=True):
         df, detail, _ = sim.simulate()
-    return df.set_index('Année'), detail.set_index('Année'), sim.potentiel_consomme
+    return df.set_index('Année'), detail.set_index('Année'), sim
 
 
 def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
@@ -170,3 +176,24 @@ def test_chaque_colonne_de_potentiel_est_la_valeur_consommee(cas):
         assert etat['total'] == pytest.approx(
             etat['tendanciel'] + etat['offre_structurelle'] + etat['offre_travail']
             + etat['trainee_dette'], abs=1e-15)
+
+
+@pytest.mark.parametrize('cas', sorted(CAS))
+def test_ligne_de_l_annee_de_base_publie_le_potentiel_d_entree(cas):
+    """Ligne 2025 (branche de l'année de base, sans clôture d'année) : le
+    potentiel publié est celui d'ENTRÉE de la simulation — tendanciel saisi,
+    aucun bonus d'offre (ni structurelle, ni travail : leurs producteurs ne
+    tournent qu'à partir de 2026), aucune traînée de dette. Oracle
+    indépendant de la photographie : la valeur saisie, conservée par le
+    simulateur dans ``_pre_simulate_croissance_potentielle``.
+    """
+    _, detail, sim = _simuler_brut_avec_simulateur(CAS[cas])
+    base = detail.index[0]
+    assert base == sim.annee_base
+    tendanciel_saisi = sim._pre_simulate_croissance_potentielle * 100
+    assert tendanciel_saisi > 0
+    assert detail.loc[base, 'Croissance_Potentielle %'] == pytest.approx(tendanciel_saisi, abs=1e-12)
+    assert detail.loc[base, 'Croissance_Potentielle_Totale %'] == pytest.approx(
+        tendanciel_saisi, abs=1e-12)
+    assert detail.loc[base, 'Bonus_Potentiel_Supply %'] == 0.0
+    assert detail.loc[base, 'Bonus_Offre_Travail %'] == 0.0
