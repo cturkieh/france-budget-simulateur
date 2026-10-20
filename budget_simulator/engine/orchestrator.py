@@ -590,6 +590,9 @@ class OrchestratorMixin:
 
                 # NOUVEAU: Stocker impacts vides pour 2025
                 measure_impacts_by_year.append({'Année': year})
+                # Potentiel de l'année de base, publié tel quel : aucune mise à
+                # jour d'offre n'a lieu en 2025 (v0.6.10, V2-02).
+                potentiel_annee = self.potentiel_de_l_annee()
             else:
                 # Variables d'état
                 unemployment_gap = unemployment - self.base_params['chomage_nairu']
@@ -820,6 +823,13 @@ class OrchestratorMixin:
                             f"Y{year_idx}: 🚨 Dynamique explosive (r-g={r_minus_g*100:.2f}%)"
                         )
 
+                # Potentiel CONSOMMÉ par l'année (v0.6.10, contre-audit externe
+                # V2-02), photographié AVANT `update_potential_growth` : c'est
+                # lui que lisent la récurrence ci-dessous ET les colonnes de
+                # potentiel publiées. Jusqu'en v0.6.9 la ligne de sortie relisait
+                # l'état après la clôture de l'année, donc le potentiel de t+1.
+                potentiel_annee = self.potentiel_de_l_annee()
+
                 # MISE À JOUR OUTPUT GAP - CRITIQUE !
                 # Référence = croissance potentielle TOTALE, bonus d'offre
                 # inclus (v0.6.1, correction I6, même raison que la loi
@@ -839,10 +849,12 @@ class OrchestratorMixin:
                 # même de la correction I6 : lu contre un potentiel différent
                 # du leur, l'output gap se décalait en permanence de ±0,20 pt.
                 # Le seul appel qui vient APRÈS est `update_potential_growth`
-                # (ligne suivante), qui clôt l'année : il mute le tendanciel
-                # pour l'année d'après, et ne doit donc pas être lu ici.
+                # (ligne suivante), qui clôt l'année : il mute le tendanciel et
+                # le bonus d'offre structurelle pour l'année d'après. La
+                # récurrence lit donc la photographie `potentiel_annee` (valeur
+                # de `croissance_potentielle_totale()` prise juste au-dessus).
                 output_gap = self.prochain_output_gap(
-                    output_gap, growth, self.croissance_potentielle_totale())
+                    output_gap, growth, potentiel_annee.total)
                 _log_debug(self.debug_logs, f"Y{year_idx}: Nouveau output gap = {output_gap:.3f}")
 
                 # Mise à jour croissance potentielle
@@ -1041,18 +1053,23 @@ class OrchestratorMixin:
                 'PIB_Réel_Base2025': round(gdp_real, 1),
                 'Déflateur': round(self.deflateur_cumule, 3),
                 'Output_Gap %': round(output_gap * 100, 2),
-                'Croissance_Potentielle %': round(self.base_params['croissance_potentielle'] * 100, 2),
-                'Bonus_Potentiel_Supply %': round(self._potential_growth_bonus * 100, 3),
+                # Colonnes de potentiel = valeurs CONSOMMÉES par l'année
+                # (photographie `potentiel_annee`, prise avant la clôture
+                # d'année — v0.6.10, V2-02), jamais l'état préparé pour t+1.
+                # Tendanciel (hystérèse) puis offre STRUCTURELLE (SUPPLY_EFFECTS).
+                'Croissance_Potentielle %': round(potentiel_annee.tendanciel * 100, 2),
+                'Bonus_Potentiel_Supply %': round(potentiel_annee.offre_structurelle * 100, 3),
                 # Canal emploi seniors (v0.6.1) : INCRÉMENT de l'année, exposé
                 # séparément de l'offre STRUCTURELLE ci-dessus — sans colonne
                 # dédiée, un lecteur ne peut pas décomposer la croissance
                 # potentielle totale entre offre de travail et capital public.
-                'Bonus_Offre_Travail %': round(self._labour_supply_bonus * 100, 3),
-                # Somme réellement consommée par le moteur (tendanciel + offre
-                # structurelle + offre de travail) — v0.6.1 : passe par le
-                # lecteur unique pour que la colonne publiée ne puisse plus
-                # diverger de la croissance simulée.
-                'Croissance_Potentielle_Totale %': round(self.croissance_potentielle_totale() * 100, 2),
+                'Bonus_Offre_Travail %': round(potentiel_annee.offre_travail * 100, 3),
+                # Somme consommée par la croissance, Okun et l'output gap de
+                # l'année : tendanciel + offre structurelle + offre de travail
+                # + traînée de dette (cette dernière sans colonne propre). Avec
+                # elle, (1 + gap_t) = (1 + gap_{t−1})(1 + g_t)/(1 + g*_t) se
+                # reconstruit depuis les seules sorties.
+                'Croissance_Potentielle_Totale %': round(potentiel_annee.total * 100, 2),
                 # Indice de pouvoir d'achat RDB-moteur (v0.6.8) : RDB nominal des
                 # ménages, dont effet direct des mesures, et prix de la
                 # consommation (2025 = 1). Décomposition complète : engine/rdb.py.

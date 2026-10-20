@@ -79,6 +79,11 @@ TOL_PT = 0.01
 #: c'est une propriété du lecteur, pas du canal qui l'alimente.
 TERMES_OFFRE = ('_potential_growth_bonus', '_labour_supply_bonus')
 
+#: Première ligne de sortie (0 = 2025) où le bonus injecté par
+#: ``_double_injectant`` est CONSOMMÉ par l'année : le producteur de l'offre
+#: de travail ouvre l'année, celui de l'offre structurelle la clôt.
+PREMIERE_LIGNE_CONSOMMEE = {'_labour_supply_bonus': 1, '_potential_growth_bonus': 2}
+
 
 def _double_injectant(etat):
     """Double de test : joue le rôle d'un producteur de choc d'offre en
@@ -387,10 +392,17 @@ def test_croissance_potentielle_totale_publiee_inclut_les_deux_termes(etat):
     ecarts = [a - b for a, b in zip(
         avec['Croissance_Potentielle_Totale %'], sans['Croissance_Potentielle_Totale %'])]
 
-    # Le bonus est écrit en fin d'année : la 1ʳᵉ ligne (2025, hors boucle
-    # macro) reste nue, toutes les suivantes portent le bonus.
-    assert ecarts[0] == 0.0
-    assert all(e == pytest.approx(BONUS_MAX * 100, abs=1e-9) for e in ecarts[1:])
+    # v0.6.10 (contre-audit externe V2-02) : la colonne publie le potentiel
+    # CONSOMMÉ par l'année. L'offre de travail est posée en TÊTE d'année
+    # (consommée dès 2026) ; l'offre structurelle est écrite en CLÔTURE
+    # d'année par update_potential_growth (fin 2026), donc consommée dès
+    # 2027. Jusqu'en v0.6.9 cette assertion lisait le bonus dès 2026 pour
+    # les deux termes : elle validait la colonne relue APRÈS la clôture,
+    # c'est-à-dire le potentiel de l'année suivante. 2025 (hors boucle macro)
+    # reste nue.
+    debut = PREMIERE_LIGNE_CONSOMMEE[etat]
+    assert all(e == 0.0 for e in ecarts[:debut])
+    assert all(e == pytest.approx(BONUS_MAX * 100, abs=1e-9) for e in ecarts[debut:])
 
 
 # ---------------------------------------------------------------------------
