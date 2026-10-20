@@ -183,6 +183,9 @@ def _verifier_etats(nom, etats):
     ({'transition_ecologique': {'depenses': 20.0}, 'collectivites': {'depenses': -10.0}}, 1.0),
     # Une COUPE d'investissement n'est pas une part d'investissement de la relance.
     ({'recherche_publique': {'depenses': -10.0}, 'tva_rate': {'recettes': -5.0}}, 0.0),
+    # Seules les DÉPENSES d'un levier d'investissement en sont : baisser la taxe
+    # carbone (recette du levier transition) est une baisse d'impôt.
+    ({'transition_ecologique': {'depenses': 10.0, 'recettes': -30.0}}, 0.25),
     # Prorata : 30 d'investissement sur 60 d'expansion brute (10 de transferts,
     # 20 de baisse d'impôts) ; la hausse d'IS finance au prorata, hors composition.
     ({'education': {'depenses': 30.0}, 'retraites': {'depenses': 10.0},
