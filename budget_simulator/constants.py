@@ -377,7 +377,7 @@ REGIME_DEMI_LARGEUR_ECART = 0.01
 REGIME_DEMI_LARGEUR_CROISSANCE = 0.005
 REGIME_DEMI_LARGEUR_INFLATION = 0.003
 
-# === MULTIPLICATEURS BUDGÉTAIRES — recalibrage « central » (v0.6.7, GO Cyril 07/10/2026) ===
+# === MULTIPLICATEURS BUDGÉTAIRES — recalibrage « central » (v0.6.7, arbitrage du mainteneur du 07/10/2026) ===
 # Règle : chaque famille est calée sur la valeur CENTRALE de la littérature, mesurée
 # dans le MOTEUR COMPLET (rappel vers le potentiel, Phillips, Okun, dette compris) :
 # effet de NIVEAU sur le PIB réel, 4 ans après le début d'une impulsion PERMANENTE de

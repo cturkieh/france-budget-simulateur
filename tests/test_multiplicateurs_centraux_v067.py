@@ -89,9 +89,11 @@ def test_choc_investissement_de_calibrage_ne_s_autofinance_pas_dans_le_banc(mesu
       multiplicateur cumulé (Ramey, ΣΔY/ΣΔG sur 10 ans) × taux de
       prélèvements = 0,47 < 1 ;
     - dette NOMINALE : plus haute que le statu quo en fin d'horizon ;
-    - ratio dette/PIB : non vérifié année par année (un PIB plus haut peut le
-      faire passer sous le statu quo sans rembourser le coût, −0,05 pt en
-      2030-2031) ; seule sa valeur de fin d'horizon est bornée."""
+    - ratio dette/PIB : non vérifié année par année (un PIB NOMINAL plus haut,
+      surtout par les prix, peut le faire passer sous le statu quo sans
+      rembourser le coût : −0,05 pt en 2030, −0,01 pt en 2031) ; seule sa
+      valeur de fin d'horizon est bornée ici. Les chiffres publiés sont liés à
+      la mesure par test_chiffres_publies_du_banc_lies_a_la_mesure."""
     base, cas = mesures
     n = _niveaux(base, cas['investissement'])
     cumule_10 = sum(n[2:12]) / 10
@@ -99,7 +101,6 @@ def test_choc_investissement_de_calibrage_ne_s_autofinance_pas_dans_le_banc(mesu
     df0, df = base[0], cas['investissement'][0]
     cout = sum(0.01 * df['PIB'][i] for i in range(1, 12))
     degradation = sum(df0['Déficit'][i] - df['Déficit'][i] for i in range(1, 12))
-    assert 1 - degradation / cout < 1
     assert degradation > 0.5 * cout   # l'essentiel du coût reste à la charge des finances publiques
     assert df['Dette'][11] > df0['Dette'][11]                   # dette nominale 2036
     assert df['Dette/PIB %'][11] > df0['Dette/PIB %'][11]       # ratio 2036
