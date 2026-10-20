@@ -40,7 +40,9 @@ contemporain) → ``calculate_unemployment`` (Okun sur la croissance de
 l'année) → ``calculate_revenues`` / ``calculate_expenditures`` (flux
 organiques AUX PRIX DE L'ANNÉE) → ``apply_measures`` (deltas mesures ;
 ``budget_effort`` de l'année stocké pour t+1) →
-``update_potential_growth`` (clôt l'année). Réordonner ces appels casse
+``potentiel_de_l_annee`` (photographie du potentiel CONSOMMÉ, lue par
+la récurrence de l'output gap et les colonnes publiées — v0.6.10, V2-02)
+→ ``update_potential_growth`` (clôt l'année). Réordonner ces appels casse
 les contrats producteur/consommateur même si chaque méthode reste
 byte-identique — l'enforcement observable est porté par
 ``tests/test_baseline_properties.py`` (l'élasticité 1,00 ± 0,02 et le
