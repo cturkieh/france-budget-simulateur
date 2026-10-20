@@ -14,10 +14,22 @@ Tout accès ``params`` NON modélisable en clé littérale
 littéral) est signalé BRUYAMMENT (clé ``<UNMODELED>`` + flag), jamais
 ignoré : un registre « source de vérité » ne ment pas par omission.
 
+Trois artefacts, une seule extraction :
+
+- ``docs/MEASURE_REGISTRY.md`` + ``tests/snapshots/measure_registry.json`` —
+  le registre public (paramètres lus + sliders UI, ce dernier niveau exigeant
+  les sources du frontend) ;
+- ``budget_simulator/engine/_noms_parametres.py`` (v0.6.10, contre-audit
+  externe V2-04) — les NOMS de paramètres admis par levier, consommés à
+  l'exécution par la porte des noms (``engine/_param_domain.py``). Il ne lit
+  pas le frontend : ``--noms`` le génère et le vérifie depuis le dépôt public
+  seul.
+
 Usage::
 
-    python scripts/generate_measure_registry.py        # (re)génère les 2 artefacts
+    python scripts/generate_measure_registry.py         # (re)génère les 3 artefacts
     python scripts/generate_measure_registry.py --check # CI : exit 1 si drift
+    python scripts/generate_measure_registry.py --noms [--check]  # noms seuls
 """
 from __future__ import annotations
 
@@ -47,6 +59,7 @@ ROOT = Path(__file__).absolute().parents[1]
 # génération ET par --check ET dans le message d'erreur : pas de dérive).
 DEFAULT_MD = ROOT / "docs" / "MEASURE_REGISTRY.md"
 DEFAULT_JSON = ROOT / "tests" / "snapshots" / "measure_registry.json"
+DEFAULT_NOMS = ROOT / "budget_simulator" / "engine" / "_noms_parametres.py"
 
 # Sources UI canoniques des sliders (niveau 3 du registre : sliders -> mesures
 # -> handlers). Le mapping slider->mesure->param est DÉRIVÉ de l'existant,
@@ -672,6 +685,22 @@ def _no_handler_entry(mid: str, s: dict, json_meta: dict) -> dict:
     )
 
 
+def _contrat_handler(mid: str, src: str, domains: dict) -> dict:
+    """Paramètres lus par le handler ``mid`` (extraction AST de ``src``),
+    plus ``intensite`` si le levier est piloté par une intensité
+    (``INTENSITE_DOMAINS`` : le ``params.get('intensite')`` réel vit dans
+    ``_phasing._resolve_intensite_or_legacy``, hors AST par-méthode).
+
+    SOURCE UNIQUE du contrat d'un handler : le registre public
+    (``build_registry``) et le module des noms admis (``build_noms_admis``)
+    l'appellent tous les deux — ils ne peuvent pas diverger."""
+    params = extract_params_from_source(src)
+    if mid in domains:
+        lo, hi = domains[mid]
+        params["intensite"] = {"default": None, "domain": [lo, hi]}
+    return params
+
+
 def build_registry() -> dict:
     """Registre canonique : ``mesures -> {params, type, categorie, nom, flags}``.
 
@@ -685,14 +714,10 @@ def build_registry() -> dict:
     )
     mesures: dict = {}
     for mid, src in _iter_handler_funcs():
-        params = extract_params_from_source(src)
+        # Vrai contrat UI des leviers d'INTENSITE_DOMAINS : slider unique
+        # `intensite` + domaine canonique (cf. _contrat_handler).
+        params = _contrat_handler(mid, src, domains)
         intensite_driven = mid in domains
-        if intensite_driven:
-            # Vrai contrat UI : slider unique `intensite` + domaine canonique
-            # (INTENSITE_DOMAINS). Le params.get('intensite') réel est dans
-            # _phasing._resolve_intensite_or_legacy, hors AST par-méthode.
-            lo, hi = domains[mid]
-            params["intensite"] = {"default": None, "domain": [lo, hi]}
         meta = json_meta.get(mid, {})
         mesures[mid] = {
             "params": params,
@@ -827,6 +852,99 @@ def rewrite_json_parametres() -> dict:
     path = ROOT / "policy_measures.json"
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), "utf-8")
     return {"removed": removed, "skipped": skipped}
+
+
+def _noms_formule(mid: str, formule) -> dict:
+    """Paramètres lus par une formule ASTEVAL (``policy_measures.json``).
+
+    L'orchestrateur évalue la formule avec ``p`` = le bloc du levier : la
+    formule est donc lue comme le corps d'une ``lambda p: …``, que
+    l'extracteur suit déjà (alias de ``params`` dans la portée d'une lambda).
+    Même extracteur que pour les handlers, aucune règle propre aux formules."""
+    if not isinstance(formule, str) or not formule.strip():
+        raise RuntimeError(
+            f"levier formule {mid!r} : formule absente ou vide dans "
+            "policy_measures.json — noms admis indérivables")
+    try:
+        return extract_params_from_source(f"lambda p: ({formule})")
+    except SyntaxError as e:
+        raise RuntimeError(
+            f"levier formule {mid!r} : formule illisible ({e.msg}) — noms "
+            "admis indérivables") from e
+
+
+def build_noms_admis() -> dict[str, list[str]]:
+    """``{levier: [noms de paramètres admis, triés]}`` — le contrat des NOMS
+    consommé à l'exécution (porte des noms, contre-audit externe V2-04).
+
+    Même dispatch que ``orchestrator.apply_measures`` : un handler Python
+    prime sur la formule ASTEVAL ; à défaut, la formule de
+    ``policy_measures.json``. Échec DUR (jamais un levier sans contrat qui
+    laisserait tout passer, ni un contrat partiel qui rejetterait un nom
+    réellement lu) si :
+    - un accès à ``params`` n'est pas modélisable en clé littérale
+      (``<DYNAMIC>``/``<UNMODELED>``) : la liste des noms lus serait fausse ;
+    - un levier de ``policy_measures.json`` n'a ni handler ni formule.
+
+    Ne lit PAS le frontend : générable et vérifiable depuis le dépôt public
+    seul (``--noms``)."""
+    domains = _intensite_domains()
+    noms: dict[str, list[str]] = {}
+    for mid, src in _iter_handler_funcs():
+        noms[mid] = _cles_reelles(mid, _contrat_handler(mid, src, domains))
+    for m in _load_policy_cfg()["mesures"]:
+        mid = m["id"]
+        if mid in noms:
+            continue
+        if m.get("type") != "formule":
+            raise RuntimeError(
+                f"levier {mid!r} : ni handler Python ni formule ASTEVAL — "
+                "noms admis indérivables (l'orchestrateur l'ignorerait)")
+        noms[mid] = _cles_reelles(mid, _noms_formule(mid, m.get("formule")))
+    return dict(sorted(noms.items()))
+
+
+def _cles_reelles(mid: str, params: dict) -> list[str]:
+    """Clés littérales triées, ou échec dur si l'extraction est incertaine."""
+    incertains = sorted(k for k in (_DYNAMIC, _UNMODELED) if k in params)
+    if incertains:
+        raise RuntimeError(
+            f"levier {mid!r} : accès à params non modélisable "
+            f"({', '.join(incertains)} : "
+            f"{[r for k in incertains for r in params[k]['raw']]}) — la porte "
+            "des noms ne peut pas valider ce levier ; rendre la lecture "
+            "littérale, ou étendre l'extracteur")
+    return sorted(params)
+
+
+def render_noms_module(noms: dict[str, list[str]]) -> str:
+    """Module Python des noms admis (artefact GÉNÉRÉ, importé à l'exécution :
+    aucun fichier de données à empaqueter, aucune analyse de code au
+    démarrage du service)."""
+    lignes = [
+        '"""Noms de paramètres admis par levier — GÉNÉRÉ, NE PAS ÉDITER.',
+        "",
+        "Généré par ``scripts/generate_measure_registry.py`` depuis le code : les",
+        "lectures du dict ``params`` dans le corps des handlers (même extracteur",
+        "que ``docs/MEASURE_REGISTRY.md``), ``intensite`` pour les leviers",
+        "d'``INTENSITE_DOMAINS``, et les lectures ``p.get(...)`` des formules",
+        "ASTEVAL de ``policy_measures.json`` pour les leviers sans handler.",
+        "",
+        "Consommé par la porte des noms (``engine/_param_domain.py``,",
+        "``valider_noms_parametres``, v0.6.10 — contre-audit externe V2-04).",
+        "Synchronisation verrouillée par ``tests/test_noms_parametres_sync.py``",
+        "(``--noms --check``). Régénérer :",
+        "``python scripts/generate_measure_registry.py --noms``.",
+        '"""',
+        "",
+        "NOMS_PARAMETRES_ADMIS: dict[str, frozenset[str]] = {",
+    ]
+    for mid, cles in noms.items():
+        contenu = ", ".join(repr(c) for c in cles)
+        lignes.append(f"    {mid!r}: frozenset({{{contenu}}}),"
+                      if cles else f"    {mid!r}: frozenset(),")
+    lignes.append("}")
+    return "\n".join(lignes) + "\n"
 
 
 def render_markdown(reg: dict) -> str:
@@ -973,16 +1091,31 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out-md", type=Path, default=DEFAULT_MD)
     p.add_argument("--out-json", type=Path, default=DEFAULT_JSON)
+    p.add_argument("--out-noms", type=Path, default=DEFAULT_NOMS)
     p.add_argument(
         "--check",
         action="store_true",
         help="exit 1 si les artefacts commités divergent du code",
     )
+    p.add_argument(
+        "--noms",
+        action="store_true",
+        help="seulement le module des noms admis (ne lit pas le frontend : "
+             "tourne depuis le dépôt public seul)",
+    )
     a = p.parse_args()
-    reg = build_registry()
-    assert_contract_complete(reg)  # échec dur AVANT toute écriture/diff
-    md = render_markdown(reg)
-    js = json.dumps(reg, indent=2, ensure_ascii=False, sort_keys=True)
+    # Le module des noms d'abord : il ne dépend pas du frontend, et son échec
+    # dur (accès non modélisable, levier sans contrat) précède toute écriture.
+    artefacts = [(a.out_noms, render_noms_module(build_noms_admis()))]
+    reg = None
+    if not a.noms:
+        reg = build_registry()
+        assert_contract_complete(reg)  # échec dur AVANT toute écriture/diff
+        artefacts += [
+            (a.out_md, render_markdown(reg)),
+            (a.out_json,
+             json.dumps(reg, indent=2, ensure_ascii=False, sort_keys=True)),
+        ]
     if a.check:
         # Compare les artefacts DÉSIGNÉS (défaut : les fichiers commités). La
         # garde de drift des tests passe des COPIES corrompues : elle ne
@@ -990,24 +1123,25 @@ def main():
         # collecte pytest concurrente à un JSON tronqué (« Extra data »).
         drift = [
             str(path)
-            for path, content in ((a.out_md, md), (a.out_json, js))
+            for path, content in artefacts
             if not path.exists() or path.read_text("utf-8") != content
         ]
         if drift:
             print("DRIFT registre vs code : " + ", ".join(drift),
                   file=sys.stderr)
             print(
-                f"Régénérer : python {Path(__file__).name} "
-                f"--out-md {DEFAULT_MD.relative_to(ROOT)} "
-                f"--out-json {DEFAULT_JSON.relative_to(ROOT)}",
+                f"Régénérer : python scripts/{Path(__file__).name}"
+                + (" --noms" if a.noms else ""),
                 file=sys.stderr,
             )
             sys.exit(1)
-        print("registre synchro ✓")
+        print("noms admis synchro ✓" if a.noms else "registre synchro ✓")
         return
-    a.out_md.write_text(md, "utf-8")
-    a.out_json.write_text(js, "utf-8")
-    print(f"registre : {len(reg['mesures'])} mesures")
+    for path, content in artefacts:
+        path.write_text(content, "utf-8")
+    if reg is not None:
+        print(f"registre : {len(reg['mesures'])} mesures")
+    print(f"noms admis : {a.out_noms}")
 
 
 if __name__ == "__main__":
