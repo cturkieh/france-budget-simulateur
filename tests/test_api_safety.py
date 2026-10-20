@@ -34,7 +34,7 @@ FORBIDDEN_PATTERNS = [
     (r"AIAnalysisResponse", "modèle pydantic IA privée"),
 ]
 
-# Endpoints qui DOIVENT être présents dans api.py
+# Endpoints qui DOIVENT être publiés (OpenAPI) et servis par l'API
 REQUIRED_ENDPOINTS = {
     ("POST", "/simulate"),
     ("GET", "/scenarios"),
@@ -48,6 +48,15 @@ FORBIDDEN_ENDPOINTS = {
     ("POST", "/api/claude-analysis"),
     ("POST", "/api/error-report"),
 }
+
+# Corps des requêtes valides des endpoints requis qui en exigent un.
+REQUETES_VALIDES = {
+    ("POST", "/simulate"): {"mesures": {}, "periods": 3},
+}
+
+# Réponses d'une route inexistante : 404 (chemin inconnu) ou 405 (chemin connu,
+# méthode non servie).
+CODES_ROUTE_ABSENTE = frozenset({404, 405})
 
 
 @pytest.fixture(scope="module")
@@ -72,6 +81,26 @@ def api_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+# Fixtures au niveau du module (et non méthodes de classe à portée « class »,
+# forme dépréciée par pytest 9.1 — PytestRemovedIn10Warning).
+@pytest.fixture(scope="module")
+def client(api_module):
+    from fastapi.testclient import TestClient
+    return TestClient(api_module.app)
+
+
+@pytest.fixture(scope="module")
+def operations_publiees(client) -> set:
+    """(MÉTHODE, chemin) de chaque opération publiée dans /openapi.json."""
+    r = client.get("/openapi.json")
+    assert r.status_code == 200, f"/openapi.json indisponible : {r.status_code}"
+    return {
+        (methode.upper(), chemin)
+        for chemin, operations in r.json()["paths"].items()
+        for methode in operations
+    }
 
 
 class TestForbiddenPatterns:
@@ -107,39 +136,67 @@ class TestSyntaxAndStructure:
 
 
 class TestFastAPIRoutes:
+    """Endpoints requis / interdits, testés par le CONTRAT PUBLIC de l'API.
+
+    v0.6.10 (contre-audit externe, V2-05) : l'ancienne version lisait
+    `app.routes`, une structure INTERNE de FastAPI. Avec fastapi 0.142.2
+    (permis par requirements.txt), les routes d'un routeur inclus y sont
+    encapsulées dans un `_IncludedRouter` sans attribut `methods` : le test
+    annonçait à tort l'absence de GET /scenarios et POST /simulate — et, pire,
+    ne voyait plus un endpoint interdit qui aurait été ajouté au routeur
+    (faux vert). On lit désormais ce que l'API publie (`/openapi.json`) et on
+    appelle chaque endpoint : deux sources indépendantes de la version.
+    """
+
     def test_app_loads(self, api_module):
         assert hasattr(api_module, "app"), "api.py doit exposer `app: FastAPI`"
 
-    def test_required_endpoints_present(self, api_module):
-        app = api_module.app
-        routes = {
-            (method, route.path)
-            for route in app.routes
-            if hasattr(route, "methods")
-            for method in route.methods
-        }
-        missing = REQUIRED_ENDPOINTS - routes
+    def test_required_endpoints_present(self, operations_publiees):
+        missing = REQUIRED_ENDPOINTS - operations_publiees
         assert not missing, f"Endpoints publics requis absents : {sorted(missing)}"
 
-    def test_forbidden_endpoints_absent(self, api_module):
-        app = api_module.app
-        routes = {
-            (method, route.path)
-            for route in app.routes
-            if hasattr(route, "methods")
-            for method in route.methods
-        }
-        leaked = FORBIDDEN_ENDPOINTS & routes
+    @pytest.mark.parametrize("methode,chemin", sorted(REQUIRED_ENDPOINTS))
+    def test_required_endpoint_repond(self, client, methode, chemin):
+        """Appel réel : l'endpoint répond 200 sur une requête valide (pas
+        seulement « décrit » par OpenAPI)."""
+        corps = REQUETES_VALIDES.get((methode, chemin))
+        r = client.request(methode, chemin, json=corps)
+        assert r.status_code == 200, (
+            f"{methode} {chemin} : attendu 200, reçu {r.status_code} — {r.text[:200]}")
+
+    def test_forbidden_endpoints_absent(self, client, operations_publiees):
+        leaked = FORBIDDEN_ENDPOINTS & operations_publiees
         assert not leaked, f"Endpoints privés présents dans api.py : {sorted(leaked)}"
+        # Appel réel : couvre aussi une route cachée (`include_in_schema=False`)
+        # qu'OpenAPI ne décrit pas.
+        repondent = {
+            (methode, chemin) for methode, chemin in FORBIDDEN_ENDPOINTS
+            if client.request(methode, chemin, json={}).status_code
+            not in CODES_ROUTE_ABSENTE
+        }
+        assert not repondent, f"Endpoints privés servis par l'API : {sorted(repondent)}"
+
+
+class TestContratSansStructureInterne:
+    """Garde durable V2-05 (b) : aucun test du dépôt ne lit la table de routage
+    interne d'une app FastAPI/Starlette (`.routes`) — sa forme change d'une
+    version à l'autre ; le contrat est ce que l'API publie et sert."""
+
+    def test_aucun_test_ne_lit_app_routes(self):
+        dossier = Path(__file__).resolve().parent
+        fautes = []
+        for chemin in sorted(dossier.rglob("*.py")):
+            arbre = ast.parse(chemin.read_text(encoding="utf-8"), filename=str(chemin))
+            for noeud in ast.walk(arbre):
+                if isinstance(noeud, ast.Attribute) and noeud.attr == "routes":
+                    fautes.append(f"{chemin.relative_to(dossier)}:{noeud.lineno}")
+        assert not fautes, (
+            "Introspection de la structure interne du routage (`.routes`) — "
+            f"tester via /openapi.json et TestClient : {fautes}")
 
 
 class TestErrorMapping:
     """Contrat HTTP : faute client → 422, bug serveur → 500. Voir /simulate docstring."""
-
-    @pytest.fixture(scope="class")
-    def client(self, api_module):
-        from fastapi.testclient import TestClient
-        return TestClient(api_module.app)
 
     def test_pydantic_validation_periods_too_large(self, client):
         # periods=999 hors `le=50` Field → 422 Pydantic natif
