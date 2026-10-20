@@ -154,14 +154,19 @@ class GrowthMixin:
         celui de l'année suivante (cas du contre-audit, recherche publique à
         20 Md€, 2030 : 1,248 % publié pour 1,048 % consommé), et l'identité de
         l'output gap ne se reconstruisait pas depuis les sorties.
-        Lecteur PUR : ne mute rien.
+        Lecteur PUR : ne mute rien. Chaque champ est converti en ``float``
+        Python (même double, valeur inchangée au bit) : l'état vaut float en
+        début de simulation puis ``numpy.float64`` après le ``np.clip`` de la
+        clôture d'année, et ``round(·, 2)`` n'arrondit pas un demi-centième
+        de la même façon selon le type — une même colonne suivrait deux
+        conventions selon l'année.
         """
         return PotentielAnnee(
-            tendanciel=self.base_params['croissance_potentielle'],
-            offre_structurelle=self._potential_growth_bonus,
-            offre_travail=self._labour_supply_bonus,
-            trainee_dette=self._debt_drag,
-            total=self.croissance_potentielle_totale(),
+            tendanciel=float(self.base_params['croissance_potentielle']),
+            offre_structurelle=float(self._potential_growth_bonus),
+            offre_travail=float(self._labour_supply_bonus),
+            trainee_dette=float(self._debt_drag),
+            total=float(self.croissance_potentielle_totale()),
         )
 
     def croissance_potentielle_totale(self) -> float:
