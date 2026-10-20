@@ -382,7 +382,9 @@ REGIME_DEMI_LARGEUR_INFLATION = 0.003
 # dans le MOTEUR COMPLET (rappel vers le potentiel, Phillips, Okun, dette compris) :
 # effet de NIVEAU sur le PIB réel, 4 ans après le début d'une impulsion PERMANENTE de
 # 1 % du PIB (définition du FMI, WEO oct. 2014). Une famille déjà centrale ne bouge
-# pas. Aucun investissement ne s'autofinance (multiplicateur cumulé × 0,51 < 1).
+# pas. Le choc d'investissement de calibrage (1 % du PIB permanent, levier éducation,
+# statu quo) ne s'autofinance pas dans le banc de référence : multiplicateur cumulé
+# × 0,51 < 1 — garde-fou sur ce choc, pas loi sur tout investissement (V2-06).
 # Verrouillé par tests/test_multiplicateurs_centraux_v067.py (mesure dans le moteur).
 # Sources vérifiées en ligne :
 #  - FMI, WEO oct. 2014, ch. 3 « Is it time for an infrastructure push? » : +1 pt de

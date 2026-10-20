@@ -133,11 +133,12 @@ def test_balayage_education_monotone_et_directionnel(monkeypatch):
     """Le balayage de l'audit (constat 2), monotone et directionnel. En EUROS :
     couper RÉDUIT la dette, dépenser l'AUGMENTE. En RATIO, depuis v0.6.7 (B3 :
     l'écart de production se referme, les effets de demande sont transitoires),
-    dépenser AUGMENTE aussi la dette 2035 rapportée au PIB : l'investissement
-    ne s'autofinance plus, même en ratio. Jusqu'en v0.6.6 le ratio DÉCROISSAIT
-    (multiplicateur cumulé permanent 1,2 × Σ profil 1,98 = 2,38 : la hausse du
-    dénominateur l'emportait), ce que la règle « aucun investissement ne
-    s'autofinance » exclut.
+    dépenser AUGMENTE aussi la dette 2035 rapportée au PIB : sur ce curseur
+    (45/65/85), la dépense d'éducation ne réduit plus la dette, même en ratio.
+    Jusqu'en v0.6.6 le ratio DÉCROISSAIT (somme analytique permanente
+    1,2 × Σ profil 1,98 = 2,38 : la hausse du dénominateur l'emportait).
+    Portée : ce balayage et le choc de calibrage de
+    test_multiplicateurs_centraux_v067.py, pas tout investissement (V2-06).
 
     Sondé au-delà du curseur (45 < 60, min publié) : la porte PARAM_DOMAINS
     (v0.6.7) est retirée pour que la coupe soit réellement simulée."""

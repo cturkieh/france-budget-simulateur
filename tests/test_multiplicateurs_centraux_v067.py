@@ -1,12 +1,15 @@
-"""Multiplicateurs « centraux » mesurés dans le MOTEUR COMPLET (v0.6.7, GO Cyril 07/10/2026).
+"""Multiplicateurs « centraux » mesurés dans le MOTEUR COMPLET (v0.6.7, arbitrage du
+mainteneur du 07/10/2026).
 
 Chaque famille est calée sur la valeur centrale de la littérature (constants.py,
 MULT_CIBLE_NIVEAU_4ANS : FMI WEO oct. 2014 ch. 3, Gechert 2015, Ramey 2019), en
 EFFET DE NIVEAU sur le PIB réel 4 ans après le début d'une impulsion permanente de
 1 % du PIB — mesuré avec tout le moteur (rappel vers le potentiel, Phillips, Okun,
-dette), pas en k × Σ profil analytique. Règle d'or : aucun investissement ne
-s'autofinance, ni en multiplicateur cumulé × taux de prélèvements, ni en solde
-public mesuré.
+dette), pas en k × Σ profil analytique. Garde-fou : le choc d'investissement de
+calibrage (1 % du PIB permanent, levier éducation, statu quo) ne s'autofinance pas
+dans ce banc, ni en multiplicateur cumulé × taux de prélèvements, ni en solde
+public mesuré. Portée : CE choc, pas tout investissement, toute intensité ou tout
+état macroéconomique (contre-audit externe V2-06, METHODOLOGIE § Multiplicateurs).
 """
 import pytest
 
@@ -71,10 +74,18 @@ def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
         f'{famille} : niveau à 4 ans {niveau_4:.3f} vs cible centrale {cible}')
 
 
-def test_aucun_investissement_ne_s_autofinance(mesures):
-    """Deux mesures : multiplicateur cumulé (Ramey, ΣΔY/ΣΔG sur 10 ans) × taux de
-    prélèvements < 1, et part du coût brut rendue au solde public (intérêts compris,
-    2026-2036) < 1 — mesurée 0,11."""
+def test_choc_investissement_de_calibrage_ne_s_autofinance_pas_dans_le_banc(mesures):
+    """Portée : le choc de calibrage de ce fichier (1 % du PIB permanent sur le
+    levier éducation, statu quo, 2026-2036), pas tout investissement.
+
+    Trois notions distinctes (contre-audit externe V2-06) :
+    - autofinancement BUDGÉTAIRE : multiplicateur cumulé (Ramey, ΣΔY/ΣΔG sur
+      10 ans) × taux de prélèvements < 1, et part du coût brut rendue au solde
+      public (intérêts compris) < 1 — mesurée 0,13 (v0.6.10) ;
+    - dette NOMINALE : plus haute que le statu quo en fin d'horizon ;
+    - ratio dette/PIB : non vérifié année par année (un PIB plus haut peut le
+      faire passer sous le statu quo sans rembourser le coût, −0,05 pt en
+      2030-2031) ; seule sa valeur de fin d'horizon est bornée."""
     base, cas = mesures
     n = _niveaux(base, cas['investissement'])
     cumule_10 = sum(n[2:12]) / 10
@@ -84,6 +95,8 @@ def test_aucun_investissement_ne_s_autofinance(mesures):
     degradation = sum(df0['Déficit'][i] - df['Déficit'][i] for i in range(1, 12))
     assert 1 - degradation / cout < 1
     assert degradation > 0.5 * cout   # l'essentiel du coût reste à la charge des finances publiques
+    assert df['Dette'][11] > df0['Dette'][11]                   # dette nominale 2036
+    assert df['Dette/PIB %'][11] > df0['Dette/PIB %'][11]       # ratio 2036
 
 
 def test_le_statu_quo_ne_depend_pas_des_multiplicateurs():
