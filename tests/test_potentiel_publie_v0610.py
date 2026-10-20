@@ -29,6 +29,7 @@ from budget_simulator.engine import orchestrator as orchestrator_module
 from budget_simulator.simulator import BudgetSimulatorV45
 
 CAS_AUDIT = {'recherche_publique': {'budget': 20}}
+CAS_HYSTERESE = 'levier_transition_invest_50_hysteresis'
 ANNEE_AUDIT = 2030
 
 
@@ -102,6 +103,10 @@ CAS = {
     'levier_recherche_coupe_0': {'recherche_publique': {'budget': 0}},
     # Offre de travail (canal emploi seniors), posée en tête d'année.
     'levier_retraites_age_65': {'retraites': {'age_depart': 65}},
+    # Hystérèse du tendanciel : seul cas PUBLIC qui le fait bouger (les
+    # programmes qui le déclenchent exigent scenarios.json, absent du dépôt
+    # public) — sans lui, `Croissance_Potentielle %` n'y serait pas testée.
+    CAS_HYSTERESE: {'transition_ecologique': {'investissement': 50}},
 }
 
 # Demi-unité du dernier chiffre publié (round(·, 2) en points de %) : borne de
@@ -116,8 +121,18 @@ def _residu(gap_prec, croissance, potentiel, gap):
 def test_les_cas_couvrent_les_programmes_publies_quand_ils_sont_disponibles():
     """Garde anti-skip silencieux : avec scenarios.json, les 10 programmes."""
     if (os.environ.get('BUDGETLAB_SCENARIOS_JSON') or '').strip():
-        assert len(CAS) == len(_programmes_publies()) + 6
+        assert len(CAS) == len(_programmes_publies()) + 7
         assert len(_programmes_publies()) >= 10
+
+
+def test_un_cas_public_deplace_le_tendanciel_par_hysteresis():
+    """Garde de couverture : sans scenarios.json, la colonne tendancielle
+    n'est testée que si un levier public déclenche l'hystérèse. Si une
+    recalibration la rendait inerte pour ce cas, ce test le dit (au lieu
+    de laisser `Croissance_Potentielle %` sans protection en silence)."""
+    _, _, consomme = _simuler_brut(CAS[CAS_HYSTERESE])
+    tendanciels = {etat['tendanciel'] for etat in consomme.values()}
+    assert len(tendanciels) > 1, f"{CAS_HYSTERESE} : tendanciel constant {tendanciels}"
 
 
 @pytest.mark.parametrize('cas', sorted(CAS))
