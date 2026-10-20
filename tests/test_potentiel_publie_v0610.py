@@ -212,3 +212,30 @@ def test_ligne_de_l_annee_de_base_publie_le_potentiel_d_entree(cas):
         tendanciel_saisi, abs=1e-12)
     assert detail.loc[base, 'Bonus_Potentiel_Supply %'] == 0.0
     assert detail.loc[base, 'Bonus_Offre_Travail %'] == 0.0
+
+
+class _SimulateurPhotographies(BudgetSimulatorV45):
+    """Garde chaque photographie rendue par ``potentiel_de_l_annee()``."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.photographies = []
+
+    def potentiel_de_l_annee(self):
+        photo = super().potentiel_de_l_annee()
+        self.photographies.append(photo)
+        return photo
+
+
+@pytest.mark.parametrize('cas', sorted(CAS))
+def test_la_photographie_du_potentiel_est_en_float_python_toutes_les_annees(cas):
+    """Une seule convention d'arrondi par colonne : ``round(·, 2)`` traite un
+    demi-centième différemment pour un ``float`` et pour un ``numpy.float64``
+    (l'état devient float64 après le ``np.clip`` de la clôture d'année).
+    Toutes les années publient donc des ``float`` Python."""
+    sim = _SimulateurPhotographies(periods=10, mesures=CAS[cas])
+    sim.simulate()
+    assert len(sim.photographies) == 11
+    for an, photo in enumerate(sim.photographies, start=sim.annee_base):
+        types = {champ: type(v).__name__ for champ, v in photo._asdict().items()}
+        assert set(types.values()) == {'float'}, f"{cas} {an} : {types}"
