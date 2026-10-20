@@ -11,10 +11,13 @@ pas. Ce module le rend reproductible partout en SIMULANT la locale Windows dans
 un sous-processus pytest : tout fichier ouvert en mode texte sans `encoding=`
 y est décodé en cp1252, exactement comme sous Windows.
 """
+import ast
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -69,3 +72,157 @@ def test_snapshots_relus_a_l_identique_sous_locale_windows():
         "un fichier texte est ouvert sans encoding='utf-8'.\n"
         + res.stdout[-4000:] + res.stderr[-2000:]
     )
+
+
+# ---------------------------------------------------------------------------
+# Garde durable : aucun fichier texte ouvert sans `encoding=` dans le dépôt.
+# ---------------------------------------------------------------------------
+# Le rouge ci-dessus ne couvre que les lecteurs de snapshots qu'il exécute ;
+# cette garde statique (AST) couvre TOUT fichier Python suivi par git — moteur,
+# API, scripts, tests — y compris un site ajouté demain.
+
+# Exceptions explicites : (chemin relatif, ligne) d'un appel volontairement
+# dépourvu d'`encoding=` (aucun aujourd'hui). Toute entrée doit dire pourquoi.
+EXCEPTIONS_ENCODAGE: frozenset = frozenset()
+
+# Appels du module `subprocess` qui décodent la sortie de l'enfant en texte.
+_APPELS_SUBPROCESS = frozenset({"run", "check_output", "Popen", "call", "check_call"})
+
+# Position de `encoding` parmi les arguments positionnels, par fonction :
+# open(file, mode, buffering, encoding) ; Path.open(mode, buffering, encoding) ;
+# Path.read_text(encoding) ; Path.write_text(data, encoding).
+_POSITION_ENCODING = {"open": 3, "Path.open": 2, "read_text": 0, "write_text": 1}
+
+
+def _a_le_mot_cle(appel, nom: str) -> bool:
+    return any(kw.arg == nom for kw in appel.keywords)
+
+
+def _mode_binaire(appel, position_mode: int):
+    """True/False si le mode est un littéral (binaire ou texte), None sinon."""
+    mode = None
+    if len(appel.args) > position_mode:
+        mode = appel.args[position_mode]
+    for kw in appel.keywords:
+        if kw.arg == "mode":
+            mode = kw.value
+    if mode is None:
+        return False  # mode par défaut 'r' : texte
+    if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
+        return "b" in mode.value
+    return None  # mode calculé : indécidable statiquement → signalé
+
+
+def _vrai_litteral(valeur) -> bool:
+    return isinstance(valeur, ast.Constant) and valeur.value is True
+
+
+def sites_sans_encodage(source: str, nom_fichier: str = "<source>") -> list:
+    """Liste des (ligne, description) des appels texte sans encodage explicite.
+
+    Couvre : `open(...)` / `io.open(...)`, `<chemin>.open(...)`,
+    `<chemin>.read_text(...)`, `<chemin>.write_text(...)` en mode texte, et
+    `subprocess.<run|check_output|Popen|call|check_call>(..., text=True)`
+    (ou `universal_newlines=True`) sans `encoding=`."""
+    sites = []
+    for noeud in ast.walk(ast.parse(source, filename=nom_fichier)):
+        if not isinstance(noeud, ast.Call):
+            continue
+        f = noeud.func
+        nom = f.id if isinstance(f, ast.Name) else (
+            f.attr if isinstance(f, ast.Attribute) else None)
+        if nom is None:
+            continue
+        if _a_le_mot_cle(noeud, "encoding"):
+            continue
+        if nom == "open":
+            # `open(...)` / `io.open(...)` : (file, mode, buffering, encoding) ;
+            # tout autre `<objet>.open(...)` est lu comme Path.open(mode, ...).
+            builtin = isinstance(f, ast.Name) or (
+                isinstance(f.value, ast.Name) and f.value.id == "io")
+            cle, pos_mode = ("open", 1) if builtin else ("Path.open", 0)
+            binaire = _mode_binaire(noeud, pos_mode)
+            if binaire or len(noeud.args) > _POSITION_ENCODING[cle]:
+                continue
+            raison = "mode non littéral" if binaire is None else "texte"
+            sites.append((noeud.lineno, f"{nom}() {raison} sans encoding="))
+        elif nom in ("read_text", "write_text"):
+            if len(noeud.args) > _POSITION_ENCODING[nom]:
+                continue
+            sites.append((noeud.lineno, f"{nom}() sans encoding="))
+        elif nom in _APPELS_SUBPROCESS and isinstance(f, ast.Attribute) \
+                and isinstance(f.value, ast.Name) and f.value.id == "subprocess":
+            texte = any(kw.arg in ("text", "universal_newlines")
+                        and _vrai_litteral(kw.value) for kw in noeud.keywords)
+            if texte:
+                sites.append((noeud.lineno,
+                              f"subprocess.{nom}(text=True) sans encoding="))
+    return sites
+
+
+def _fichiers_python_suivis() -> list:
+    """Fichiers .py suivis par git ; repli explicite sur l'arborescence si le
+    dépôt n'est pas un clone git (archive) — jamais un ensemble vide muet."""
+    try:
+        sortie = subprocess.run(
+            ["git", "ls-files", "-z", "--", "*.py"], cwd=ROOT,
+            capture_output=True, check=True).stdout
+        fichiers = [ROOT / p for p in sortie.decode("utf-8").split("\0") if p]
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"[test_encodage_portable] git ls-files indisponible ({exc}) : "
+              "repli sur le parcours de l'arborescence", file=sys.stderr)
+        fichiers = [p for p in ROOT.rglob("*.py")
+                    if not any(part.startswith(".") or part in ("venv", "__pycache__")
+                               for part in p.relative_to(ROOT).parts)]
+    return fichiers
+
+
+def test_aucun_fichier_texte_ouvert_sans_encodage():
+    """Propriété V2-05 : tout fichier texte du dépôt est ouvert avec un
+    encodage explicite — sinon la suite (ou le moteur) dépend de la locale."""
+    fichiers = _fichiers_python_suivis()
+    assert len(fichiers) > 50, f"inventaire suspect : {len(fichiers)} fichiers .py"
+    fautes = []
+    for chemin in fichiers:
+        rel = chemin.relative_to(ROOT).as_posix()
+        for ligne, quoi in sites_sans_encodage(
+                chemin.read_text(encoding="utf-8"), rel):
+            if (rel, ligne) not in EXCEPTIONS_ENCODAGE:
+                fautes.append(f"{rel}:{ligne} — {quoi}")
+    assert not fautes, (
+        "Fichier texte ouvert sans encodage explicite (dépend de la locale : "
+        "cp1252 sous Windows) — ajouter encoding='utf-8' :\n  "
+        + "\n  ".join(fautes))
+
+
+@pytest.mark.parametrize("code,attendu", [
+    # Signalés
+    ("p.read_text()", 1),
+    ("p.write_text(s)", 1),
+    ("open(f)", 1),
+    ("open(f, 'w')", 1),
+    ("io.open(f, 'r')", 1),
+    ("p.open()", 1),
+    ("p.open('w')", 1),
+    ("open(f, mode)", 1),
+    ("subprocess.run(c, text=True)", 1),
+    ("subprocess.check_output(c, universal_newlines=True)", 1),
+    # Conformes
+    ("p.read_text(encoding='utf-8')", 0),
+    ("p.read_text('utf-8')", 0),
+    ("p.write_text(s, 'utf-8')", 0),
+    ("p.write_text(s, encoding='utf-8')", 0),
+    ("open(f, encoding='utf-8')", 0),
+    ("open(f, 'r', -1, 'utf-8')", 0),
+    ("open(f, 'rb')", 0),
+    ("open(f, mode='wb')", 0),
+    ("p.open('rb')", 0),
+    ("p.open(encoding='utf-8')", 0),
+    ("subprocess.run(c, capture_output=True)", 0),
+    ("subprocess.run(c, text=True, encoding='utf-8')", 0),
+    ("subprocess.run(c, encoding='utf-8')", 0),
+])
+def test_detecteur_encodage(code, attendu):
+    """Le détecteur rougit sur chaque forme fautive et laisse passer chaque
+    forme conforme — sans quoi la garde ci-dessus serait un faux vert."""
+    assert len(sites_sans_encodage(code)) == attendu, sites_sans_encodage(code)
