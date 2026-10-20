@@ -123,3 +123,233 @@ def test_im_competitivite_eviction_ne_soutient_pas_l_expansion_2027():
     assert effet <= 0.0, (
         f"éviction 2027 = {effet:+.6f} pt de croissance (part {etat['part_investissement']:.3f}, "
         f"effort {etat['effort_budgetaire']:+.5f}) : elle SOUTIENT l'expansion")
+
+
+# ---------------------------------------------------------------------------
+# Propriétés durables (v0.6.10) : la part est une part PAR CONSTRUCTION, et
+# l'éviction ne soutient jamais une expansion.
+# ---------------------------------------------------------------------------
+import ast  # noqa: E402
+import inspect  # noqa: E402
+import math  # noqa: E402
+import random  # noqa: E402
+
+from budget_simulator.constants import (  # noqa: E402
+    EVICTION_INTENSITE_INVESTISSEMENT,
+    EVICTION_SEUIL_DETTE,
+    EVICTION_SURCROIT_NON_PRODUCTIF,
+    HANDLER_FAILED_KEY,
+    PARAM_DOMAINS,
+)
+from budget_simulator.engine import growth  # noqa: E402
+from budget_simulator.engine.growth import (  # noqa: E402
+    effet_eviction,
+    flux_par_levier,
+    intensite_eviction,
+    part_investissement_expansion,
+)
+from budget_simulator.simulator import FiscalMultipliers  # noqa: E402
+
+INVEST = BudgetSimulatorV45.INVESTMENT_CORE_MEASURES
+NETTES = FiscalMultipliers.MESURES_MULTIPLICATEUR_NET
+# Interrupteurs 0/1 de PARAM_DOMAINS (même liste que scripts/scan_discontinuites.py).
+DRAPEAUX = {'progressive', 'reforme_active', 'exclure_defense', 'exclure_ue',
+            'exclure_dette', 'asu_activation', 'degressivite'}
+GRAINE = 20261021
+
+
+def _part(impacts):
+    return part_investissement_expansion(impacts, INVEST, NETTES)
+
+
+def _verifier_etats(nom, etats):
+    """Contrat sur chaque état macro d'une simulation : part ∈ [0 ; 1] et
+    éviction ≤ 0 (strictement < 0 quand elle joue)."""
+    for i, e in etats.items():
+        p = e['part_investissement']
+        assert 0.0 <= p <= 1.0, f"{nom} {2025 + i} : part {p!r} hors [0 ; 1]"
+        effet = effet_eviction(e['effort_budgetaire'], e['debt_ratio'], p)
+        if e['effort_budgetaire'] < 0 and e['debt_ratio'] > EVICTION_SEUIL_DETTE:
+            assert effet < 0.0, f"{nom} {2025 + i} : éviction {effet!r} ≥ 0 en expansion"
+        else:
+            assert effet == 0.0
+
+
+# --- Convention de la part (fonction pure) ---------------------------------
+
+@pytest.mark.parametrize('impacts, attendu', [
+    # Contre-exemple V2-01 : investissement financé en partie par une coupe →
+    # la relance est 100 % investissement.
+    ({'transition_ecologique': {'depenses': 20.0}, 'collectivites': {'depenses': -10.0}}, 1.0),
+    # Une COUPE d'investissement n'est pas une part d'investissement de la relance.
+    ({'recherche_publique': {'depenses': -10.0}, 'tva_rate': {'recettes': -5.0}}, 0.0),
+    # Prorata : 30 d'investissement sur 60 d'expansion brute (10 de transferts,
+    # 20 de baisse d'impôts) ; la hausse d'IS finance au prorata, hors composition.
+    ({'education': {'depenses': 30.0}, 'retraites': {'depenses': 10.0},
+      'tva_rate': {'recettes': -20.0}, 'impot_societes': {'recettes': 50.0}}, 0.5),
+    # Levier à multiplicateur NET (SMIC) : compté sur son solde, comme ses impulsions.
+    ({'smic': {'depenses': 10.0, 'recettes': 4.0}, 'education': {'depenses': 6.0}}, 0.5),
+    # Levier en échec (0/0) ou entrée non-dict : sans effet.
+    ({'education': {'depenses': 5.0}, 'retraites': {'depenses': 0, 'recettes': 0, HANDLER_FAILED_KEY: True},
+      'bruit': 3.0}, 1.0),
+    # Aucune expansion → 0 (l'éviction ne joue pas : effort ≥ 0).
+    ({'tva_rate': {'recettes': 7.0}, 'education': {'depenses': -3.0}}, 0.0),
+    ({}, 0.0),
+])
+def test_convention_part_investissement_expansion(impacts, attendu):
+    assert _part(impacts) == attendu
+
+
+def test_leviers_investissement_et_leviers_nets_disjoints():
+    """Un levier d'investissement compté sur son SOLDE ne serait jamais lu comme
+    investissement (canal 'solde') : les deux ensembles doivent rester disjoints."""
+    assert not INVEST & NETTES
+
+
+def test_impulsions_et_eviction_lisent_la_meme_decomposition():
+    """UNE convention de flux par levier pour les deux canaux de demande : les
+    niveaux d'impulsion sont exactement les flux de ``flux_par_levier`` / PIB."""
+    impacts = {'education': {'depenses': 12.0, 'recettes': 0.0}, 'smic': {'depenses': 3.0, 'recettes': 1.0},
+               'tva_rate': {'depenses': 0.0, 'recettes': -4.0}}
+    sim = BudgetSimulatorV45(periods=10, mesures={})
+    sim.pib_nominal = 3000.0
+    sim._last_impacts = impacts
+    sim._stocker_impulsions(1, dict(output_gap=0.0, debt_ratio=1.1, unemployment_gap=0.0, interest_rate=0.03))
+    assert sim._niveaux_impulsion == {k: v / 3000.0 for k, v in flux_par_levier(impacts, NETTES).items()}
+
+
+def test_part_dans_0_1_sur_tirages_synthetiques_y_compris_en_flottants():
+    """5 000 budgets synthétiques (graine fixe), flux de toutes tailles et de tous
+    signes, levier par levier : la part reste dans [0 ; 1] AU BIT près, et vaut
+    exactement 1 quand toute l'expansion est de l'investissement."""
+    rng = random.Random(GRAINE)
+    leviers = sorted(INVEST) + ['retraites', 'tva_rate', 'collectivites', 'smic', 'fraude_fiscale', 'defense']
+    for _ in range(5000):
+        impacts = {m: {'depenses': rng.uniform(-1, 1) * 10 ** rng.uniform(-6, 2),
+                       'recettes': rng.uniform(-1, 1) * 10 ** rng.uniform(-6, 2)}
+                   for m in rng.sample(leviers, rng.randint(1, len(leviers)))}
+        p = _part(impacts)
+        assert 0.0 <= p <= 1.0, (p, impacts)
+        pur = {m: {'depenses': abs(v['depenses']), 'recettes': 0.0} for m, v in impacts.items() if m in INVEST}
+        if pur:
+            pur['collectivites'] = {'depenses': -rng.uniform(0, 100), 'recettes': rng.uniform(0, 100)}
+            assert _part(pur) == 1.0, pur
+
+
+# --- (i) Part ∈ [0 ; 1] sur les budgets admissibles du moteur complet ---------
+
+def _hausses_investissement():
+    """Chaque paramètre d'un levier d'investissement productif poussé à la borne
+    qui ACCROÎT la dépense (borne haute ; la taxe carbone est une recette)."""
+    return [(m, p, hi) for m in sorted(INVEST) for p, (lo, hi) in PARAM_DOMAINS.get(m, {}).items()
+            if p != 'taxe_carbone']
+
+
+def _autres_bornes():
+    return [(m, p, b) for m, dom in PARAM_DOMAINS.items() if m not in INVEST
+            for p, (lo, hi) in dom.items() for b in (lo, hi)]
+
+
+def test_paires_investissement_coupe_aux_bornes_des_domaines():
+    """Investissement poussé au maximum de son domaine × chaque autre paramètre à
+    chacune de ses bornes (coupe, hausse d'impôt, ou expansion concurrente)."""
+    for mi, pi, xi in _hausses_investissement():
+        for mo, po, xo in _autres_bornes():
+            mesures = {mi: {pi: xi}, mo: {po: xo}}
+            etats, _ = _simuler(mesures)
+            _verifier_etats(f"{mi}.{pi}={xi} + {mo}.{po}={xo}", etats)
+
+
+def test_scenarios_publies():
+    for sid, mesures in _scenarios().items():
+        etats, _ = _simuler(mesures)
+        _verifier_etats(sid, etats)
+
+
+def test_tirages_aleatoires_dans_param_domains():
+    """200 programmes tirés à graine fixe : chaque levier présent une fois sur
+    deux, chaque paramètre uniforme dans son domaine (interrupteurs : 0 ou 1)."""
+    rng = random.Random(GRAINE)
+    for k in range(200):
+        mesures = {}
+        for m, dom in PARAM_DOMAINS.items():
+            if rng.random() < 0.5:
+                mesures[m] = {p: (rng.choice((lo, hi)) if p in DRAPEAUX else rng.uniform(lo, hi))
+                              for p, (lo, hi) in dom.items()}
+        etats, _ = _simuler(mesures)
+        _verifier_etats(f"tirage {k}", etats)
+
+
+# --- (ii) L'éviction ne soutient jamais une expansion -------------------------
+
+def test_eviction_negative_pour_toute_expansion_au_dela_du_seuil():
+    for effort in (-0.10, -0.03, -0.005, -1e-6, -1e-12):
+        for dette in (EVICTION_SEUIL_DETTE + 1e-12, 1.2, 3.0):
+            for i in range(101):
+                p = i / 100
+                assert effet_eviction(effort, dette, p) < 0.0, (effort, dette, p)
+    # Hors du domaine de l'éviction : exactement nulle.
+    for effort, dette in ((0.0, 1.5), (0.02, 1.5), (-0.02, EVICTION_SEUIL_DETTE), (-0.02, 0.8)):
+        assert effet_eviction(effort, dette, 0.3) == 0.0
+
+
+@pytest.mark.parametrize('part', [-1e-12, 1.0 + 1e-12, 2.0, -0.5, math.nan, math.inf])
+def test_part_hors_0_1_est_un_defaut_moteur_bruyant(part):
+    """Hors [0 ; 1] l'intensité peut devenir négative : RuntimeError (500 + ERROR
+    côté API), jamais un bornage silencieux."""
+    with pytest.raises(RuntimeError, match=r"hors \[0 ; 1\]"):
+        intensite_eviction(part)
+    with pytest.raises(RuntimeError):
+        effet_eviction(-0.01, 1.2, part)
+
+
+def test_eviction_du_moteur_complet_negative_sur_les_scenarios_publies():
+    """Mesure au banc (``calculate_growth``), chaque année d'expansion à dette >
+    100 % des 10 scénarios publiés et du contre-exemple."""
+    cas = dict(_scenarios(), contre_exemple=CONTRE_EXEMPLE)
+    vus = 0
+    for sid, mesures in cas.items():
+        etats, _ = _simuler(mesures)
+        for i, e in etats.items():
+            if e['effort_budgetaire'] < 0 and e['debt_ratio'] > EVICTION_SEUIL_DETTE:
+                vus += 1
+                assert _effet_eviction(e) < 0.0, (sid, 2025 + i)
+    assert vus >= 20  # anti-faux-vert : l'éviction joue bien sur ces programmes
+
+
+# --- (iii) Bornes de l'intensité ----------------------------------------------
+
+def test_intensite_aux_bornes_de_la_part():
+    assert intensite_eviction(1.0) == EVICTION_INTENSITE_INVESTISSEMENT == 0.002
+    assert intensite_eviction(0.0) == EVICTION_INTENSITE_INVESTISSEMENT + EVICTION_SURCROIT_NON_PRODUCTIF == 0.008
+    valeurs = [intensite_eviction(i / 1000) for i in range(1001)]
+    assert all(a >= b for a, b in zip(valeurs, valeurs[1:]))  # décroissante en la part
+    assert min(valeurs) > 0.0
+
+
+def test_contre_exemple_relance_100_pour_cent_investissement():
+    """Le contre-exemple est une relance entièrement faite d'investissement :
+    part 1, éviction à l'intensité basse — mesurée dans ``calculate_growth``."""
+    etats, _ = _simuler(CONTRE_EXEMPLE)
+    e = etats[IDX_2027]
+    assert e['part_investissement'] == 1.0
+    attendu = EVICTION_INTENSITE_INVESTISSEMENT * e['effort_budgetaire'] * 100
+    assert _effet_eviction(e) == pytest.approx(attendu, rel=1e-9, abs=1e-15)
+
+
+# --- (iv) Constantes nommées, plus de littéraux --------------------------------
+
+def _litteraux_flottants(fonction):
+    return {n.value for n in ast.walk(ast.parse(inspect.getsource(fonction).strip()))
+            if isinstance(n, ast.Constant) and isinstance(n.value, float)}
+
+
+def test_constantes_nommees_sans_litteral_dans_l_eviction():
+    """Les coefficients de l'éviction vivent dans constants.py (source unique) ;
+    les fonctions de l'éviction et ``calculate_growth`` n'en portent plus aucun
+    littéral (seuls restent 0 et 1, bornes d'une part et effet nul)."""
+    assert (EVICTION_SEUIL_DETTE, EVICTION_INTENSITE_INVESTISSEMENT, EVICTION_SURCROIT_NON_PRODUCTIF) == (1.0, 0.002, 0.006)
+    for f in (intensite_eviction, effet_eviction, part_investissement_expansion):
+        assert _litteraux_flottants(f) <= {0.0, 1.0}, (f.__name__, _litteraux_flottants(f))
+    assert not _litteraux_flottants(growth.GrowthMixin.calculate_growth) & {0.002, 0.006, 0.008}
+    assert 'EVICTION_SEUIL_DETTE' in inspect.getsource(effet_eviction)
