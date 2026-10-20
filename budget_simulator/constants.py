@@ -445,6 +445,22 @@ BCE_PLANCHER_ACCOMMODANT = 0.008  # 0,8 % — seuil de la politique monétaire a
 DEBT_DRAG_COEFF = -0.005  # par unité de ratio : −0,05 pt de croissance par +10 pts ; compromis Reinhart-Rogoff −0,008 / Herndon-Ash-Pollin −0,003
 DEBT_DRAG_SEUIL = 0.9     # 90 % du PIB
 
+# --- Éviction (« crowding-out », engine/growth.py : intensite_eviction / effet_eviction)
+# — source unique (v0.6.10, contre-audit externe V2-01 ; c'étaient des littéraux,
+# valeurs INCHANGÉES). Une EXPANSION nette (effort < 0) quand la dette dépasse
+# EVICTION_SEUIL_DETTE ôte intensité × |effort| à la croissance de l'année, avec
+#   intensité = EVICTION_INTENSITE_INVESTISSEMENT + (1 − part) × EVICTION_SURCROIT_NON_PRODUCTIF,
+# part ∈ [0 ; 1] = part de l'expansion qui finance de l'investissement productif
+# (part_investissement_expansion). Bornes : 0,002 (expansion 100 % investissement
+# productif) → 0,008 (0 % : transferts, baisses d'impôts, dépense courante).
+# SOURCE : AUCUNE. Calibration de la v3.0 du moteur (27/03/2026), présentée dans
+# METHODOLOGIE comme « éviction standard » sans référence ; aucune source trouvée
+# dans METHODOLOGIE, EXPLICATION_MODELE_ECONOMIQUE ni l'historique du dépôt
+# (recherche du 21/10/2026). Ordre de grandeur déclaré, pas une estimation.
+EVICTION_SEUIL_DETTE = 1.0                 # 100 % du PIB (même absence de source)
+EVICTION_INTENSITE_INVESTISSEMENT = 0.002  # intensité d'une expansion 100 % investissement productif
+EVICTION_SURCROIT_NON_PRODUCTIF = 0.006    # surcroît d'intensité d'une expansion 0 % investissement
+
 # --- Croissance potentielle : ré-ancrage DÉRIVÉ (v0.6.7, lot 3b, option B
 # arbitrée le 07/10/2026) ---
 # La mission Jaravel/Ragot/Tavernier/Valla (07/2026) publie un potentiel TOTAL de

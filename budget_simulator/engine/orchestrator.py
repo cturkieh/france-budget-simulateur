@@ -35,7 +35,7 @@ des appels dans la boucle annuelle (refonte « assemblage temporel »
 ``calculate_growth`` (+ choc de demande OBSERVÉ de l'année, v0.6.9,
 ajouté avant tout lecteur de la croissance) / ``calculate_inflation``
 (macro de l'année, consomment l'impulsion budgétaire de t−1 :
-``_budget_effort_prev`` / ``_parts_prev`` / ``_last_impacts``) → mise à jour PIB (déflateur
+``_budget_effort_prev`` / ``_part_investissement_prev`` / ``_last_impacts``) → mise à jour PIB (déflateur
 contemporain) → ``calculate_unemployment`` (Okun sur la croissance de
 l'année) → ``calculate_revenues`` / ``calculate_expenditures`` (flux
 organiques AUX PRIX DE L'ANNÉE) → ``apply_measures`` (deltas mesures ;
@@ -97,6 +97,7 @@ from ..constants import (
     PA_VARIATION_ANNUELLE_MAX,
     conjoncture_observee,
 )
+from .growth import part_investissement_expansion
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
     EntreeInvalide,
@@ -636,8 +637,11 @@ class OrchestratorMixin:
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
                     'effort_budgetaire': self._budget_effort_prev,
-                    'part_depenses': self._parts_prev['depenses'],
-                    'part_investissement': self._parts_prev['investissement'],
+                    # Composition lue par l'éviction (v0.6.10, V2-01). L'ancienne
+                    # « part_depenses » (|Δdép net| / (|Δdép net| + |Δrec net|))
+                    # est retirée : son dernier lecteur, le repli du multiplicateur
+                    # agrégé, a disparu avec les impulsions levier par levier (v0.6.7).
+                    'part_investissement': self._part_investissement_prev,
                     'debt_ratio': debt_ratio,
                     'interest_rate': self.base_params['taux_interet_base'],
                     'unemployment': unemployment,
@@ -750,25 +754,24 @@ class OrchestratorMixin:
                 fiscal_impulse = delta_revenue - delta_spending
                 budget_effort = fiscal_impulse / gdp_nominal
 
-                total_measures = abs(delta_spending) + abs(delta_revenue)
-                part_spending = abs(delta_spending) / total_measures if total_measures > 0 else 0
-                part_revenue = 1 - part_spending
-
-                # Seules les dépenses d'investissement PRODUCTIF comptent pour le multiplicateur élevé.
-                # Utilise le frozenset de classe INVESTMENT_FLOW_MEASURES (centralisé)
-                part_investment = sum(
-                    abs(impacts.get(m, {}).get('depenses', 0))
-                    for m in self.INVESTMENT_CORE_MEASURES
-                ) / total_measures if total_measures > 0 else 0
+                # Composition de l'EXPANSION de l'année (v0.6.10, contre-audit
+                # externe V2-01) : part des hausses de dépenses et baisses de
+                # recettes — levier par levier, convention des impulsions
+                # keynésiennes — qui finance de l'investissement PRODUCTIF
+                # (INVESTMENT_CORE_MEASURES). Dans [0 ; 1] par construction ;
+                # formule et motif : engine/growth.py, part_investissement_expansion.
+                part_investment = part_investissement_expansion(
+                    impacts, self.INVESTMENT_CORE_MEASURES,
+                    self.multipliers.MESURES_MULTIPLICATEUR_NET)
 
                 _log_debug(self.debug_logs, f"Y{year_idx}: Effort budgétaire = {budget_effort:.3f}")
-                _log_debug(self.debug_logs, f"Composition: rec={part_revenue:.2f}, dep={part_spending:.2f}, inv={part_investment:.2f}")
+                _log_debug(self.debug_logs, f"Composition de l'expansion : inv={part_investment:.2f}")
 
                 # Impulsion budgétaire de l'année stockée pour la macro de t+1
                 # (lag standard d'un an, cf. en-tête du bloc REFONTE ci-dessus :
-                # growth/inflation de t+1 consommeront cet effort et ces parts).
+                # growth/inflation de t+1 consommeront cet effort et cette part).
                 self._budget_effort_prev = budget_effort
-                self._parts_prev = {'depenses': part_spending, 'investissement': part_investment}
+                self._part_investissement_prev = part_investment
 
                 revenues = revenues_after
                 spending = spending_after
