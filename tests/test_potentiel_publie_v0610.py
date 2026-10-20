@@ -39,6 +39,15 @@ class _SimulateurInstrumente(BudgetSimulatorV45):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.potentiel_consomme = {}
+        self.potentiel_lu_par_la_croissance = {}
+
+    def calculate_growth(self, year, economic_state):
+        # Oracle indépendant de la photographie : le potentiel que la loi de
+        # croissance vient de lire (aucun écrivain d'offre ne doit suivre).
+        growth = super().calculate_growth(year, economic_state)
+        self.potentiel_lu_par_la_croissance[self.annee_base + year] = (
+            self.croissance_potentielle_totale())
+        return growth
 
     def update_potential_growth(self, growth, year):
         self.potentiel_consomme[self.annee_base + year] = {
@@ -175,16 +184,22 @@ def test_identite_du_gap_depuis_les_colonnes_publiees(cas):
 @pytest.mark.parametrize('cas', sorted(CAS))
 def test_chaque_colonne_de_potentiel_est_la_valeur_consommee(cas):
     """Les quatre colonnes de potentiel = l'état lu par croissance, Okun et
-    output gap de l'année, photographié avant la clôture d'année ; et la
+    output gap de l'année, photographié avant la clôture d'année — et ce
+    total est bien celui que la loi de croissance a lu (aucun écrivain
+    d'offre entre les deux) ; et la
     colonne totale = tendanciel + offre structurelle + offre de travail +
     traînée de dette (la dernière sans colonne propre)."""
-    _, detail, consomme = _simuler_brut(CAS[cas])
+    _, detail, sim = _simuler_brut_avec_simulateur(CAS[cas])
+    consomme = sim.potentiel_consomme
     colonnes = {'Croissance_Potentielle %': 'tendanciel',
                 'Bonus_Potentiel_Supply %': 'offre_structurelle',
                 'Bonus_Offre_Travail %': 'offre_travail',
                 'Croissance_Potentielle_Totale %': 'total'}
     assert sorted(consomme) == list(detail.index[1:])
+    lu = sim.potentiel_lu_par_la_croissance
+    assert sorted(lu) == sorted(consomme)
     for an, etat in consomme.items():
+        assert etat['total'] == lu[an], f"{cas} {an} : potentiel muté après la croissance"
         for colonne, cle in colonnes.items():
             assert detail.loc[an, colonne] == pytest.approx(etat[cle] * 100, abs=1e-12), (
                 f"{cas} {an} {colonne}")
