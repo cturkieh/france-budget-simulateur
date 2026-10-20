@@ -1131,8 +1131,11 @@ RETRAITES_COEFF_AGE_MD_EUR = 6.0
 RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 Md€/semestre, plein régime)
 # --- Désindexation des pensions (v0.6.7, audit Codex 10/2026, bloc B constat 2) ---
 # Économie = PART × masse nominale de la catégorie `retraites` de l'année ×
-# [1 − Π (1 − δ × max(π_{s−1}, 0))], δ = 1 − indexation, une revalorisation par
-# an dès POLICY_START_YEAR, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE — 2026 au
+# [1 − Π (1 + (1 − δ)π⁺_{s−1}) / (1 + π⁺_{s−1})], π⁺ = max(π, 0), δ = 1 − indexation
+# (ratio EXACT depuis v0.6.10, contre-audit externe V2-03 : la masse de l'année
+# est déjà pleinement revalorisée ; jusqu'en v0.6.9, 1 − Π (1 − δπ⁺) au premier
+# ordre), une revalorisation par an dès POLICY_START_YEAR, chacune à l'inflation
+# de l'ANNÉE PRÉCÉDENTE — 2026 au
 # taux légal effectif REVALORISATION_PENSIONS_2026 (handlers/depenses.py,
 # réfutation des handlers : c'était l'inflation de l'année courante, gel 2026 =
 # 4,48 Md€).
@@ -1147,6 +1150,13 @@ RETRAITES_COEFF_DUREE_MD_EUR = 4.0       # Md€/an par année de cotisation (2 
 # gel au 1er janvier 2026 d'une revalorisation de 1,1 % = 3,7 Md€ d'économie,
 # soit 336 Md€ de masse indexée, rapportés à la masse nominale 2026 de la
 # catégorie du moteur au statu quo (390,7 Md€) : 336 / 390,7 = 0,86.
+# Dérivation faite en v0.6.7 sous la formule au premier ordre (économie = part ×
+# masse × 1,1 %). Sous le ratio exact (v0.6.10), le même gel vaut part × masse ×
+# 1,1 % / 1,011 = 3,66 Md€ : toujours dans la tolérance de l'ancrage (0,05 Md€),
+# la part n'est donc PAS re-dérivée dans cette release d'équation (paramètres et
+# équations en releases séparées). La dérivation cohérente avec le ratio exact
+# rapporterait à la masse pleinement revalorisée, 336 × 1,011 = 339,7 Md€ :
+# 339,7 / 390,7 = 0,87 — re-calage renvoyé à une release de paramètres.
 # Verrouillé par tests/test_desindexation_v067.py (ancrage OFCE à 0,05 Md€).
 RETRAITES_PART_MASSE_INDEXEE = 0.86
 # REVALORISATION DES PENSIONS AU 1ER JANVIER 2026 : un FAIT, pas une sortie du

@@ -6,12 +6,18 @@ un gel total rapportait 3,00 Md€ en 2027 que l'inflation vaille 0 %, 1,5 % ou 
 soit une inflation implicite de 0,39 % sur la masse des pensions. Prestations
 (lot 2) : base 90 Md€ figée en euros 2025, et rien en 2026.
 
-Contrat : économie(t) = masse indexée(t) × [1 − Π_s (1 − δ × max(π_s, 0))],
-δ = 1 − indexation, une revalorisation par an dès POLICY_START_YEAR, chacune à
+Contrat : économie(t) = masse indexée(t) × [1 − Π_s (1 + (1 − δ)π⁺_s) / (1 + π⁺_s)],
+π⁺ = max(π, 0), δ = 1 − indexation, une revalorisation par an dès POLICY_START_YEAR, chacune à
 l'inflation de l'ANNÉE PRÉCÉDENTE (2026 : l'inflation 2025 réalisée, INFLATION_BASE
 — réfutation des handlers, v0.6.7 ; c'était l'inflation de l'année courante) ;
 masse indexée = masse NOMINALE de la catégorie du moteur l'année t (× part indexée
 pour les pensions, calée sur l'OFCE).
+
+Re-déclaré en acte le 21/10/2026, motif « ratio exact v0.6.10 » (contre-audit externe,
+réserve V2-03) : chaque revalorisation multipliait la masse par 1 − δπ⁺ (premier ordre) ;
+la masse de l'année étant déjà pleinement revalorisée, le rapport exact est
+(1 + (1 − δ)π⁺) / (1 + π⁺). Les valeurs attendues ci-dessous portent ce rapport ; les
+propriétés (historique, plateau, calendrier N−1, symétrie au premier ordre) sont inchangées.
 """
 import pytest
 
@@ -39,21 +45,32 @@ def test_pensions_economie_proportionnelle_a_l_inflation():
     gels_2026 = {pi: _pension(0.0, POLICY_START_YEAR, pi)[0] for pi in (0.0, 0.015, 0.03)}
     _, sim = _pension(0.0, POLICY_START_YEAR, 0.0)
     masse = RETRAITES_PART_MASSE_INDEXEE * sim.masse_categorie_nominale('retraites')
-    assert all(g == pytest.approx(-masse * r26, rel=1e-12) for g in gels_2026.values())
+    # ratio exact v0.6.10 : gel = masse × r26 / (1 + r26) (v0.6.7 : masse × r26)
+    assert all(g == pytest.approx(-masse * r26 / (1 + r26), rel=1e-12) for g in gels_2026.values())
     for pi in (0.0, 0.015, 0.03):
         d, _ = _pension(0.0, POLICY_START_YEAR + 1, pi)
-        assert d == pytest.approx(-masse * (1 - (1 - r26) * (1 - pi)), rel=1e-12), pi
+        assert d == pytest.approx(-masse * (1 - 1 / ((1 + r26) * (1 + pi))), rel=1e-12), pi
 
 
 def test_pensions_ancrage_ofce_annee_blanche_2026():
     """OFCE (P. Madec, billet du 30/06/2025, « Impôts et prestations : quels effets
     attendre d'une année blanche ? ») : gel des pensions de retraite au 1er janvier
     2026, revalorisation évitée 1,1 %, économie 3,7 Md€. Le moteur, sur SA masse
-    nominale 2026 du statu quo, le reproduit à 0,05 Md€ près."""
+    nominale 2026 du statu quo et avec SA formule (le helper, l'hypothèse de l'OFCE
+    passée comme taux de la revalorisation 2026), le reproduit à 0,05 Md€ près.
+
+    Re-déclaré en acte le 21/10/2026, motif « ratio exact v0.6.10 » (V2-03) : le test
+    recalculait la formule au premier ordre (masse × 1,1 % = 3,697 Md€) ; il passe
+    désormais par le helper du moteur, qui rend masse × 1,1 % / 1,011 = 3,656 Md€.
+    Tolérance INCHANGÉE (0,05 Md€) et toujours couverte, marge 0,006 Md€ : la part
+    indexée 0,86 n'est pas re-dérivée dans une release d'équation (constants.py,
+    § Désindexation des pensions — la dérivation cohérente avec le ratio exact
+    donnerait 0,87)."""
     sim = BudgetSimulatorV45(periods=1, mesures={})
     sim.simulate()   # l'état final est celui de 2026
     masse_2026 = RETRAITES_PART_MASSE_INDEXEE * sim.masse_categorie_nominale('retraites')
-    assert masse_2026 * 0.011 == pytest.approx(3.7, abs=0.05)
+    gel_ofce = masse_2026 * sim._ecart_revalorisations(1.0, POLICY_START_YEAR, 0.011, 1, 0.011)
+    assert gel_ofce == pytest.approx(3.7, abs=0.05)
 
 
 class _Script(BudgetSimulatorV45):
@@ -121,8 +138,9 @@ def test_pensions_l_ecart_constitue_ne_disparait_pas():
     script = {a: (0.02 if a <= 2027 else 0.0) for a in range(2025, 2036)}
     dep, masses = _trajectoire('retraites', {'indexation': 0.0}, script)
     for annee in range(2028, 2036):
+        # ratio exact v0.6.10 (v0.6.7 : 1 − (1 − r26) × 0,98²)
         assert dep[annee] / masses['retraites'][annee] == pytest.approx(
-            -(1 - (1 - r26) * 0.98 ** 2), rel=1e-12)
+            -(1 - 1 / ((1 + r26) * 1.02 ** 2)), rel=1e-12)
 
 
 def test_prestations_alignees_masse_nominale_et_premiere_revalorisation_2026():
@@ -132,7 +150,9 @@ def test_prestations_alignees_masse_nominale_et_premiere_revalorisation_2026():
     revalorisation en 2026 (à l'inflation 2025 réalisée), dix au plus."""
     from budget_simulator.constants import INFLATION_BASE
     dep, masses = _trajectoire('prestations_indexation', {'taux_indexation': 0.8}, SCRIPT)
-    assert dep[2026] == pytest.approx(-masses['prestations'][2026] * 0.2 * INFLATION_BASE, rel=1e-12)
+    # ratio exact v0.6.10 : 0,2 × π / (1 + π) (v0.6.7 : 0,2 × π)
+    assert dep[2026] == pytest.approx(
+        -masses['prestations'][2026] * 0.2 * INFLATION_BASE / (1 + INFLATION_BASE), rel=1e-12)
     for annee in range(2026, 2036):
         attendu = -masses['prestations'][annee] * _ecart(0.2, SCRIPT, annee, 10, 'prestations')
         assert dep[annee] == pytest.approx(attendu, rel=1e-12, abs=1e-12), annee
@@ -179,11 +199,14 @@ def test_gel_des_pensions_2026_en_simulation_porte_la_revalorisation_legale():
 def _ecart_n_moins_1(delta, script, annee, n_max, pi_2025):
     # pi_2025 : le taux de la revalorisation 2026 (un fait, jamais le script)
     """Revalorisation de l'année s à l'inflation de s − 1 ; celle de 2026 à
-    l'inflation 2025 réalisée (constante INSEE du moteur, pas le script)."""
+    l'inflation 2025 réalisée (constante INSEE du moteur, pas le script).
+    Rapport exact masse sous-indexée / masse pleinement revalorisée (v0.6.10,
+    V2-03), écrit sous sa forme « deux masses » indépendamment du moteur ;
+    v0.6.7 : f *= 1 − δπ⁺."""
     f = 1.0
     for s in range(POLICY_START_YEAR, min(annee, POLICY_START_YEAR + n_max - 1) + 1):
-        pi = pi_2025 if s == POLICY_START_YEAR else script[s - 1]
-        f *= 1 - delta * max(pi, 0.0)
+        pi = max(pi_2025 if s == POLICY_START_YEAR else script[s - 1], 0.0)
+        f *= (1 + (1 - delta) * pi) / (1 + pi)
     return 1 - f
 
 
