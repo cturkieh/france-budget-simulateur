@@ -28,6 +28,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 METHODO = ROOT / 'docs' / 'METHODOLOGIE.md'
 
@@ -63,10 +65,13 @@ _MOTIF_ARBITRAGE_OUVERT = re.compile(r'arbitrage\s+(de\s+calibration\s+)?ouvert'
 
 def test_recalage_invest_n_est_plus_presente_comme_ouvert():
     """Le recalibrage v0.6.7 est réalisé (INVEST conservé à k = 1,2 : 1,41 mesuré
-    pour une cible centrale de 1,5) : plus aucun « arbitrage ouvert »."""
-    texte = _normalise(METHODO.read_text(encoding='utf-8'))
-    occurrences = [m.group(0) for m in _MOTIF_ARBITRAGE_OUVERT.finditer(texte)]
-    assert not occurrences, f'METHODOLOGIE présente encore un arbitrage ouvert : {occurrences}'
+    pour une cible centrale de 1,5) : plus aucun « arbitrage ouvert », ni dans
+    METHODOLOGIE ni dans aucun autre fichier publié (EXPLICATION, README…)."""
+    fautes = []
+    for f in _fichiers_publies():
+        texte = _normalise(f.read_text(encoding='utf-8'))
+        fautes += [f'{f.relative_to(ROOT)} : {m.group(0)}' for m in _MOTIF_ARBITRAGE_OUVERT.finditer(texte)]
+    assert not fautes, 'recalage présenté comme un arbitrage ouvert :\n' + '\n'.join(fautes)
 
 
 def test_somme_analytique_jamais_presentee_comme_effet_courant():
@@ -81,11 +86,34 @@ def test_somme_analytique_jamais_presentee_comme_effet_courant():
 # 2. Portée du garde-fou d'autofinancement
 # --------------------------------------------------------------------------
 
+_MOT = r"[\w'’-]+"   # un mot (lettres accentuées, apostrophes, traits d'union)
 _MOTIFS_UNIVERSELS = (
-    re.compile(r"aucun\s+investissement\s+ne\s+s['’]\s*autofinance", re.IGNORECASE),
-    re.compile(r"l['’]\s*investissement\s+ne\s+s['’]\s*autofinance", re.IGNORECASE),
-    re.compile(r'aucun_investissement_ne_s_autofinance'),
+    # « aucun investissement (public) ne s'autofinance », « aucune dépense d'investissement… »
+    re.compile(rf"aucune?\s+(?:{_MOT}\s+){{0,3}}?(?:d['’]\s*)?investissements?\b"
+               rf"(?:\s+{_MOT}){{0,2}}?\s+ne\s+s['’]\s*autofinance", re.IGNORECASE),
+    # « l'investissement (public) ne s'autofinance »
+    re.compile(rf"l['’]\s*investissement(?:\s+{_MOT}){{0,2}}?\s+ne\s+s['’]\s*autofinance", re.IGNORECASE),
+    # « les investissements (publics) ne s'autofinancent »
+    re.compile(rf"les\s+investissements(?:\s+{_MOT}){{0,2}}?\s+ne\s+s['’]\s*autofinancent", re.IGNORECASE),
+    # noms de tests et identifiants
+    re.compile(r'aucun\w*_investissement\w*_ne_s_autofinance', re.IGNORECASE),
 )
+
+
+@pytest.mark.parametrize('phrase, universelle', [
+    ("Aucun investissement ne s'autofinance.", True),
+    ("Aucun investissement public ne s'autofinance.", True),
+    ("Aucune dépense d'investissement ne s'autofinance.", True),
+    ("L'investissement public ne s’autofinance jamais.", True),
+    ("Les investissements publics ne s'autofinancent pas.", True),
+    ('test_aucun_investissement_ne_s_autofinance', True),
+    ("Le choc d'investissement retenu pour le calibrage ne s'autofinance pas dans le banc.", False),
+    ("Le choc d'investissement de calibrage ne s'autofinance pas dans ce banc.", False),
+])
+def test_motifs_universels_detectent_les_variantes(phrase, universelle):
+    """Contrôle du détecteur (mutations du réfuteur : adjectif intercalé, « aucune
+    dépense d'investissement ») : il attrape les variantes, pas la portée restreinte."""
+    assert any(m.search(phrase) for m in _MOTIFS_UNIVERSELS) is universelle
 
 
 def test_autofinancement_jamais_enonce_universellement():
