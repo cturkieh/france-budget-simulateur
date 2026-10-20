@@ -108,3 +108,21 @@ def test_portee_restreinte_et_trois_notions_dans_methodologie():
     for p in porteurs:
         for notion in ('budgétaire', 'dette nominale', 'ratio dette/PIB'):
             assert notion in p, f'notion « {notion} » absente du paragraphe : {p[:160]}'
+
+
+def test_part_rendue_au_solde_definie_comme_solde_net():
+    """Reprise après réfutation (V2-06) : la part du coût « rendue au solde » est
+    un solde NET — recettes induites MOINS dépenses induites hors impulsion
+    (indexation sur les prix, intérêts) —, pas un retour de recettes. Sur le banc,
+    les recettes induites dépassent à elles seules le coût brut ; les écrire « ne
+    rendent que 13 % » est faux dans la comptabilité du moteur. La mesure en
+    volume (multiplicateur cumulé × taux de prélèvements) est une autre grandeur
+    et doit être présentée comme telle."""
+    porteurs = [p for p in _paragraphes(METHODO.read_text(encoding='utf-8'))
+                if "ne s'autofinance pas dans le banc de référence" in p]
+    assert porteurs, 'portée restreinte absente de METHODOLOGIE'
+    for p in porteurs:
+        assert not re.search(r'recettes\s+induites\s+ne\s+rendent', p), (
+            f'part rendue présentée comme un retour de recettes : {p[:160]}')
+        for terme in ('solde public', 'recettes induites', 'dépenses induites', 'en volume'):
+            assert terme in p, f'« {terme} » absent du paragraphe : {p[:160]}'
