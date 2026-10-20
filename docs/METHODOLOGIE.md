@@ -1445,8 +1445,11 @@ près de zéro (l'effet durable du capital public passe par le canal d'offre `SU
 d'investissement retenu pour le calibrage ne s'autofinance pas dans le banc de référence** : impulsion
 synthétique PERMANENTE de 1 % du PIB sur le levier éducation, à partir du statu quo, 2026-2036
 (`tests/test_multiplicateurs_centraux_v067.py`). Trois notions à ne pas confondre, mesurées sur ce banc :
-(1) autofinancement budgétaire — les recettes induites ne rendent au solde public que 13 % du coût brut
-sur 2026-2036, intérêts compris (multiplicateur cumulé 10 ans × 0,51 = 0,47 < 1) ; (2) dette nominale —
+(1) autofinancement budgétaire — le solde public ne récupère que 13 % du coût brut (395 Md EUR sur
+2026-2036) : les recettes induites (+458 Md EUR, portées pour près des deux tiers par la hausse des prix)
+sont presque entièrement absorbées par les dépenses induites hors impulsion (+405 Md EUR : dépenses
+indexées sur les prix +262, intérêts +143) ; mesure distincte, en volume, sans prix ni intérêts :
+multiplicateur cumulé 10 ans × 0,51 = 0,47 < 1 ; (2) dette nominale —
 +101 Md EUR en 2030, +342 Md EUR en 2036 ; (3) ratio dette/PIB — le PIB plus haut gonfle le
 dénominateur : le ratio passe légèrement SOUS le statu quo en 2030-2031 (−0,05 pt) sans que le coût soit
 remboursé, puis le dépasse (+2,3 pt en 2035). C'est un garde-fou sur un choc, pas une démonstration pour

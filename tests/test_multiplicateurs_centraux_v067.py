@@ -79,9 +79,13 @@ def test_choc_investissement_de_calibrage_ne_s_autofinance_pas_dans_le_banc(mesu
     levier éducation, statu quo, 2026-2036), pas tout investissement.
 
     Trois notions distinctes (contre-audit externe V2-06) :
-    - autofinancement BUDGÉTAIRE : multiplicateur cumulé (Ramey, ΣΔY/ΣΔG sur
-      10 ans) × taux de prélèvements < 1, et part du coût brut rendue au solde
-      public (intérêts compris) < 1 — mesurée 0,13 (v0.6.10) ;
+    - autofinancement BUDGÉTAIRE, deux mesures distinctes : (a) part du coût
+      brut récupérée par le SOLDE public (intérêts compris), solde NET des
+      recettes induites (+458 Md EUR, qui dépassent seules le coût de 395) et
+      des dépenses induites hors impulsion (+405 : indexation, intérêts) —
+      mesurée 0,13 (v0.6.10) ; (b) en volume, sans prix ni intérêts :
+      multiplicateur cumulé (Ramey, ΣΔY/ΣΔG sur 10 ans) × taux de
+      prélèvements = 0,47 < 1 ;
     - dette NOMINALE : plus haute que le statu quo en fin d'horizon ;
     - ratio dette/PIB : non vérifié année par année (un PIB plus haut peut le
       faire passer sous le statu quo sans rembourser le coût, −0,05 pt en
