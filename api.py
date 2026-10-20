@@ -286,20 +286,30 @@ def _erreurs_d_entree(groupe: BaseExceptionGroup) -> list[str] | None:
 async def simulate(request: SimulationRequest):
     """Lance une simulation budgétaire.
 
-    Contrat (v0.6.7) :
+    Contrat (v0.6.7, noms de paramètres validés depuis v0.6.10) :
     - **422** : levier inconnu du registre `policy_measures.json` (avec la
       liste des clés), `periods` hors de [1, 10], payload trop volumineux ; et,
       en mode strict (`BUDGETLAB_STRICT=1` côté serveur), toute valeur
       invalide sur un paramètre déclaré (non numérique, non finie, hors
-      domaine), avec la liste des valeurs fautives.
+      domaine), avec la liste des valeurs fautives, ainsi que tout NOM de
+      paramètre que le levier ne lit pas (faute de frappe :
+      `{"tva_rate": {"tauxx": 0.25}}`), avec le levier, les noms fautifs et
+      les noms admis.
     - **200 en mode tolérant** (configuration de production) : une valeur hors
       domaine est **ramenée à la borne**, une valeur non finie (NaN, ±inf,
       entier trop grand pour un nombre flottant) est **retirée** (le levier
       applique son défaut), une valeur non numérique fait **échouer le
       levier** (effet compté nul, `_handler_failed: true` dans
-      `measure_impacts`). Rien n'est silencieux : chaque correction figure dans
-      `report.warnings` (préfixe « Entrée ou sortie corrigée ») et passe
-      `report.valid` à `false` ; le serveur trace un WARNING par levier.
+      `measure_impacts`), un nom de paramètre inconnu est **ignoré** (le
+      levier est appliqué avec ses autres paramètres, quelle que soit la
+      valeur du nom inconnu, `null` compris). Rien n'est silencieux : chaque
+      correction figure dans `report.warnings` (préfixe « Entrée ou sortie
+      corrigée ») et passe `report.valid` à `false` ; le serveur trace un
+      WARNING par levier.
+    - Noms admis par levier = les paramètres que le levier lit réellement
+      (handler Python, ou formule de `policy_measures.json` à défaut), y
+      compris les paramètres internes exposés (`intensite`, `degressivite`…) :
+      `docs/MEASURE_REGISTRY.md`.
     - `report.valid` = le résultat se lit tel quel : aucune entrée corrigée,
       aucun levier en échec, aucune borne de sortie atteinte (variation
       annuelle du pouvoir d'achat ou de la compétitivité, Gini, dette ≥ 0). Il
@@ -327,8 +337,6 @@ async def simulate(request: SimulationRequest):
       `X-Forwarded-For` si `BUDGETLAB_TRUST_PROXY` déclare des proxys de
       confiance (cf. en-tête du module).
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
-      Le nom d'un paramètre n'est pas validé : une faute de frappe
-      (`{"tva_rate": {"tauxx": 0.25}}`) applique le défaut du levier.
     """
     mesures = request.mesures or {}
     # Instantiation moteur (chargement policy_measures.json + registre).

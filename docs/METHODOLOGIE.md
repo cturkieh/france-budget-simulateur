@@ -1843,6 +1843,12 @@ Le modele applique des plafonds pour eviter resultats irrealistes :
 - ISF climatique : Max 18 Md EUR
 - Taxe superprofits : Max 20 Md EUR
 
+### Paramètres d'entrée : noms et valeurs
+
+Un levier ne lit que les paramètres de son contrat (`docs/MEASURE_REGISTRY.md`, généré depuis le code des handlers et des formules). Une valeur hors domaine est ramenée à la borne (rejetée en mode strict), une valeur non finie est retirée, et chaque correction invalide le résultat (`report.valid: false`).
+
+> **Corrigé en v0.6.10 (contre-audit externe, V2-04)** : un NOM de paramètre que le levier ne lit pas (faute de frappe : `{"tva_rate": {"tauxx": 0.25}}`) était ignoré en silence — le levier appliquait son défaut et le résultat restait déclaré valide. Il est désormais rejeté en mode strict (422, avec les noms admis) ; en mode tolérant, il est ignoré, signalé dans `report.warnings` et invalide le résultat, le levier restant appliqué avec ses autres paramètres. Les noms admis sont dérivés du code (`budget_simulator/engine/_noms_parametres.py`, généré), jamais d'une liste tenue à la main. Les 10 scénarios publiés n'utilisent aucun nom inconnu : leurs trajectoires sont identiques au bit.
+
 ### Indicateurs Macroeconomiques
 
 **Coefficient de Gini :**

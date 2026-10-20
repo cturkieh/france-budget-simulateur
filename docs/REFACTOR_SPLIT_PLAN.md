@@ -492,7 +492,12 @@ sections splittées et le golden master encore vert** :
   `policy_measures.json` purgé des clés mortes, golden byte-identique,
   296 verts. La note de cadrage (3 options A/B/C) qui a servi à
   l'arbitrage est close et conservée dans l'historique git (suppression
-  doc Phase 1, commit `09d0e01`).
+  doc Phase 1, commit `09d0e01`). Précision v0.6.10 : ce chantier a livré
+  le REGISTRE, pas la porte d'exécution — une clé inconnue restait ignorée
+  en silence jusqu'au contre-audit externe (V2-04). La porte
+  (`engine/_param_domain.py::valider_noms_parametres`) consomme désormais
+  le module généré par le même extracteur
+  (`budget_simulator/engine/_noms_parametres.py`).
 - **[✅ FAIT 2026-05-17 — Lot C Item 3] `raise ExceptionGroup` en mode
   `BUDGETLAB_STRICT`** — `engine/orchestrator.py` ne fait plus un `raise`
   nu fail-fast sur la 1ʳᵉ mesure dont le handler crashe : il annote

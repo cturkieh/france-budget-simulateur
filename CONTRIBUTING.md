@@ -26,6 +26,13 @@ piégeux : éditer `policy_measures.json` pour « changer un paramètre ».
 défauts, les domaines d'intensité et des flags d'audit. Ne JAMAIS l'éditer
 à la main (regénéré, écrasé).
 
+Le même générateur produit `budget_simulator/engine/_noms_parametres.py`
+(v0.6.10) : les noms admis par levier, que l'API applique à l'exécution — un
+nom que le levier ne lit pas est rejeté en 422 en mode strict, ignoré et
+signalé (`report.valid: false`) en mode tolérant. Verrouillé par
+`tests/test_noms_parametres_sync.py`, qui tourne aussi sans le frontend
+(`python scripts/generate_measure_registry.py --noms --check`).
+
 Sources, du plus trompeur au vrai contrat :
 
 | # | Source | Rôle réel |
@@ -41,8 +48,10 @@ Pour ajouter/modifier un paramètre d'un levier `type:"fonction"` :
 3. Ajouter le slider dans `ExploreCreateSection.jsx` (`convertToAPIFormat`).
 4. Régénérer le registre :
    `python scripts/generate_measure_registry.py` puis recommiter
-   `docs/MEASURE_REGISTRY.md` + `tests/snapshots/measure_registry.json`
-   (sinon `test_measure_registry_sync` rougit).
+   `docs/MEASURE_REGISTRY.md` + `tests/snapshots/measure_registry.json` +
+   `budget_simulator/engine/_noms_parametres.py` (sinon
+   `test_measure_registry_sync` et `test_noms_parametres_sync` rougissent ;
+   sans le frontend : `--noms`, qui ne régénère que le module des noms).
 5. (Optionnel) Aligner `policy_measures.json.parametres` pour la cohérence
    doc — sans effet calcul.
 6. Lancer `make ci` ET `make test-strict` : golden master doit rester vert.
