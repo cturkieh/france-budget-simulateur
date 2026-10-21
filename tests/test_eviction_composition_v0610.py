@@ -142,6 +142,7 @@ from budget_simulator.constants import (  # noqa: E402
     PARAM_DOMAINS,
 )
 from budget_simulator.engine import growth  # noqa: E402
+from budget_simulator.engine._noms_parametres import MODES_EXCLUSIFS  # noqa: E402
 from budget_simulator.engine.growth import (  # noqa: E402
     effet_eviction,
     flux_par_levier,
@@ -323,14 +324,23 @@ def test_scenarios_publies():
 
 def test_tirages_aleatoires_dans_param_domains():
     """200 programmes tirés à graine fixe : chaque levier présent une fois sur
-    deux, chaque paramètre uniforme dans son domaine (interrupteurs : 0 ou 1)."""
+    deux, chaque paramètre uniforme dans son domaine (interrupteurs : 0 ou 1).
+    Les clés qu'un levier IGNORE quand une autre est fournie
+    (``MODES_EXCLUSIFS``, v0.6.10 V2-04) sont retirées après le tirage : le
+    moteur ne les lisait pas, le mode strict les rejette désormais (422), et
+    les tirages restent ceux de la graine (même consommation du générateur)."""
     rng = random.Random(GRAINE)
     for k in range(200):
         mesures = {}
         for m, dom in PARAM_DOMAINS.items():
             if rng.random() < 0.5:
-                mesures[m] = {p: (rng.choice((lo, hi)) if p in DRAPEAUX else rng.uniform(lo, hi))
-                              for p, (lo, hi) in dom.items()}
+                bloc = {p: (rng.choice((lo, hi)) if p in DRAPEAUX else rng.uniform(lo, hi))
+                        for p, (lo, hi) in dom.items()}
+                for dominante, ignorees in MODES_EXCLUSIFS.get(m, {}).items():
+                    if dominante in bloc:
+                        for cle in ignorees:
+                            bloc.pop(cle, None)
+                mesures[m] = bloc
         etats, _ = _simuler(mesures)
         _verifier_etats(f"tirage {k}", etats)
 
