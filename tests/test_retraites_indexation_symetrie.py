@@ -2,7 +2,8 @@
 
 Contrat verrouillé (cf METHODOLOGIE.md § Retraites) :
 - sur-indexation (> 100 %) = surcoût budgétaire, miroir exact de l'économie
-  de sous-indexation ;
+  de sous-indexation pour une revalorisation (ratio exact v0.6.10,
+  (1 + (1 − δ)π) / (1 + π)), au premier ordre une fois composée ;
 - érosion CUMULATIVE (v0.6.7) : écart de niveau composé des revalorisations
   écoulées, chacune à l'inflation de son année, sur la masse indexée
   (RETRAITES_PART_MASSE_INDEXEE × masse nominale), plateau
@@ -89,13 +90,17 @@ def test_gel_total_erosion_composee_puis_plateau():
     """Caractérisation, valeurs épinglées en littéral à dessein (v0.6.7) : hors
     simulation, masse = base 2025 (380 Md€) × 0,86, π = 2 % chaque année ; la
     revalorisation 2026 est le taux légal effectif (0,9 %), les suivantes
-    l'inflation N−1 ; écart = 326,8 × [1 − 0,991 × 0,98ⁿ⁻¹]. (v0.6.6 : 1,5 Md€ ×
-    années, soit −1,5 / −7,5 / −10,5 quelle que soit l'inflation ; avant la
-    réfutation des handlers : 326,8 × [1 − 0,98ⁿ], −6,536 / −31,3987 / −43,0966 ;
+    l'inflation N−1 ; écart = 326,8 × [1 − 1 / (1,009 × 1,02ⁿ⁻¹)], ratio exact.
+    Re-déclaré en acte le 21/10/2026, motif « ratio exact v0.6.10 » (contre-audit
+    externe V2-03 : la masse est déjà pleinement revalorisée, le gel d'une
+    revalorisation π en retire π / (1 + π)) ; v0.6.7-v0.6.9, premier ordre :
+    326,8 × [1 − 0,991 × 0,98ⁿ⁻¹] = −2,9412 / −28,0830 / −39,9121. (v0.6.6 :
+    1,5 Md€ × années, soit −1,5 / −7,5 / −10,5 quelle que soit l'inflation ; avant
+    la réfutation des handlers : 326,8 × [1 − 0,98ⁿ], −6,536 / −31,3987 / −43,0966 ;
     à 1,1 % pour 2026 : −3,5948 / −28,6858 / −40,4911.)"""
-    assert _delta_depenses(0.0, POLICY_START_YEAR) == pytest.approx(-2.9412)
-    assert _delta_depenses(0.0, POLICY_START_YEAR + 4) == pytest.approx(-28.0830, abs=1e-4)
-    assert _delta_depenses(0.0, _PLATEAU_YEAR) == pytest.approx(-39.9121, abs=1e-4)
+    assert _delta_depenses(0.0, POLICY_START_YEAR) == pytest.approx(-2.9150, abs=1e-4)
+    assert _delta_depenses(0.0, POLICY_START_YEAR + 4) == pytest.approx(-27.5803, abs=1e-4)
+    assert _delta_depenses(0.0, _PLATEAU_YEAR) == pytest.approx(-39.1994, abs=1e-4)
     # Plateau : au-delà, l'écart au statu quo n'augmente plus.
     assert _delta_depenses(0.0, POLICY_START_YEAR + 9) == pytest.approx(
         _delta_depenses(0.0, _PLATEAU_YEAR)

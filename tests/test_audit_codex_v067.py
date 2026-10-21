@@ -356,6 +356,17 @@ def test_lot2_superprofits_omis_ou_pose_a_zero_bit_identique(pleine_precision):
 # les pensions (tests/test_desindexation_v067.py). Les propriétés du lot 2
 # (mémoire de l'écart, inflation variable) sont conservées, exprimées en PART de
 # la masse.
+#
+# Re-déclaré en acte le 21/10/2026, motif « ratio exact v0.6.10 » (contre-audit
+# externe V2-03) : chaque revalorisation multiplie la masse par
+# r(δ, π) = (1 + (1 − δ)π⁺) / (1 + π⁺), et non plus 1 − δπ⁺ (premier ordre) — la
+# masse de l'année est déjà pleinement revalorisée. Propriétés inchangées.
+
+
+def _r(delta, pi):
+    """Rapport exact d'une revalorisation, forme « deux masses » (indépendante du moteur)."""
+    p = max(pi, 0.0)
+    return (1 + (1 - delta) * p) / (1 + p)
 
 
 class _InflationScriptee(BudgetSimulatorV45):
@@ -391,7 +402,7 @@ def _ecart_attendu(delta, script, annee):
     facteur = 1.0
     for s in range(2026, min(annee, 2035) + 1):
         pi = INFLATION_BASE if s == 2026 else script[s - 1]
-        facteur *= 1 - delta * max(pi, 0.0)
+        facteur *= _r(delta, pi)
     return -(1 - facteur)
 
 
@@ -400,14 +411,16 @@ def test_lot2_prestations_l_ecart_constitue_ne_disparait_pas():
     0,00 en 2028. Une année sans inflation n'ouvre pas d'écart NOUVEAU ; elle ne
     rembourse pas pour autant celui des années passées. Revalorisations à
     l'inflation N−1 : 2026 sur 2025 (INFLATION_BASE), 2027 et 2028 sur les 2 %
-    de 2026 et 2027, rien ensuite — 1 − (1 − π₂₀₂₅) × 0,98² de l'assiette."""
+    de 2026 et 2027, rien ensuite — 1 − 1 / ((1 + π₂₀₂₅) × 1,02²) de l'assiette
+    (ratio exact v0.6.10 ; v0.6.7 : 1 − (1 − π₂₀₂₅) × 0,98²)."""
     from budget_simulator.constants import INFLATION_BASE
     script = {a: (0.02 if a <= 2027 else 0.0) for a in range(2025, 2036)}
     dep = _prestations(0.0, script)
-    assert dep[2026] == pytest.approx(-INFLATION_BASE, abs=1e-12)
-    assert dep[2027] == pytest.approx(-(1 - (1 - INFLATION_BASE) * 0.98), abs=1e-12)
+    assert dep[2026] == pytest.approx(-INFLATION_BASE / (1 + INFLATION_BASE), abs=1e-12)
+    assert dep[2027] == pytest.approx(-(1 - 1 / ((1 + INFLATION_BASE) * 1.02)), abs=1e-12)
     for annee in range(2028, 2036):
-        assert dep[annee] == pytest.approx(-(1 - (1 - INFLATION_BASE) * 0.98 ** 2), abs=1e-12), annee
+        assert dep[annee] == pytest.approx(
+            -(1 - 1 / ((1 + INFLATION_BASE) * 1.02 ** 2)), abs=1e-12), annee
 
 
 def test_lot2_prestations_historique_conserve_inflation_variable():
@@ -432,7 +445,7 @@ def test_lot2_prestations_inflation_constante_puissance():
     dep = _prestations(0.8, script)
     for annee in range(2026, 2036):
         k = annee - 2025
-        attendu = 1 - (1 - 0.2 * INFLATION_BASE) * (1 - 0.2 * 0.015) ** (k - 1)
+        attendu = 1 - _r(0.2, INFLATION_BASE) * _r(0.2, 0.015) ** (k - 1)
         assert dep[annee] == pytest.approx(-attendu, rel=1e-12, abs=1e-12)
 
 

@@ -440,10 +440,30 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 - Base : 17 millions de retraites x pension moyenne
 - Indexation 100% = maintien pouvoir d'achat (statu quo legal, impact budgetaire nul)
 - Erosion CUMULATIVE (v0.6.7, audit externe Codex 10/2026) : `économie(t) = 0,86 de la masse
-  nominale des pensions de l'année × [1 − Π_s (1 − δ × max(π_{s−1}, 0))]`, δ = 1 − indexation, une
-  revalorisation par an dès 2026, sept au plus (plateau 7 ans) — le stock de pensions erode se
-  renouvelle (nouvelles pensions liquidees sur les salaires, extinction des cohortes anciennes) ;
-  l'écart constitué subsiste ensuite, sans se rembourser.
+  nominale des pensions de l'année × [1 − Π_s (1 + (1 − δ) × π⁺_{s−1}) / (1 + π⁺_{s−1})]`,
+  π⁺ = max(π, 0), δ = 1 − indexation, une revalorisation par an dès 2026, sept au plus (plateau
+  7 ans) — le stock de pensions erode se renouvelle (nouvelles pensions liquidees sur les salaires,
+  extinction des cohortes anciennes) ; l'écart constitué subsiste ensuite, sans se rembourser.
+  Chaque facteur est le rapport exact de deux masses : la masse revalorisée de (1 − δ)π à la masse
+  revalorisée de π. La masse nominale de l'année est celle du statu quo, DÉJÀ pleinement
+  revalorisée (elle porte l'indice de prix cumulé des dépenses du moteur, `pi_idx` ci-dessus).
+
+  > **Corrigé en v0.6.10 (contre-audit externe, V2-03).** Jusqu'en v0.6.9, chaque facteur valait
+  > `1 − δ × π⁺`, une approximation au premier ordre : appliquée à une masse déjà revalorisée, elle
+  > omettait le dénominateur `1 + π`. Exemple : une masse de 100 revalorisée de 2 % vaut 102 ; gelée,
+  > elle reste à 100, l'économie est exactement 2 — l'ancienne formule donnait 2,04 ; après dix
+  > revalorisations à 2 %, écart 17,97 % au lieu de 18,29 %. Le facteur exact est
+  > `1 − δ × π⁺ / (1 + π⁺)` ; même formule pour la sur-indexation (δ < 0, surcoût), miroir exact
+  > de la sous-indexation pour une revalorisation ; une déflation n'ouvre toujours aucun écart.
+  > Mêmes règles pour les prestations (§ Effets FLUX). Effet : seuls les deux programmes publiés
+  > qui désindexent bougent, d'un centième de point de dette — Renaissance (pensions 90 %,
+  > prestations 80 %) +0,01 pt en 2030 et 2035 ; IM-compétitivité (pensions 80 %, prestations
+  > neutralisées par l'ASU) +0,01 pt en 2032-2034, inchangé à l'arrondi en 2030 et 2035 ; les huit
+  > autres programmes et le statu quo sont identiques au bit près. Gel total : dette 2035
+  > 148,02 → 148,06 % (pensions), 150,20 → 150,21 % (prestations). La part indexée 0,86 n'est
+  > pas modifiée dans cette version : l'ancrage OFCE ci-dessous (gel 2026 de 1,1 % = 3,7 Md EUR)
+  > passe de 3,70 à 3,66 Md EUR, dans sa tolérance de 0,05 Md EUR ; sa re-dérivation sous le ratio
+  > exact (0,87) relève d'une release de paramètres, arbitrage du mainteneur.
 - Calendrier N−1 (réfutation des handlers, 07/10/2026) : chaque revalorisation porte l'inflation de
   l'ANNÉE PRÉCÉDENTE, comme la loi (pensions au 1er janvier, prestations au 1er avril, sur l'inflation
   passée) et comme la baseline du moteur (part indexée de `pi_idx`, ci-dessus). Les revalorisations
@@ -451,7 +471,7 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
   2026 a déjà eu lieu : c'est un fait, `REVALORISATION_PENSIONS_2026` = **0,9 %** (coefficient 1,009,
   art. L161-25 CSS, gel du PLFSS rejeté — service-public.fr, « Pensions de retraite de base : quelle
   revalorisation au 1er janvier 2026 ? » ; circulaire Cnav 2025/29). Un gel total 2026 évite donc
-  0,9 % de la masse indexée : **3,0 Md EUR**. La part indexée 0,86 ne change pas : elle reste déduite du
+  0,9 % / 1,009 de la masse indexée revalorisée : **3,0 Md EUR**. La part indexée 0,86 ne change pas : elle reste déduite du
   point OFCE avec l'hypothèse de l'OFCE (1,1 % → 3,7 Md EUR, soit 336 Md EUR), seul le taux évité
   diffère. Le moteur revalorisait à l'inflation de l'année COURANTE (1,33 % en 2026) : le même gel
   valait 4,48 Md EUR. Les prestations, revalorisées au 1er avril, gardent pour 2026 l'inflation 2025
@@ -1780,7 +1800,8 @@ oeuvre via `_is_first_year_change()` (ou `years_elapsed == 0`) ; l'indice cumule
 - Prestations_indexation : Erosion annuelle si sous-indexation (chaque annee, l'ecart
   taux_indexation vs inflation creuse une nouvelle perte pour les beneficiaires) ;
   SYMETRIQUE : la sur-indexation (>100%) est un surcout budgetaire miroir. Formule
-  (v0.6.7) : `écart = masse nominale minima_sociaux de l'année × [1 − Π (1 − δ × max(π_s, 0))]`,
+  (v0.6.7, ratio exact v0.6.10 — § Retraites) : `écart = masse nominale minima_sociaux de
+  l'année × [1 − Π (1 + (1 − δ) × π⁺_s) / (1 + π⁺_s)]`, π⁺ = max(π, 0),
   δ = 1 − taux_indexation, produit sur les revalorisations écoulées (2026 → année, dix au plus),
   chacune à l'inflation de l'année précédente (calendrier N−1, même règle que les pensions,
   § Retraites). Jusqu'à v0.6.6, `(1 − δ × π_t)^k` réécrivait tout
@@ -1791,7 +1812,7 @@ oeuvre via `_is_first_year_change()` (ou `years_elapsed == 0`) ; l'indice cumule
   mais la masse nominale de la catégorie `minima_sociaux` (90 Md EUR en 2025), et la première
   revalorisation est celle de 2026 (un gel voté pour 2026 rapporte en 2026)
 - Retraites (indexation) : même forme que les prestations depuis v0.6.7 — `0,86 × masse
-  nominale des pensions × [1 − Π (1 − δ × max(π_s, 0))]`, sept revalorisations au plus
+  nominale des pensions × [1 − Π (1 + (1 − δ) × π⁺_s) / (1 + π⁺_s)]`, sept revalorisations au plus
   (§ Retraites ; la constante 1,5 Md EUR, insensible à l'inflation, a disparu)
 - Transition ecologique COMPOSANTE renovation : Primes versees chaque annee a de nouveaux beneficiaires
 - Fraude fiscale/sociale : Recettes recuperees annuellement

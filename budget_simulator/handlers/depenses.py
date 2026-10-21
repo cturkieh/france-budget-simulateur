@@ -173,18 +173,60 @@ else:
     _MixinBase = object
 
 
+def ratio_revalorisation_partielle(delta: float, pi: float) -> float:
+    """Rapport EXACT d'une masse revalorisée de ``(1 − δ) × π⁺`` à la même masse
+    revalorisée de ``π⁺`` (pleine indexation), ``π⁺ = max(π, 0)`` — v0.6.10.
+
+    ``(1 + (1 − δ)π⁺) / (1 + π⁺) = 1 − δ × π⁺ / (1 + π⁺)``, δ = 1 − taux
+    d'indexation. Le dénominateur vient de la masse de référence : c'est la masse
+    APRÈS revalorisation complète (une masse de 100 revalorisée de 2 % vaut 102 ;
+    gelée, elle reste à 100 — l'économie est 102 × 0,02 / 1,02 = 2, exactement).
+
+    - δ = 1 (gel total) : ``1 / (1 + π⁺)`` ;
+    - δ = 0 (pleine indexation) : 1, aucun écart ;
+    - δ < 0 (sur-indexation) : la même formule, rapport > 1 (surcoût). Pour UNE
+      revalorisation, l'écart ``δ × π⁺ / (1 + π⁺)`` est linéaire en δ : la
+      sur-indexation est le miroir exact de la sous-indexation de même ampleur ;
+    - π < 0 (déflation) : la loi ne revalorise jamais à la baisse (π⁺ = 0),
+      rapport 1, aucun écart nouveau.
+
+    Jusqu'en v0.6.9 : ``1 − δ × π⁺``, premier ordre sans le dénominateur
+    ``1 + π⁺`` (contre-audit externe, réserve V2-03) — le gel de la masse
+    revalorisée à 102 économisait 2,04.
+    """
+    pi_pos = max(pi, 0.0)
+    return 1.0 - delta * pi_pos / (1.0 + pi_pos)
+
+
 class DepensesMixin(_MixinBase):
     """Handlers Section 2 — Maîtrise des dépenses."""
 
     def _ecart_revalorisations(self, delta: float, year: int, inflation: float,
                                max_revalorisations: int, taux_2026: float) -> float:
-        """Écart de NIVEAU d'une masse sous-indexée (part de la masse), v0.6.7.
+        """Écart de NIVEAU d'une masse sous-indexée, en part de la masse
+        pleinement revalorisée (v0.6.7 ; ratio exact v0.6.10).
 
-        ``1 − Π_s (1 − δ × max(π_{s−1}, 0))`` sur les revalorisations écoulées :
-        une par an dès POLICY_START_YEAR (la première année simulée — un gel voté
-        pour 2026 rapporte en 2026), au plus ``max_revalorisations``, chacune à
-        l'inflation de l'ANNÉE PRÉCÉDENTE : la loi revalorise les pensions au
-        1er janvier et les prestations au 1er avril sur l'inflation passée, et
+        ``1 − Π_s r(δ, π_s)``, ``r(δ, π) = (1 + (1 − δ)π⁺) / (1 + π⁺)``
+        (``ratio_revalorisation_partielle``), sur les revalorisations écoulées.
+
+        CONVENTION DE MASSE : les appelants appliquent cet écart à la masse
+        nominale de l'année (``masse_categorie_nominale``), celle du statu quo
+        APRÈS revalorisation complète — elle porte l'indice de prix cumulé des
+        dépenses, Π (1 + π_idx), calculé par ``calculate_expenditures`` avant
+        les handlers. La masse sous-indexée vaut masse × Π r, l'économie
+        masse × (1 − Π r), exactement. Limite connue, hors de ce helper :
+        l'indice de la masse est l'indexation mixte π_idx du moteur (part
+        passée / part contemporaine), pas le seul taux de revalorisation ;
+        elle porte sur le NIVEAU de la masse de référence, pas sur le rapport.
+        Jusqu'en v0.6.9 : ``1 − Π (1 − δ × π⁺)``, premier ordre sans le
+        dénominateur (contre-audit externe V2-03 : gel d'une masse revalorisée
+        de 100 à 102 = 2,04 au lieu de 2).
+
+        CALENDRIER : une revalorisation par an dès POLICY_START_YEAR (la première
+        année simulée — un gel voté pour 2026 rapporte en 2026), au plus
+        ``max_revalorisations``, chacune à l'inflation de l'ANNÉE PRÉCÉDENTE : la
+        loi revalorise les pensions au 1er janvier et les prestations au 1er
+        avril sur l'inflation passée, et
         c'est elle que l'OFCE chiffre (gel 2026 : 1,1 %, 3,7 Md€ — l'ancrage de
         RETRAITES_PART_MASSE_INDEXEE). La revalorisation de 2026 porte
         ``taux_2026``, un fait que l'appelant fournit (pensions : le taux légal
@@ -194,10 +236,14 @@ class DepensesMixin(_MixinBase):
         moteur a calculée l'année d'avant (``_inflation_par_annee``, écrit par
         ``simulate()`` avant les handlers ; hors simulation, une année absente
         vaut l'inflation de l'appel). v0.6.7 jusqu'à la réfutation des handlers :
-        inflation de l'année COURANTE (gel 2026 : 4,48 Md€). Une revalorisation
-        n'est jamais négative : une année de déflation n'ouvre pas d'écart, sans
-        effacer les précédents. δ < 0 (sur-indexation) rend un écart négatif :
-        surcoût miroir au premier ordre.
+        inflation de l'année COURANTE (gel 2026 : 4,48 Md€).
+
+        SIGNES : une revalorisation n'est jamais négative — une année de
+        déflation n'ouvre pas d'écart, sans effacer les précédents. δ < 0
+        (sur-indexation) rend un écart négatif, un surcoût : miroir exact de la
+        sous-indexation de même ampleur pour UNE revalorisation ; composées,
+        économie et surcoût s'écartent de O((δπ)²), le produit n'étant pas
+        linéaire en δ. δ = 0 : écart nul.
         """
         dernier = min(year, POLICY_START_YEAR + max_revalorisations - 1)
         facteur = 1.0
@@ -206,7 +252,7 @@ class DepensesMixin(_MixinBase):
                 pi = taux_2026
             else:
                 pi = self._inflation_par_annee.get(annee - 1, inflation)
-            facteur *= 1 - delta * max(pi, 0.0)
+            facteur *= ratio_revalorisation_partielle(delta, pi)
         return 1.0 - facteur
 
     def _apply_retraites(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
@@ -1068,8 +1114,10 @@ class DepensesMixin(_MixinBase):
         # === BUDGET IMPACT ===
         indexation_ref = 1.0  # Référence: indexation complète
 
-        # Érosion composée : chaque revalorisation écarte la base de prestations
-        # de (1 - delta_indexation * π) par rapport à l'indexation complète.
+        # Érosion composée : chaque revalorisation multiplie la masse de
+        # prestations par r(δ, π) = (1 + (1 − δ)π) / (1 + π) relativement à la
+        # masse pleinement revalorisée (ratio exact v0.6.10, contre-audit V2-03 ;
+        # jusqu'en v0.6.9, 1 − δπ au premier ordre).
         # SYMETRIQUE (aligné sur les retraites, revue 2026-08-04) : sous-
         # indexation = économie, sur-indexation = surcoût miroir — le gate de
         # signe historique (`delta_indexation > 0`) rendait la sur-indexation
