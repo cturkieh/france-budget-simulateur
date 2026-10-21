@@ -10,6 +10,13 @@ Sur macOS et Linux l'encodage de la locale est UTF-8 : le défaut ne s'y voit
 pas. Ce module le rend reproductible partout en SIMULANT la locale Windows dans
 un sous-processus pytest : tout fichier ouvert en mode texte sans `encoding=`
 y est décodé en cp1252, exactement comme sous Windows.
+
+Seconde moitié du défaut : un interpréteur Python ENFANT écrit sa sortie
+standard, sur un tube, dans l'encodage de la locale (cp1252 sous Windows) ;
+le parent qui la décode en UTF-8 lève `UnicodeDecodeError` dès le premier
+accent. Elle est verrouillée par une garde statique (seul le lanceur commun
+`tests/sous_processus.py` lance un Python enfant) et par un rejeu dynamique
+(les tests à sous-processus relancés sous `PYTHONIOENCODING=cp1252`).
 """
 import ast
 import os
@@ -226,3 +233,105 @@ def test_detecteur_encodage(code, attendu):
     """Le détecteur rougit sur chaque forme fautive et laisse passer chaque
     forme conforme — sans quoi la garde ci-dessus serait un faux vert."""
     assert len(sites_sans_encodage(code)) == attendu, sites_sans_encodage(code)
+
+
+# ---------------------------------------------------------------------------
+# Seconde moitié : la sortie standard d'un interpréteur Python enfant.
+# ---------------------------------------------------------------------------
+# Seul module autorisé à lancer un interpréteur Python enfant : il fixe
+# l'encodage des DEUX côtés du tube (PYTHONIOENCODING côté enfant, encoding=
+# côté parent). Un appel direct `subprocess.run([sys.executable, ...])` ailleurs
+# laisserait l'enfant écrire en cp1252 sous Windows.
+MODULE_LANCEUR_PYTHON = "tests/sous_processus.py"
+
+# Encodage de sortie imposé à l'enfant pytest du rejeu, hérité par ses propres
+# enfants sauf surcharge explicite — celle du lanceur commun. `:replace` : le
+# rapport de pytest lui-même peut contenir des caractères hors cp1252 (« → »,
+# « ≠ ») ; seul le DÉCODAGE côté parent est sous test.
+PYTHONIOENCODING_LOCALE_WINDOWS = f"{ENCODAGE_LOCALE_WINDOWS}:replace"
+
+# Racine d'INVOCATION (`.absolute()`, pas `.resolve()`) : depuis le dépôt
+# parent, `tests/` est un lien symbolique ; resolve() retomberait sur la racine
+# du sous-module, où `frontend-react/` n'existe pas, et les tests à
+# sous-processus qui en dépendent seraient ignorés dans le rejeu (faux vert).
+RACINE_INVOCATION = Path(__file__).absolute().parent.parent
+
+
+def lignes_sys_executable(source: str, nom_fichier: str = "<source>") -> list:
+    """Lignes où le code désigne l'interpréteur courant (`sys.executable`,
+    `from sys import executable`) — c'est-à-dire s'apprête à le relancer."""
+    lignes = []
+    for noeud in ast.walk(ast.parse(source, filename=nom_fichier)):
+        if isinstance(noeud, ast.Attribute) and noeud.attr == "executable" \
+                and isinstance(noeud.value, ast.Name) and noeud.value.id == "sys":
+            lignes.append(noeud.lineno)
+        elif isinstance(noeud, ast.ImportFrom) and noeud.module == "sys" \
+                and any(a.name == "executable" for a in noeud.names):
+            lignes.append(noeud.lineno)
+    return sorted(lignes)
+
+
+def test_python_enfant_lance_uniquement_par_le_lanceur_commun():
+    """Propriété V2-05 (sous-processus) : tout interpréteur Python enfant est
+    lancé par `lancer_python` (tests/sous_processus.py), qui force la sortie
+    de l'enfant en UTF-8 — sinon elle dépend de la locale (cp1252 sous Windows)."""
+    fautes = []
+    for chemin in _fichiers_python_suivis():
+        rel = chemin.relative_to(ROOT).as_posix()
+        if rel == MODULE_LANCEUR_PYTHON:
+            continue
+        for ligne in lignes_sys_executable(chemin.read_text(encoding="utf-8"), rel):
+            fautes.append(f"{rel}:{ligne}")
+    assert not fautes, (
+        "Interpréteur Python enfant lancé hors du lanceur commun : sous Windows "
+        "sa sortie standard serait encodée en cp1252 et le décodage UTF-8 du "
+        "parent échouerait — utiliser lancer_python() de "
+        f"{MODULE_LANCEUR_PYTHON} :\n  " + "\n  ".join(fautes))
+
+
+@pytest.mark.parametrize("code,attendu", [
+    ("subprocess.run([sys.executable, 'x.py'])", 1),
+    ("cmd = [sys.executable]", 1),
+    ("from sys import executable", 1),
+    ("import sys; sys.argv", 0),
+    ("'sys.executable'", 0),
+])
+def test_detecteur_sys_executable(code, attendu):
+    assert len(lignes_sys_executable(code)) == attendu
+
+
+def _tests_a_sous_processus_python() -> list:
+    """Fichiers de test qui lancent un interpréteur Python enfant — détectés
+    dans le source, jamais listés à la main (un test ajouté demain y entre)."""
+    ici = Path(__file__).name
+    trouves = []
+    for chemin in sorted((RACINE_INVOCATION / "tests").glob("test_*.py")):
+        texte = chemin.read_text(encoding="utf-8")
+        if chemin.name != ici and ("lancer_python(" in texte or "sys.executable" in texte):
+            trouves.append(chemin.relative_to(RACINE_INVOCATION).as_posix())
+    return trouves
+
+
+def test_sorties_de_sous_processus_relues_sous_locale_windows():
+    """Rejeu V2-05 (sous-processus) : les tests qui lancent un Python enfant
+    passent quand la sortie standard par défaut est cp1252 (Windows). Les
+    petits-enfants héritent de `PYTHONIOENCODING=cp1252` sauf surcharge par le
+    lanceur commun ; sans elle, `UnicodeDecodeError` côté parent.
+
+    Depuis un clone du dépôt public seul, les tests qui exigent `frontend-react/`
+    sont ignorés : la propriété du lanceur y reste verrouillée par
+    `test_lancer_python_sortie_utf8_sous_locale_windows`."""
+    fichiers = _tests_a_sous_processus_python()
+    assert fichiers, "aucun test à sous-processus détecté : détection cassée"
+    env = dict(os.environ, PYTHONIOENCODING=PYTHONIOENCODING_LOCALE_WINDOWS)
+    res = subprocess.run(
+        [sys.executable, "-c", _AMORCE_LOCALE_WINDOWS, *fichiers,
+         "-q", "-p", "no:cacheprovider", "--no-header", "-rs"],
+        cwd=RACINE_INVOCATION, capture_output=True,
+        encoding=ENCODAGE_LOCALE_WINDOWS, errors="replace", env=env,
+    )
+    assert res.returncode == 0, (
+        "Sous une locale Windows (sortie standard cp1252), un test à "
+        "sous-processus échoue : l'enfant n'écrit pas en UTF-8.\n"
+        + res.stdout[-4000:] + res.stderr[-2000:]
+    )
