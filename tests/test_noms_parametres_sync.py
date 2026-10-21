@@ -7,6 +7,7 @@ Contrairement à ``test_measure_registry_sync.py``, cette garde ne lit PAS le
 frontend (``--noms``) : elle tourne aussi sur le dépôt public seul. Rouge ET
 vert testés automatiquement.
 """
+import ast
 import json
 import subprocess
 import sys
@@ -22,7 +23,8 @@ REGISTRE = ROOT / "tests" / "snapshots" / "measure_registry.json"
 
 sys.path.insert(0, str(ROOT))
 from scripts.generate_measure_registry import (  # noqa: E402
-    _DYNAMIC, _UNMODELED, _cles_reelles, _noms_formule)
+    _DYNAMIC, _UNMODELED, _cles_reelles, _load_policy_cfg, _noms_formule,
+    modes_exclusifs_du_handler)
 from budget_simulator.engine._noms_parametres import NOMS_PARAMETRES_ADMIS  # noqa: E402
 
 
@@ -83,3 +85,57 @@ def test_acces_non_modelisable_echec_dur():
     assert _DYNAMIC in params
     with pytest.raises(RuntimeError, match="non modélisable"):
         _cles_reelles("x", params)
+
+
+# --- Modes exclusifs (réfutation de V2-04) ---------------------------------
+
+_HANDLER_HERITE = """
+def h(self, params):
+    a, b = _resolve_intensite_or_legacy(
+        params, lambda i: (i, 1), lambda p: (p.get('taux', 0.2), p.get('seuil', 1)))
+    return a + b + params.get('seuil', 0)
+"""
+
+
+def test_derivation_lambda_heritee_exclut_les_cles_lues_ailleurs():
+    """`seuil` est aussi lu hors de la lambda héritée : il est appliqué dans
+    les deux modes, donc jamais déclaré ignoré."""
+    assert modes_exclusifs_du_handler("x", _HANDLER_HERITE, "intensite") == {
+        "intensite": ["taux"]}
+
+
+@pytest.mark.parametrize("src,attendu", [
+    ("def h(params):\n    if 'a' in params:\n        x = params.get('a')\n"
+     "    else:\n        x = params.get('b', 1)\n    return x",
+     {"a": ["b"]}),
+    ("def h(params):\n    if 'a' not in params:\n        x = params.get('b', 1)\n"
+     "    else:\n        x = params['a']\n    return x",
+     {"a": ["b"]}),
+    ("def h(params):\n    return params.get('a') if 'a' in params else params.get('b', 0)",
+     {"a": ["b"]}),
+    ("def h(params):\n    if 'a' in params:\n        return params.get('b', 0)\n"
+     "    return params.get('b', 1)",
+     {}),
+])
+def test_derivation_test_de_presence(src, attendu):
+    assert modes_exclusifs_du_handler("x", src, "intensite") == attendu
+
+
+@pytest.mark.parametrize("src", [
+    "def h(params):\n    return params.get('b') if params.get('a') is None else 1",
+    "def h(params):\n    if 'a' in params and True:\n        return params.get('b')",
+])
+def test_test_de_presence_non_modelise_echec_dur(src):
+    """Un mode exclusif que la dérivation ne sait pas lire serait un nouveau
+    silence : refus de générer."""
+    with pytest.raises(RuntimeError, match="non modélisé"):
+        modes_exclusifs_du_handler("x", src, "intensite")
+
+
+def test_formules_sans_test_de_presence():
+    """Les formules ASTEVAL n'entrent pas dans MODES_EXCLUSIFS : elles ne
+    doivent contenir aucune expression conditionnelle."""
+    for m in _load_policy_cfg()["mesures"]:
+        if m.get("type") == "formule" and isinstance(m.get("formule"), str):
+            arbre = ast.parse(m["formule"], mode="eval")
+            assert not [n for n in ast.walk(arbre) if isinstance(n, (ast.IfExp, ast.Compare))], m["id"]
