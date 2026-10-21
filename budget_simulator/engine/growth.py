@@ -217,8 +217,8 @@ def effet_eviction(effort_budgetaire: float, debt_ratio: float,
     l'éviction ne soutient jamais une expansion (intensité > 0, contrat de
     ``intensite_eviction``, vérifié à chaque appel). Continue en l'effort
     (nulle en 0). Le seuil de dette reste une marche (antérieure à v0.6.10),
-    jamais franchie par les scénarios publiés : leur dette reste au-dessus de
-    114 % du PIB sur tout l'horizon (mesure v0.6.10)."""
+    franchie par aucun scénario publié — garde :
+    ``tests/test_eviction_composition_v0610.py::test_scenarios_publies``."""
     intensite = intensite_eviction(part_investissement)
     if effort_budgetaire < 0 and debt_ratio > EVICTION_SEUIL_DETTE:
         return intensite * effort_budgetaire

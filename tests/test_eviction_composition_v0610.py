@@ -315,6 +315,10 @@ def test_scenarios_publies():
     for sid, mesures in _scenarios().items():
         etats, _ = _simuler(mesures)
         _verifier_etats(sid, etats)
+        # Le seuil de dette de l'éviction est une marche (antérieure à v0.6.10) :
+        # aucun programme publié ne doit le franchir avant qu'elle soit lissée.
+        assert all(e['debt_ratio'] > EVICTION_SEUIL_DETTE for e in etats.values()), (
+            f"{sid} franchit la marche dette > 100 % de l'éviction : la lisser avant publication")
 
 
 def test_tirages_aleatoires_dans_param_domains():
