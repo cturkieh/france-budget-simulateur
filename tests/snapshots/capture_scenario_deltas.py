@@ -55,7 +55,8 @@ if __name__ == '__main__':
     if not SCENARIOS:
         sys.exit("scenarios.json introuvable (fork moteur seul) — capture impossible.")
     payload = capture()
-    Path(args.out).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + '\n')
+    Path(args.out).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + '\n',
+                              encoding='utf-8')
     print(f"Deltas capturés → {args.out}")
     for name, cols in payload.items():
         print(f"  {name}: déficit Y10 {cols['Déficit/PIB %']['10']:+.2f} pt, "

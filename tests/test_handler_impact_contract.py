@@ -57,7 +57,7 @@ def _toggle_param_ids() -> dict[str, list[str]]:
     liste (pas un seul) car une mesure peut en avoir plusieurs
     (`rabot_uniforme` : 3 `exclure_*`).
     """
-    config = json.loads((ROOT / 'policy_measures.json').read_text())
+    config = json.loads((ROOT / 'policy_measures.json').read_text(encoding='utf-8'))
     toggles: dict[str, list[str]] = {}
     for measure in config['mesures']:
         for pname, pcfg in measure.get('parametres', {}).items():

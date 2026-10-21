@@ -205,7 +205,7 @@ def _mesures_publiees():
     candidats.append(racine / '..' / '..' / 'frontend-react' / 'src' / 'data' / 'scenarios.json')
     for chemin in candidats:
         if chemin.exists():
-            with open(chemin) as f:
+            with open(chemin, encoding='utf-8') as f:
                 return json.load(f)['plf_2026']['apiMeasures']
     pytest.skip("scenarios.json introuvable (fork moteur public seul) — corridor non exécutable")
 

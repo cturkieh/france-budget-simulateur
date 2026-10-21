@@ -135,7 +135,7 @@ def main():
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(snapshot, indent=2, ensure_ascii=False))
+    out.write_text(json.dumps(snapshot, indent=2, ensure_ascii=False), encoding='utf-8')
     print(f"\nSnapshot saved: {out}")
 
 
