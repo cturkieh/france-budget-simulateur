@@ -368,6 +368,33 @@ def test_eviction_du_moteur_complet_negative_sur_les_scenarios_publies():
     assert vus >= 20  # anti-faux-vert : l'éviction joue bien sur ces programmes
 
 
+def _croissance_2027(mesures):
+    """(croissance 2027, effort net 2026 qu'elle lit) du moteur complet."""
+    sim = BudgetSimulatorV45(periods=10, mesures=mesures)
+    origine, vues = sim.calculate_growth, {}
+
+    def espion(year, etat):
+        vues[year] = (origine(year, etat), etat['effort_budgetaire'])
+        return vues[year][0]
+    sim.calculate_growth = espion
+    sim.simulate()
+    return vues[IDX_2027]
+
+
+def test_aucune_marche_quand_l_effort_net_change_de_signe():
+    """Investissement x financé par −10 Md€ de dotations : l'effort net 2026
+    s'annule en x = 10. Jusqu'en v0.6.9 la part (x / |x − 10|) y divergeait et la
+    croissance 2027 sautait de +0,002 pt ; un plancher sur l'effort ferait de
+    même. À travers le franchissement, la croissance ne varie pas plus que sur
+    un intervalle voisin de même largeur."""
+    d = 1e-4
+    (g0, _), (g1, e1), (g2, e2), (g3, _) = (
+        _croissance_2027(dict(CONTRE_EXEMPLE, transition_ecologique={'investissement': 10 + k * d}))
+        for k in (-3, -1, 1, 3))
+    assert e1 > 0 > e2  # l'effort net change bien de signe entre les deux points centraux
+    assert abs(g2 - g1) <= 2 * max(abs(g1 - g0), abs(g3 - g2)), (g1 - g0, g2 - g1, g3 - g2)
+
+
 # --- (iii) Bornes de l'intensité ----------------------------------------------
 
 def test_intensite_aux_bornes_de_la_part():
