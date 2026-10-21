@@ -219,6 +219,38 @@ def test_moteur_complet_coupe_d_un_levier_d_investissement_hausse_d_un_autre():
     assert etats[IDX_2027]['part_investissement'] == pytest.approx(2 / 3, abs=1e-3)
 
 
+# --- Câblage du site d'appel (orchestrateur) ----------------------------------
+# SMIC (levier à multiplicateur NET), santé (dépense non productive), éducation
+# (investissement productif) : seul cas où les deux ensembles passés par
+# l'orchestrateur changent tous deux la part.
+SMIC_SANTE_EDUCATION = {'smic': {'montant_brut': 2000}, 'sante': {'prevention_budget': 11.2},
+                        'education': {'budget': 80}}
+
+
+def test_site_d_appel_part_du_budget_de_l_annee_precedente():
+    """La part lue par la macro de l'année t est EXACTEMENT
+    ``part_investissement_expansion`` du budget de t−1, avec les ensembles du
+    moteur (``INVESTMENT_CORE_MEASURES``, ``MESURES_MULTIPLICATEUR_NET``) ; 0 en
+    2026 (aucun budget antérieur). Les tests de convention appellent la fonction
+    pure : celui-ci verrouille ce que l'orchestrateur lui passe."""
+    cas = dict(_scenarios(), contre_exemple=CONTRE_EXEMPLE, smic_sante_education=SMIC_SANTE_EDUCATION)
+    for sid, mesures in cas.items():
+        etats, impacts = _simuler(mesures)
+        assert sorted(etats) == list(range(1, 11)), sid
+        assert etats[1]['part_investissement'] == 0.0, sid
+        for i in range(2, 11):
+            assert etats[i]['part_investissement'] == _part(impacts[2025 + i - 1]), (sid, 2025 + i)
+
+
+def test_moteur_complet_smic_sur_son_solde_sante_non_productive():
+    """Part 2027 = 15 / (15 + 3,7 + 4,04) ≈ 0,660 : éducation +15 Md€
+    (investissement), santé +3,7 (non productive), SMIC −4,04 de SOLDE
+    (+6,96 de dépenses, +2,92 de recettes). Compter le SMIC flux par flux
+    donnerait 0,585 ; prendre le périmètre « flux » de l'investissement, 0,822."""
+    etats, _ = _simuler(SMIC_SANTE_EDUCATION)
+    assert etats[IDX_2027]['part_investissement'] == pytest.approx(15 / (15 + 3.7 + 4.04), abs=1e-4)
+
+
 def test_leviers_investissement_et_leviers_nets_disjoints():
     """Un levier d'investissement compté sur son SOLDE ne serait jamais lu comme
     investissement (canal 'solde') : les deux ensembles doivent rester disjoints."""
