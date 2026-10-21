@@ -183,6 +183,11 @@ def _verifier_etats(nom, etats):
     ({'transition_ecologique': {'depenses': 20.0}, 'collectivites': {'depenses': -10.0}}, 1.0),
     # Une COUPE d'investissement n'est pas une part d'investissement de la relance.
     ({'recherche_publique': {'depenses': -10.0}, 'tva_rate': {'recettes': -5.0}}, 0.0),
+    # … levier PAR LEVIER : la coupe d'un levier d'investissement ne se compense
+    # pas avec la hausse d'un AUTRE (un numérateur d'investissement NET
+    # donnerait 10/30) ; elle finance l'expansion au prorata, comme toute coupe.
+    ({'education': {'depenses': 20.0}, 'recherche_publique': {'depenses': -10.0},
+      'retraites': {'depenses': 10.0}}, 20 / 30),
     # Seules les DÉPENSES d'un levier d'investissement en sont : baisser la taxe
     # carbone (recette du levier transition) est une baisse d'impôt.
     ({'transition_ecologique': {'depenses': 10.0, 'recettes': -30.0}}, 0.25),
@@ -201,6 +206,17 @@ def _verifier_etats(nom, etats):
 ])
 def test_convention_part_investissement_expansion(impacts, attendu):
     assert _part(impacts) == attendu
+
+
+def test_moteur_complet_coupe_d_un_levier_d_investissement_hausse_d_un_autre():
+    """Programme admissible : +20 Md€ de transition, −20 000 enseignants (coupe
+    du levier d'investissement « éducation », −1,3 Md€ en 2026), dotation des
+    collectivités 120 → 130. Expansion brute 30, dont 20 d'investissement : part
+    2/3 — et non (20 − 1,3)/30 = 0,623 comme avec un investissement NET."""
+    etats, impacts = _simuler({'transition_ecologique': {'investissement': 20},
+                               'education': {'enseignants': -20000}, 'collectivites': {'dotation': 130}})
+    assert impacts[2026]['education']['depenses'] < 0  # la coupe existe bien
+    assert etats[IDX_2027]['part_investissement'] == pytest.approx(2 / 3, abs=1e-3)
 
 
 def test_leviers_investissement_et_leviers_nets_disjoints():
