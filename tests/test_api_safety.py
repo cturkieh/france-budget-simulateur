@@ -177,19 +177,35 @@ class TestFastAPIRoutes:
         assert not repondent, f"Endpoints privés servis par l'API : {sorted(repondent)}"
 
 
+def lectures_de_routes(source: str, nom_fichier: str = "<source>") -> list:
+    """Lignes où le code lit un attribut `.routes` (table de routage interne)."""
+    return [noeud.lineno for noeud in ast.walk(ast.parse(source, filename=nom_fichier))
+            if isinstance(noeud, ast.Attribute) and noeud.attr == "routes"]
+
+
 class TestContratSansStructureInterne:
     """Garde durable V2-05 (b) : aucun test du dépôt ne lit la table de routage
     interne d'une app FastAPI/Starlette (`.routes`) — sa forme change d'une
     version à l'autre ; le contrat est ce que l'API publie et sert."""
 
+    @pytest.mark.parametrize("code,attendu", [
+        ("app.routes", 1),
+        ("[r.path for r in api.app.routes]", 1),
+        ("getattr(app, 'routes')", 1),
+        ("getattr(app, 'routes', [])", 1),
+        ("app.router", 0),
+        ("getattr(app, 'title')", 0),
+        ("'routes'", 0),
+    ])
+    def test_detecteur_routes(self, code, attendu):
+        assert len(lectures_de_routes(code)) == attendu
+
     def test_aucun_test_ne_lit_app_routes(self):
         dossier = Path(__file__).resolve().parent
         fautes = []
         for chemin in sorted(dossier.rglob("*.py")):
-            arbre = ast.parse(chemin.read_text(encoding="utf-8"), filename=str(chemin))
-            for noeud in ast.walk(arbre):
-                if isinstance(noeud, ast.Attribute) and noeud.attr == "routes":
-                    fautes.append(f"{chemin.relative_to(dossier)}:{noeud.lineno}")
+            for ligne in lectures_de_routes(chemin.read_text(encoding="utf-8"), str(chemin)):
+                fautes.append(f"{chemin.relative_to(dossier)}:{ligne}")
         assert not fautes, (
             "Introspection de la structure interne du routage (`.routes`) — "
             f"tester via /openapi.json et TestClient : {fautes}")
