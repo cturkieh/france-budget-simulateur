@@ -214,6 +214,12 @@ def test_aucun_fichier_texte_ouvert_sans_encodage():
     ("open(f, mode)", 1),
     ("subprocess.run(c, text=True)", 1),
     ("subprocess.check_output(c, universal_newlines=True)", 1),
+    ("p.read_text(encoding=None)", 1),
+    ("open(f, encoding=None)", 1),
+    ("subprocess.run(c, text=1)", 1),
+    ("import subprocess as sp\nsp.run(c, text=True)", 1),
+    ("from subprocess import run\nrun(c, text=True)", 1),
+    ("from subprocess import check_output as co\nco(c, text=True)", 1),
     # Conformes
     ("p.read_text(encoding='utf-8')", 0),
     ("p.read_text('utf-8')", 0),
@@ -228,6 +234,8 @@ def test_aucun_fichier_texte_ouvert_sans_encodage():
     ("subprocess.run(c, capture_output=True)", 0),
     ("subprocess.run(c, text=True, encoding='utf-8')", 0),
     ("subprocess.run(c, encoding='utf-8')", 0),
+    ("subprocess.run(c, text=False)", 0),
+    ("from subprocess import run\nrun(c, text=True, encoding='utf-8')", 0),
 ])
 def test_detecteur_encodage(code, attendu):
     """Le détecteur rougit sur chaque forme fautive et laisse passer chaque
