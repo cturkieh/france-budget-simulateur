@@ -50,7 +50,6 @@ def test_calculate_growth_austerity(simulator):
         'output_gap': -0.015,
         'unemployment_gap': 0.001,
         'effort_budgetaire': 0.034,
-        'part_depenses': 0.61,
         'part_investissement': 0.0,
         'debt_ratio': 1.156,
         'unemployment': 0.076,
@@ -207,7 +206,6 @@ def test_calculate_growth_significant_recession(simulator):
         'output_gap': -0.05,  # < -0.02 → déclenche recession adjustment
         'unemployment_gap': -0.01,  # Négatif → contribution -0.004
         'effort_budgetaire': 0.08,  # Consolidation forte (capped 2%)
-        'part_depenses': 0.3,  # part_depenses < 0.5 → pas de bonus Alesina
         'part_investissement': 0.0,
         'debt_ratio': 2.0,  # Très élevé → fort debt drag
         'unemployment': 0.08,  # < 0.09 → pas de stabilisateur chômage
@@ -389,7 +387,6 @@ def test_calculate_growth_no_synergy_bonus(simulator):
         'output_gap': -0.015,
         'unemployment_gap': 0.001,
         'effort_budgetaire': 0.02,
-        'part_depenses': 0.5,
         'part_investissement': 0.2,
         'debt_ratio': 1.1,
         'unemployment': 0.08,
@@ -408,7 +405,6 @@ def test_calculate_growth_zlb(simulator):
         'output_gap': -0.03,  # Récession profonde
         'unemployment_gap': 0.02,
         'effort_budgetaire': -0.01,  # Expansion
-        'part_depenses': 0.3,
         'part_investissement': 0.4,
         'debt_ratio': 1.0,
         'unemployment': 0.091,  # > 0.09 pour stabilisateur

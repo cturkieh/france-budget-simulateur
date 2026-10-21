@@ -521,8 +521,10 @@ class GrowthMixin:
         # productive → forte éviction. Capture : hausse des taux, éviction de
         # l'investissement privé, perte de compétitivité coût. Composition =
         # part de l'EXPANSION de t−1 (part_investissement_expansion, dans
-        # [0 ; 1] par construction depuis v0.6.10, contre-audit V2-01).
-        part_inv = economic_state.get('part_investissement', 0.0)
+        # [0 ; 1] par construction depuis v0.6.10, contre-audit V2-01). Entrée
+        # OBLIGATOIRE, comme l'effort qu'elle qualifie : un repli à 0 prendrait
+        # l'intensité maximale sans bruit (KeyError → 500 + ERROR côté API).
+        part_inv = economic_state['part_investissement']
         crowding_effect = effet_eviction(effort_budgetaire, debt_ratio, part_inv)
         if crowding_effect:
             croissance += crowding_effect
