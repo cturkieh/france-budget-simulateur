@@ -178,9 +178,14 @@ class TestFastAPIRoutes:
 
 
 def lectures_de_routes(source: str, nom_fichier: str = "<source>") -> list:
-    """Lignes où le code lit un attribut `.routes` (table de routage interne)."""
+    """Lignes où le code lit un attribut `.routes` (table de routage interne),
+    en accès direct ou par `getattr(<objet>, "routes"[, défaut])`."""
     return [noeud.lineno for noeud in ast.walk(ast.parse(source, filename=nom_fichier))
-            if isinstance(noeud, ast.Attribute) and noeud.attr == "routes"]
+            if (isinstance(noeud, ast.Attribute) and noeud.attr == "routes")
+            or (isinstance(noeud, ast.Call) and isinstance(noeud.func, ast.Name)
+                and noeud.func.id == "getattr" and len(noeud.args) >= 2
+                and isinstance(noeud.args[1], ast.Constant)
+                and noeud.args[1].value == "routes")]
 
 
 class TestContratSansStructureInterne:
