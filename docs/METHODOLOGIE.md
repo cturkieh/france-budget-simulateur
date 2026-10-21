@@ -2327,17 +2327,17 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 |
-|---|---|---|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 |
+|---|---|---|---|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +1,9 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 |
 
 **Mise à jour du 07/10/2026 — sixième colonne : re-encodage de trois scénarios,
 aucune ligne de moteur modifiée.** Les sept autres scénarios ont des trajectoires
@@ -2370,6 +2370,18 @@ relance y regagne en croissance une part de son coût, une consolidation y perd 
 part de son rendement. Ce canal étant le plus incertain du modèle, chaque fiche
 publie la fourchette ×0,75 / ×1,25 (même §, « Incertitude et poids du canal
 keynésien »).
+
+**Mise à jour v0.6.10 (21/10/2026) — huitième colonne : six réserves d'un contre-audit
+externe fermées, aucun paramètre de scénario modifié.** Deux corrections d'équation
+déplacent les sorties, de quelques centièmes de point : la part d'investissement lue par
+l'éviction est ramenée dans [0 ; 1] (§ « Multiplicateurs et Mecanismes Macro »,
+encadré V2-01) et la désindexation des pensions et prestations passe au ratio exact
+(§ « Retraites », encadré V2-03). Le scénario de référence est identique au bit, donc les écarts bougent
+comme les dettes 2035 elles-mêmes : RN +2,9 vers +3,0 (+0,05 pt de dette), LFI +2,0
+vers +1,9 (-0,03), PS -5,0 vers -5,1 (-0,02), Renaissance et IM Compétitivité à moins
+d'un demi-dixième ; Horizons, LR et IM Rabot sont identiques au bit. Aucun classement
+ne change. Les quatre autres réserves (colonnes de potentiel publiées, noms de
+paramètres, reproductibilité, documentation) ne déplacent aucune sortie.
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,
