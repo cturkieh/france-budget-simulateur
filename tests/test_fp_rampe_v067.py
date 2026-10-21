@@ -1,6 +1,6 @@
 """Curseur « effectifs » de la fonction publique : rampe 2027-2032 et vivier
 partagé avec la réforme de l'État (v0.6.7, réfutation des handlers, arbitrage
-de Cyril du 07/10/2026).
+du mainteneur du 07/10/2026).
 
 v0.6.6 : la cible était posée dès 2026, dans la seule limite des départs
 cumulés depuis 2026 (157 000 par an, 100 % non remplacés) : RN (−201 000) et

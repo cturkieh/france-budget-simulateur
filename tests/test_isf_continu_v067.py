@@ -1,5 +1,5 @@
 """ISF climatique en courbe continue (v0.6.7, lot 3D — audit Codex 10/2026 bloc B
-constat 5, arbitrage de Cyril n° 3).
+constat 5, arbitrage du mainteneur n° 3).
 
 v0.6.6, Δ recettes 2030 selon l'intensité : 0 → 0,00 ; 10⁻⁶ → −2,17 Md€ (l'IFI est
 supprimé dès que l'intensité dépasse 0, le nouvel impôt rapporte ~0) ; 0,571 →

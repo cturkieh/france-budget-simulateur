@@ -1,5 +1,5 @@
 """Désindexation des pensions proportionnelle à l'inflation, prestations alignées
-(v0.6.7, lot 3C — audit Codex 10/2026 bloc B constat 2, arbitrage de Cyril n° 2).
+(v0.6.7, lot 3C — audit Codex 10/2026 bloc B constat 2, arbitrage du mainteneur n° 2).
 
 v0.6.6 : pensions = 1,5 Md€ × (1 − indexation) × min(années, 7), SANS inflation —
 un gel total rapportait 3,00 Md€ en 2027 que l'inflation vaille 0 %, 1,5 % ou 4 %,

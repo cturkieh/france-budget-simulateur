@@ -1,5 +1,5 @@
 """Output gap en NIVEAU, rappel vers le potentiel, traînée de dette en OFFRE
-(v0.6.7, B3 — audit Codex 10/2026, bloc A constat 3 ; arbitrage de Cyril).
+(v0.6.7, B3 — audit Codex 10/2026, bloc A constat 3 ; arbitrage du mainteneur).
 
 Jusqu'en v0.6.6 : ``gap = 0,8·gap + 0,2·(g − g*)`` — une moyenne mobile de
 l'écart de CROISSANCE, qui efface chaque année 20 % d'un écart de niveau réel.
