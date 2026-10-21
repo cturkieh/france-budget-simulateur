@@ -528,7 +528,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # l'année courante (lag standard d'un an — refonte 2026-06, étape 1 du
         # bloc REFONTE de simulate()).
         self._budget_effort_prev = 0.0
-        self._parts_prev = {'depenses': 0.0, 'investissement': 0.0}
+        self._part_investissement_prev = 0.0
 
         # Sauvegarde de la baseline initiale pour reset entre simulations.
         # Les réformes structurelles ajustent spending_categories_base pour que
@@ -623,7 +623,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.inflation_precedente = self.base_params['inflation_base']
         # croissance_precedente : RETIRÉ (refonte 2026-06) — état devenu write-only
         # (les flux consomment désormais la croissance contemporaine, la macro
-        # l'impulsion t−1 via _budget_effort_prev/_parts_prev).
+        # l'impulsion t−1 via _budget_effort_prev/_part_investissement_prev).
 
         self.pib_reel_base2025 = self.base_params['pib_base']
         self.pib_nominal = self.base_params['pib_base']
@@ -748,7 +748,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._spending_factors = {cat: 1.0 for cat in self.spending_categories_base}
         self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
         self._budget_effort_prev = 0.0
-        self._parts_prev = {'depenses': 0.0, 'investissement': 0.0}
+        self._part_investissement_prev = 0.0
 
         # --- Attributs créés dynamiquement pendant la simulation ---
         if hasattr(self, '_chomage_params_prev'):

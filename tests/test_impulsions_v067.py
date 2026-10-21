@@ -25,12 +25,14 @@ import math
 
 import pytest
 
-from budget_simulator.simulator import BudgetSimulatorV45
+from budget_simulator.constants import EVICTION_INTENSITE_INVESTISSEMENT
+from budget_simulator.engine.growth import part_investissement_expansion
+from budget_simulator.simulator import BudgetSimulatorV45, FiscalMultipliers
 
 PIB = 3000.0
 # Banc de l'auditeur : dette < 100 % → ni éviction (crowding-out), ni
 # ajustement « dette élevée » ; gap −0,5 % → pas de régime récession.
-ETAT = dict(output_gap=-0.005, unemployment_gap=0.0, part_depenses=0.5,
+ETAT = dict(output_gap=-0.005, unemployment_gap=0.0,
             debt_ratio=0.95, unemployment=0.076, deficit_ratio=-0.05,
             interest_rate=0.03)
 P_TAX = BudgetSimulatorV45.DECAY_PROFILE_TAXES
@@ -56,7 +58,11 @@ def _effets(impacts_par_annee, etat=ETAT):
         for t, impacts in enumerate(seq, start=1):
             net = sum(v.get('recettes', 0) - v.get('depenses', 0) for v in impacts.values())
             sim._last_impacts = impacts
-            out.append(sim.calculate_growth(t, dict(etat, effort_budgetaire=net / PIB)))
+            # Effort ET composition du même budget, comme dans l'orchestrateur.
+            part = part_investissement_expansion(impacts, sim.INVESTMENT_CORE_MEASURES,
+                                                 FiscalMultipliers.MESURES_MULTIPLICATEUR_NET)
+            out.append(sim.calculate_growth(t, dict(etat, effort_budgetaire=net / PIB,
+                                                    part_investissement=part)))
         return out
     avec, sans = suite(impacts_par_annee), suite([{}] * len(impacts_par_annee))
     return [(a - b) * 100 for a, b in zip(avec, sans)]
@@ -102,9 +108,12 @@ def test_banc_du_bloc_A_dette_116_seule_l_eviction_reste_non_additive():
     etat = dict(ETAT, debt_ratio=1.16)
     joint = _effets([{**INV(40.0), **TAX(20.0)}], etat)[0]
     keynes = 100 * 0.95 * (1.2 * 40 / PIB * P_INV[0] - 0.5 * 20 / PIB * P_TAX[0])
-    eviction = 100 * 0.008 * (-20 / PIB)   # (0,002 + 1 × 0,006) × effort net
+    # Relance 100 % investissement (40 d'investissement, 20 de HAUSSE d'impôts) :
+    # part 1, intensité basse (v0.6.10, V2-01). Jusqu'ici l'état omettait la part
+    # et l'éviction prenait l'intensité maximale 0,008 (joint 0,394).
+    eviction = 100 * EVICTION_INTENSITE_INVESTISSEMENT * (-20 / PIB)
     assert joint == pytest.approx(keynes + eviction, abs=1e-9)
-    assert joint == pytest.approx(0.394, abs=5e-4)
+    assert joint == pytest.approx(0.398, abs=5e-4)
 
 
 # ---------------------------------------------------------------------------

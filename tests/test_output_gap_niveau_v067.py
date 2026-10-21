@@ -85,7 +85,7 @@ def test_la_trainee_de_dette_n_ouvre_ni_gap_ni_chomage(statu_quo):
 def test_le_rappel_ramene_le_pib_vers_le_potentiel():
     """Un gap de −2 % ajoute exactement +0,4 pt à la croissance de l'année."""
     from budget_simulator.constants import OUTPUT_GAP_RAPPEL
-    etat = dict(unemployment_gap=0.0, effort_budgetaire=0.0, part_depenses=0.5,
+    etat = dict(unemployment_gap=0.0, effort_budgetaire=0.0, part_investissement=0.0,
                 debt_ratio=0.8, unemployment=0.075, deficit_ratio=-0.03, interest_rate=0.03)
     def g(gap):
         sim = BudgetSimulatorV45(periods=1)
