@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
+from sous_processus import lancer_python
 from budget_simulator.simulator import BudgetSimulatorV45
 from budget_simulator.constants import SEMI_ELASTICITE_SOLDE_PIB_FRANCE
 
@@ -33,7 +34,6 @@ def test_bloc_confiance_et_stabilisateurs_supprimes():
     confiance » ni les stabilisateurs en escalier. Contrat observable : les
     logs déterministes du moteur (BUDGET_DEBUG), qui traçaient chaque
     déclenchement — sous-processus car le flag est lu au load du module."""
-    import subprocess
     code = (
         "from budget_simulator.simulator import BudgetSimulatorV45 as S\n"
         "mes = {'aide_sociale': {'reduction': 20}, 'sante': {'effort_hopital': 1.0},\n"
@@ -45,12 +45,11 @@ def test_bloc_confiance_et_stabilisateurs_supprimes():
         "        if 'Effet confiance' in l or 'Stabilisateur' in l:\n"
         "            print('DECLENCHE:', l)\n"
     )
-    # PYTHONIOENCODING : sortie du sous-processus en UTF-8 quelle que soit la
-    # locale (cp1252 sous Windows), décodée en UTF-8 par le parent (V2-05).
-    env = dict(os.environ, BUDGET_DEBUG='true', PYTHONIOENCODING='utf-8')
+    # lancer_python : sortie de l'enfant en UTF-8 quelle que soit la locale
+    # (cp1252 sous Windows), décodée en UTF-8 par le parent (V2-05).
     racine = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    res = subprocess.run([sys.executable, '-c', code], capture_output=True,
-                         encoding='utf-8', env=env, cwd=racine)
+    res = lancer_python('-c', code, cwd=racine,
+                        env=dict(os.environ, BUDGET_DEBUG='true'))
     assert res.returncode == 0, res.stderr
     assert 'DECLENCHE:' not in res.stdout, res.stdout[:500]
 

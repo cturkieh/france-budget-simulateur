@@ -1,10 +1,10 @@
 import json
 import os
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
+
+from sous_processus import lancer_python
 
 # `.absolute()` et PAS `.resolve()` : le repo parent (budgetlab-france) monte
 # tests/ comme SYMLINK vers ce dossier — resolve() le suivrait et retomberait
@@ -24,20 +24,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _env_sortie_utf8() -> dict:
-    """Environnement du sous-processus : sortie standard encodée en UTF-8.
-
-    Sur un tube, Python encode stdout avec l'encodage de la locale (cp1252
-    sous Windows sans PYTHONUTF8=1) ; le parent décode en UTF-8 : les deux
-    côtés sont fixés, le résultat ne dépend plus de la machine (V2-05)."""
-    return dict(os.environ, PYTHONIOENCODING="utf-8")
+# Sous-processus lancés par `lancer_python` (tests/sous_processus.py) : sortie
+# de l'enfant en UTF-8 des deux côtés du tube, quelle que soit la locale (V2-05).
+GENERATEUR = "scripts/generate_scenario_params.py"
 
 
 def test_scenario_block_is_deterministic_and_complete():
-    out1 = subprocess.run([sys.executable, "scripts/generate_scenario_params.py", "--stdout"],
-                           capture_output=True, encoding="utf-8", env=_env_sortie_utf8(), check=True, cwd=REPO_ROOT).stdout
-    out2 = subprocess.run([sys.executable, "scripts/generate_scenario_params.py", "--stdout"],
-                           capture_output=True, encoding="utf-8", env=_env_sortie_utf8(), check=True, cwd=REPO_ROOT).stdout
+    out1 = lancer_python(GENERATEUR, "--stdout", check=True, cwd=REPO_ROOT).stdout
+    out2 = lancer_python(GENERATEUR, "--stdout", check=True, cwd=REPO_ROOT).stdout
     assert out1 == out2 and out1.strip(), "génération non déterministe ou vide"
     # Tous les scénarios présents, identifiés par leur label canonique (= libellé
     # affiché par l'app). Cross-check depuis scenarios.json : on ne réénonce pas
@@ -69,8 +63,7 @@ def test_check_mode_exits_nonzero_without_target_file():
     assert not backup.exists(), f"backup résiduel d'un run précédent : {backup}"
     os.rename(SCENARIOS_DOC, backup)
     try:
-        r = subprocess.run([sys.executable, "scripts/generate_scenario_params.py", "--check"],
-                            capture_output=True, encoding="utf-8", env=_env_sortie_utf8(), cwd=REPO_ROOT)
+        r = lancer_python(GENERATEUR, "--check", cwd=REPO_ROOT)
         assert r.returncode != 0, (
             f"--check a retourné 0 alors que la cible est absente (échec silencieux) : "
             f"stdout={r.stdout!r} stderr={r.stderr!r}"
@@ -82,6 +75,5 @@ def test_check_mode_exits_nonzero_without_target_file():
 
 def test_check_mode_exits_zero_when_synced():
     # Sanity : avec la cible présente et synchro, --check doit retourner 0.
-    r = subprocess.run([sys.executable, "scripts/generate_scenario_params.py", "--check"],
-                        capture_output=True, encoding="utf-8", env=_env_sortie_utf8(), cwd=REPO_ROOT)
+    r = lancer_python(GENERATEUR, "--check", cwd=REPO_ROOT)
     assert r.returncode == 0, f"--check ≠ 0 alors que synchro attendue : {r.stderr}"

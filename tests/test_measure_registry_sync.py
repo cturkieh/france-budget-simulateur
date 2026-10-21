@@ -5,12 +5,13 @@ GÉNÉRÉS. Toute PR modifiant une lecture de `params` (ou `INTENSITE_DOMAINS`)
 sans régénérer fait ROUGIR `--check`. Rouge ET vert testés automatiquement
 (pas seulement "prouvé manuellement").
 """
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from sous_processus import lancer_python
 
 # `.absolute()` et PAS `.resolve()` : le repo parent (budgetlab-france) monte
 # tests/ comme SYMLINK vers ce dossier — resolve() le suivrait et retomberait
@@ -36,23 +37,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _env_sortie_utf8() -> dict:
-    """Environnement du sous-processus : sortie standard encodée en UTF-8.
-
-    Sur un tube, Python encode stdout avec l'encodage de la locale (cp1252
-    sous Windows sans PYTHONUTF8=1) ; le parent décode en UTF-8 : les deux
-    côtés sont fixés, le résultat ne dépend plus de la machine (V2-05)."""
-    return dict(os.environ, PYTHONIOENCODING="utf-8")
-
-
 def _run_check(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "scripts/generate_measure_registry.py", "--check", *args],
-        cwd=ROOT,
-        capture_output=True,
-        encoding="utf-8",
-        env=_env_sortie_utf8(),
-    )
+    # lancer_python : sortie de l'enfant en UTF-8 des deux côtés du tube,
+    # quelle que soit la locale (cp1252 sous Windows) — V2-05.
+    return lancer_python("scripts/generate_measure_registry.py", "--check", *args,
+                         cwd=ROOT)
 
 
 def test_registry_in_sync_with_code():

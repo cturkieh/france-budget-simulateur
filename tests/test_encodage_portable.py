@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pytest
 
+from sous_processus import lancer_python
+
 ROOT = Path(__file__).resolve().parent.parent
 
 # Encodage de la locale par défaut d'un Windows occidental (« ANSI code page »
@@ -67,12 +69,10 @@ def test_snapshots_relus_a_l_identique_sous_locale_windows():
     """Rouge V2-05 (a) : sous une locale cp1252, les lecteurs de snapshots
     doivent passer comme sous UTF-8 — l'encodage d'un fichier du dépôt est une
     propriété du fichier (UTF-8), jamais de la machine qui le lit."""
-    res = subprocess.run(
-        [sys.executable, "-c", _AMORCE_LOCALE_WINDOWS,
-         *TESTS_LECTEURS_DE_SNAPSHOTS,
-         "-q", "-p", "no:cacheprovider", "--no-header"],
-        cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace",
-        env=dict(os.environ, PYTHONIOENCODING="utf-8"),
+    res = lancer_python(
+        "-c", _AMORCE_LOCALE_WINDOWS, *TESTS_LECTEURS_DE_SNAPSHOTS,
+        "-q", "-p", "no:cacheprovider", "--no-header",
+        cwd=ROOT, erreurs="replace",
     )
     assert res.returncode == 0, (
         "Sous une locale Windows (cp1252), la relecture des snapshots échoue : "
@@ -244,12 +244,6 @@ def test_detecteur_encodage(code, attendu):
 # laisserait l'enfant écrire en cp1252 sous Windows.
 MODULE_LANCEUR_PYTHON = "tests/sous_processus.py"
 
-# Encodage de sortie imposé à l'enfant pytest du rejeu, hérité par ses propres
-# enfants sauf surcharge explicite — celle du lanceur commun. `:replace` : le
-# rapport de pytest lui-même peut contenir des caractères hors cp1252 (« → »,
-# « ≠ ») ; seul le DÉCODAGE côté parent est sous test.
-PYTHONIOENCODING_LOCALE_WINDOWS = f"{ENCODAGE_LOCALE_WINDOWS}:replace"
-
 # Racine d'INVOCATION (`.absolute()`, pas `.resolve()`) : depuis le dépôt
 # parent, `tests/` est un lien symbolique ; resolve() retomberait sur la racine
 # du sous-module, où `frontend-react/` n'existe pas, et les tests à
@@ -323,15 +317,42 @@ def test_sorties_de_sous_processus_relues_sous_locale_windows():
     `test_lancer_python_sortie_utf8_sous_locale_windows`."""
     fichiers = _tests_a_sous_processus_python()
     assert fichiers, "aucun test à sous-processus détecté : détection cassée"
-    env = dict(os.environ, PYTHONIOENCODING=PYTHONIOENCODING_LOCALE_WINDOWS)
-    res = subprocess.run(
-        [sys.executable, "-c", _AMORCE_LOCALE_WINDOWS, *fichiers,
-         "-q", "-p", "no:cacheprovider", "--no-header", "-rs"],
-        cwd=RACINE_INVOCATION, capture_output=True,
-        encoding=ENCODAGE_LOCALE_WINDOWS, errors="replace", env=env,
+    # L'enfant pytest reçoit PYTHONIOENCODING=cp1252:replace, hérité par ses
+    # propres enfants sauf surcharge — celle du lanceur commun. `replace` : le
+    # rapport de pytest lui-même peut contenir des caractères hors cp1252
+    # (« → », « ≠ ») ; seul le décodage des petits-enfants est sous test.
+    # La variable est AUSSI posée dans `env`, indépendamment du lanceur : un
+    # lanceur cassé (qui ne poserait plus PYTHONIOENCODING) ne doit pas
+    # neutraliser le rejeu chargé de le détecter.
+    locale_windows = f"{ENCODAGE_LOCALE_WINDOWS}:replace"
+    res = lancer_python(
+        "-c", _AMORCE_LOCALE_WINDOWS, *fichiers,
+        "-q", "-p", "no:cacheprovider", "--no-header", "-rs",
+        cwd=RACINE_INVOCATION, env=dict(os.environ, PYTHONIOENCODING=locale_windows),
+        encodage=ENCODAGE_LOCALE_WINDOWS, erreurs="replace",
     )
     assert res.returncode == 0, (
         "Sous une locale Windows (sortie standard cp1252), un test à "
         "sous-processus échoue : l'enfant n'écrit pas en UTF-8.\n"
         + res.stdout[-4000:] + res.stderr[-2000:]
     )
+
+
+# Texte imprimé par l'enfant : accents des colonnes du moteur + caractères
+# hors cp1252 (« → », « ≠ »), que cp1252 ne sait même pas encoder.
+_TEXTE_ACCENTUE = "Déficit/PIB % · Chômage % → ≠"
+
+
+@pytest.mark.parametrize("par", ["environnement_herite", "env_explicite"])
+def test_lancer_python_sortie_utf8_sous_locale_windows(monkeypatch, par):
+    """Propriété du lanceur commun (tourne aussi sur un clone du dépôt public
+    seul) : même quand l'environnement transmis impose cp1252 à l'enfant
+    (Windows, ou le rejeu ci-dessus), sa sortie est relue à l'identique."""
+    env = None
+    if par == "environnement_herite":
+        monkeypatch.setenv("PYTHONIOENCODING", ENCODAGE_LOCALE_WINDOWS)
+    else:
+        env = dict(os.environ, PYTHONIOENCODING=ENCODAGE_LOCALE_WINDOWS)
+    res = lancer_python("-c", f"print({_TEXTE_ACCENTUE!r})", cwd=ROOT, env=env,
+                        check=True)
+    assert res.stdout == _TEXTE_ACCENTUE + "\n"
