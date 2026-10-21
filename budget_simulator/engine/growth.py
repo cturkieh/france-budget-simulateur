@@ -43,6 +43,12 @@ Paire PRODUCTEUR → CONSOMMATEUR inter-méthodes (invariant load-bearing) :
   ``croissance_potentielle_totale()``). Ce sont les SEULS producteurs
   dans la boucle ; ``simulate()`` ne fait que LIRE ``_fiscal_impulses``
   / ``_potential_growth_bonus`` pour le reporting (jamais réécrire).
+- Corollaire pour le reporting (v0.6.10, contre-audit externe V2-02) :
+  après ``update_potential_growth``, l'état d'offre est celui PRÉPARÉ pour
+  N+1. ``simulate()`` photographie donc le potentiel de l'année par
+  ``potentiel_de_l_annee()`` AVANT cet appel, et c'est cette photographie
+  — pas l'état relu en fin d'itération — qui alimente la récurrence de
+  l'output gap et les colonnes de potentiel publiées.
 - ``_labour_supply_bonus`` (offre de TRAVAIL) est le troisième terme du
   lecteur unique. Son producteur est ``update_labour_supply``, appelée en
   TÊTE de l'année par ``simulate()`` (et non en fin, comme
@@ -98,7 +104,7 @@ Sink de logs : ``self.debug_logs`` via ``_log_debug``.
 Tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 import logging
-from typing import Dict
+from typing import Dict, NamedTuple
 
 import numpy as np
 
@@ -119,8 +125,49 @@ from ._param_domain import validate_param_domains, valeur_brute
 logger = logging.getLogger(__name__)
 
 
+class PotentielAnnee(NamedTuple):
+    """Croissance potentielle CONSOMMÉE par une année simulée (v0.6.10, V2-02).
+
+    Photographie prise par ``GrowthMixin.potentiel_de_l_annee()`` après les
+    trois lecteurs de l'année (croissance, Okun, output gap) et AVANT
+    ``update_potential_growth``, qui prépare l'année suivante. Taux annuels
+    (0,01 = 1 %). ``total`` est la valeur du lecteur unique
+    ``croissance_potentielle_totale()`` — somme des quatre composantes,
+    dans cet ordre.
+    """
+    tendanciel: float          # base_params['croissance_potentielle'] (hystérèse)
+    offre_structurelle: float  # _potential_growth_bonus (SUPPLY_EFFECTS, ±0,20 pt)
+    offre_travail: float       # _labour_supply_bonus (canal emploi seniors)
+    trainee_dette: float       # _debt_drag (au-delà de 90 % de dette/PIB)
+    total: float               # croissance_potentielle_totale()
+
+
 class GrowthMixin:
     """Bloc moteur — Croissance (PIB potentiel + multiplicateur keynésien)."""
+
+    def potentiel_de_l_annee(self) -> PotentielAnnee:
+        """Photographie du potentiel de l'année en cours (v0.6.10, V2-02).
+
+        Appelée par ``simulate()`` entre les lecteurs de l'année et
+        ``update_potential_growth``. Jusqu'en v0.6.9 la ligne de sortie relisait
+        l'état APRÈS cette mise à jour : les colonnes de potentiel publiaient
+        celui de l'année suivante (cas du contre-audit, recherche publique à
+        20 Md€, 2030 : 1,248 % publié pour 1,048 % consommé), et l'identité de
+        l'output gap ne se reconstruisait pas depuis les sorties.
+        Lecteur PUR : ne mute rien. Chaque champ est converti en ``float``
+        Python (même double, valeur inchangée au bit) : l'état vaut float en
+        début de simulation puis ``numpy.float64`` après le ``np.clip`` de la
+        clôture d'année, et ``round(·, 2)`` n'arrondit pas un demi-centième
+        de la même façon selon le type — une même colonne suivrait deux
+        conventions selon l'année.
+        """
+        return PotentielAnnee(
+            tendanciel=float(self.base_params['croissance_potentielle']),
+            offre_structurelle=float(self._potential_growth_bonus),
+            offre_travail=float(self._labour_supply_bonus),
+            trainee_dette=float(self._debt_drag),
+            total=float(self.croissance_potentielle_totale()),
+        )
 
     def croissance_potentielle_totale(self) -> float:
         """Croissance potentielle TOTALE — lecteur unique de la trajectoire
