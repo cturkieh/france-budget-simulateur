@@ -113,7 +113,7 @@ def _faute(mid):
 
 def test_scenarios_publies_sans_nom_inconnu():
     scenarios = _scenarios_publies()
-    assert len(scenarios) == 10, sorted(scenarios)
+    assert scenarios  # non vide ; leur nombre n'est pas le sujet (un 11e programme ne doit pas rougir ici)
     fautes = {sid: _noms_non_admis(m) for sid, m in scenarios.items() if _noms_non_admis(m)}
     assert not fautes, fautes
 
