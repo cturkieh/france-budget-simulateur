@@ -377,7 +377,16 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     # fini, comme inf.
     retirees = set()
     nulls, non_finis = [], []
+    # v0.6.10 (réfutation de V2-04) : la VALEUR d'un nom que le levier ne lit
+    # pas n'est jugée par personne — la porte des NOMS l'a déjà signalé (une
+    # correction). Juger ici sa finitude ajoutait une seconde correction
+    # contradictoire (« le levier applique son défaut pour ce paramètre » —
+    # un paramètre qui n'existe pas). Un `null` reste retiré et journalisé
+    # (PARAM_NULL, ligne de log agrégée, aucune correction) comme avant.
+    admis = NOMS_PARAMETRES_ADMIS.get(measure_id)
     for key, value in params.items():
+        if value is not None and admis is not None and key not in admis:
+            continue
         if value is None:
             nulls.append(f"{measure_id}.{key}=None")
         elif (isinstance(value, bool) or not isinstance(value, (int, float))
