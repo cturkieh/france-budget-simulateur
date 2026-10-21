@@ -515,21 +515,25 @@ Si effort_budgetaire > 3% PIB :
 
 ### 3. Crowding-Out Differencie
 
-**Source** : Litterature standard sur l'eviction
+**Source** : aucune source publiée (calibration v3.0, déclarée : un ordre de grandeur, pas une estimation). Détail : METHODOLOGIE § Éviction.
 
 **Mecanisme** : L'investissement productif genere des retours (faible crowding), tandis que les transferts ne creent pas de capacite productive (fort crowding).
 
 ```
-crowding_intensity = 0.002 + (1 - part_investissement) x 0.006
+crowding_effect      = crowding_intensity x effort_budgetaire(t-1)
+crowding_intensity   = 0.002 + (1 - part_investissement) x 0.006
+part_investissement  = Σ_invest max(Δdép, 0) / Σ_flux max(-f, 0)      (budget de t-1)
 ```
 
-| Type de depense | Intensite crowding |
-|-----------------|--------------------|
-| Investissement pur | 0,002 |
-| Mix equilibre | 0,005 |
-| Transferts purs | 0,008 |
+La part est celle de l'expansion brute (hausses de dépenses et baisses de recettes, levier par levier) qui finance de l'investissement productif : dépenses d'éducation, de recherche publique et de transition écologique. Elle est comprise dans [0 ; 1] par construction. Les consolidations (coupes, hausses d'impôts) réduisent l'éviction par l'effort net, pas par la composition. Une coupe d'investissement n'est donc pas une part d'investissement de la relance.
 
-**Condition** : Uniquement active pour les expansions (effort < 0) avec dette > 100%.
+| Composition de l'expansion | Intensite crowding |
+|-----------------|--------------------|
+| Investissement productif pur | 0,002 |
+| Moitie investissement | 0,005 |
+| Sans investissement productif (transferts, baisses d'impots) | 0,008 |
+
+**Condition** : Uniquement active pour les expansions nettes (effort < 0) avec dette > 100%.
 
 ---
 
@@ -741,7 +745,7 @@ Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 2. **Multiplicateurs per-measure** : Weighted blend par mesure, pas de multiplicateur global
 3. **DECAY_PROFILE differencie** : 3 profils — TAXES (somme 2,00), TRANSFERS (somme 1,77), INVEST (somme 1,98, pic decale Y2). Melange pondere par composition des mesures
 4. **Cicatrice austerite** : -0,10 x severite pour effort >3% PIB, cap -0,3%/an
-5. **Crowding-out differencie** : 0,002 (investissement) a 0,008 (transferts)
+5. **Crowding-out differencie** : intensite de 0,002 (expansion 100 % investissement productif) a 0,008 (sans investissement productif), selon la part d'investissement de l'expansion brute ; aucune source publiee (METHODOLOGIE § Éviction)
 6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (recherche +0,0025pt/Md EUR, transition +0,002pt, renovation +0,001pt, education +0,001pt), delais et depreciation differencies, rendements decroissants ln(1+x), cap +0,20pt
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
