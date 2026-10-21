@@ -86,7 +86,8 @@ def test_snapshots_relus_a_l_identique_sous_locale_windows():
 # ---------------------------------------------------------------------------
 # Le rouge ci-dessus ne couvre que les lecteurs de snapshots qu'il exécute ;
 # cette garde statique (AST) couvre TOUT fichier Python suivi par git — moteur,
-# API, scripts, tests — y compris un site ajouté demain.
+# API, scripts, tests — y compris un site ajouté demain, sous les formes que
+# reconnaît le détecteur (liste dans la docstring de `sites_sans_encodage`).
 
 # Exceptions explicites : (chemin relatif, ligne) d'un appel volontairement
 # dépourvu d'`encoding=` (aucun aujourd'hui). Toute entrée doit dire pourquoi.
@@ -101,8 +102,11 @@ _APPELS_SUBPROCESS = frozenset({"run", "check_output", "Popen", "call", "check_c
 _POSITION_ENCODING = {"open": 3, "Path.open": 2, "read_text": 0, "write_text": 1}
 
 
-def _a_le_mot_cle(appel, nom: str) -> bool:
-    return any(kw.arg == nom for kw in appel.keywords)
+def _encodage_explicite(appel) -> bool:
+    """`encoding=` présent ET différent du littéral None (qui vaut absence)."""
+    return any(kw.arg == "encoding" and not (
+        isinstance(kw.value, ast.Constant) and kw.value.value is None)
+        for kw in appel.keywords)
 
 
 def _mode_binaire(appel, position_mode: int):
@@ -121,7 +125,7 @@ def _mode_binaire(appel, position_mode: int):
 
 
 def _vrai_litteral(valeur) -> bool:
-    return isinstance(valeur, ast.Constant) and valeur.value is True
+    return isinstance(valeur, ast.Constant) and bool(valeur.value)
 
 
 def sites_sans_encodage(source: str, nom_fichier: str = "<source>") -> list:
@@ -130,9 +134,21 @@ def sites_sans_encodage(source: str, nom_fichier: str = "<source>") -> list:
     Couvre : `open(...)` / `io.open(...)`, `<chemin>.open(...)`,
     `<chemin>.read_text(...)`, `<chemin>.write_text(...)` en mode texte, et
     `subprocess.<run|check_output|Popen|call|check_call>(..., text=True)`
-    (ou `universal_newlines=True`) sans `encoding=`."""
+    (ou `universal_newlines=True`, ou un alias d'import de subprocess ou de
+    ces fonctions) sans `encoding=` ; `encoding=None` vaut absence.
+    NON couverts (absents du dépôt) : `tempfile.*File('w')`, `os.fdopen`,
+    `os.popen`, `io.TextIOWrapper`."""
     sites = []
-    for noeud in ast.walk(ast.parse(source, filename=nom_fichier)):
+    arbre = ast.parse(source, filename=nom_fichier)
+    imports = [n for n in ast.walk(arbre) if isinstance(n, (ast.Import, ast.ImportFrom))]
+    modules_subprocess = {"subprocess"} | {
+        a.asname for n in imports if isinstance(n, ast.Import)
+        for a in n.names if a.name == "subprocess" and a.asname}
+    fonctions_subprocess = {
+        a.asname or a.name for n in imports
+        if isinstance(n, ast.ImportFrom) and n.module == "subprocess"
+        for a in n.names if a.name in _APPELS_SUBPROCESS}
+    for noeud in ast.walk(arbre):
         if not isinstance(noeud, ast.Call):
             continue
         f = noeud.func
@@ -140,7 +156,7 @@ def sites_sans_encodage(source: str, nom_fichier: str = "<source>") -> list:
             f.attr if isinstance(f, ast.Attribute) else None)
         if nom is None:
             continue
-        if _a_le_mot_cle(noeud, "encoding"):
+        if _encodage_explicite(noeud):
             continue
         if nom == "open":
             # `open(...)` / `io.open(...)` : (file, mode, buffering, encoding) ;
@@ -157,8 +173,9 @@ def sites_sans_encodage(source: str, nom_fichier: str = "<source>") -> list:
             if len(noeud.args) > _POSITION_ENCODING[nom]:
                 continue
             sites.append((noeud.lineno, f"{nom}() sans encoding="))
-        elif nom in _APPELS_SUBPROCESS and isinstance(f, ast.Attribute) \
-                and isinstance(f.value, ast.Name) and f.value.id == "subprocess":
+        elif (isinstance(f, ast.Attribute) and nom in _APPELS_SUBPROCESS
+              and isinstance(f.value, ast.Name) and f.value.id in modules_subprocess) \
+                or (isinstance(f, ast.Name) and nom in fonctions_subprocess):
             texte = any(kw.arg in ("text", "universal_newlines")
                         and _vrai_litteral(kw.value) for kw in noeud.keywords)
             if texte:
