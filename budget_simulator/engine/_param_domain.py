@@ -166,7 +166,9 @@ def valider_noms_parametres(measure_id: str, params, *, strict: bool,
       ``_DETAILS_MAX`` noms détaillés), entrée dans ``corrections`` (donc
       ``report.valid = false`` et un message dans ``report.warnings``). Le
       levier reste appliqué avec ses paramètres connus : le nom inconnu n'est
-      lu par personne, la trajectoire est celle de la requête sans lui.
+      lu par personne, la trajectoire est celle de la requête sans lui. (Un
+      nom ADMIS mais masqué par un autre relève de
+      ``valider_modes_exclusifs``, même contrat.)
 
     Un nom inconnu est signalé quelle que soit sa valeur, ``null`` compris :
     la faute est dans le nom. Bloc ``{}`` (avis ``PARAM_BLOC_VIDE``) et bloc

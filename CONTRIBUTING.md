@@ -27,9 +27,13 @@ défauts, les domaines d'intensité et des flags d'audit. Ne JAMAIS l'éditer
 à la main (regénéré, écrasé).
 
 Le même générateur produit `budget_simulator/engine/_noms_parametres.py`
-(v0.6.10) : les noms admis par levier, que l'API applique à l'exécution — un
-nom que le levier ne lit pas est rejeté en 422 en mode strict, ignoré et
-signalé (`report.valid: false`) en mode tolérant. Verrouillé par
+(v0.6.10) : les noms admis par levier et leurs modes exclusifs
+(`MODES_EXCLUSIFS` : clés héritées masquées par `intensite`, `montant` masqué
+par `taux_remplacement`), que l'API applique à l'exécution — un nom que le
+levier ne lit pas, ou masqué par un autre, est rejeté en 422 en mode strict,
+ignoré et signalé (`report.valid: false`) en mode tolérant. Un nouveau test de
+présence sur `params` (autre que `if 'k' in params`) fait échouer le
+générateur : un mode exclusif ne s'ajoute pas sans être modélisé. Verrouillé par
 `tests/test_noms_parametres_sync.py`, qui tourne aussi sans le frontend
 (`python scripts/generate_measure_registry.py --noms --check`).
 
