@@ -6,6 +6,10 @@ que ``docs/MEASURE_REGISTRY.md``), ``intensite`` pour les leviers
 d'``INTENSITE_DOMAINS``, et les lectures ``p.get(...)`` des formules
 ASTEVAL de ``policy_measures.json`` pour les leviers sans handler.
 
+``MODES_EXCLUSIFS`` : noms admis mais IGNORÉS quand un autre est fourni
+(lambda héritée de ``_resolve_intensite_or_legacy``, branche « absent »
+d'un ``if 'k' in params``) — réfutation de V2-04.
+
 Consommé par la porte des noms (``engine/_param_domain.py``,
 ``valider_noms_parametres``, v0.6.10 — contre-audit externe V2-04).
 Synchronisation verrouillée par ``tests/test_noms_parametres_sync.py``
@@ -50,4 +54,16 @@ NOMS_PARAMETRES_ADMIS: dict[str, frozenset[str]] = {
     'transition_ecologique': frozenset({'investissement', 'renovation', 'taxe_carbone'}),
     'tva_energie': frozenset({'taux'}),
     'tva_rate': frozenset({'taux'}),
+}
+
+MODES_EXCLUSIFS: dict[str, dict[str, frozenset[str]]] = {
+    'chomage_alloc': {
+        'taux_remplacement': frozenset({'montant'}),
+    },
+    'exonerations_salaires': {
+        'intensite': frozenset({'seuil_hausse', 'taux_exoneration'}),
+    },
+    'taxe_superprofits': {
+        'intensite': frozenset({'seuil_hausse', 'taux', 'tous_secteurs'}),
+    },
 }

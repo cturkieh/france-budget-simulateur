@@ -105,6 +105,7 @@ from ._param_domain import (
     tracer_si_levier_null,
     validate_intensite_domain,
     validate_param_domains,
+    valider_modes_exclusifs,
     valider_noms_parametres,
 )
 
@@ -296,6 +297,16 @@ class OrchestratorMixin:
                 # aussi les clés à `None` (null = pas de valeur → défaut du
                 # handler, Sentry FRANCE-BUDGET-Z).
                 parameters = validate_param_domains(
+                    measure_id, parameters, strict=strict_mode,
+                    warned=self._domain_clamp_warned,
+                    corrections=self._corrections,
+                )
+                # Modes EXCLUSIFS (v0.6.10, réfutation de V2-04), sur le bloc
+                # que le handler reçoit (après retrait des null/non-finis) :
+                # une clé admise mais masquée par une autre (`taux` avec
+                # `intensite`) → STRICT : ParametreIgnore (422) ; tolérant :
+                # WARNING + correction (report.valid=false).
+                valider_modes_exclusifs(
                     measure_id, parameters, strict=strict_mode,
                     warned=self._domain_clamp_warned,
                     corrections=self._corrections,

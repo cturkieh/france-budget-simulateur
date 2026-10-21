@@ -917,7 +917,136 @@ def _cles_reelles(mid: str, params: dict) -> list[str]:
     return sorted(params)
 
 
-def render_noms_module(noms: dict[str, list[str]]) -> str:
+# ---------------------------------------------------------------------------
+# Modes EXCLUSIFS (v0.6.10, réfutation de V2-04) : un nom ADMIS peut être
+# ignoré quand un autre nom est fourni. La porte des noms laissait passer ces
+# clés (elles sont lues… dans l'autre mode), avec HTTP 200 et
+# ``report.valid: true``, même en strict. Deux formes dans le code, dérivées
+# ici depuis l'AST (jamais une liste tenue à la main) :
+#   1. ``_resolve_intensite_or_legacy(params, simplifie, lambda p: …)`` : les
+#      clés lues par la lambda HÉRITÉE sont ignorées dès que la clé lue par le
+#      résolveur (``intensite``) est fournie ;
+#   2. ``if 'k' in params: … else: …`` (instruction ou expression) : les clés
+#      lues seulement dans la branche « absent » sont ignorées dès que ``k``
+#      est fourni (``not in`` : branches inversées).
+# Une clé n'est déclarée ignorée que si elle n'est lue NULLE PART ailleurs
+# dans le handler (sinon elle est appliquée dans les deux modes). Tout AUTRE
+# test de présence sur ``params`` (``params.get(k) is None``, ``'k' in params``
+# dans une condition composée…) est un échec DUR : un mode exclusif non
+# modélisé redonnerait le silence que cette porte ferme.
+
+_RESOLVEUR_EXCLUSIF = "_resolve_intensite_or_legacy"
+
+
+def _cles_litterales(src: str) -> set[str]:
+    """Clés littérales lues dans ``src`` (``params`` ou alias de lambda)."""
+    return {k for k in extract_params_from_source(src)
+            if k not in (_DYNAMIC, _UNMODELED)}
+
+
+def _cle_dominante_du_resolveur() -> str:
+    """La clé dont la présence fait ignorer le mode hérité, lue dans la source
+    de ``_phasing._resolve_intensite_or_legacy`` (une seule, sinon échec dur)."""
+    from budget_simulator.handlers import _phasing
+
+    cles = _cles_litterales(inspect.getsource(getattr(_phasing, _RESOLVEUR_EXCLUSIF)))
+    if len(cles) != 1:
+        raise RuntimeError(
+            f"{_RESOLVEUR_EXCLUSIF} lit {sorted(cles)} : une seule clé "
+            "dominante attendue — étendre la dérivation des modes exclusifs")
+    return cles.pop()
+
+
+def _est_params(node: ast.AST) -> bool:
+    return isinstance(node, ast.Name) and node.id == "params"
+
+
+def _test_de_presence(test: ast.AST) -> tuple[str, bool] | None:
+    """``('k', True)`` pour ``'k' in params``, ``('k', False)`` pour
+    ``'k' not in params`` ; ``None`` pour tout autre test."""
+    if (isinstance(test, ast.Compare) and len(test.ops) == 1
+            and isinstance(test.ops[0], (ast.In, ast.NotIn))
+            and _est_params(test.comparators[0])
+            and isinstance(_const(test.left), str)):
+        return _const(test.left), isinstance(test.ops[0], ast.In)
+    return None
+
+
+def _source_de(noeud) -> str:
+    """Source d'un nœud expression, ou d'une liste d'instructions."""
+    if isinstance(noeud, list):
+        return ast.unparse(ast.Module(body=noeud, type_ignores=[]))
+    return ast.unparse(noeud)
+
+
+def modes_exclusifs_du_handler(mid: str, src: str,
+                               dominante_resolveur: str) -> dict[str, list[str]]:
+    """``{clé dominante: [clés ignorées si elle est fournie]}`` du handler.
+
+    Pour chaque branche « mode écarté » reconnue, les clés qu'elle lit moins
+    celles lues ailleurs dans le handler (la branche remplacée par ``None``
+    sur une COPIE de l'arbre, puis ré-extraite par le même extracteur)."""
+    arbre = ast.parse(textwrap.dedent(src))
+    groupes: dict[str, set[str]] = {}
+    tests_modelises: set[int] = set()
+    for i, n in enumerate(ast.walk(arbre)):
+        if (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                and n.func.id == _RESOLVEUR_EXCLUSIF):
+            if len(n.args) != 3 or not isinstance(n.args[2], ast.Lambda):
+                raise RuntimeError(
+                    f"levier {mid!r} : {_RESOLVEUR_EXCLUSIF} sans lambda héritée "
+                    "inline en 3e argument — modes exclusifs indérivables")
+            dominante, attribut = dominante_resolveur, ("args", 2)
+        elif isinstance(n, (ast.If, ast.IfExp)) and _test_de_presence(n.test):
+            tests_modelises.add(id(n.test))
+            dominante, present = _test_de_presence(n.test)
+            attribut = ("orelse", None) if present else ("body", None)
+        else:
+            continue
+        nom, indice = attribut
+        branche = getattr(n, nom) if indice is None else getattr(n, nom)[indice]
+        copie = ast.parse(textwrap.dedent(src))
+        cible = list(ast.walk(copie))[i]
+        vide = [ast.Pass()] if isinstance(branche, list) else ast.Constant(None)
+        if indice is None:
+            setattr(cible, nom, vide)
+        else:
+            getattr(cible, nom)[indice] = vide
+        ignorees = (_cles_litterales(_source_de(branche))
+                    - _cles_litterales(ast.unparse(copie)) - {dominante})
+        if ignorees:
+            groupes.setdefault(dominante, set()).update(ignorees)
+    for n in ast.walk(arbre):
+        presence = isinstance(n, ast.Compare) and (
+            (_test_de_presence(n) and id(n) not in tests_modelises)
+            or (len(n.ops) == 1 and isinstance(n.ops[0], (ast.Is, ast.IsNot))
+                and isinstance(n.left, ast.Call)
+                and isinstance(n.left.func, ast.Attribute)
+                and _est_params(n.left.func.value)))
+        if presence:
+            raise RuntimeError(
+                f"levier {mid!r} : test de présence non modélisé "
+                f"({ast.unparse(n)}) — un mode exclusif ignoré en silence ; "
+                "réécrire en `if 'k' in params:` ou étendre la dérivation")
+    return {d: sorted(c) for d, c in sorted(groupes.items())}
+
+
+def build_modes_exclusifs() -> dict[str, dict[str, list[str]]]:
+    """``{levier: {clé dominante: [clés ignorées]}}`` pour les handlers qui
+    en ont. Les formules ASTEVAL n'y entrent pas : ce sont des expressions
+    arithmétiques sans test de présence (verrouillé par
+    ``tests/test_noms_parametres_sync.py``)."""
+    dominante = _cle_dominante_du_resolveur()
+    modes = {}
+    for mid, src in _iter_handler_funcs():
+        groupes = modes_exclusifs_du_handler(mid, src, dominante)
+        if groupes:
+            modes[mid] = groupes
+    return dict(sorted(modes.items()))
+
+
+def render_noms_module(noms: dict[str, list[str]],
+                       modes: dict[str, dict[str, list[str]]]) -> str:
     """Module Python des noms admis (artefact GÉNÉRÉ, importé à l'exécution :
     aucun fichier de données à empaqueter, aucune analyse de code au
     démarrage du service)."""
@@ -929,6 +1058,10 @@ def render_noms_module(noms: dict[str, list[str]]) -> str:
         "que ``docs/MEASURE_REGISTRY.md``), ``intensite`` pour les leviers",
         "d'``INTENSITE_DOMAINS``, et les lectures ``p.get(...)`` des formules",
         "ASTEVAL de ``policy_measures.json`` pour les leviers sans handler.",
+        "",
+        "``MODES_EXCLUSIFS`` : noms admis mais IGNORÉS quand un autre est fourni",
+        "(lambda héritée de ``_resolve_intensite_or_legacy``, branche « absent »",
+        "d'un ``if 'k' in params``) — réfutation de V2-04.",
         "",
         "Consommé par la porte des noms (``engine/_param_domain.py``,",
         "``valider_noms_parametres``, v0.6.10 — contre-audit externe V2-04).",
@@ -943,6 +1076,14 @@ def render_noms_module(noms: dict[str, list[str]]) -> str:
         contenu = ", ".join(repr(c) for c in cles)
         lignes.append(f"    {mid!r}: frozenset({{{contenu}}}),"
                       if cles else f"    {mid!r}: frozenset(),")
+    lignes += ["}", "",
+               "MODES_EXCLUSIFS: dict[str, dict[str, frozenset[str]]] = {"]
+    for mid, groupes in modes.items():
+        lignes.append(f"    {mid!r}: {{")
+        for dominante, cles in groupes.items():
+            contenu = ", ".join(repr(c) for c in cles)
+            lignes.append(f"        {dominante!r}: frozenset({{{contenu}}}),")
+        lignes.append("    },")
     lignes.append("}")
     return "\n".join(lignes) + "\n"
 
@@ -1106,7 +1247,8 @@ def main():
     a = p.parse_args()
     # Le module des noms d'abord : il ne dépend pas du frontend, et son échec
     # dur (accès non modélisable, levier sans contrat) précède toute écriture.
-    artefacts = [(a.out_noms, render_noms_module(build_noms_admis()))]
+    artefacts = [(a.out_noms, render_noms_module(build_noms_admis(),
+                                                 build_modes_exclusifs()))]
     reg = None
     if not a.noms:
         reg = build_registry()

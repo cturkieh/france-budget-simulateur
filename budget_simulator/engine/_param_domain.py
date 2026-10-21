@@ -35,13 +35,15 @@ Porte des NOMS (v0.6.10, contre-audit externe V2-04) : à côté de la porte
 des valeurs, ``valider_noms_parametres`` refuse (strict) ou signale avec
 invalidation (tolérant) tout nom que le levier ne lit pas, contre le module
 GÉNÉRÉ ``_noms_parametres.py`` (même extracteur que le registre public).
+Même contrat dual pour un nom ADMIS mais ignoré parce qu'un autre est fourni
+(modes exclusifs, ``valider_modes_exclusifs``, réfutation de V2-04).
 """
 import logging
 import math
 from typing import Dict
 
 from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
-from ._noms_parametres import NOMS_PARAMETRES_ADMIS
+from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,13 @@ class ParametreInconnu(EntreeInvalide, ValueError):
     autre levier) — v0.6.10, contre-audit externe V2-04 (mode
     BUDGETLAB_STRICT). Avant : ignoré en silence, le levier appliquant son
     défaut avec ``report.valid: true``."""
+
+
+class ParametreIgnore(EntreeInvalide, ValueError):
+    """Nom admis mais IGNORÉ parce qu'un autre nom du levier est fourni
+    (modes exclusifs : ``intensite`` masque le mode hérité,
+    ``taux_remplacement`` masque ``montant``) — v0.6.10, réfutation de V2-04
+    (mode BUDGETLAB_STRICT). Avant : ignoré en silence, ``report.valid: true``."""
 
 
 def _est_fini(value) -> bool:
@@ -194,6 +203,42 @@ def valider_noms_parametres(measure_id: str, params, *, strict: bool,
            f"{measure_id} : paramètre(s) inconnu(s) {resume}, ignoré(s) — le "
            f"levier est appliqué avec ses autres paramètres (noms admis : "
            f"{noms_admis})")
+
+
+def valider_modes_exclusifs(measure_id: str, params, *, strict: bool,
+                            warned: set | None = None,
+                            corrections: dict | None = None) -> None:
+    """Porte des MODES EXCLUSIFS (v0.6.10, réfutation de V2-04) : un nom
+    admis que le levier IGNORE parce qu'un autre est fourni.
+
+    Pourquoi : la porte des noms admet ``taux`` pour ``taxe_superprofits``
+    (lu par le mode hérité), mais ``_resolve_intensite_or_legacy`` ne lit plus
+    le mode hérité dès qu'``intensite`` est fourni ; de même ``chomage_alloc``
+    ignore ``montant`` si ``taux_remplacement`` est fourni. ``{"intensite":
+    0.5, "taux": 0.05}`` passait donc en 200, ``report.valid: true``, le
+    ``taux`` demandé jamais appliqué — le symptôme de V2-04.
+
+    Contrat (``MODES_EXCLUSIFS``, module GÉNÉRÉ depuis l'AST des handlers) :
+    à appeler sur le bloc tel que le handler le recevra, APRÈS la porte des
+    valeurs (un ``null`` ou un non-fini retiré ne masque rien : le mode qu'il
+    aurait choisi n'est pas retenu). Strict → ``ParametreIgnore`` (422) ;
+    tolérant → WARNING ``PARAM_IGNORE`` + correction (``report.valid =
+    false``), la trajectoire restant celle du mode retenu (la clé dominante).
+    """
+    if not isinstance(params, dict):
+        return
+    for dominante, ignorees in MODES_EXCLUSIFS.get(measure_id, {}).items():
+        presentes = sorted(k for k in params if k in ignorees)
+        if dominante not in params or not presentes:
+            continue
+        texte = (f"{measure_id} : {', '.join(presentes)} ignoré(s) car "
+                 f"« {dominante} » est fourni (modes exclusifs : fournir l'un "
+                 f"ou l'autre)")
+        if strict:
+            raise ParametreIgnore(f"{texte} (mode BUDGETLAB_STRICT)")
+        _avertir_une_fois(warned, (measure_id, 'PARAM_IGNORE', dominante),
+                          "PARAM_IGNORE %s — résultat invalidé", texte)
+        _noter(corrections, measure_id, ('PARAM_IGNORE', dominante), texte)
 
 
 def _tracer_null(libelle: str, consequence: str, cle_dedup: tuple,
