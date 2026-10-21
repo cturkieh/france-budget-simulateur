@@ -354,6 +354,18 @@ def test_part_hors_0_1_est_un_defaut_moteur_bruyant(part):
         effet_eviction(-0.01, 1.2, part)
 
 
+def test_etat_sans_part_d_investissement_est_un_defaut_bruyant():
+    """La part est une entrée OBLIGATOIRE de ``calculate_growth``, comme l'effort
+    qu'elle qualifie : absente, un repli à 0 prendrait l'intensité MAXIMALE
+    (0,008) sans bruit. KeyError → 500 + ERROR côté API."""
+    sim = BudgetSimulatorV45(periods=10, mesures={})
+    sim._last_impacts = {}
+    etat = dict(output_gap=0.0, unemployment_gap=0.0, effort_budgetaire=-0.01, debt_ratio=1.2,
+                unemployment=0.075, deficit_ratio=-0.05, interest_rate=0.03)
+    with pytest.raises(KeyError, match='part_investissement'):
+        sim.calculate_growth(IDX_2027, etat)
+
+
 def test_eviction_du_moteur_complet_negative_sur_les_scenarios_publies():
     """Mesure au banc (``calculate_growth``), chaque année d'expansion à dette >
     100 % des 10 scénarios publiés et du contre-exemple."""
