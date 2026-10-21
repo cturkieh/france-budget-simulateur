@@ -13,6 +13,11 @@ Heuristique de repérage, pas une preuve : un saut noyé dans une variation
 régulière plus forte que lui sur le même intervalle peut échapper au repérage.
 Les sauts réels trouvés sont figés en tests (tests/test_continuite_regimes_v067.py).
 Les interrupteurs 0/1 (``DRAPEAUX``) sont exclus : leur saut est le levier lui-même.
+Un paramètre MASQUÉ dans le scénario par un mode exclusif (v0.6.10 :
+``chomage_alloc.montant`` quand ``taux_remplacement`` est fourni) n'est pas
+balayé : le handler ne le lit pas, le balayer ne testait rien (courbe plate) et
+la porte des modes exclusifs le rejette désormais en strict. Le canal reste
+balayé par la clé qui le masque ; le nombre de balayages écartés est affiché.
 
 Usage :
   python3 scripts/scan_discontinuites.py [--points N] [--scenarios a,b] [--json sortie.json]
@@ -52,6 +57,15 @@ def _simuler(mesures):
     from budget_simulator.simulator import BudgetSimulatorV45
     df, d2, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
     return df, d2
+
+
+def parametre_masque(mesures, levier, param):
+    """Vrai si ``param`` est ignoré par le levier dans ``mesures`` parce qu'une
+    clé dominante y est fournie (``MODES_EXCLUSIFS``, module généré)."""
+    from budget_simulator.engine._noms_parametres import MODES_EXCLUSIFS
+    bloc = mesures.get(levier) or {}
+    return any(bloc.get(dominante) is not None and param in masques
+               for dominante, masques in MODES_EXCLUSIFS.get(levier, {}).items())
 
 
 def _avec(mesures, levier, param, x):
@@ -123,9 +137,13 @@ def main():
     scen = _scenarios()
     if opts.scenarios:
         scen = {k: scen[k] for k in opts.scenarios.split(',')}
-    travaux = [(m, sid, levier, param, float(lo), float(hi), opts.points, opts.colonne)
-               for sid, m in scen.items() for levier, dom in PARAM_DOMAINS.items()
-               for param, (lo, hi) in dom.items() if param not in DRAPEAUX]
+    candidats = [(m, sid, levier, param, float(lo), float(hi), opts.points, opts.colonne)
+                 for sid, m in scen.items() for levier, dom in PARAM_DOMAINS.items()
+                 for param, (lo, hi) in dom.items() if param not in DRAPEAUX]
+    travaux = [t for t in candidats if not parametre_masque(t[0], t[2], t[3])]
+    if len(travaux) < len(candidats):
+        print(f'{len(candidats) - len(travaux)} balayage(s) écarté(s) : paramètre masqué '
+              f'par un mode exclusif dans le scénario (non lu par le handler)')
     with Pool() as pool:
         sauts = [s for lot in pool.map(_balayer, travaux, chunksize=4) for s in lot]
     sauts = [s for s in sauts if abs(s['saut_dette_2035']) > opts.seuil]

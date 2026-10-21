@@ -54,7 +54,10 @@ def test_aucun_saut_hors_interrupteurs(sid, pleine_precision):
     sauts = []
     for levier, domaine in PARAM_DOMAINS.items():
         for param, (lo, hi) in domaine.items():
-            if param in scan.DRAPEAUX:
+            # v0.6.10 : un paramètre masqué par un mode exclusif n'est pas lu
+            # (balayage plat, qui ne testait rien) et la porte le rejette en
+            # strict ; son canal est balayé par la clé qui le masque.
+            if param in scan.DRAPEAUX or scan.parametre_masque(mesures, levier, param):
                 continue
             sauts += [s for s in scan.balayer(mesures, sid, levier, param, float(lo), float(hi), POINTS)
                       if abs(s['saut_dette_2035']) > EPSILON_PT]
