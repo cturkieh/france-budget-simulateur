@@ -249,3 +249,16 @@ def test_levier_absent_du_module_genere_echoue_bruyamment(monkeypatch, caplog):
                for y in rapport['measure_impacts_by_year'])
     assert any('NOMS_PARAMETRES_ADMIS' in r.getMessage() for r in caplog.records
                if r.levelno >= logging.ERROR)
+
+
+@pytest.mark.parametrize('valeur', [10**400, float('nan'), float('inf'), None],
+                         ids=['entier_geant', 'nan', 'inf', 'null'])
+def test_nom_inconnu_une_seule_correction_quelle_que_soit_la_valeur(valeur):
+    """Réfutation 1, minor 2 : `{"taux": 0.22, "tauxx": 10**400}` produisait
+    DEUX corrections contradictoires (« tauxx … ignoré » ET « tva_rate.tauxx
+    … valeur non finie, retirée — le levier applique son défaut pour ce
+    paramètre ») alors que le levier n'a pas de paramètre `tauxx`. Un nom
+    inconnu n'a qu'un défaut à signaler : son nom."""
+    _, _, rapport = _simuler({'tva_rate': {'taux': 0.22, 'tauxx': valeur}})
+    entrees = [w for w in rapport['warnings'] if w.startswith(CORRIGEE) and 'tauxx' in w]
+    assert len(entrees) == 1 and 'inconnu' in entrees[0], entrees
