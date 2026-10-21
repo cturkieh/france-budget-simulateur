@@ -111,7 +111,7 @@ REFORME_FP_PREMIERE_COHORTE = 2027
 REFORME_FP_MONTEE_EN_CHARGE = (0.3, 0.6, 0.85, 1.0)
 REFORME_FP_COHORTES_MAX = 8
 
-# Curseur « effectifs » (v0.6.7, réfutation des handlers, arbitrage de Cyril du
+# Curseur « effectifs » (v0.6.7, réfutation des handlers, arbitrage du mainteneur du
 # 07/10/2026) : la cible est un STOCK atteint par une rampe LINÉAIRE, même règle
 # pour tous les programmes et dans les deux sens — 0 en 2026 (budget voté, le
 # mandat n'a pas commencé), un sixième de la cible par an de 2027 à 2032, cible
@@ -474,7 +474,7 @@ class EfficienceMixin(_MixinBase):
 
         # 1. VARIATION EFFECTIFS
         # Coût/économie = postes réalisés de l'année × coût moyen agent.
-        # v0.6.7 (réfutation des handlers, arbitrage de Cyril du 07/10/2026) :
+        # v0.6.7 (réfutation des handlers, arbitrage du mainteneur du 07/10/2026) :
         # la cible est un STOCK atteint par une rampe linéaire 2027-2032
         # (FP_EFFECTIFS_*), dans les deux sens. Jusqu'en v0.6.6, elle était posée
         # dès 2026 dans la seule limite des départs cumulés : RN et LR

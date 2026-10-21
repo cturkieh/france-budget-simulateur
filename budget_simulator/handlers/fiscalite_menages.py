@@ -539,7 +539,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         """ISF climatique. Slider intensité 0-100%. NFP: seuil 1.3M€, taux 1%, bonus 30% → 0-18 Md€. Remplace IFI (2 Md€).
         Sources: NFP 2027, OFCE 2024, EU Tax Observatory 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
         # ===== PARAMÈTRES - SLIDER INTENSITÉ UNIQUE =====
-        # v0.6.7 (audit Codex 10/2026, bloc B constat 5 — arbitrage de Cyril) :
+        # v0.6.7 (audit Codex 10/2026, bloc B constat 5 — arbitrage du mainteneur) :
         # COURBE CONTINUE. Recette totale = IFI (droit en vigueur) + intensité ×
         # (ISF complet − IFI) ; l'écart au statu quo vaut donc intensité ×
         # (ISF complet − IFI), et les effets macro sont interpolés de même.

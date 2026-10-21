@@ -334,7 +334,7 @@ PHILLIPS_PENTE_MT = 0.20  # pente de moyen terme sur l'output gap (fourchette de
 # documentée et reste dans l'encadrement testé.
 OUTPUT_GAP_INITIAL = -0.007  # −0,7 % — RAA 2026 T2 p. 20 / HCFP n° 2026-3 (variante FMI : −0,4)
 
-# OUTPUT_GAP_RAPPEL (v0.6.7, B3 — arbitrage de Cyril) : fraction de l'output
+# OUTPUT_GAP_RAPPEL (v0.6.7, B3 — arbitrage du mainteneur) : fraction de l'output
 # gap (en NIVEAU) de fin d'année t−1 que la croissance de t corrige, soit une
 # persistance de 1 − λ = 0,8 par an. Forme de l'équation d'output gap des
 # modèles semi-structurels de projection du FMI : Berg, Karam & Laxton (2006),
@@ -405,7 +405,7 @@ MULT_CIBLE_NIVEAU_4ANS = {
     'hausse_impots': 0.65,   # Gechert 2015 : ≈ 1 − 0,35
     'baisse_impots': 0.65,   # = hausse : aucune asymétrie de signe sourcée (cf. ci-dessous)
 }
-# Baisse d'impôts SYMÉTRIQUE de la hausse (v0.6.7, GO Cyril : « pas prouvé = valeur
+# Baisse d'impôts SYMÉTRIQUE de la hausse (v0.6.7, arbitrage du mainteneur : « pas prouvé = valeur
 # centrale »). Jusqu'ici 0,7 × la hausse (« asymétrie hausse/baisse du moteur
 # conservée (0,35/0,50) »), héritage sans source qui retirait 0,2 pt de PIB à 4 ans
 # par point de PIB d'impôts rendu. Vérifié en ligne le 07/10/2026 : les études de
