@@ -404,3 +404,20 @@ def test_constantes_nommees_sans_litteral_dans_l_eviction():
         assert _litteraux_flottants(f) <= {0.0, 1.0}, (f.__name__, _litteraux_flottants(f))
     assert not _litteraux_flottants(growth.GrowthMixin.calculate_growth) & {0.002, 0.006, 0.008}
     assert 'EVICTION_SEUIL_DETTE' in inspect.getsource(effet_eviction)
+
+
+# --- Docs publics alignés sur le code -----------------------------------------
+
+def test_docs_publics_ne_pretent_aucune_source_a_l_eviction():
+    """Les deux docs publics (copiés sur le site par sync_public_docs) décrivent
+    l'éviction telle que codée : coefficients SANS source publiée (constants.py),
+    part = part d'investissement de l'expansion brute. L'un d'eux affichait
+    « Litterature standard sur l'eviction », une source qui n'existe pas."""
+    docs = Path(__file__).resolve().parent.parent / 'docs'
+    explication = (docs / 'EXPLICATION_MODELE_ECONOMIQUE.md').read_text(encoding='utf-8')
+    section = explication.split('### 3. Crowding-Out', 1)[1].split('\n### ', 1)[0]
+    assert 'aucune source publiée' in section.lower(), section[:300]
+    assert 'expansion brute' in section and '[0 ; 1]' in section, section[:300]
+    for nom, texte in (('EXPLICATION', explication),
+                       ('METHODOLOGIE', (docs / 'METHODOLOGIE.md').read_text(encoding='utf-8'))):
+        assert "standard sur l'eviction" not in texte.lower() and 'eviction standard' not in texte.lower(), nom
