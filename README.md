@@ -59,10 +59,16 @@ curl -X POST http://localhost:8000/simulate \
 Contrat de `/simulate` (détail dans la docstring de `api.py`) :
 
 - **422** : levier inconnu, `periods` hors de [1, 10] (horizon de calibration du moteur) ; en mode
-  strict (`BUDGETLAB_STRICT=1` côté serveur), toute valeur invalide (non numérique, non finie, hors domaine).
+  strict (`BUDGETLAB_STRICT=1` côté serveur), toute valeur invalide (non numérique, non finie, hors domaine)
+  et tout nom de paramètre que le levier ne lit pas (faute de frappe : `{"tva_rate": {"tauxx": 0.25}}`).
 - **200 en mode tolérant** : une valeur hors domaine est ramenée à la borne, une valeur non finie est
-  retirée (défaut du levier), une valeur non numérique fait échouer le levier (effet nul). Chaque
-  correction est listée dans `report.warnings` et passe `report.valid` à `false`.
+  retirée (défaut du levier), une valeur non numérique fait échouer le levier (effet nul), un nom de
+  paramètre inconnu est ignoré (le levier est appliqué avec ses autres paramètres), de même qu'une
+  clé masquée par un mode exclusif (`intensite` avec les clés héritées de `taxe_superprofits` ou
+  d'`exonerations_salaires`, `taux_remplacement` avec `chomage_alloc.montant` : 422 en strict). Chaque
+  correction est listée dans `report.warnings` et passe `report.valid` à `false`. Noms admis et modes
+  exclusifs par levier : [`budget_simulator/engine/_noms_parametres.py`](budget_simulator/engine/_noms_parametres.py)
+  (généré ; détail des leviers à handler dans [`docs/MEASURE_REGISTRY.md`](docs/MEASURE_REGISTRY.md)).
 - `report.valid` dit si le résultat se lit tel quel (aucune entrée corrigée, aucun levier en échec,
   aucune borne de sortie atteinte) ; il ne juge pas la soutenabilité (voir `report.critical`).
 - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` simulations par minute depuis la même adresse

@@ -30,12 +30,20 @@ fait SANS garde ``try/except`` et SANS normaliser une ``str``. Une
 (remonte, ``_handler_failed=True``, ``ExceptionGroup`` strict),
 strictement identique au contrat pré-Item 1. Le test
 ``test_str_intensite_*`` est load-bearing.
+
+Porte des NOMS (v0.6.10, contre-audit externe V2-04) : à côté de la porte
+des valeurs, ``valider_noms_parametres`` refuse (strict) ou signale avec
+invalidation (tolérant) tout nom que le levier ne lit pas, contre le module
+GÉNÉRÉ ``_noms_parametres.py`` (même extracteur que le registre public).
+Même contrat dual pour un nom ADMIS mais ignoré parce qu'un autre est fourni
+(modes exclusifs, ``valider_modes_exclusifs``, réfutation de V2-04).
 """
 import logging
 import math
 from typing import Dict
 
 from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
+from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +69,20 @@ class ValeurNonNumerique(EntreeInvalide, TypeError):
     déclaré. Sous-classe de ``TypeError`` : le contrat MIXIN_BAD_PARAMS (une
     ``str`` remonte en TypeError, levier en échec, ExceptionGroup en strict)
     est préservé, la faute est seulement QUALIFIÉE."""
+
+
+class ParametreInconnu(EntreeInvalide, ValueError):
+    """Nom de paramètre que le levier ne lit pas (faute de frappe, nom d'un
+    autre levier) — v0.6.10, contre-audit externe V2-04 (mode
+    BUDGETLAB_STRICT). Avant : ignoré en silence, le levier appliquant son
+    défaut avec ``report.valid: true``."""
+
+
+class ParametreIgnore(EntreeInvalide, ValueError):
+    """Nom admis mais IGNORÉ parce qu'un autre nom du levier est fourni
+    (modes exclusifs : ``intensite`` masque le mode hérité,
+    ``taux_remplacement`` masque ``montant``) — v0.6.10, réfutation de V2-04
+    (mode BUDGETLAB_STRICT). Avant : ignoré en silence, ``report.valid: true``."""
 
 
 def _est_fini(value) -> bool:
@@ -111,6 +133,114 @@ def _avertir_une_fois(warned: set | None, cle: tuple, msg: str, *args) -> None:
     logger.warning(msg, *args)
     if warned is not None:
         warned.add(cle)
+
+
+def _apercu_nom(cle) -> str:
+    """Nom de paramètre lisible et borné (une clé JSON est une ``str`` ; un
+    appelant Python peut passer autre chose, rendu par ``repr``)."""
+    texte = cle if isinstance(cle, str) else repr(cle)
+    return texte if len(texte) <= 40 else texte[:37] + '...'
+
+
+def valider_noms_parametres(measure_id: str, params, *, strict: bool,
+                            warned: set | None = None,
+                            corrections: dict | None = None) -> None:
+    """Porte des NOMS (v0.6.10, contre-audit externe V2-04), à côté de la
+    porte des valeurs : tout nom de ``params`` doit être lu par le levier.
+
+    Pourquoi : la porte des valeurs ne regarde que les noms qu'elle connaît.
+    ``{"tva_rate": {"tauxx": 0.25}}`` (faute de frappe sur ``taux``) passait
+    donc sans trace : le handler lit ``taux``, absent, et applique son défaut
+    — HTTP 200, ``report.valid: true``, la hausse demandée jamais appliquée.
+
+    Contrat des noms admis : ``NOMS_PARAMETRES_ADMIS`` (module GÉNÉRÉ depuis
+    les lectures réelles des handlers et des formules ASTEVAL, y compris les
+    paramètres internes exposés comme ``intensite`` ou ``degressivite`` ;
+    jamais ``policy_measures.json``, qui n'est pas le contrat).
+
+    Contrat dual, aligné sur la porte des valeurs :
+    - ``strict`` → ``ParametreInconnu`` (``EntreeInvalide`` → 422 par le
+      chemin existant), message qui nomme le levier, les noms fautifs et les
+      noms admis ;
+    - tolérant → WARNING agrégé ``PARAM_NOM_INCONNU`` (au plus
+      ``_DETAILS_MAX`` noms détaillés), entrée dans ``corrections`` (donc
+      ``report.valid = false`` et un message dans ``report.warnings``). Le
+      levier reste appliqué avec ses paramètres connus : le nom inconnu n'est
+      lu par personne, la trajectoire est celle de la requête sans lui. (Un
+      nom ADMIS mais masqué par un autre relève de
+      ``valider_modes_exclusifs``, même contrat.)
+
+    Un nom inconnu est signalé quelle que soit sa valeur, ``null`` compris :
+    la faute est dans le nom. Bloc ``{}`` (avis ``PARAM_BLOC_VIDE``) et bloc
+    non dict (``null`` = levier absent, mal formé = échec bruyant de la porte
+    des valeurs) : inchangés, rien à valider ici.
+
+    Un levier connu ABSENT du module généré est un bug moteur (artefact
+    périmé) : ``RuntimeError``, jamais un levier qui laisserait tout passer.
+    """
+    if not isinstance(params, dict) or not params:
+        return
+    admis = NOMS_PARAMETRES_ADMIS.get(measure_id)
+    if admis is None:
+        raise RuntimeError(
+            f"levier {measure_id!r} absent de NOMS_PARAMETRES_ADMIS : module "
+            f"généré périmé (python scripts/generate_measure_registry.py --noms)")
+    inconnus = sorted((_apercu_nom(k) for k in params if k not in admis))
+    if not inconnus:
+        return
+    resume = ', '.join(inconnus[:_DETAILS_MAX])
+    if len(inconnus) > _DETAILS_MAX:
+        resume += f" (+{len(inconnus) - _DETAILS_MAX} autres)"
+    noms_admis = ', '.join(sorted(admis)) or '(aucun)'
+    if strict:
+        raise ParametreInconnu(
+            f"{measure_id} : paramètre(s) inconnu(s) {resume} — noms admis : "
+            f"{noms_admis} (mode BUDGETLAB_STRICT)")
+    _avertir_agrege(warned, measure_id, 'PARAM_NOM_INCONNU',
+                    [f"{measure_id}.{nom}" for nom in inconnus],
+                    f"nom(s) inconnu(s), ignoré(s) — levier appliqué avec ses "
+                    f"autres paramètres (noms admis : {noms_admis}) ; résultat "
+                    f"invalidé")
+    _noter(corrections, measure_id, 'PARAM_NOM_INCONNU',
+           f"{measure_id} : paramètre(s) inconnu(s) {resume}, ignoré(s) — le "
+           f"levier est appliqué avec ses autres paramètres (noms admis : "
+           f"{noms_admis})")
+
+
+def valider_modes_exclusifs(measure_id: str, params, *, strict: bool,
+                            warned: set | None = None,
+                            corrections: dict | None = None) -> None:
+    """Porte des MODES EXCLUSIFS (v0.6.10, réfutation de V2-04) : un nom
+    admis que le levier IGNORE parce qu'un autre est fourni.
+
+    Pourquoi : la porte des noms admet ``taux`` pour ``taxe_superprofits``
+    (lu par le mode hérité), mais ``_resolve_intensite_or_legacy`` ne lit plus
+    le mode hérité dès qu'``intensite`` est fourni ; de même ``chomage_alloc``
+    ignore ``montant`` si ``taux_remplacement`` est fourni. ``{"intensite":
+    0.5, "taux": 0.05}`` passait donc en 200, ``report.valid: true``, le
+    ``taux`` demandé jamais appliqué — le symptôme de V2-04.
+
+    Contrat (``MODES_EXCLUSIFS``, module GÉNÉRÉ depuis l'AST des handlers) :
+    à appeler sur le bloc tel que le handler le recevra, APRÈS la porte des
+    valeurs (un ``null`` ou un non-fini retiré ne masque rien : le mode qu'il
+    aurait choisi n'est pas retenu). Strict → ``ParametreIgnore`` (422) ;
+    tolérant → WARNING ``PARAM_IGNORE`` + correction (``report.valid =
+    false``), la trajectoire restant celle du mode retenu (la clé dominante).
+    """
+    if not isinstance(params, dict):
+        return
+    for dominante, ignorees in MODES_EXCLUSIFS.get(measure_id, {}).items():
+        presentes = sorted(k for k in params if k in ignorees)
+        if dominante not in params or not presentes:
+            continue
+        texte = (f"{measure_id} : {', '.join(presentes)} ignoré(s) car "
+                 f"« {dominante} » est fourni (modes exclusifs : fournir l'un "
+                 f"ou l'autre)")
+        if strict:
+            raise ParametreIgnore(f"{texte} (mode BUDGETLAB_STRICT)")
+        _avertir_une_fois(warned, (measure_id, 'PARAM_IGNORE', dominante),
+                          "PARAM_IGNORE %s — résultat invalidé", texte)
+        _noter(corrections, measure_id, ('PARAM_IGNORE', dominante), texte)
 
 
 def _tracer_null(libelle: str, consequence: str, cle_dedup: tuple,
@@ -249,7 +379,16 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     # fini, comme inf.
     retirees = set()
     nulls, non_finis = [], []
+    # v0.6.10 (réfutation de V2-04) : la VALEUR d'un nom que le levier ne lit
+    # pas n'est jugée par personne — la porte des NOMS l'a déjà signalé (une
+    # correction). Juger ici sa finitude ajoutait une seconde correction
+    # contradictoire (« le levier applique son défaut pour ce paramètre » —
+    # un paramètre qui n'existe pas). Un `null` reste retiré et journalisé
+    # (PARAM_NULL, ligne de log agrégée, aucune correction) comme avant.
+    admis = NOMS_PARAMETRES_ADMIS.get(measure_id)
     for key, value in params.items():
+        if value is not None and admis is not None and key not in admis:
+            continue
         if value is None:
             nulls.append(f"{measure_id}.{key}=None")
         elif (isinstance(value, bool) or not isinstance(value, (int, float))
@@ -445,6 +584,9 @@ def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
       MIXIN_BAD_PARAMS) — jamais un retrait silencieux ;
     - ``strict`` → aucune correction (la porte annuelle lève à la première
       année, ``ExceptionGroup`` inchangé) ; seul le bloc vide est signalé.
+    - nom de paramètre inconnu (v0.6.10) → signalé ici sur l'entrée brute
+      (``valider_noms_parametres``, tolérant) : la clé n'est lue par personne,
+      le bloc n'est pas modifié pour elle.
     - bloc vide ``{}`` → signalé (WARNING ``PARAM_BLOC_VIDE``, entrée dans
       ``avis``) : il applique le levier à TOUS ses défauts, ce qui est un statu
       quo pour la plupart des leviers mais pas pour ``taxe_superprofits``
@@ -470,6 +612,15 @@ def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
             continue
         if strict:
             continue
+        # Porte des NOMS sur l'entrée BRUTE (v0.6.10, V2-04), avant que la
+        # porte des valeurs ne retire un `null` ou un non-fini : un nom inconnu
+        # est signalé quelle que soit sa valeur, comme en strict (où la porte
+        # annuelle voit l'entrée brute). Levier hors contrat des noms (inconnu
+        # du registre, ou module généré périmé) : laissé à la porte annuelle,
+        # qui l'ignore ou le fait échouer bruyamment dans son `try` par levier.
+        if measure_id in NOMS_PARAMETRES_ADMIS:
+            valider_noms_parametres(measure_id, bloc, strict=False,
+                                    warned=warned, corrections=corrections)
         try:
             nouveau = validate_intensite_domain(
                 measure_id, bloc, strict=False, warned=warned,

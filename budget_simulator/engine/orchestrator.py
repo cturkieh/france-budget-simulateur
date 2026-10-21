@@ -105,6 +105,8 @@ from ._param_domain import (
     tracer_si_levier_null,
     validate_intensite_domain,
     validate_param_domains,
+    valider_modes_exclusifs,
+    valider_noms_parametres,
 )
 
 logger = logging.getLogger(__name__)
@@ -269,6 +271,16 @@ class OrchestratorMixin:
                                      warned=self._domain_clamp_warned):
                 continue
             try:
+                # Porte des NOMS (v0.6.10, contre-audit V2-04), avant celle des
+                # valeurs : un nom que le levier ne lit pas → STRICT :
+                # ParametreInconnu (EntreeInvalide, 422 côté API) ; tolérant :
+                # WARNING + correction (report.valid=false), le levier reste
+                # appliqué avec ses paramètres connus.
+                valider_noms_parametres(
+                    measure_id, parameters, strict=strict_mode,
+                    warned=self._domain_clamp_warned,
+                    corrections=self._corrections,
+                )
                 # Porte unique Lot C Item 1 : borne intensite par domaine
                 # AVANT le dispatch. Tolérant = warning+clamp ; STRICT =
                 # ValueError capté par l'except infra → ExceptionGroup
@@ -285,6 +297,16 @@ class OrchestratorMixin:
                 # aussi les clés à `None` (null = pas de valeur → défaut du
                 # handler, Sentry FRANCE-BUDGET-Z).
                 parameters = validate_param_domains(
+                    measure_id, parameters, strict=strict_mode,
+                    warned=self._domain_clamp_warned,
+                    corrections=self._corrections,
+                )
+                # Modes EXCLUSIFS (v0.6.10, réfutation de V2-04), sur le bloc
+                # que le handler reçoit (après retrait des null/non-finis) :
+                # une clé admise mais masquée par une autre (`taux` avec
+                # `intensite`) → STRICT : ParametreIgnore (422) ; tolérant :
+                # WARNING + correction (report.valid=false).
+                valider_modes_exclusifs(
                     measure_id, parameters, strict=strict_mode,
                     warned=self._domain_clamp_warned,
                     corrections=self._corrections,

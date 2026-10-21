@@ -545,10 +545,16 @@ def _chomage_base():
 
 @pytest.mark.parametrize('cible, avis_attendu', [
     ('recettes', True), ('mixte', True), ('depenses', False)])
-def test_formule_hors_contrat_menages_avis_explicite(cible, avis_attendu):
+def test_formule_hors_contrat_menages_avis_explicite(cible, avis_attendu, monkeypatch):
     """Revue passe 1, L2 : une mesure « formule » (ASTEVAL) ne pose aucun canal
     ménages. Côté dépenses, zéro est l'arbitrage 2 ; côté recettes (une taxe),
-    zéro serait un oubli silencieux : avis explicite dans la réponse."""
+    zéro serait un oubli silencieux : avis explicite dans la réponse.
+
+    v0.6.10 : le levier synthétique déclare aussi son contrat de NOMS (porte des
+    noms, V2-04) — un levier absent du module généré est un bug moteur, en
+    production il vient toujours de policy_measures.json."""
+    from budget_simulator.engine._noms_parametres import NOMS_PARAMETRES_ADMIS
+    monkeypatch.setitem(NOMS_PARAMETRES_ADMIS, 'formule_test', frozenset({'x'}))
     sim = BudgetSimulatorV45(periods=2, mesures={'formule_test': {'x': 3.0}})
     sim.measure_registry['formule_test'] = {
         'type': 'formule', 'formule': "p.get('x', 0)", 'cible': cible, 'parametres': {}}

@@ -99,9 +99,11 @@ def test_elargissement_ir():
     y0_sq = df_sq.iloc[1]
 
     print("\n[3b] Elargissement 45% -> 63% contribuables")
+    # v0.6.10 (porte des noms, V2-04) : `seuil_entree` retiré — le handler ne
+    # l'a jamais lu (ignoré en silence avant, rejeté désormais) ; seule la
+    # cible de contribuables pilote la mesure.
     sim_elargis = BudgetSimulatorV45(mesures={
         'elargissement_ir': {
-            'seuil_entree': 8000,
             'taux_contribuables_cible': 0.63
         }
     })

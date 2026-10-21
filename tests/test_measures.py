@@ -327,8 +327,10 @@ def test_apply_measures_plafond_10pct(simulator, monkeypatch):
         'csg': {'taux': 0.16},
         'impot_revenu': {'taux_superieur': 0.60, 'decote': 0.5},
         # v0.6.3 : intensité 1,0 = cible 30 Md€ (l'ex-lecture legacy « 30 »
-        # en Md€ est supprimée ; même économie, la borne de domaine tient)
-        'fraude_fiscale': {'effort': 1.0, 'numerique': True}
+        # en Md€ est supprimée ; même économie, la borne de domaine tient).
+        # v0.6.10 (porte des noms, V2-04) : `numerique` retiré — aucun handler
+        # ne l'a jamais lu ; il était ignoré en silence, il serait rejeté.
+        'fraude_fiscale': {'effort': 1.0}
     }
     year = 2026
     gdp = 2994
