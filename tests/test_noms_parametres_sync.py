@@ -26,13 +26,13 @@ from scripts.generate_measure_registry import (  # noqa: E402
     _DYNAMIC, _UNMODELED, _cles_reelles, _load_policy_cfg, _noms_formule,
     modes_exclusifs_du_handler)
 from budget_simulator.engine._noms_parametres import NOMS_PARAMETRES_ADMIS  # noqa: E402
+from sous_processus import lancer_python  # noqa: E402
 
 
 def _run(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, "scripts/generate_measure_registry.py", "--noms", *args],
-        cwd=ROOT, capture_output=True, text=True,
-    )
+    # Lanceur commun (v0.6.10, V2-05) : sortie de l'enfant en UTF-8 des deux
+    # côtés du tube, quelle que soit la locale (le --check écrit « é »).
+    return lancer_python("scripts/generate_measure_registry.py", "--noms", *args, cwd=ROOT)
 
 
 def test_noms_admis_synchro_avec_le_code():
