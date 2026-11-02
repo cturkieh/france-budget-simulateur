@@ -4,6 +4,138 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## v0.6.11 — re-encodage LR et Horizons sur leurs sources primaires (paramètres seuls, non publiée)
+
+**Ce qui change** : les paramètres de deux scénarios publiés, `lr_2027` et
+`horizons_2027`, et deux bornes de domaine élargies aux valeurs servies. **Aucune
+équation du moteur n'est touchée** ; les huit autres scénarios (budget 2026 voté,
+RN, LFI, Renaissance, PS, Écologistes, Institut Montaigne rabot et compétitivité)
+sont identiques au bit (golden master et précalcul vérifiés scénario par scénario).
+Arbitrage du mainteneur du 02/11/2026 : « on met à jour tout de suite » (LFI et PS
+ne bougent pas, leurs sources sont attendues les 6-7/11 et 7-8/11). Règle appliquée :
+celle de METHODOLOGIE § « Règle d'encodage des programmes politiques » — gardé si
+chiffré par le programme, sinon droit en vigueur ; un levier retiré se pose à la
+valeur de `plf_2026`, jamais omis ; aucune neutralité affirmée n'est créditée.
+
+### `lr_2027` — livret « Rétablir l'ordre dans les comptes publics » (15 fiches, 12/10/2026)
+
+Le volet « Comptes publics », « à venir » au 07/10/2026, est publié : 197 Md€
+d'économies en 2032 (146 affectés au déficit, 51 rendus ; État 96, sphère sociale
+91, collectivités 10). Chaque ligne du livret est ventilée sur le levier qui lui
+correspond quand il existe, à son montant :
+
+| Fiche du livret | Montant 2032 | Levier | Avant → après | Conversion |
+|---|---|---|---|---|
+| 3 — 400 000 départs non remplacés | 25 Md€ | `fonction_publique.effectifs` | −300 000 → **−400 000** | cible du livret (vivier 631 140 : pas de plafonnement ; rampe 2027-2032) |
+| 8 — assurance chômage, durée 18 → 15 mois | 14 Md€ | `chomage_alloc.duree` | 18 → **15** | paramètre du livret (le moteur calcule 2,25 Md€ : 3 mois × 0,75) |
+| 9 — AME réduite aux soins essentiels | 0,7 Md€ | `immigration.ame` | 1,2 → **0,5** | 1,2 − 0,7 |
+| 14 — impôts de production supprimés | 15 Md€ | `impots_production.montant` | 83 → **82** | 97 − 15 (était 97 − 14 détaillés) |
+| 5 — fraude (gel des avoirs, IA, aides) | 5 Md€ | `fraude_fiscale.effort` | 0,14 → **0,45** | régime net du levier (× 30 × 0,53) : même convention que le 0,14 de la LF 2026 ; +4,93 Md€ nets au plus grand centième ≤ 5 |
+| 10 — fraude sociale | 4 Md€ | `fraude_sociale.effort` | 0,1 → **1,0** | 4 Md€ > capacité du levier avec l'ASU active (≈ 3,3 Md€ nets) → plafond, comme la fraude fiscale du RN |
+| 12 — fonctionnement des collectivités | 10 Md€ | `collectivites.dotation` | 116,6 → **106,6** | 116,6 − 10 (même levier que l'effort des collectivités du RN) |
+| 4 — énergies intermittentes subventionnées | 4 Md€ | `subventions_tge.montant` | 33 → **29** | 33 − 4 (l'énergie est dans l'assiette du levier) |
+
+Inchangés et confirmés par le livret : cotisations patronales 0,2525 (15 gagés +
+10 « autofinancés », neutralité non créditée), cotisations salariales −2,5 points
+(15 Md€), ASU 1 / 0,70 (compte social unique, 10 Md€ dans le livret — le moteur
+chiffre cette variante en coût, ≈ 4,6 Md€ sur le solde 2030, écart signalé à la
+fiche), âge du taux plein 65 ans (12 Md€ de « mesures d'âge » dans le livret, 9 sur le
+site ; le moteur calcule 5,4 Md€/an dès 2032). **Non encodées, faute de levier**
+(≈ 112 Md€ des 197) : opérateurs 5, agences 7,5, base zéro 11,5, doublons 4, carence
+3 (fiche 3) ; immobilier 5, formation 6, immigration État 3, APD 3,5, culture 2,6,
+MaPrimeRénov' 2 (le levier ne descend pas sous le droit en vigueur), contrats aidés 1,
+niches/politique de la ville/zonages 4,9 (fiche 4) ; réserves 7,5, Agirc-Arrco 7,2,
+cotisation de capitalisation 6 (un prélèvement, compté en économie par le livret),
+RAFP 4,3, régimes spéciaux 3, fraude 2 (fiche 6) ; arrêts maladie 4 (fiche 7) ; gain
+d'IS 4 (effet retour, règle 3) et RIA 2 (fiche 8) ; immigration hors AME 9,3 (fiche 9) ;
+gestion de la Sécurité sociale 4 (fiche 11) ; familles/transmission 3, relais
+MaPrimeRénov' 3, CEE 4 (fiche 14). Les 14 Md€ « autofinancés » ne sont pas crédités.
+
+### `horizons_2027` — page « Pour une France plus prospère » réécrite (02/11/2026), réponses sur l'école (23/10/2026)
+
+| Annonce | Levier | Avant → après | Motif |
+|---|---|---|---|
+| « un tiers des départs en retraite non remplacés, plus de 250 000 postes sur le quinquennat » | `fonction_publique.effectifs` | −3 119 → **−250 000** | nombre de postes du candidat ; rampe 2027-2032, même règle que RN et LR |
+| réforme des agences (intensité 10/20 posée en hypothèse le 30/08/2026) | `fonction_publique_reforme` | 10/20 → **0/0** (droit voté) | le candidat chiffre lui-même le non-remplacement ; la réforme puise dans le même vivier de départs (double comptage) — même traitement que le RN (agences comptées dans les effectifs, réforme à 0/0) |
+| +20 % de rémunération moyenne des enseignants « financés par la baisse démographique » | `education.salaires` | 0 → **20** | coût brut (10 Md€/an dans le moteur : 20 % de 50 Md€) ; le financement démographique n'est pas crédité (règle 3, aucun nombre de postes annoncé) |
+
+Non encodés : 3 jours de carence (pas de levier d'indemnités journalières), zéro
+cotisation patronale au-delà de la 37ᵉ heure (non chiffré), IR nul trois ans pour les
+jeunes parents (3 Md€/an : le seul levier d'IR disponible est la décote, dont la
+population et le canal distributif ne sont pas ceux de la mesure), allocation
+familiale unique « à coût constant », PER abondé de 500 €. **Fonds d'adaptation
+climatique de 2 Md€/an : non encodé, à l'arbitrage du mainteneur.** Le levier existe
+(`transition_ecologique.investissement`) mais, mesuré, +2 Md€/an déplace la dette 2035
+de −5,3 pt et le déficit 2030 de +0,23 pt : l'effet d'offre `coeff × log2(1 + Δ)`
+(growth.py, `SUPPLY_EFFECTS`) atteint son plafond de +0,20 pt de croissance potentielle
+dès 1 Md€ (0,028 pt à 0,1 Md€, 0,20 à 1, 2 et 5 Md€). Continu depuis la v0.6.7 (plus de
+porte à 0,1 Md€), il reste hors de proportion aux petits montants ; encoder le fonds
+aurait fait de ce seul paramètre le premier mouvement du scénario. Tracé pour une
+passe moteur dédiée, pas corrigé ici (release paramètres seuls).
+
+### Domaines élargis (constants.py, `_PARAM_DOMAINS_MOTEUR`)
+
+`fonction_publique.effectifs` [−300 000 ; 60 000] → [−400 000 ; 60 000] et
+`education.salaires` [−5 ; 15] → [−5 ; 20] : même règle qu'en v0.6.7 (domaine élargi à
+la valeur extrême servie, pas au-delà ; sans cela le mode strict refuse LR et Horizons
+en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne change.
+
+### Ce que cela déplace (2030 ; dette 2035 entre parenthèses ; banc levier par levier, interactions ≤ 0,04 pt)
+
+- **LR** : déficit −6,79 → −6,16 % ; dette 130,15 → 128,71 % (156,14 → 151,03) ;
+  chômage 7,26 → 7,40 ; croissance moyenne 2026-2030 1,42 → 1,31 ; pouvoir d'achat
+  105,2 → 104,6 ; compétitivité 100,73 → 100,72 ; Gini 0,291 → 0,292. Solde 2030 :
+  +24 Md€, dont collectivités +8,3, fraude fiscale +5,0, effectifs +3,5, subventions
+  +3,3, fraude sociale +2,4, chômage +2,2, AME +0,6, impôts de production −0,9.
+  Dette 2035 : collectivités −1,9, fraude fiscale −0,9, subventions −0,8, fraude sociale
+  −0,6, effectifs −0,5, chômage −0,5, AME −0,1, impôts de production +0,2.
+- **Horizons** : déficit −5,44 → −5,39 % ; dette 126,84 → 126,61 % (144,95 → 144,92) ;
+  chômage 7,47 → 7,39 ; croissance moyenne 1,17 → 1,23 ; pouvoir d'achat 102,4 → 102,9 ;
+  compétitivité et Gini inchangés. Dette 2035 : effectifs −1,06, réforme des agences
+  retirée +0,52, enseignants +0,49. Solde 2030 : effectifs +8,2, réforme −3,9,
+  enseignants −3,4 Md€.
+- Indice de pouvoir d'achat 2029 (garde `test_political_scenarios_2027`) : LR
+  104,7 → 104,1, Horizons 101,9 → 102,5, dans la tolérance ±1,5 ; valeurs figées
+  inchangées.
+- Tableau agrégé de METHODOLOGIE : neuvième colonne « Écart au 02/11/2026 » — LR +6,4
+  → +1,3, Horizons −4,8 inchangé au dixième (−4,82 → −4,85), les sept autres
+  identiques.
+
+### Snapshots et tests
+
+- Golden master `tests/snapshots/golden_master_v1.json` régénéré : seuls `lr_2027` et
+  `horizons_2027` diffèrent ; `standalone_master_v1.json` inchangé.
+- `tests/snapshots/scenario_deltas_baseline.json` **recapturé sur le moteur v0.6.10**
+  (décision du mainteneur du 21/10/2026 : « recapturer au prochain tag » ; l'ancre
+  datait de la v0.6.7 et le RN consommait 1,14 pt de sa tolérance de 1,5). Les trois
+  scénarios de l'ancre (statu quo voté, LFI, RN) n'ont pas changé de paramètres : les
+  nouveaux deltas sont ceux de la v0.6.10 servie en production.
+- `tests/test_reencodage_v066.py` : écarts sourcés LR (14) et Horizons (9) mis à jour ;
+  la propriété (a) « retiré = posé au droit voté, jamais omis » est paramétrée par
+  scénario et couvre la réforme des agences d'Horizons ; (a3) vérifie que les deux
+  valeurs hors curseur sont dans le domaine moteur. 43 tests.
+- `tests/test_political_scenarios_2027.py` : note de recalage (valeurs attendues
+  inchangées).
+
+### Décisions prises par la session, à valider par le mainteneur
+
+1. Conversion de la fraude fiscale par le régime net (convention LF 2026) plutôt que
+   par la cible brute (0,14 + 5/30 ≈ 0,31) — l'écart entre les deux est de 2,3 Md€
+   nets en 2030.
+2. Fraude sociale au plafond 1,0 (règle RN) plutôt qu'au premier centième qui sature
+   (0,45) — mêmes résultats à partir de 2029, +0,9 Md€ en 2026-2028 avec le plafond.
+3. Énergies intermittentes (4 Md€) portées par `subventions_tge` ; niches/politique de
+   la ville/zonages (4,9 Md€) et familles/transmission (3 Md€) laissées non encodées
+   (objets mixtes) — alternatives chiffrées dans le rapport de release.
+4. Horizons : retrait de la réforme des agences (10/20 → 0/0) au motif du double
+   comptage avec les 250 000 postes (précédent RN).
+5. Horizons : fonds d'adaptation 2 Md€/an non encodé (effet d'offre hors de proportion,
+   ci-dessus).
+6. Recapture de l'ancre des deltas.
+7. Numéro de version : v0.6.11 (les numéros se suivent ; la release « valeurs INSEE +
+   part indexée 0,87 » annoncée sous ce numéro en v0.6.10 glisse à v0.6.12, le retrait
+   de l'éviction à v0.6.13 — à confirmer au tag).
+
 ## v0.6.10 — contre-audit externe V2 : six réserves fermées (non publiée)
 
 **Ce qui change pour le lecteur** : des centièmes de point, sur cinq programmes.
