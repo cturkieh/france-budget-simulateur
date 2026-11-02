@@ -219,6 +219,14 @@ def test_aucune_collision_id_lfi_2026():
 # 109,3→104,7 ; ps_2027 112,0→105,6 ; ecologistes_2027 110,6→103,8 ;
 # im_rabot_2029 96,8→94,3 ; im_competitivite_2029 107,9→103,6. Toutes les
 # autres colonnes sont bit-identiques.
+# RE-ENCODAGE LR / HORIZONS 2026-11-02 (v0.6.11, paramètres seuls, moteur
+# intact) : LR sur le livret « Comptes publics » du 12/10/2026 (effectifs
+# −400 000, chômage 15 mois, AME, fraude, collectivités, subventions) : PA 2029
+# 104,7 → 104,1 ; Horizons (effectifs −250 000, salaires enseignants +20 %,
+# réforme des agences retirée) : 101,9 → 102,5. Les deux restent dans la
+# tolérance ±1,5 des valeurs figées ci-dessous, qui ne sont pas re-figées (la
+# garde reste celle du gating one-time, pas de l'encodage) ; les 8 autres
+# scénarios sont identiques au bit.
 EXPECTED_PA_2029_FULL = {
     "plf_2026": 102.7,
     # 30/08/2026 : retrait de la baisse de CSG furtive (0,097 → 0,098039 voté)

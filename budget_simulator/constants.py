@@ -898,8 +898,13 @@ _PARAM_DOMAINS_MOTEUR = {
     # 150 était clampé à 140 (WARNING serveur, rien côté client). Le domaine
     # est élargi à la valeur extrême servie ou posable, pas au-delà (garde :
     # test_les_curseurs_reels_tiennent_dans_les_domaines).
+    # v0.6.11 (re-encodage LR du 02/11/2026) : −400 000 = cible d'effectifs du
+    # livret LR « Comptes publics » du 12/10/2026 (400 000 départs non remplacés
+    # sur le quinquennat), valeur de scénario servie → domaine élargi à cette
+    # valeur, même règle que ci-dessus. Le vivier (FP_TAUX_NON_REMPLACEMENT_MAX ×
+    # DEPARTS_ANNUELS_FP × 6 cohortes = 631 140) la contient sans plafonnement.
     'fonction_publique': {
-        'effectifs': (-300_000.0, 60_000.0),
+        'effectifs': (-400_000.0, 60_000.0),
         'point_indice': (-2.0, 10.0),
     },
     'fonction_publique_reforme': {
@@ -908,6 +913,11 @@ _PARAM_DOMAINS_MOTEUR = {
     },
     'education': {
         'enseignants': (-20_000.0, 60_000.0),
+        # v0.6.11 (re-encodage Horizons du 02/11/2026) : +20 % = hausse de la
+        # rémunération moyenne des enseignants annoncée par le candidat (réponses
+        # sur l'école, 23/10/2026), au-delà du curseur d'UI (15) → valeur de
+        # scénario servie, domaine élargi à cette valeur, pas au-delà.
+        'salaires': (-5.0, 20.0),
     },
     'transition_ecologique': {
         'renovation': (0.0, 40.0),

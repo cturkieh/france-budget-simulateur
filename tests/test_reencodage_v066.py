@@ -19,8 +19,37 @@ Entrées (arbitrages du 07/10/2026 sur le dossier de sourcing du même jour) :
                 (aucune annoncée) ; tout levier hérité sans source → droit en vigueur
                 (arbitrage du 07/10/2026, volet « Comptes publics » encore « à venir »).
 
+Re-encodage du 02/11/2026 (v0.6.11, paramètres seuls, arbitrage du mainteneur du
+02/11/2026 « on met à jour tout de suite ») :
+
+  lr_2027       livret « Rétablir l'ordre dans les comptes publics » (15 fiches,
+                12/10/2026, lu intégralement) : effectifs −400 000 (fiche 3, 25 Md€),
+                assurance chômage 15 mois (fiche 8), AME réduite aux soins essentiels
+                0,7 Md€ (fiche 9 → 1,2 − 0,7 = 0,5), impôts de production −15 Md€
+                (fiche 14 → 97 − 15 = 82), fraude fiscale +5 Md€ nets (fiche 5 ; régime
+                net du levier, même convention que le 0,14 de la LF 2026 →
+                0,14 + 0,31 = 0,45), fraude sociale 4 Md€ (fiche 10 ; > capacité du
+                levier avec l'ASU active → plafond 1,0, même règle que la fraude
+                fiscale du RN), collectivités −10 Md€ de fonctionnement (fiche 12 →
+                dotation 116,6 − 10 = 106,6, même levier que l'effort des collectivités
+                du RN), énergies intermittentes subventionnées −4 Md€ (fiche 4 →
+                subventions aux grandes entreprises 33 − 4 = 29). Les autres lignes
+                du livret n'ont pas de levier (liste à la fiche du programme).
+  horizons_2027 page « Pour une France plus prospère » réécrite (consultée le
+                02/11/2026) : « un tiers des départs en retraite non remplacés, plus
+                de 250 000 postes sur le quinquennat » → effectifs −250 000 ; la
+                réforme des agences (10/20, intensité posée en hypothèse le 30/08/2026)
+                est RETIRÉE (droit voté 0/0) : le candidat chiffre désormais lui-même
+                le non-remplacement, même vivier de départs, même règle que le RN
+                (agences comptées dans les effectifs, réforme à 0/0). Réponses sur
+                l'école (23/10/2026) : +20 % de rémunération moyenne des enseignants
+                → education.salaires 20 (coût brut ; le financement « par la baisse
+                démographique » n'est pas crédité, règle 3).
+
 Propriétés verrouillées :
-  (a) RN : les deux mesures retirées sont posées au droit voté (pas omises) ;
+  (a) RN et Horizons : les mesures retirées sont posées au droit voté (pas omises) —
+      RN : superprofits et cotisations salariales (07/10/2026) ; Horizons : réforme
+      des agences (02/11/2026) ;
   (b) RN, LR, Horizons : même jeu de leviers que plf_2026, et chaque paramètre hors
       écarts sourcés vaut EXACTEMENT le droit voté — c'est la forme exécutable de
       « aucune économie ni dépense non sourcée » ;
@@ -50,6 +79,14 @@ from run_scenarios_full import SCENARIOS  # noqa: E402
 _SCENARIOS = pytest.mark.skipif(not SCENARIOS, reason="scenarios.json absent (fork moteur seul)")
 
 RN_CLES_RETIREES = ('taxe_superprofits', 'cotisations_salariales')
+# Leviers retirés par scénario (posés à la valeur de plf_2026, jamais omis — cf. (d)).
+CLES_RETIREES_PAR_SCENARIO = {
+    'rn_2027': RN_CLES_RETIREES,
+    # 02/11/2026 : le candidat chiffre lui-même les postes non remplacés (250 000) ;
+    # l'intensité 10/20 de la réforme des agences, posée en hypothèse le 30/08/2026,
+    # puiserait dans le même vivier de départs (double comptage) — retirée.
+    'horizons_2027': ('fonction_publique_reforme',),
+}
 
 # Écarts au droit voté que le contre-budget du 06/10/2026 chiffre ou paramètre
 # (table du dossier de sourcing, statut PROUVÉ ou arbitré le 07/10/2026).
@@ -71,13 +108,19 @@ RN_ECARTS_SOURCES = {
 # du scénario, valeur = liste EXPLICITE de ses écarts sourcés à plf_2026.
 # LR et Horizons : audit levier par levier du 07/10/2026 (tableau au CHANGELOG parent).
 LR_ECARTS_SOURCES = {
-    ('cotisations_patronales', 'taux'): 0.2525,      # > 25 Md€ coût du travail (avecretailleau.fr)
-    ('cotisations_salariales', 'baisse_points'): 2.5,  # ~15 Md€ rendus aux salariés
-    ('impots_production', 'montant'): 83,            # 97 − 14 (C3S, CVAE, forfait social, CFE ind.)
-    ('fonction_publique', 'effectifs'): -300000,     # ~300 000 postes sur le quinquennat
-    ('retraites', 'age_depart'): 65.0,               # taux plein à 65 ans
-    ('asu', 'asu_activation'): 1,                    # compte social unique
+    ('cotisations_patronales', 'taux'): 0.2525,      # > 25 Md€ coût du travail (fiche 14 : 15 gagés + 10 autofinancés)
+    ('cotisations_salariales', 'baisse_points'): 2.5,  # 15 Md€ rendus aux salariés (fiche 14)
+    ('impots_production', 'montant'): 82,            # 97 − 15 (fiche 14 : « impôts de production supprimés 15,0 »)
+    ('fonction_publique', 'effectifs'): -400000,     # fiche 3 : 400 000 départs non remplacés sur le quinquennat (25 Md€)
+    ('retraites', 'age_depart'): 65.0,               # taux plein à 65 ans (mesure 108)
+    ('asu', 'asu_activation'): 1,                    # compte social unique (fiche 8)
     ('asu', 'asu_plafonnement'): 0.7,                # plafonné à 70 % du SMIC net
+    ('chomage_alloc', 'duree'): 15,                  # fiche 8 : durée maximale « de 18 à 15 mois »
+    ('immigration', 'ame'): 0.5,                     # fiche 9 : AME réduite aux soins essentiels, −0,7 Md€ sur 1,2
+    ('fraude_fiscale', 'effort'): 0.45,              # fiche 5 : +5 Md€ nets (régime net du levier, +0,31 sur le 0,14 voté)
+    ('fraude_sociale', 'effort'): 1.0,               # fiche 10 : 4 Md€ > capacité du levier (ASU active) → plafond
+    ('collectivites', 'dotation'): 106.6,            # fiche 12 : −10 Md€ de fonctionnement des collectivités
+    ('subventions_tge', 'montant'): 29,              # fiche 4 : énergies intermittentes subventionnées −4 Md€
 }
 
 HORIZONS_ECARTS_SOURCES = {
@@ -88,8 +131,8 @@ HORIZONS_ECARTS_SOURCES = {
     ('niches_fiscales_tge', 'montant'): 32,
     ('subventions_tge', 'montant'): 8,
     ('is_exceptionnel_tge', 'montant'): 0,           # fin de la surtaxe IS
-    ('fonction_publique_reforme', 'fusion_agences'): 10,  # mesure annoncée, intensité = hypothèse écrite à la fiche
-    ('fonction_publique_reforme', 'digitalisation'): 20,
+    ('fonction_publique', 'effectifs'): -250000,     # « plus de 250 000 postes sur le quinquennat » (site, 02/11/2026)
+    ('education', 'salaires'): 20,                   # +20 % de rémunération moyenne des enseignants (23/10/2026), coût brut
 }
 
 # PS, LFI, Écologistes, Renaissance : paramètres hérités pas encore passés au crible,
@@ -121,13 +164,37 @@ def _ecarts_au_droit_en_vigueur(sid, ecarts_sources):
 
 
 @_SCENARIOS
-def test_a_rn_mesures_retirees_au_droit_vote():
-    rn, ref = SCENARIOS['rn_2027'], SCENARIOS['plf_2026']
-    for cle in RN_CLES_RETIREES:
-        assert rn.get(cle) == ref[cle], (
-            f"{cle} : {rn.get(cle)!r} dans rn_2027, droit voté {ref[cle]!r} — "
-            "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (d))"
-        )
+@pytest.mark.parametrize(
+    'sid,cle',
+    [(sid, cle) for sid, cles in sorted(CLES_RETIREES_PAR_SCENARIO.items()) for cle in cles],
+    ids=str,
+)
+def test_a_mesures_retirees_au_droit_vote(sid, cle):
+    scn, ref = SCENARIOS[sid], SCENARIOS['plf_2026']
+    assert scn.get(cle) == ref[cle], (
+        f"{cle} : {scn.get(cle)!r} dans {sid}, droit voté {ref[cle]!r} — "
+        "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (d))"
+    )
+
+
+@_SCENARIOS
+def test_a2_horizons_reforme_des_agences_retiree_pas_a_l_intensite_heritee():
+    """02/11/2026 : l'hypothèse d'intensité 10/20 (30/08/2026) ne survit pas au
+    chiffre du candidat (250 000 postes) : même vivier, même règle que le RN."""
+    assert SCENARIOS['horizons_2027']['fonction_publique_reforme'] == {'fusion_agences': 0, 'digitalisation': 0}
+    assert SCENARIOS['horizons_2027']['fonction_publique']['effectifs'] == -250000
+
+
+@_SCENARIOS
+def test_a3_les_valeurs_hors_curseur_sont_dans_le_domaine_moteur():
+    """LR −400 000 et Horizons +20 % dépassent le curseur d'UI : le domaine moteur
+    (constants.PARAM_DOMAINS, élargi en v0.6.11 à la valeur servie, pas au-delà)
+    doit les contenir, sinon le mode strict les refuse et le tolérant les clampe."""
+    from budget_simulator.constants import PARAM_DOMAINS
+    assert PARAM_DOMAINS['fonction_publique']['effectifs'][0] == -400_000.0
+    assert PARAM_DOMAINS['education']['salaires'][1] == 20.0
+    assert SCENARIOS['lr_2027']['fonction_publique']['effectifs'] == -400000
+    assert SCENARIOS['horizons_2027']['education']['salaires'] == 20
 
 
 @_SCENARIOS
