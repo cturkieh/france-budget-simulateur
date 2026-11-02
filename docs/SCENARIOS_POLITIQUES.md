@@ -180,7 +180,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | impots_production | montant | 97 | 80 | 97 | 87 | 47 | 82 | 97 | 97 | 97 | 90 |
 | is_exceptionnel_tge | montant | 7.3 | 7.3 | 15 | 0 | 0 | 7.3 | 12 | 15 | 8 | 8 |
 | isf_climatique | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0.6 | 1 | 0 | 0 |
-| niches_fiscales_tge | montant | 57 | 57 | 20 | 56 | 32 | 57 | 40 | 25 | 58 | 40 |
+| niches_fiscales_tge | montant | 57 | 57 | 20 | 56 | 32 | 52 | 40 | 25 | 58 | 40 |
 | niches_sociales_tge | montant | 68 | 68 | 50 | 68 | 68 | 68 | 55 | 50 | 70 | 55 |
 | optimisation_dette | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0.2 | 0.3 | 0 | 0.5 |
 | prestations_indexation | taux_indexation | 1 | 1 | 1 | 0.8 | 1 | 1 | 1 | 1 | 1 | 1 |

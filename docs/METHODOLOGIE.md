@@ -2335,7 +2335,7 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 | `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 |
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +1,3 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 |
 | `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 |
 | `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 |
@@ -2389,11 +2389,12 @@ bougent (±0,20 pt une année, sept programmes, encadré V2-02).
 
 **Mise à jour du 02/11/2026 — neuvième colonne : re-encodage de deux scénarios sur leurs
 sources primaires, aucune ligne de moteur modifiée.** Les huit autres scénarios ont des
-trajectoires identiques au bit à la v0.6.10. LR (+6,4 vers +1,3) passe au livret « Rétablir
+trajectoires identiques au bit à la v0.6.10. LR (+6,4 vers +0,4) passe au livret « Rétablir
 l'ordre dans les comptes publics » du 12/10/2026 : les lignes du livret qui ont un levier dans
 le simulateur entrent aux montants du livret (effectifs portés à la cible du livret, durée
 d'indemnisation du chômage, aide médicale d'État, fraude fiscale et sociale, fonctionnement
-des collectivités, subventions aux énergies, impôts de production), les autres restent non
+des collectivités, subventions aux énergies, niches fiscales des entreprises, impôts de
+production), les autres restent non
 encodées et sont listées dans sa fiche ; ses baisses de prélèvements sont inchangées. Horizons
 (−4,8, inchangé au dixième : −4,82 vers −4,85) encode le nombre de postes publics non remplacés
 annoncé par le candidat et la revalorisation des enseignants à son coût brut, et retire

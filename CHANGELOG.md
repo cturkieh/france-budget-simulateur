@@ -34,6 +34,7 @@ correspond quand il existe, à son montant :
 | 10 — fraude sociale | 4 Md€ | `fraude_sociale.effort` | 0,1 → **1,0** | 4 Md€ > capacité du levier avec l'ASU active (≈ 3,3 Md€ nets) → plafond, comme la fraude fiscale du RN |
 | 12 — fonctionnement des collectivités | 10 Md€ | `collectivites.dotation` | 116,6 → **106,6** | 116,6 − 10 (même levier que l'effort des collectivités du RN) |
 | 4 — énergies intermittentes subventionnées | 4 Md€ | `subventions_tge.montant` | 33 → **29** | 33 − 4 (l'énergie est dans l'assiette du levier) |
+| 4 — niches, politique de la ville, zonages | 4,9 Md€ | `niches_fiscales_tge.montant` | 57 → **52** | 57 − 5 (arrondi au pas du curseur, écart 0,1 à la ligne) ; arbitrage du mainteneur : même levier que Renaissance 56, Horizons 32, PS 40, Écologistes 25, LFI 20 |
 
 Inchangés et confirmés par le livret : cotisations patronales 0,2525 (15 gagés +
 10 « autofinancés », neutralité non créditée), cotisations salariales −2,5 points
@@ -41,14 +42,15 @@ Inchangés et confirmés par le livret : cotisations patronales 0,2525 (15 gagé
 chiffre cette variante en coût, ≈ 4,6 Md€ sur le solde 2030, écart signalé à la
 fiche), âge du taux plein 65 ans (12 Md€ de « mesures d'âge » dans le livret, 9 sur le
 site ; le moteur calcule 5,4 Md€/an dès 2032). **Non encodées, faute de levier**
-(≈ 112 Md€ des 197) : opérateurs 5, agences 7,5, base zéro 11,5, doublons 4, carence
+(≈ 107 Md€ des 197) : opérateurs 5, agences 7,5, base zéro 11,5, doublons 4, carence
 3 (fiche 3) ; immobilier 5, formation 6, immigration État 3, APD 3,5, culture 2,6,
-MaPrimeRénov' 2 (le levier ne descend pas sous le droit en vigueur), contrats aidés 1,
-niches/politique de la ville/zonages 4,9 (fiche 4) ; réserves 7,5, Agirc-Arrco 7,2,
+MaPrimeRénov' 2 (le levier ne descend pas sous le droit en vigueur), contrats aidés 1
+(fiche 4) ; réserves 7,5, Agirc-Arrco 7,2,
 cotisation de capitalisation 6 (un prélèvement, compté en économie par le livret),
 RAFP 4,3, régimes spéciaux 3, fraude 2 (fiche 6) ; arrêts maladie 4 (fiche 7) ; gain
 d'IS 4 (effet retour, règle 3) et RIA 2 (fiche 8) ; immigration hors AME 9,3 (fiche 9) ;
-gestion de la Sécurité sociale 4 (fiche 11) ; familles/transmission 3, relais
+gestion de la Sécurité sociale 4 (fiche 11) ; familles/transmission 3 (objet mixte
+IR + DMTG, aucun levier propre), relais
 MaPrimeRénov' 3, CEE 4 (fiche 14). Les 14 Md€ « autofinancés » ne sont pas crédités.
 
 ### `horizons_2027` — page « Pour une France plus prospère » réécrite (02/11/2026), réponses sur l'école (23/10/2026)
@@ -82,13 +84,15 @@ en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne chang
 
 ### Ce que cela déplace (2030 ; dette 2035 entre parenthèses ; banc levier par levier, interactions ≤ 0,04 pt)
 
-- **LR** : déficit −6,79 → −6,16 % ; dette 130,15 → 128,71 % (156,14 → 151,03) ;
-  chômage 7,26 → 7,40 ; croissance moyenne 2026-2030 1,42 → 1,31 ; pouvoir d'achat
-  105,2 → 104,6 ; compétitivité 100,73 → 100,72 ; Gini 0,291 → 0,292. Solde 2030 :
-  +24 Md€, dont collectivités +8,3, fraude fiscale +5,0, effectifs +3,5, subventions
-  +3,3, fraude sociale +2,4, chômage +2,2, AME +0,6, impôts de production −0,9.
-  Dette 2035 : collectivités −1,9, fraude fiscale −0,9, subventions −0,8, fraude sociale
-  −0,6, effectifs −0,5, chômage −0,5, AME −0,1, impôts de production +0,2.
+- **LR** : déficit −6,79 → −6,05 % ; dette 130,15 → 128,43 % (156,14 → 150,17) ;
+  chômage 7,26 → 7,43 ; croissance moyenne 2026-2030 1,42 → 1,29 ; pouvoir d'achat
+  105,2 → 104,5 ; compétitivité 100,73 → 100,64 ; Gini 0,291 → 0,292. Solde 2030 :
+  +28 Md€, dont collectivités +8,3, fraude fiscale +5,0, niches +4,2, effectifs +3,5,
+  subventions +3,3, fraude sociale +2,4, chômage +2,2, AME +0,6, impôts de production
+  −0,9. Dette 2035 : collectivités −1,9, fraude fiscale −0,9, niches −0,9, subventions
+  −0,8, fraude sociale −0,6, effectifs −0,5, chômage −0,5, AME −0,1, impôts de
+  production +0,2 (niches 57 → 52 ajoutées en complément, arbitrage du mainteneur :
+  seules, déficit 2030 +0,11 pt, dette 2035 −0,87 pt, compétitivité −0,08).
 - **Horizons** : déficit −5,44 → −5,39 % ; dette 126,84 → 126,61 % (144,95 → 144,92) ;
   chômage 7,47 → 7,39 ; croissance moyenne 1,17 → 1,23 ; pouvoir d'achat 102,4 → 102,9 ;
   compétitivité et Gini inchangés. Dette 2035 : effectifs −1,06, réforme des agences
@@ -98,7 +102,7 @@ en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne chang
   104,7 → 104,1, Horizons 101,9 → 102,5, dans la tolérance ±1,5 ; valeurs figées
   inchangées.
 - Tableau agrégé de METHODOLOGIE : neuvième colonne « Écart au 02/11/2026 » — LR +6,4
-  → +1,3, Horizons −4,8 inchangé au dixième (−4,82 → −4,85), les sept autres
+  → +0,4, Horizons −4,8 inchangé au dixième (−4,82 → −4,85), les sept autres
   identiques.
 
 ### Snapshots et tests
@@ -125,8 +129,11 @@ en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne chang
 2. Fraude sociale au plafond 1,0 (règle RN) plutôt qu'au premier centième qui sature
    (0,45) — écarts ≤ 0,02 pt de déficit sur 2026-2035 entre les deux conventions.
 3. Énergies intermittentes (4 Md€) portées par `subventions_tge` ; niches/politique de
-   la ville/zonages (4,9 Md€) et familles/transmission (3 Md€) laissées non encodées
-   (objets mixtes) — les fiches du livret non encodées sont nommées dans la fiche LR du simulateur.
+   la ville/zonages (4,9 Md€) portées par `niches_fiscales_tge` 57 → 52 (arbitrage du
+   mainteneur, symétrie avec les cinq autres programmes encodés sur ce levier) ;
+   familles/transmission (3 Md€) laissée non encodée (objet mixte IR + DMTG, aucun
+   levier propre, dit sur la fiche) — les fiches du livret non encodées sont nommées
+   dans la fiche LR du simulateur.
 4. Horizons : retrait de la réforme des agences (10/20 → 0/0) au motif du double
    comptage avec les 250 000 postes (précédent RN).
 5. Horizons : fonds d'adaptation 2 Md€/an non encodé (effet d'offre hors de proportion,

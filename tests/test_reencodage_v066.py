@@ -33,8 +33,12 @@ Re-encodage du 02/11/2026 (v0.6.11, paramètres seuls, arbitrage du mainteneur d
                 fiscale du RN), collectivités −10 Md€ de fonctionnement (fiche 12 →
                 dotation 116,6 − 10 = 106,6, même levier que l'effort des collectivités
                 du RN), énergies intermittentes subventionnées −4 Md€ (fiche 4 →
-                subventions aux grandes entreprises 33 − 4 = 29). Les autres lignes
-                du livret n'ont pas de levier (liste à la fiche du programme).
+                subventions aux grandes entreprises 33 − 4 = 29), niches, politique
+                de la ville et zonages −4,9 Md€ (fiche 4 → niches fiscales des grandes
+                entreprises 57 − 5 = 52, arrondi au pas du curseur ; arbitrage du
+                mainteneur : même levier que Renaissance 56, Horizons 32, PS 40,
+                Écologistes 25, LFI 20). Les autres lignes du livret n'ont pas de
+                levier (liste à la fiche du programme).
   horizons_2027 page « Pour une France plus prospère » réécrite (consultée le
                 02/11/2026) : « un tiers des départs en retraite non remplacés, plus
                 de 250 000 postes sur le quinquennat » → effectifs −250 000 ; la
@@ -121,6 +125,7 @@ LR_ECARTS_SOURCES = {
     ('fraude_sociale', 'effort'): 1.0,               # fiche 10 : 4 Md€ > capacité du levier (ASU active) → plafond
     ('collectivites', 'dotation'): 106.6,            # fiche 12 : −10 Md€ de fonctionnement des collectivités
     ('subventions_tge', 'montant'): 29,              # fiche 4 : énergies intermittentes subventionnées −4 Md€
+    ('niches_fiscales_tge', 'montant'): 52,          # fiche 4 : niches, politique de la ville, zonages −4,9 Md€ (57 − 5)
 }
 
 HORIZONS_ECARTS_SOURCES = {
