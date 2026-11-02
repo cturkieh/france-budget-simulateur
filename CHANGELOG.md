@@ -123,10 +123,10 @@ en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne chang
    par la cible brute (0,14 + 5/30 ≈ 0,31) — l'écart entre les deux est de 2,3 Md€
    nets en 2030.
 2. Fraude sociale au plafond 1,0 (règle RN) plutôt qu'au premier centième qui sature
-   (0,45) — mêmes résultats à partir de 2029, +0,9 Md€ en 2026-2028 avec le plafond.
+   (0,45) — écarts ≤ 0,02 pt de déficit sur 2026-2035 entre les deux conventions.
 3. Énergies intermittentes (4 Md€) portées par `subventions_tge` ; niches/politique de
    la ville/zonages (4,9 Md€) et familles/transmission (3 Md€) laissées non encodées
-   (objets mixtes) — alternatives chiffrées dans le rapport de release.
+   (objets mixtes) — les fiches du livret non encodées sont nommées dans la fiche LR du simulateur.
 4. Horizons : retrait de la réforme des agences (10/20 → 0/0) au motif du double
    comptage avec les 250 000 postes (précédent RN).
 5. Horizons : fonds d'adaptation 2 Md€/an non encodé (effet d'offre hors de proportion,
