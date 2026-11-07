@@ -50,9 +50,12 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from budget_simulator import BudgetSimulatorV45, EntreeInvalide, load_default_values
+from budget_simulator.engine.cadre import RAMPE_LEVIERS_ELIGIBLES
 
 load_dotenv()
 
@@ -256,7 +259,10 @@ class RampeRequete(BaseModel):
     strict, correction tracée en tolérant)."""
     model_config = ConfigDict(extra='forbid')
     annees: int = Field(strict=True)
-    leviers: list[str]
+    # Taille bornée (revue de sécurité) : une entrée par levier éligible au plus,
+    # des noms courts ; au-delà, 422 avant toute validation du moteur.
+    leviers: list[Annotated[str, StringConstraints(max_length=64)]] = Field(
+        max_length=len(RAMPE_LEVIERS_ELIGIBLES))
 
 
 class SimulationRequest(BaseModel):

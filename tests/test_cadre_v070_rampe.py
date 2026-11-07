@@ -268,3 +268,54 @@ def test_refuteur_d_levier_absent_du_droit():
                                      droit=cadre.DroitEnVigueur('t', 't', 't', '2026-11-07', droit),
                                      rampe={'annees': 5, 'leviers': ['recherche_publique.budget']})
     assert c.mesures_de_l_annee(DEBUT)['recherche_publique']['budget'] == pytest.approx(12.0)
+
+
+# ---------------------------------------------------------------------------
+# Borne de taille de la liste des leviers (revue de sécurité, MEDIUM :
+# amplification de ressources) — parité avec les validateurs de _param_domain
+# ---------------------------------------------------------------------------
+
+def test_rampe_dix_mille_noms_inconnus_strict_et_tolerant(caplog):
+    import logging
+    import time
+    noms = [f'inconnu_{k}.x' for k in range(10_000)]
+    debut = time.perf_counter()
+    with pytest.raises(EntreeInvalide, match='rampe'):
+        simuler({'defense': {'budget': 70}}, strict=True, annee_debut=DEBUT,
+                rampe={'annees': 5, 'leviers': noms})
+    with caplog.at_level(logging.WARNING, logger='budget_simulator.engine.cadre'):
+        rapport = simuler({'defense': {'budget': 70}}, annee_debut=DEBUT,
+                          rampe={'annees': 5, 'leviers': noms})[2]
+    assert time.perf_counter() - debut < 2.0
+    avertissements = [r for r in caplog.records if r.name == 'budget_simulator.engine.cadre']
+    assert len(avertissements) == 1, [r.getMessage()[:80] for r in avertissements]
+    assert len(avertissements[0].getMessage()) < 500
+    assert rapport['cadre']['rampe'] is None and rapport['valid'] is False
+    assert sum('rampe' in w for w in rapport['warnings']) == 1
+
+
+def test_rampe_noms_retires_un_seul_avertissement_agrege(caplog):
+    """Plusieurs noms invalides dans une liste admissible : UN avertissement à
+    clé fixe qui liste les noms retirés (borné), sans répéter les éligibles."""
+    import logging
+    leviers = ['defense.budget', 'tva_rate.taux', 'x' * 60, 'inconnu.y', 'defense.budget']
+    with caplog.at_level(logging.WARNING, logger='budget_simulator.engine.cadre'):
+        rapport = simuler({'defense': {'budget': 70}}, annee_debut=DEBUT,
+                          rampe={'annees': 3, 'leviers': leviers})[2]
+    messages = [r.getMessage() for r in caplog.records if r.name == 'budget_simulator.engine.cadre']
+    assert len(messages) == 1 and 'tva_rate.taux' in messages[0]
+    assert 'transition_ecologique.renovation' not in messages[0]     # liste des éligibles non répétée
+    assert rapport['cadre']['rampe']['leviers'] == ['defense.budget']   # dédoublonné
+
+
+def test_api_rampe_liste_et_noms_bornes(client):
+    trop = client.post('/simulate', json={'mesures': {}, 'annee_debut': DEBUT,
+                                          'rampe': {'annees': 5, 'leviers': ['defense.budget'] * 16}})
+    assert trop.status_code == 422, trop.text
+    long_nom = client.post('/simulate', json={'mesures': {}, 'annee_debut': DEBUT,
+                                              'rampe': {'annees': 5, 'leviers': ['d' * 65]}})
+    assert long_nom.status_code == 422, long_nom.text
+    toutes = sorted(cadre.RAMPE_LEVIERS_ELIGIBLES)
+    ok = client.post('/simulate', json={'mesures': {}, 'annee_debut': DEBUT,
+                                        'rampe': {'annees': 5, 'leviers': toutes}})
+    assert ok.status_code == 200, ok.text

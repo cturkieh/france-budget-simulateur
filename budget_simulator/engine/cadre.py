@@ -65,7 +65,9 @@ from ..constants import (
 )
 from ._noms_parametres import NOMS_PARAMETRES_ADMIS
 from ._param_domain import (
+    _DETAILS_MAX,
     EntreeInvalide,
+    _apercu,
     validate_intensite_domain,
     validate_param_domains,
     valider_modes_exclusifs,
@@ -133,50 +135,63 @@ def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
     """Rampe effective, ou ``None`` (aucune). Strict : ``RampeInvalide`` au
     premier défaut. Tolérant : WARNING une fois et correction tracée —
     ``annees`` ramenée au domaine, leviers inconnus ou non éligibles retirés,
-    clés inconnues ignorées, rampe ignorée en mode historique ou si illisible."""
+    clés inconnues ignorées, rampe ignorée en mode historique ou si illisible.
+
+    TAILLE BORNÉE (revue de sécurité, amplification de ressources ; parité avec
+    ``_param_domain``) : au plus une entrée par levier éligible
+    (``RAMPE_LEVIERS_ELIGIBLES``), sinon rejet sans parcourir la liste ; noms
+    dédoublonnés ; les noms retirés font UN avertissement à clé fixe, au plus
+    ``_DETAILS_MAX`` noms détaillés et chacun tronqué ; la liste des leviers
+    éligibles n'y est jamais répétée (elle vit ici et dans METHODOLOGIE)."""
     if valeur is None:
         return None
     cle = ('cadre', 'rampe')
 
-    def defaut(message, rendu):
+    def defaut(message, rendu, sous_cle):
         if strict:
             raise RampeInvalide(f"rampe : {message} (mode BUDGETLAB_STRICT)")
-        _signaler(warned, corrections, f"rampe : {message}", cle=cle + (message,))
+        _signaler(warned, corrections, f"rampe : {message}", cle=cle + (sous_cle,))
         return rendu
 
     if not mode_cadre:
         return defaut("une rampe exige annee_debut dans [2027 ; "
                       f"{ANNEE_DEBUT_MAX}] (mode historique : programme dès "
-                      f"{POLICY_START_YEAR}, sans rampe) — rampe ignorée", None)
+                      f"{POLICY_START_YEAR}, sans rampe) — rampe ignorée", None, 'mode')
     if not isinstance(valeur, dict):
         return defaut(f"objet {{annees, leviers}} attendu, reçu {type(valeur).__name__} — "
-                      "rampe ignorée", None)
-    inconnues = sorted(map(str, set(valeur) - _RAMPE_CLES))
+                      "rampe ignorée", None, 'forme')
+    inconnues = sorted(_apercu(k) for k in set(valeur) - _RAMPE_CLES)
     if inconnues:
-        defaut(f"clé(s) inconnue(s) {', '.join(inconnues)} — ignorée(s)", None)
+        defaut(f"clé(s) inconnue(s) {_resume(inconnues)} — ignorée(s)", None, 'cles')
     annees = valeur.get('annees')
     if isinstance(annees, bool) or not isinstance(annees, numbers.Integral):
-        return defaut(f"annees = {annees!r} : entier attendu dans "
-                      f"[{RAMPE_ANNEES_MIN} ; {RAMPE_ANNEES_MAX}] — rampe ignorée", None)
+        return defaut(f"annees = {_apercu(annees)} : entier attendu dans "
+                      f"[{RAMPE_ANNEES_MIN} ; {RAMPE_ANNEES_MAX}] — rampe ignorée", None, 'annees')
     if not RAMPE_ANNEES_MIN <= annees <= RAMPE_ANNEES_MAX:
         borne = min(max(int(annees), RAMPE_ANNEES_MIN), RAMPE_ANNEES_MAX)
-        annees = defaut(f"annees = {annees} hors de [{RAMPE_ANNEES_MIN} ; "
-                        f"{RAMPE_ANNEES_MAX}] — ramenée à {borne}", borne)
+        annees = defaut(f"annees = {_apercu(annees)} hors de [{RAMPE_ANNEES_MIN} ; "
+                        f"{RAMPE_ANNEES_MAX}] — ramenée à {borne}", borne, 'annees')
     leviers = valeur.get('leviers')
     if not isinstance(leviers, list):
-        return defaut(f"leviers = {leviers!r} : liste de « levier.parametre » attendue — "
-                      "rampe ignorée", None)
-    retenus = []
+        return defaut(f"leviers = {_apercu(leviers)} : liste de « levier.parametre » attendue — "
+                      "rampe ignorée", None, 'leviers')
+    n_max = len(RAMPE_LEVIERS_ELIGIBLES)
+    if len(leviers) > n_max:
+        return defaut(f"leviers : {len(leviers)} entrées pour {n_max} leviers éligibles au plus "
+                      f"(engine/cadre.py, RAMPE_LEVIERS_ELIGIBLES) — rampe ignorée", None, 'leviers')
+    retenus, retires = [], []
     for nom in leviers:
-        if nom == 'education.enseignants':
+        if isinstance(nom, str) and nom in RAMPE_LEVIERS_ELIGIBLES:
+            if nom not in retenus:
+                retenus.append(nom)
+        elif nom == 'education.enseignants':
             defaut("education.enseignants suit déjà la rampe de mandat des effectifs "
-                   "de la fonction publique — retiré de la rampe", None)
-        elif not isinstance(nom, str) or nom not in RAMPE_LEVIERS_ELIGIBLES:
-            defaut(f"levier {nom!r} inconnu ou non éligible (leviers en Md€ et leviers "
-                   f"fiscaux des grandes entreprises : {', '.join(sorted(RAMPE_LEVIERS_ELIGIBLES))})"
-                   " — retiré", None)
-        elif nom not in retenus:
-            retenus.append(nom)
+                   "de la fonction publique — retiré de la rampe", None, 'enseignants')
+        else:
+            retires.append(_apercu(nom))
+    if retires:
+        defaut(f"levier(s) inconnu(s) ou non éligible(s) {_resume(sorted(set(retires)))} — "
+               "retiré(s) (éligibles : engine/cadre.py, RAMPE_LEVIERS_ELIGIBLES)", None, 'retires')
     return Rampe(annees=int(annees), leviers=tuple(retenus)) if retenus else None
 
 
@@ -327,6 +342,12 @@ def normaliser_annee_debut(valeur, *, strict: bool, warned: Optional[set] = None
         _signaler(warned, corrections, message + f" — ramenée à {borne}")
         return borne
     return int(valeur)
+
+
+def _resume(noms: list) -> str:
+    """Au plus ``_DETAILS_MAX`` noms, puis « (+N autres) » : un message borné."""
+    texte = ', '.join(noms[:_DETAILS_MAX])
+    return texte + (f" (+{len(noms) - _DETAILS_MAX} autres)" if len(noms) > _DETAILS_MAX else '')
 
 
 def _signaler(warned: Optional[set], corrections: Optional[dict], texte: str,
