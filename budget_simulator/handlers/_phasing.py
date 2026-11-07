@@ -136,7 +136,7 @@ def asu_is_active(mesures: Dict) -> bool:
     return activation != 0
 
 
-def asu_phasing(mesures: Dict, year: int) -> float:
+def asu_phasing(mesures: Dict, year: int, origine: int = POLICY_START_YEAR) -> float:
     """Phasing de montée en charge de l'ASU pour ``year``, 0.0 si ASU inactive.
 
     SOURCE UNIQUE du calendrier ASU (activation + montée 4 ans), partagée
@@ -155,11 +155,14 @@ def asu_phasing(mesures: Dict, year: int) -> float:
     que ``_apply_asu`` traite comme actif — répliquer ce prédicat garde
     ``_apply_asu`` byte-identique (golden master inchangé sur ``asu``).
     Calendrier : ≤2025 → 0 %, 2026 → 25 %, 2027 → 50 %, 2028 → 75 %,
-    2029+ → 100 %.
+    2029+ → 100 %. ``origine`` (v0.7.0) : horloge de l'ASU — POLICY_START_YEAR
+    en mode historique et pour le droit en vigueur, ``annee_debut`` pour un
+    programme qui l'active ; les consommateurs passent l'horloge de l'ASU
+    (``self._origine('asu')``), jamais la leur.
     """
     if not asu_is_active(mesures):
         return 0.0
-    return _year_phasing(year - POLICY_START_YEAR, ASU_PHASING_SCHEDULE)
+    return _year_phasing(year - origine, ASU_PHASING_SCHEDULE)
 
 
 __all__ = [

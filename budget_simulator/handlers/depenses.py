@@ -204,7 +204,8 @@ class DepensesMixin(_MixinBase):
     """Handlers Section 2 — Maîtrise des dépenses."""
 
     def _ecart_revalorisations(self, delta: float, year: int, inflation: float,
-                               max_revalorisations: int, taux_2026: float) -> float:
+                               max_revalorisations: int, taux_2026: float,
+                               origine: int = POLICY_START_YEAR) -> float:
         """Écart de NIVEAU d'une masse sous-indexée, en part de la masse
         pleinement revalorisée (v0.6.7 ; ratio exact v0.6.10).
 
@@ -246,10 +247,16 @@ class DepensesMixin(_MixinBase):
         sous-indexation de même ampleur pour UNE revalorisation ; composées,
         économie et surcoût s'écartent de O((δπ)²), le produit n'étant pas
         linéaire en δ. δ = 0 : écart nul.
+
+        HORLOGE (v0.7.0) : la première revalorisation sous-indexée est celle de
+        l'année ``origine`` (horloge du levier : POLICY_START_YEAR en mode
+        historique, ``annee_debut`` pour un programme qui modifie l'indexation).
+        La revalorisation de 2026 porte toujours ``taux_2026`` (fait légal) ;
+        celle d'une année ultérieure, l'inflation de l'année d'avant.
         """
-        dernier = min(year, POLICY_START_YEAR + max_revalorisations - 1)
+        dernier = min(year, origine + max_revalorisations - 1)
         facteur = 1.0
-        for annee in range(POLICY_START_YEAR, dernier + 1):
+        for annee in range(origine, dernier + 1):
             if annee == POLICY_START_YEAR:
                 pi = taux_2026
             else:
@@ -274,6 +281,10 @@ class DepensesMixin(_MixinBase):
         # bosse de chômage) doivent partir du MÊME écart, sans quoi un
         # recalibrage du calendrier légal n'en atteindrait qu'une partie.
         ecart_age = retraites_ecart_age_ans(params, year)
+        # Horloge du levier (v0.7.0) : origine des phasages du run et de la
+        # recherche de l'ouverture de l'écart d'âge (horloge du CHOC).
+        origine = self._origine('retraites')
+        annee_ouverture_age = retraites_annee_debut_ecart_age_handler(params, origine)
         # NOTE (lot 7) : il n'y a plus de clé d'identité `age` dans le gating
         # one-time du Gini ci-dessous. Elle n'y a plus sa place depuis que le
         # canal d'âge lit l'horloge du CHOC, qui est déjà stable d'une année
@@ -285,7 +296,7 @@ class DepensesMixin(_MixinBase):
         # Montee en charge cohortes 5 ans (COR 2024). Formules SYMETRIQUES
         # autour des references : hausse = economie, baisse = surcout miroir
         # (cf METHODOLOGIE.md § Retraites).
-        year_idx = max(0, year - POLICY_START_YEAR)
+        year_idx = max(0, year - origine)
         # Horloge du RUN — pour les leviers dont l'ecart s'ouvre des la
         # premiere annee simulee (duree de cotisation, indexation : leurs
         # references sont FIXES).
@@ -300,9 +311,7 @@ class DepensesMixin(_MixinBase):
         # COINCIDENT des que l'ecart s'ouvre en 2026, ce qui est le cas de tout
         # age different de la valeur gelee : l'alignement ne deplace que ce
         # seul point du domaine, mais c'est celui du curseur laisse au gel.
-        phasing_age = _year_phasing(
-            year - retraites_annee_debut_ecart_age_handler(params),
-            PHASING_RETRAITES_5ANS)
+        phasing_age = _year_phasing(year - annee_ouverture_age, PHASING_RETRAITES_5ANS)
         delta_spending = 0.0
         # v0.6.1 — barème d'âge PLAT et STRICTEMENT SYMÉTRIQUE : une année
         # d'âge = RETRAITES_COEFF_AGE_MD_EUR de moindres dépenses de pension,
@@ -337,7 +346,8 @@ class DepensesMixin(_MixinBase):
                            * self.masse_categorie_nominale('retraites')
                            * self._ecart_revalorisations(1.0 - indexation, year, inflation,
                                                          RETRAITES_EROSION_PLATEAU_ANS,
-                                                         REVALORISATION_PENSIONS_2026))
+                                                         REVALORISATION_PENSIONS_2026,
+                                                         origine))
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
@@ -391,7 +401,7 @@ class DepensesMixin(_MixinBase):
             gini = gini_avant * RETRAITES_GINI_RESIDU_FLUX + (gini_indexation - gini_avant)
         else:
             gini = gini_indexation * RETRAITES_GINI_RESIDU_FLUX
-        if year == retraites_annee_debut_ecart_age_handler(params):
+        if year == annee_ouverture_age:
             gini += gini_age
         else:
             gini += gini_age * RETRAITES_GINI_RESIDU_FLUX
@@ -446,23 +456,26 @@ class DepensesMixin(_MixinBase):
         POT_PREV_ORG = 7.0     # Prévention & organisation (80% admin + 20% struct)
 
         # === PHASING ===
-        # Déterminer les coefficients de phasing selon l'année
-        if year <= 2025:
+        # Déterminer les coefficients de phasing selon les années écoulées sur
+        # l'horloge du levier (v0.7.0 ; années 2026-2030 écrites en dur
+        # jusqu'ici, identiques en mode historique : 0 = 2026).
+        ecoulees = year - self._origine('sante')
+        if ecoulees < 0:
             phasing_admin = 0
             phasing_struct = 0
-        elif year == 2026:
+        elif ecoulees == 0:
             phasing_admin = 0.50
             phasing_struct = 0.20
-        elif year == 2027:
+        elif ecoulees == 1:
             phasing_admin = 0.80
             phasing_struct = 0.40
-        elif year == 2028:
+        elif ecoulees == 2:
             phasing_admin = 1.00
             phasing_struct = 0.60
-        elif year == 2029:
+        elif ecoulees == 3:
             phasing_admin = 1.00
             phasing_struct = 0.80
-        else:  # 2030+
+        else:  # 2030+ en mode historique
             phasing_admin = 1.00
             phasing_struct = 1.00
 
@@ -541,7 +554,7 @@ class DepensesMixin(_MixinBase):
         # retour, puis la rampe démarre à sa valeur d'UN an (le « +1 ») — la
         # première année de rampe porte déjà un pas complet, elle n'est pas une
         # année de délai supplémentaire déguisée.
-        annees_de_rampe = (year - POLICY_START_YEAR) - PREVENTION_OFFSET_LAG_YEARS + 1
+        annees_de_rampe = ecoulees - PREVENTION_OFFSET_LAG_YEARS + 1
         taux_compensation = min(
             max(annees_de_rampe, 0) * PREVENTION_OFFSET_RAMP_PER_YEAR,
             PREVENTION_OFFSET_CENTRAL_CAP,
@@ -936,8 +949,10 @@ class DepensesMixin(_MixinBase):
         # === MONTÉE EN CHARGE (4 ans) — source unique partagée ===
         # Même calendrier que l'anti-double-comptage côté fraude_sociale
         # (cf asu_phasing). L'INCRÉMENT sert aux effets de NIVEAU.
-        phasing = asu_phasing(self.mesures, year)
-        increment = phasing - asu_phasing(self.mesures, year - 1)
+        # Horloge de l'ASU (v0.7.0).
+        origine = self._origine('asu')
+        phasing = asu_phasing(self.mesures, year, origine)
+        increment = phasing - asu_phasing(self.mesures, year - 1, origine)
 
         effort = asu_effort_perenne_md_eur(plafonnement)
 
@@ -957,7 +972,7 @@ class DepensesMixin(_MixinBase):
         # COMPLÈTE la source, détail bloc I22/I26) + solde de barème phasé.
         # Le handler ne compose plus les trois conventions temporelles à la
         # main — c'était le piège relevé en revue type-design.
-        cout = asu_cout_annuel_md_eur(plafonnement, year, phasing)
+        cout = asu_cout_annuel_md_eur(plafonnement, year, phasing, origine)
         delta_spending = cout.total
         delta_revenue = 0.0
 
@@ -1052,8 +1067,9 @@ class DepensesMixin(_MixinBase):
 
         # === BUDGET IMPACT ===
         if reforme == 1:
-            # Phasing progressif sur 2 ans (montée en charge administrative)
-            year_idx = year - 2025
+            # Phasing progressif sur 2 ans (montée en charge administrative),
+            # horloge du levier (v0.7.0) : 1 = première année d'application.
+            year_idx = year - self._origine('abattement_retraites') + 1
             if year_idx <= 0:
                 phasing = 0.0
             elif year_idx == 1:  # 2026
@@ -1162,7 +1178,8 @@ class DepensesMixin(_MixinBase):
         # (l'ancien plafond « 10 ans »), sans plateau de cohortes : un barème
         # sous-indexé le reste pour tous les bénéficiaires.
         ecart = self._ecart_revalorisations(indexation_ref - indexation, year, inflation, 10,
-                                            self.base_params['inflation_base'])
+                                            self.base_params['inflation_base'],
+                                            self._origine('prestations_indexation'))
         delta_spending = -self.masse_categorie_nominale('minima_sociaux') * ecart  # <0 économie, >0 surcoût
 
         # === MACRO IMPACTS ===

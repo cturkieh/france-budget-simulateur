@@ -1879,7 +1879,7 @@ def asu_solde_perenne_md_eur(plafonnement: float) -> float:
     )
 
 
-def asu_cout_transition_md_eur(year: int) -> float:
+def asu_cout_transition_md_eur(year: int, origine: int = POLICY_START_YEAR) -> float:
     """Coût de transition de l'année ``year`` (Md€, >0 = surcoût).
 
     Enveloppe = plancher officiel (2 Md€ cumulés sur quatre ans), répartie
@@ -1893,8 +1893,11 @@ def asu_cout_transition_md_eur(year: int) -> float:
     l'objet est de résorber le non-recours ne cesse pas de le payer en
     année 5. Elle est désormais émise par le handler comme charge PÉRENNE
     montant avec le phasing (cf. ``_apply_asu``).
+
+    ``origine`` (v0.7.0) : horloge de l'ASU (POLICY_START_YEAR en mode
+    historique, ``annee_debut`` pour un programme qui l'active).
     """
-    ecoule = year - POLICY_START_YEAR
+    ecoule = year - origine
     if not 0 <= ecoule < ASU_TRANSITION_ANNEES:
         return 0.0
     return ASU_COUT_TRANSITION_RETENU_MD_EUR / ASU_TRANSITION_ANNEES
@@ -1925,7 +1928,8 @@ class AsuCout(NamedTuple):
         return self.transition + self.recours + self.perenne
 
 
-def asu_cout_annuel_md_eur(plafonnement: float, year: int, phasing: float) -> AsuCout:
+def asu_cout_annuel_md_eur(plafonnement: float, year: int, phasing: float,
+                           origine: int = POLICY_START_YEAR) -> AsuCout:
     """LA porte de composition du coût ASU — le coût d'une année se dérive
     de ``constants.py`` seul, par cet appel unique.
 
@@ -1939,7 +1943,7 @@ def asu_cout_annuel_md_eur(plafonnement: float, year: int, phasing: float) -> As
     phasing PARTIEL, cf. test_asu_v061).
     """
     return AsuCout(
-        transition=asu_cout_transition_md_eur(year),
+        transition=asu_cout_transition_md_eur(year, origine),
         recours=asu_cout_recours_md_eur(phasing),
         perenne=phasing * asu_solde_perenne_md_eur(plafonnement),
     )

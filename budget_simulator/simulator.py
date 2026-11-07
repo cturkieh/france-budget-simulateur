@@ -19,6 +19,7 @@ from .constants import (
     GINI_HARD_CEILING, GINI_SOFT_FLOOR,
     INFLATION_BASE, INFLATION_INERTIE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
     OUTPUT_GAP_INITIAL,
+    POLICY_START_YEAR,
     TAUX_INTERET_BASE, TAUX_PLAFOND_ABSOLU,
 )
 from .handlers.additionnels import AdditionnelsMixin
@@ -648,6 +649,12 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         # Tracker paramètres mesures (pour impacts Gini one-time)
         self._measure_params_tracker = {}
+        # Cadre temporel (v0.7.0, lot C) : origine d'horloge des leviers modifiés
+        # par le programme (lue par _origine), monde d'évaluation actif et
+        # mondes de la composition (posés par simulate()).
+        self._origines_courantes = {}
+        self._monde_actif = None
+        self._mondes = None
         # Impulsions budgétaires (v0.6.7, engine/growth.py `_stocker_impulsions`) :
         # une par levier, par flux et par année où son effort VARIE, puis son
         # effet décroît selon le profil empirique du levier sur 6 ans.
@@ -729,6 +736,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # --- Historique et trackers ---
         self._last_impacts = {}
         self._measure_params_tracker = {}
+        # Cadre temporel (v0.7.0) : horloges et mondes, posés par simulate().
+        self._origines_courantes = {}
+        self._monde_actif = None
+        self._mondes = None
         # Dédup des WARNING PARAM_DOMAIN_CLAMP : portée = une simulation
         # (ré-armé ici pour qu'un second simulate() ré-alerte).
         self._domain_clamp_warned = set()
@@ -814,6 +825,18 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # pas de dict ré-inliné — verrouillé par test_param_contract_cleanup).
         from .config import load_default_values
         return load_default_values()
+
+    def _origine(self, levier: str) -> int:
+        """Origine de l'HORLOGE d'un levier (v0.7.0, lot C) : l'année à partir de
+        laquelle ses phasages, montées en charge et effets d'entrée en vigueur
+        se comptent. ``POLICY_START_YEAR`` (2026) pour le droit en vigueur et en
+        mode historique ; ``annee_debut`` pour un levier que le programme
+        modifie, dans les mondes « programme » et « droit au début » de la
+        composition (engine/cadre.py) et pour les lecteurs latéraux à partir du
+        début. Les handlers lisent l'horloge de CHAQUE levier qu'ils lisent
+        (lectures croisées : l'ASU pour la fraude sociale, la réforme FP pour
+        les effectifs) — jamais la constante globale."""
+        return self._origines_courantes.get(levier, POLICY_START_YEAR)
 
     def _ponctuel(self, cle: str, params_dict: Dict) -> Tuple[str, Dict | None]:
         """Déclencheur d'un effet PONCTUEL (v0.7.0, lot B) : ``('premier', None)``

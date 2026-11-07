@@ -169,7 +169,9 @@ class UnemploymentMixin:
         # formule dégénère en `ecart_seniors` dès que le clip ne mord pas,
         # c'est-à-dire sur tout état atteignable par les scénarios livrés (le
         # fait est MESURÉ en CI, scénario par scénario, plutôt que supposé).
-        ecart_seniors = chomage_seniors_ecart(self.mesures, self.annee_base + year)
+        # Horloge du levier des retraites (v0.7.0, lot C), comme l'offre de travail.
+        ecart_seniors = chomage_seniors_ecart(self.mesures, self.annee_base + year,
+                                              self._origine('retraites'))
         avec_bosse = unemployment + ecart_seniors
         structurel = np.clip(unemployment, CHOMAGE_CLIP_MIN, CHOMAGE_CLIP_MAX)
         applique = np.clip(avec_bosse, CHOMAGE_CLIP_MIN, CHOMAGE_CLIP_MAX)

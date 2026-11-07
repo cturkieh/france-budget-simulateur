@@ -82,6 +82,7 @@ Tous attributs d'instance de ``BudgetSimulatorV45``.
 import functools
 import logging
 import os
+from contextlib import contextmanager
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -99,7 +100,7 @@ from ..constants import (
     PA_VARIATION_ANNUELLE_MAX,
     conjoncture_observee,
 )
-from .cadre import CadreTemporel
+from .cadre import CadreTemporel, combiner, creer_mondes
 from .growth import part_investissement_expansion
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
@@ -144,6 +145,12 @@ def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
     return float(np.clip(valeur, -borne, borne)), True
 
 _BUDGET_KEYS = frozenset({'depenses', 'recettes'})
+_ABSENT = object()
+
+# Ordre d'évaluation des trois mondes de la composition (lot C, v0.7.0) :
+# part héritée d'abord (état du moteur), puis le programme et le droit sur
+# l'horloge du début.
+_MONDES_ORDRE = ('droit_2026', 'programme', 'droit_debut')
 
 
 class OrchestratorMixin:
@@ -209,6 +216,67 @@ class OrchestratorMixin:
                         continue
 
         return active_measures
+
+    @contextmanager
+    def _dans_le_monde(self, monde):
+        """Évalue un handler dans un monde de la composition (engine/cadre.py,
+        lot C) : ``self.mesures`` (lectures croisées), origines d'horloge et,
+        hors monde principal, état PROPRE des déclencheurs ponctuels (traqueur,
+        assurance chômage). Tout est rétabli en sortie, exception comprise."""
+        sauve = (self.mesures, self._origines_courantes, self._monde_actif)
+        self.mesures, self._origines_courantes, self._monde_actif = (
+            monde.mesures, monde.origines, monde.nom)
+        if not monde.principal:
+            traqueur = self._measure_params_tracker
+            chomage = getattr(self, '_chomage_params_prev', _ABSENT)
+            self._measure_params_tracker = monde.traqueur
+            if monde.chomage_prev is None:
+                if chomage is not _ABSENT:
+                    del self._chomage_params_prev
+            else:
+                self._chomage_params_prev = monde.chomage_prev
+        try:
+            yield
+        finally:
+            if not monde.principal:
+                monde.chomage_prev = getattr(self, '_chomage_params_prev', None)
+                self._measure_params_tracker = traqueur
+                if chomage is _ABSENT:
+                    if hasattr(self, '_chomage_params_prev'):
+                        del self._chomage_params_prev
+                else:
+                    self._chomage_params_prev = chomage
+            self.mesures, self._origines_courantes, self._monde_actif = sauve
+
+    def _evaluer_handler(self, measure, parameters, year, gdp, inflation, unemployment):
+        """Handler d'un levier pour l'année (v0.7.0, lot C).
+
+        Hors composition (mode historique, avant le début, programme égal au
+        droit) : un appel, comme avant. Sinon, la règle des horloges du dossier
+        (``docs/plans/passe-cadre-2027-2032.md`` § 2.2 du dépôt parent) :
+
+            H = H(droit, horloge 2026) + [H(programme, horloge début) − H(droit, horloge début)]
+
+        évaluée dans trois mondes et combinée clé par clé (``cadre.combiner``).
+        Un levier absent du droit en vigueur y vaut zéro. Appliquée à TOUS les
+        leviers à handler, modifiés ou non : un levier non modifié qui lit un
+        levier modifié (fraude sociale → ASU) reçoit ainsi l'incrément de sa
+        lecture croisée ; sans lecture croisée, les deux derniers termes sont
+        identiques au bit et son impact EST celui du droit en vigueur."""
+        cadre_temporel = getattr(self, '_cadre', None)
+        if self._mondes is None or cadre_temporel is None or not cadre_temporel.compose(year):
+            return self._apply_complex_measure(measure, parameters, year, gdp, inflation, unemployment)
+        sorties = []
+        for nom in _MONDES_ORDRE:
+            monde = self._mondes[nom]
+            params = parameters if nom == 'programme' else monde.mesures.get(measure['id'])
+            if params is None:
+                sorties.append((0, 0, {}))
+                continue
+            with self._dans_le_monde(monde):
+                sorties.append(self._apply_complex_measure(
+                    measure, params, year, gdp, inflation, unemployment))
+        return combiner(*sorties)
 
     def update_demography(self, annee: int):
         """Met à jour la démographie"""
@@ -316,8 +384,10 @@ class OrchestratorMixin:
                     corrections=self._corrections,
                 )
                 if measure_id in self.measure_handlers:
-                    # Python handler takes precedence over ASTEVAL formula
-                    delta_spending, delta_revenue, measure_impacts = self._apply_complex_measure(
+                    # Python handler takes precedence over ASTEVAL formula.
+                    # v0.7.0 (lot C) : composition des horloges à partir du
+                    # début du programme (_evaluer_handler) ; un appel sinon.
+                    delta_spending, delta_revenue, measure_impacts = self._evaluer_handler(
                         measure, parameters, year, gdp, inflation, unemployment
                     )
                     # Contrat v0.6.8 : un handler qui déplace des euros dit
@@ -565,6 +635,8 @@ class OrchestratorMixin:
         self._cadre = CadreTemporel.preparer(
             self.mesures, self.annee_debut, strict=_mode_strict(),
             warned=self._domain_clamp_warned, corrections=self._corrections)
+        # Mondes de la composition des horloges (lot C) : mode cadre seulement.
+        self._mondes = creer_mondes(self._cadre) if self._cadre.actif else None
 
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
@@ -633,6 +705,13 @@ class OrchestratorMixin:
                 # annee_debut, le programme ensuite. Mode historique : le même
                 # objet chaque année.
                 self.mesures = self._cadre.mesures_de_l_annee(year)
+                # Horloges (lot C) : origine des leviers modifiés, lue par les
+                # handlers et les lecteurs latéraux via _origine(levier).
+                self._origines_courantes = self._cadre.origines_de_l_annee(year)
+                if self._mondes is not None:
+                    for nom in ('programme', 'droit_debut'):
+                        self._mondes[nom].origines = self._origines_courantes
+                    self._mondes['programme'].mesures = self.mesures
 
                 # Variables d'état
                 unemployment_gap = unemployment - self.base_params['chomage_nairu']
@@ -715,7 +794,12 @@ class OrchestratorMixin:
                     # Impacts de t−1 (_last_impacts) : les mesures de t ne sont
                     # pas encore calculées. Le gate temporel (one-shot à
                     # year == 2) vit dans calculate_inflation — source unique.
-                    'tva_impact': self._last_impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal
+                    'tva_impact': self._last_impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal,
+                    # Horloge de la TVA (v0.7.0, lot C) : le passage dans les
+                    # prix a lieu l'année qui SUIT l'entrée en vigueur du taux
+                    # (index d'année 2 = 2027 en mode historique). Formule
+                    # inchangée, seule l'année suit l'horloge du levier.
+                    'annee_pass_through_tva': self._origine('tva_rate') - self.annee_base + 1,
                 }
                 inflation = self.calculate_inflation(year_idx, economic_state_inflation)
                 _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")

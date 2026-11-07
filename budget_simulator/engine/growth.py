@@ -359,7 +359,9 @@ class GrowthMixin:
         calendrier légal — aucune circularité à casser, et lagger décalerait
         d'un an tout le profil publié.
         """
-        niveau = offre_seniors_niveau_pib(self.mesures, year)
+        # Horloge du levier des retraites (v0.7.0, lot C) : le choc d'âge d'un
+        # programme s'ouvre au plus tôt à son annee_debut.
+        niveau = offre_seniors_niveau_pib(self.mesures, year, self._origine('retraites'))
         self._labour_supply_bonus = niveau - self._labour_supply_level
         self._labour_supply_level = niveau
 

@@ -198,18 +198,24 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     return age - retraites_ref_age_ans(year)
 
 
-def _premiere_annee_ecart_non_nul(ecart_de_lannee: Callable[[int], float]) -> int:
+def _premiere_annee_ecart_non_nul(ecart_de_lannee: Callable[[int], float],
+                                   origine: int = POLICY_START_YEAR) -> int:
     """Balayage commun aux deux lectures de l'horloge — cf. les deux fonctions
     publiques ci-dessous. Une seule implémentation, deux lecteurs : c'est la
     raison d'être de ce module (un recalibrage du calendrier légal doit
-    atteindre les quatre canaux, jamais deux sur quatre)."""
-    for annee in range(POLICY_START_YEAR, _ANNEE_PLATEAU_REF_AGE + 1):
+    atteindre les quatre canaux, jamais deux sur quatre).
+
+    ``origine`` (v0.7.0) : première année où le programme s'applique —
+    POLICY_START_YEAR en mode historique, ``annee_debut`` sinon. Le choc ne peut
+    pas s'ouvrir avant que le programme s'applique : un âge de 65 ans entré en
+    2028 ouvre son écart en 2028, pas en 2026."""
+    for annee in range(origine, max(_ANNEE_PLATEAU_REF_AGE, origine) + 1):
         if ecart_de_lannee(annee) != 0.0:
             return annee
-    return POLICY_START_YEAR
+    return origine
 
 
-def retraites_annee_debut_ecart_age_handler(params: Dict) -> int:
+def retraites_annee_debut_ecart_age_handler(params: Dict, origine: int = POLICY_START_YEAR) -> int:
     """Même horloge, lue depuis le bloc `params` que reçoit le HANDLER.
 
     Ajoutée par la clôture de la revue adverse (25/08) : la montée en charge
@@ -227,10 +233,10 @@ def retraites_annee_debut_ecart_age_handler(params: Dict) -> int:
     que ``retraites_ecart_age_ans_moteur`` reproduit.
     """
     return _premiere_annee_ecart_non_nul(
-        lambda annee: retraites_ecart_age_ans(params, annee))
+        lambda annee: retraites_ecart_age_ans(params, annee), origine)
 
 
-def retraites_annee_debut_ecart_age(mesures: Dict) -> int:
+def retraites_annee_debut_ecart_age(mesures: Dict, origine: int = POLICY_START_YEAR) -> int:
     """Première année civile où l'écart au droit en vigueur devient non nul.
 
     C'est l'HORLOGE des profils macro (cf. l'ancrage documenté en tête de
@@ -253,10 +259,10 @@ def retraites_annee_debut_ecart_age(mesures: Dict) -> int:
     nul à la précision d'affichage.
     """
     return _premiere_annee_ecart_non_nul(
-        lambda annee: retraites_ecart_age_ans_moteur(mesures, annee))
+        lambda annee: retraites_ecart_age_ans_moteur(mesures, annee), origine)
 
 
-def offre_seniors_niveau_pib(mesures: Dict, year: int) -> float:
+def offre_seniors_niveau_pib(mesures: Dict, year: int, origine: int = POLICY_START_YEAR) -> float:
     """Surcroît de NIVEAU de PIB (en fraction) imputable au canal d'offre.
 
     C'est un NIVEAU, pas un taux : le producteur (``GrowthMixin.
@@ -269,12 +275,12 @@ def offre_seniors_niveau_pib(mesures: Dict, year: int) -> float:
     programme (cf. ``retraites_annee_debut_ecart_age``).
     """
     return (OFFRE_SENIORS_PIB_NIVEAU_LT
-            * _year_phasing(year - retraites_annee_debut_ecart_age(mesures),
+            * _year_phasing(year - retraites_annee_debut_ecart_age(mesures, origine),
                             PHASING_OFFRE_SENIORS)
             * retraites_ecart_age_ans_moteur(mesures, year))
 
 
-def chomage_seniors_ecart(mesures: Dict, year: int) -> float:
+def chomage_seniors_ecart(mesures: Dict, year: int, origine: int = POLICY_START_YEAR) -> float:
     """Écart de NIVEAU du taux de chômage (en fraction) imputable au canal.
 
     Écart de NIVEAU explicite piloté par la table, et non impulsion : le
@@ -289,6 +295,6 @@ def chomage_seniors_ecart(mesures: Dict, year: int) -> float:
     démarrer déjà résorbée pour tout programme s'écartant après 2026.
     """
     return (CHOMAGE_SENIORS_PIC
-            * _year_phasing(year - retraites_annee_debut_ecart_age(mesures),
+            * _year_phasing(year - retraites_annee_debut_ecart_age(mesures, origine),
                             PHASING_CHOMAGE_SENIORS)
             * retraites_ecart_age_ans_moteur(mesures, year))

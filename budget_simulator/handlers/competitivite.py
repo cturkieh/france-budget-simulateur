@@ -67,7 +67,6 @@ from ..constants import (
     COEFF_COMPETITIVITE_NICHES_SOCIALES_TGE,
     COEFF_COMPETITIVITE_SUBVENTIONS_TGE,
     PHASING_NICHES_FISCALES_TGE,
-    POLICY_START_YEAR,
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing
@@ -97,7 +96,8 @@ class CompetitiviteMixin(_MixinBase):
         # Phasing montee en charge : suppression de niches fiscales prend 3 ans en pratique
         # (CIR contractuel 5 ans, ZFU jusqu'en 2030, Pacte Dutreil...). Cour des comptes 2024 :
         # debouclage 30-50% Y1, 70% Y2, 100% Y3+.
-        year_idx = max(0, year - POLICY_START_YEAR)
+        # Horloge du levier (v0.7.0).
+        year_idx = max(0, year - self._origine('niches_fiscales_tge'))
         phasing = _year_phasing(year_idx, PHASING_NICHES_FISCALES_TGE)
         delta_revenue = (montant_base - montant) * phasing  # Suppression = +recettes
 

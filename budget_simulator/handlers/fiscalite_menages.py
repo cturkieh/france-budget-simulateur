@@ -128,8 +128,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         taux_elec = taux_energie
         taux_gaz = taux_energie
 
-        # Année de référence
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence — horloge du levier (v0.7.0).
+        years_elapsed = year - self._origine('tva_energie')
 
         # ===== PHASING 1 AN (mesure législative rapide) =====
         phasing = _year_phasing(years_elapsed, (1.0,))  # effet immédiat dès l'entrée en vigueur
@@ -269,8 +269,9 @@ class FiscaliteMenagesMixin(_MixinBase):
         CSG_BASE = 0.097  # Taux CSG réel actuel 9.7%
         CSG_RECETTES_BASE = 140.0  # Md€ (DREES 2024)
 
-        # Année de référence pour phasing (impacts one-time)
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence pour phasing (impacts one-time) — horloge du
+        # levier (v0.7.0).
+        years_elapsed = year - self._origine('csg')
 
         # ===== EFFET 1 : VARIATION TAUX GLOBAL =====
         delta_taux_global = taux_global - CSG_BASE
@@ -567,12 +568,15 @@ class FiscaliteMenagesMixin(_MixinBase):
         taux_max = 0.01      # 1 % (NFP)
         bonus_eco = 0.20 + 0.10  # abattement vert 30 % (NFP), écrit comme l'ancienne interpolation à l'intensité 1 : identité au bit
 
-        # Année de référence
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence — horloge du levier (v0.7.0) : phasage et effets
+        # d'entrée en vigueur.
+        years_elapsed = year - self._origine('isf_climatique')
 
         # ===== IFI DYNAMIQUE =====
-        # IFI actuel avec croissance +2%/an (inflation patrimoniale INSEE 2015-2025)
-        ifi_actuel = 2.0 * (1.02 ** max(0, years_elapsed))
+        # IFI actuel avec croissance +2%/an (inflation patrimoniale INSEE 2015-2025).
+        # CALENDAIRE (v0.7.0) : l'IFI remplacé croît depuis 2026 quelle que soit
+        # l'année d'entrée de l'ISF — ce n'est pas l'horloge du programme.
+        ifi_actuel = 2.0 * (1.02 ** max(0, year - POLICY_START_YEAR))
 
         # ===== PHASING 2 ANS (cadastre fiscal) =====
         # 0.5 l'année de mise en place, 1.0 ensuite (plein effet)

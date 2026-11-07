@@ -13,7 +13,8 @@ Mesures couvertes (5 handlers) :
   contrepartie de l'exclusion des gains fraude IA côté ``_apply_asu``
   (cf section Couplages).
 - ``fonction_publique_reforme`` : réforme structurelle FP (fusion agences
-  + digitalisation). Coûts initiaux 2026-2029 (0,15 Md€/point/an) puis
+  + digitalisation). Coûts initiaux les quatre premières années d'application
+  (2026-2029 en mode historique, 0,15 Md€/point/an) puis
   gains via non-remplacement : somme de cohortes annuelles de départs
   (157 k/an × taux fonction de l'intensité × efficacité de l'année de la
   cohorte, 0,3 → 1,0, huit cohortes au plus), valorisées au coût complet
@@ -21,7 +22,9 @@ Mesures couvertes (5 handlers) :
   > 7 et ``digitalisation`` < 3.
 - ``fonction_publique`` : effectifs (±) et point d'indice. Base 5,5 M
   agents, masse salariale 330 Md€, coût moyen 60 k€/agent. La cible
-  d'effectifs est atteinte par une rampe linéaire 2027-2032 (v0.6.7) ; une
+  d'effectifs est atteinte par une rampe linéaire de MANDAT jusqu'en 2032
+  (v0.6.7 : 2027-2032 ; v0.7.0 : annee_debut-2032 pour un programme qui
+  commence après 2027, cf. ``premiere_annee_de_mandat``) ; une
   réduction puise dans le vivier de départs partagé avec la réforme, au même
   taux maximal de non-remplacement (67 %). Pouvoir d'achat (v0.6.8) : seul
   le point d'indice est un revenu direct des agents (canal
@@ -87,7 +90,6 @@ from ..constants import (
     FP_TAUX_NON_REMPLACEMENT_MAX,
     FRAUDE_SOCIALE_EFFICACITE_RECUPERATION,
     FRAUDE_SOCIALE_ROI,
-    POLICY_START_YEAR,
     fraude_budget_saturant_md_eur,
 )
 from .._logging import _log_debug
@@ -120,14 +122,24 @@ REFORME_FP_COHORTES_MAX = 8
 # les deux puisent dans le même vivier de départs.
 FP_EFFECTIFS_PREMIERE_ANNEE = REFORME_FP_PREMIERE_COHORTE
 FP_EFFECTIFS_ANNEE_CIBLE = 2032
-_FP_EFFECTIFS_DUREE_RAMPE = FP_EFFECTIFS_ANNEE_CIBLE - FP_EFFECTIFS_PREMIERE_ANNEE + 1
 
 
-def _fp_effectifs_annees_de_rampe(year: int) -> int:
-    """Années de rampe écoulées à ``year`` (0 avant 2027, 6 dès 2032) : la cible
-    réalisée vaut cible × ce nombre / ``_FP_EFFECTIFS_DUREE_RAMPE``, en entiers
-    pour que la cible tombe juste (−201 000 / 6 = −33 500 exactement)."""
-    return min(max(year - FP_EFFECTIFS_PREMIERE_ANNEE + 1, 0), _FP_EFFECTIFS_DUREE_RAMPE)
+def premiere_annee_de_mandat(origine: int) -> int:
+    """Première année des rampes de MANDAT (effectifs, cohortes de la réforme
+    de l'État) pour un levier dont l'horloge part de ``origine`` (v0.7.0, lot C) :
+    2027 pour le droit en vigueur et le mode historique (2026 = budget voté, le
+    mandat n'a pas commencé), ``annee_debut`` pour un programme qui commence
+    après (premier budget du nouvel élu). Les rampes finissent toujours en
+    ``FP_EFFECTIFS_ANNEE_CIBLE`` (fin du quinquennat)."""
+    return max(origine, FP_EFFECTIFS_PREMIERE_ANNEE)
+
+
+def _fp_effectifs_annees_de_rampe(year: int, premiere: int = FP_EFFECTIFS_PREMIERE_ANNEE) -> int:
+    """Années de rampe écoulées à ``year`` (0 avant la première année, la durée
+    complète dès 2032) : la cible réalisée vaut cible × ce nombre / durée de la
+    rampe, en entiers pour que la cible tombe juste (−201 000 / 6 = −33 500
+    exactement)."""
+    return min(max(year - premiere + 1, 0), FP_EFFECTIFS_ANNEE_CIBLE - premiere + 1)
 
 
 class EfficienceMixin(_MixinBase):
@@ -149,8 +161,8 @@ class EfficienceMixin(_MixinBase):
         if recettes_cible == 0:
             return 0, 0, {}
 
-        # Année de référence
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence — horloge du levier (v0.7.0).
+        years_elapsed = year - self._origine('fraude_fiscale')
 
         # ===== MONTÉE EN PUISSANCE (5 ANS) =====
         if years_elapsed < 0:
@@ -258,8 +270,8 @@ class EfficienceMixin(_MixinBase):
         if budget_controles == 0:
             return 0, 0, {}
 
-        # Phasing 4 ans
-        years_elapsed = year - POLICY_START_YEAR
+        # Phasing 4 ans — horloge du levier (v0.7.0).
+        years_elapsed = year - self._origine('fraude_sociale')
         phasing = _year_phasing(years_elapsed, (0.25, 0.50, 0.75, 1.0))
 
         # ===== ROI : 8.75x (numérisation/data mining intégrée par défaut) =====
@@ -280,7 +292,8 @@ class EfficienceMixin(_MixinBase):
         # ci-dessous). Dérivé de `self.mesures` + l'année via la source
         # unique `asu_phasing` → AUCUNE dépendance à l'ordre d'exécution
         # des handlers.
-        asu_ph = asu_phasing(self.mesures, year)
+        # Lecture CROISÉE : l'ASU sur SON horloge (v0.7.0).
+        asu_ph = asu_phasing(self.mesures, year, self._origine('asu'))
 
         # Gisement récupérable : cap IGAS — la fraude sociale réellement
         # recouvrable est estimée 6-8 Md€/an. Plafond de NIVEAU, DISTINCT du
@@ -377,7 +390,11 @@ class EfficienceMixin(_MixinBase):
         fusion = _num(params.get('fusion_agences', 0)) / 10
         digitalisation = _num(params.get('digitalisation', 0)) / 10
         intensite_totale = fusion + digitalisation
-        if intensite_totale == 0 or year < REFORME_FP_PREMIERE_COHORTE:
+        # Cohortes sur l'horloge de MANDAT de la réforme (v0.7.0) : à partir de
+        # 2027 pour le droit en vigueur et le mode historique, de annee_debut
+        # pour un programme qui la modifie.
+        premiere = premiere_annee_de_mandat(self._origine('fonction_publique_reforme'))
+        if intensite_totale == 0 or year < premiere:
             return 0.0
         if intensite_totale <= 10:
             taux_non_remplacement = intensite_totale * 0.05  # 0-50%
@@ -387,10 +404,10 @@ class EfficienceMixin(_MixinBase):
         # (taux > 1 hors du domaine publié des curseurs) et n'est jamais une
         # embauche (taux < 0).
         taux_non_remplacement = min(max(taux_non_remplacement, 0.0), 1.0)
-        derniere = min(year, REFORME_FP_PREMIERE_COHORTE + REFORME_FP_COHORTES_MAX - 1)
+        derniere = min(year, premiere + REFORME_FP_COHORTES_MAX - 1)
         efficacites = sum(
-            _year_phasing(cohorte - REFORME_FP_PREMIERE_COHORTE, REFORME_FP_MONTEE_EN_CHARGE)
-            for cohorte in range(REFORME_FP_PREMIERE_COHORTE, derniere + 1))
+            _year_phasing(cohorte - premiere, REFORME_FP_MONTEE_EN_CHARGE)
+            for cohorte in range(premiere, derniere + 1))
         return DEPARTS_ANNUELS_FP * taux_non_remplacement * efficacites
 
     def _apply_fonction_publique_reforme(self, measure: Dict, params: Dict, year: int,
@@ -401,7 +418,13 @@ class EfficienceMixin(_MixinBase):
         # Les sliders sont maintenant en % (0-100), on les convertit en 0-10
         fusion = params.get('fusion_agences', 0) / 10
         digitalisation = params.get('digitalisation', 0) / 10
-        year_idx = year - 2025
+        # Horloge du levier (v0.7.0) : 1 = première année d'application (2026 en
+        # mode historique, « year - 2025 » écrit en dur jusqu'ici). Les gains et
+        # la pénalité suivent les COHORTES (horloge de mandat, cf.
+        # _reforme_fp_reduction_cumulee) : à partir de leur première année.
+        origine = self._origine('fonction_publique_reforme')
+        year_idx = year - origine + 1
+        premiere_cohorte = premiere_annee_de_mandat(origine)
 
         # Intensité totale (0-20)
         intensite_totale = fusion + digitalisation
@@ -426,7 +449,7 @@ class EfficienceMixin(_MixinBase):
         # valorisé au coût complet chargé COUT_MOYEN_AGENT_FP_EUR (source
         # unique constants.py — le 40 k€ v0.5.1 était sans périmètre), en euros
         # de l'année depuis v0.6.7 (indice de prix des dépenses, comme le curseur).
-        if year_idx >= 2:
+        if year >= premiere_cohorte:
             postes_cumules = self._reforme_fp_reduction_cumulee(year)
             economie_cumulee = postes_cumules * COUT_MOYEN_AGENT_FP_EUR * indice / 1e9
             delta_spending -= economie_cumulee
@@ -437,7 +460,7 @@ class EfficienceMixin(_MixinBase):
             )
 
         # Impact qualité service si intensité excessive sans digitalisation
-        if fusion > 7 and digitalisation < 3 and year_idx >= 3:
+        if fusion > 7 and digitalisation < 3 and year >= premiere_cohorte + 1:
             penalite = 0.3 * indice  # Dégradation service public (0,3 Md€ en euros 2025)
             delta_spending += penalite
             _log_debug(self.debug_logs, f"Y{year}: Pénalité dégradation service: +{penalite:.1f} Md€")
@@ -490,10 +513,14 @@ class EfficienceMixin(_MixinBase):
         # depuis 2026 auparavant, ce que la réforme, plafonnée à 67 %, ne pouvait
         # pas faire). Une CRÉATION de postes ne puise pas dans le vivier.
         if variation_effectifs != 0:
-            cible_annee = (variation_effectifs * _fp_effectifs_annees_de_rampe(year)
-                           / _FP_EFFECTIFS_DUREE_RAMPE)
+            # Rampe de MANDAT (v0.7.0) : 2027-2032 pour le droit en vigueur et le
+            # mode historique, annee_debut-2032 pour un programme qui modifie
+            # les effectifs (1/5 par an de 2028 à 2032).
+            premiere = premiere_annee_de_mandat(self._origine('fonction_publique'))
+            cible_annee = (variation_effectifs * _fp_effectifs_annees_de_rampe(year, premiere)
+                           / (FP_EFFECTIFS_ANNEE_CIBLE - premiere + 1))
             if cible_annee < 0:
-                cohortes = max(0, year - FP_EFFECTIFS_PREMIERE_ANNEE + 1)
+                cohortes = max(0, year - premiere + 1)
                 vivier_cumule = FP_TAUX_NON_REMPLACEMENT_MAX * DEPARTS_ANNUELS_FP * cohortes
                 deja_reforme = self._reforme_fp_reduction_cumulee(year)
                 capacite = max(0.0, vivier_cumule - deja_reforme)
@@ -567,9 +594,11 @@ class EfficienceMixin(_MixinBase):
         if intensite == 0:
             return 0, 0, {}
 
-        year_idx = year - 2025
+        # Horloge du levier (v0.7.0) : 1 = première année d'application.
+        year_idx = year - self._origine('optimisation_dette') + 1
 
-        # Effet temporaire 2026-2030
+        # Effet temporaire : cinq premières années d'application (2026-2030 en
+        # mode historique)
         if year_idx <= 0 or year_idx > 5:
             delta_spending = 0
         else:

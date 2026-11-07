@@ -43,7 +43,6 @@ from ..constants import (
     GINI_RENOVATION_PAR_MD_EUR,
     GINI_TAXE_CARBONE_PAR_EUR_TONNE,
     PART_MENAGES_COMPOSANTE_CARBONE,
-    POLICY_START_YEAR,
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing
@@ -87,7 +86,8 @@ class InvestissementsMixin(_MixinBase):
         if delta_spending == 0 and teachers == 0 and salaries == 0:
             return 0, 0, {}
 
-        years_elapsed = max(0, year - POLICY_START_YEAR)
+        # Horloge du levier (v0.7.0).
+        years_elapsed = max(0, year - self._origine('education'))
 
         # === POUVOIR D'ACHAT (v0.6.8) ===
         # Seule la revalorisation des enseignants en place est un revenu direct
@@ -192,7 +192,11 @@ class InvestissementsMixin(_MixinBase):
         # carbone française gelée depuis 2018), donc delta = (taxe - réf) * 0.06
         recettes_carbone = (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) * 0.06
         delta_revenue = recettes_carbone
-        if year >= 2027:
+        # Horloge du levier (v0.7.0) : retours fiscaux à partir de la 2ᵉ année
+        # d'application (2027 en mode historique, « year >= 2027 » écrit en dur
+        # jusqu'ici), phasage de la compétitivité verte à partir de la 1ʳᵉ.
+        ecoulees = year - self._origine('transition_ecologique')
+        if ecoulees >= 1:
             # [FIX] Retours fiscaux de la transition — 5-8% avec phase-in.
             # L'ancien taux de 20% impliquait 16 Md€/an de retour pour 80 Md€ de dépense,
             # soit ~144 Md€ cumulés sur 10 ans — absurdement élevé.
@@ -200,7 +204,7 @@ class InvestissementsMixin(_MixinBase):
             # public = 5-8% via emplois induits (IR, cotisations) et activité (TVA).
             # Cour des comptes (2023) : retour TVA sur investissements publics ~8-10%.
             # Phase-in : années 1-2 = 0% (construction), années 3-4 = 5%, années 5+ = 8%
-            years_since_2027 = year - 2027
+            years_since_2027 = ecoulees - 1
             if years_since_2027 < 2:
                 fiscal_return_rate = 0.0
             elif years_since_2027 < 4:
@@ -209,7 +213,7 @@ class InvestissementsMixin(_MixinBase):
                 fiscal_return_rate = 0.08
             delta_revenue += delta_spending * fiscal_return_rate
 
-        years_elapsed = max(0, year - POLICY_START_YEAR)
+        years_elapsed = max(0, ecoulees)
 
         # === GINI : Impact ONE-TIME (structure fiscale/redistributive) ===
         params_transition = {
@@ -334,7 +338,8 @@ class InvestissementsMixin(_MixinBase):
         if delta_spending == 0:
             return 0, 0, {}
 
-        years_elapsed = max(0, year - POLICY_START_YEAR)
+        # Horloge du levier (v0.7.0).
+        years_elapsed = max(0, year - self._origine('recherche_publique'))
 
         # === COMPÉTITIVITÉ : EFFET PROGRESSIF LONG-TERME ===
         # R&D public → innovation → productivité → compétitivité (délai 3-7 ans)

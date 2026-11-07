@@ -24,7 +24,7 @@ et ``self.debug_logs`` — tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import AAH_2025_MD_EUR, POLICY_START_YEAR
+from ..constants import AAH_2025_MD_EUR
 from .._logging import _log_debug
 from ._phasing import _year_phasing
 from ._types import ImpactsDict, canaux_menages
@@ -74,8 +74,8 @@ class MontaigneMixin(_MixinBase):
         if taux_reduction == 0:
             return 0, 0, {}
 
-        # Année de référence pour phasing
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence pour phasing — horloge du levier (v0.7.0).
+        years_elapsed = year - self._origine('rabot_uniforme')
 
         # Phasing progressif sur 2 ans (choc trop brutal sinon) :
         # 50 % la première année, 100 % ensuite

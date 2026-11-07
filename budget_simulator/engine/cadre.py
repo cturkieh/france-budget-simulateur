@@ -161,7 +161,49 @@ def charger_droit_en_vigueur() -> DroitEnVigueur:
     if not isinstance(mesures, dict) or not mesures:
         raise _defaut_serveur("champ 'mesures' : dict de leviers non vide attendu")
     valider_mesures_serveur(mesures, 'mesures')
+    valider_droit_composable(mesures, 'mesures')
     return DroitEnVigueur(**{c: contenu[c] for c in _CHAMPS_TEXTE_DROIT}, mesures=mesures)
+
+
+# Canaux lus HORS des handlers, par des lecteurs latéraux qui n'ont pas de
+# composition à trois termes (lot C) : offre et chômage seniors (âge de départ),
+# effet d'offre structurel (dépenses productives, compteur de délai propre),
+# passage de la TVA dans les prix (porte d'un an après l'entrée en vigueur).
+# Tant que le droit en vigueur reste au défaut du moteur sur ces canaux, la part
+# héritée y est nulle et la lecture sur l'horloge du programme est EXACTE. Un
+# droit en vigueur qui s'en écarte exige d'abord d'implémenter la composition
+# pour ces lecteurs : le chargement échoue (RuntimeError), il ne compose pas
+# faux en silence. Valeurs : défauts du moteur (config.load_default_values).
+CANAUX_LATERAUX_HORS_HANDLERS = {
+    'retraites': ('age_depart',),
+    'education': ('budget',),
+    'recherche_publique': ('budget',),
+    'transition_ecologique': ('investissement', 'renovation'),
+    'tva_rate': ('taux',),
+}
+
+
+def valider_droit_composable(mesures: Dict, origine: str) -> None:
+    """RuntimeError si le jeu de mesures serveur s'écarte du défaut sur un canal
+    latéral non composé (cf. ``CANAUX_LATERAUX_HORS_HANDLERS``). ``age_depart``
+    doit être ABSENT : le statu quo de l'âge est le calendrier légal, qu'aucun
+    scalaire ne décrit (``config.load_default_values``)."""
+    from ..config import load_default_values
+    defauts = load_default_values()
+    for levier, cles in CANAUX_LATERAUX_HORS_HANDLERS.items():
+        bloc = mesures.get(levier)
+        if not isinstance(bloc, dict):
+            continue
+        for cle in cles:
+            if cle not in bloc:
+                continue
+            defaut = defauts.get(levier, {}).get(cle)
+            if defaut is None or bloc[cle] != defaut:
+                raise _defaut_serveur(
+                    f"{origine} : {levier}.{cle} = {bloc[cle]!r} s'écarte du défaut du "
+                    f"moteur ({'absent' if defaut is None else defaut!r}) sur un canal lu hors "
+                    f"des handlers (composition des horloges non implémentée pour ce "
+                    f"lecteur — engine/cadre.py, CANAUX_LATERAUX_HORS_HANDLERS)")
 
 
 def normaliser_annee_debut(valeur, *, strict: bool, warned: Optional[set] = None,
@@ -261,6 +303,20 @@ class CadreTemporel:
             return self.mesures_droit
         return self.programme
 
+    def origines_de_l_annee(self, annee: int) -> Dict[str, int]:
+        """Origine d'horloge de chaque levier MODIFIÉ par le programme, à partir
+        du début (lot C) ; ``{}`` avant (et en mode historique) : tous les
+        leviers comptent alors depuis ``POLICY_START_YEAR``. Lue par
+        ``BudgetSimulatorV45._origine(levier)``."""
+        if not self.actif or annee < self.annee_debut:
+            return {}
+        return {levier: self.annee_debut for levier in self.leviers_modifies}
+
+    def compose(self, annee: int) -> bool:
+        """Vrai si l'année exige la composition à trois mondes : mode cadre, à
+        partir du début, programme différent du droit en vigueur."""
+        return self.actif and annee >= self.annee_debut and bool(self.leviers_modifies)
+
     def rapport(self) -> Dict:
         """Bloc ``cadre`` de la réponse."""
         return {
@@ -271,3 +327,67 @@ class CadreTemporel:
             'droit_en_vigueur': self.droit.meta() if self.droit is not None else None,
             'leviers_modifies': sorted(self.leviers_modifies),
         }
+
+
+# ---------------------------------------------------------------------------
+# Composition des horloges (lot C) : trois mondes d'évaluation des handlers
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Monde:
+    """Un monde d'évaluation des handlers : les mesures que lisent leurs
+    lectures croisées (``self.mesures``), les origines d'horloge, et l'état
+    PROPRE des déclencheurs ponctuels (traqueur, assurance chômage). Le monde
+    ``droit_2026`` n'a pas d'état propre : c'est celui du moteur, continu depuis
+    2026 (``principal``)."""
+    nom: str
+    mesures: Dict
+    origines: Dict[str, int]
+    principal: bool = False
+    traqueur: Optional[Dict] = None
+    chomage_prev: Optional[Dict] = None
+
+
+def creer_mondes(cadre_temporel: 'CadreTemporel') -> Dict[str, Monde]:
+    """Les trois mondes d'une simulation en mode cadre. ``programme`` et
+    ``droit_debut`` démarrent vides au début du programme ; leurs origines et
+    leurs mesures sont posées chaque année par l'orchestrateur."""
+    droit = cadre_temporel.mesures_droit
+    return {
+        'droit_2026': Monde('droit_2026', droit, {}, principal=True),
+        'programme': Monde('programme', cadre_temporel.programme, {}, traqueur={}),
+        'droit_debut': Monde('droit_debut', droit, {}, traqueur={}),
+    }
+
+
+def _nombre(v) -> bool:
+    return isinstance(v, numbers.Real) and not isinstance(v, bool)
+
+
+def combiner_impacts(a: Dict, b: Dict, c: Dict) -> Dict:
+    """``a + (b − c)`` clé par clé (récursif sur les sous-dicts) : la part
+    héritée ``a`` (droit, horloge 2026) plus l'incrément du programme ``b − c``
+    (programme et droit sur l'horloge du début). Écrit ``a + (b − c)`` et non
+    ``a + b − c`` : quand ``b`` et ``c`` sont identiques au bit (levier égal au
+    droit, sans lecture croisée d'un levier modifié), l'incrément vaut 0,0
+    exactement et le résultat EST ``a``. Valeur non numérique : celle du
+    programme, à défaut celle du droit."""
+    out = {}
+    for cle in list(a) + [k for k in b if k not in a] + [k for k in c if k not in a and k not in b]:
+        va, vb, vc = a.get(cle), b.get(cle), c.get(cle)
+        if any(isinstance(v, dict) for v in (va, vb, vc)):
+            out[cle] = combiner_impacts(va if isinstance(va, dict) else {},
+                                        vb if isinstance(vb, dict) else {},
+                                        vc if isinstance(vc, dict) else {})
+        elif all(v is None or _nombre(v) for v in (va, vb, vc)):
+            increment = (0.0 if vb is None else vb) - (0.0 if vc is None else vc)
+            out[cle] = increment if va is None else va + increment
+        else:
+            out[cle] = vb if cle in b else va
+    return out
+
+
+def combiner(sortie_a, sortie_b, sortie_c):
+    """Sorties ``(Δdép, Δrec, impacts)`` des trois mondes → sortie composée."""
+    (da, ra, ia), (db, rb, ib), (dc, rc, ic) = sortie_a, sortie_b, sortie_c
+    return da + (db - dc), ra + (rb - rc), combiner_impacts(ia, ib, ic)

@@ -3,7 +3,8 @@
 Mesures couvertes :
 - ``smic`` : hausse SMIC brut (NFP 2027 : 1600€ net / +14.4%, 3.2M salariés concernés).
 - ``taxe_superprofits`` : taxe 25% sur bénéfices >120% moyenne historique
-  (temporaire 3 ans 2026-2028).
+  (temporaire 3 ans : 2026-2028 en mode historique, trois ans à partir de
+  annee_debut sinon — v0.7.0).
 - ``exonerations_salaires`` : exonération cotisations patronales sur hausses
   salariales >1% (NFP 2027).
 
@@ -31,7 +32,7 @@ import logging
 import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import PART_NETTE_DU_BRUT_SALAIRES_PRIVES, POLICY_START_YEAR
+from ..constants import PART_NETTE_DU_BRUT_SALAIRES_PRIVES
 from .._logging import _log_debug
 from ..engine._param_domain import valeur_brute
 from ._phasing import _one_time_level, _resolve_intensite_or_legacy, _year_phasing
@@ -60,6 +61,12 @@ def _point_indice_fp_brut(mesures: Dict) -> float:
     return 0.0
 
 
+# Taxe sur les superprofits : mesure TEMPORAIRE, trois années d'application
+# (crise d'inflation 2022-2024, programme NFP), comptées sur l'horloge du levier
+# (2026-2028 en mode historique ; à partir de annee_debut sinon, v0.7.0).
+TAXE_SUPERPROFITS_DUREE_ANS = 3
+
+
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
 # liaison self mypy + risque MRO). Réplication volontaire 7×. Cf Lot D.
 if TYPE_CHECKING:
@@ -82,8 +89,9 @@ class AdditionnelsMixin(_MixinBase):
         if smic_brut == smic_actuel:
             return 0, 0, {}
 
-        # Année de mise en œuvre
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de mise en œuvre — horloge du levier (v0.7.0 : annee_debut du
+        # programme s'il le modifie, POLICY_START_YEAR sinon).
+        years_elapsed = year - self._origine('smic')
 
         # ===== CALCUL IMPACTS =====
         delta_brut = smic_brut - smic_actuel
@@ -200,15 +208,17 @@ class AdditionnelsMixin(_MixinBase):
         if taux_taxe == 0:
             return 0, 0, {}
 
-        # Année de référence
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence — horloge du levier (v0.7.0).
+        years_elapsed = year - self._origine('taxe_superprofits')
 
         # ===== PHASING : plein effet immédiat dès l'entrée en vigueur =====
         phasing = _year_phasing(years_elapsed, (1.0,))
 
         # ===== TEMPORAIRE 3 ANS (crise inflation 2022-2024) =====
-        # Après 2028, superprofits disparaissent (retour normalité)
-        if year >= 2029:
+        # Trois ans d'application, puis les superprofits disparaissent (retour
+        # normalité) : 2026-2028 en mode historique, à partir du début du
+        # programme sinon (v0.7.0 : « year >= 2029 » écrit en dur jusqu'ici).
+        if years_elapsed >= TAXE_SUPERPROFITS_DUREE_ANS:
             return 0, 0, {'recettes': 0}
 
         # ===== ASSIETTE SUPERPROFITS =====
@@ -277,8 +287,8 @@ class AdditionnelsMixin(_MixinBase):
         if taux_exo == 0:
             return 0, 0, {}
 
-        # Année de référence
-        years_elapsed = year - POLICY_START_YEAR
+        # Année de référence — horloge du levier (v0.7.0).
+        years_elapsed = year - self._origine('exonerations_salaires')
 
         # ===== PHASING : plein effet immédiat dès l'entrée en vigueur =====
         phasing = _year_phasing(years_elapsed, (1.0,))

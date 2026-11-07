@@ -277,7 +277,10 @@ class InflationMixin:
         # pass-through (30 %, plafonné à 0,2 pt) vaut déjà 0 en 0 ; la porte le
         # faisait naître d'un coup à +0,09 pt (curseur TVA à 20,63 % : −0,30 pt
         # de dette 2035, statu quo compris).
-        if year == 2 and tva_impact > 0:
+        # v0.7.0 (cadre temporel) : l'année du passage suit l'horloge de la TVA,
+        # fournie par l'orchestrateur ; 2 (2027) par défaut et en mode
+        # historique. Coefficient et plafond inchangés.
+        if year == economic_state.get('annee_pass_through_tva', 2) and tva_impact > 0:
             tva_pass_through = min(tva_impact * 0.3, 0.002)
             inflation += tva_pass_through
             _log_debug(self.debug_logs, f"Y{year}: Impact TVA +{tva_pass_through*100:.2f}%")
