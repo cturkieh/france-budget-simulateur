@@ -38,7 +38,7 @@ au type-check, MRO inchangé) :
   que les mixins lisent/écrivent sur ``self`` sans le définir eux-mêmes
   (cf ADR Phase 1.2 + inventaire Lot D). Borne de typage de ``self``.
 """
-from typing import Dict, Protocol, Tuple
+from typing import Any, Callable, Dict, Optional, Protocol, Tuple
 
 ImpactsDict = Dict[str, float]
 
@@ -126,6 +126,13 @@ class _SimulatorState(Protocol):
     debug_logs: list
 
     def _is_first_year_change(self, measure_id: str, params: Dict) -> bool:
+        ...
+
+    # Déclencheur ponctuel en INCRÉMENT (v0.7.0, lot B) : statut, puis effet.
+    def _ponctuel(self, cle: str, params: Dict) -> Tuple[str, Optional[Dict]]:
+        ...
+
+    def _effet_ponctuel(self, cle: str, params: Dict, effet: Callable) -> Any:
         ...
 
     # Assiette nominale des désindexations (v0.6.7, engine/expenditures.py).

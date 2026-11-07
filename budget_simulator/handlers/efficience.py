@@ -55,7 +55,7 @@ Sources principales :
 - Cour des comptes 2025, IGF 2024 — optimisation dette.
 
 Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
-- LIT la méthode ``self._is_first_year_change`` et le sink de logs
+- LIT le sink de logs
   ``self.debug_logs`` (via ``_log_debug``, sans incidence sur les sorties
   de simulation), fournis par la base class (simulator.py).
 - ``_apply_fraude_sociale`` applique l'anti-double-comptage ASU en

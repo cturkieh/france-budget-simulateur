@@ -21,9 +21,9 @@ Trois patterns récurrents y sont factorisés :
 
 NB sémantique : ``_one_time_level`` est gaté sur l'ANNÉE CALENDAIRE
 (``years_elapsed == 0``), à NE PAS confondre avec
-``BudgetSimulatorV45._is_first_year_change(measure_id, params)`` qui
-détecte un changement effectif de ``params`` (re-trigger sur slider
-modifié en cours de simulation). Les deux ne sont pas interchangeables.
+``BudgetSimulatorV45._effet_ponctuel(clé, params, effet)`` qui
+détecte un changement effectif de ``params`` et émet l'INCRÉMENT d'effet
+(v0.7.0). Les deux ne sont pas interchangeables.
 """
 import math
 from typing import Callable, Dict, Sequence, TypeVar

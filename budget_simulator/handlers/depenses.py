@@ -51,15 +51,16 @@ Mesures couvertes (6 handlers) :
   ASU) est un chantier distinct.
 
 Convention d'application :
-- Effets ``gini`` / ``competitivite`` (et parfois ``chomage``) en mode
-  NIVEAU one-time, gated par
-  ``self._is_first_year_change(<clé>, params)`` (méthode de l'hôte) ou par
-  un suivi cross-année dédié (cf ``chomage_alloc`` ci-dessous). Chaque
+- Effets ``gini`` / ``competitivite`` (et parfois ``chomage``) PONCTUELS,
+  émis au changement de paramètres par
+  ``self._effet_ponctuel(<clé>, params, effet)`` (méthode de l'hôte ; en
+  INCRÉMENT depuis v0.7.0) ou par un suivi cross-année dédié (cf
+  ``chomage_alloc`` ci-dessous, même règle d'incrément). Chaque
   sous-effet a sa propre clé de gating (``retraites_gini_indexation``,
   ``sante``, ``chomage_alloc_competitivite``, ``abattement_retraites``,
   ``prestations_indexation``).
   EXCEPTION, et elle est structurelle : le canal d'ÂGE des retraites ne
-  passe pas par ``_is_first_year_change`` mais par l'horloge du CHOC
+  passe pas par ``_effet_ponctuel`` mais par l'horloge du CHOC
   (``_seniors.retraites_annee_debut_ecart_age_handler``). Sa référence est
   le CALENDRIER LÉGAL, mobile jusqu'en 2032 : l'horloge du run y plaçait
   l'effet plein sur un écart encore nul pour tout programme s'écartant
@@ -91,7 +92,7 @@ Sources principales :
 - PLFSS 2026, OFCE 2024, IPP 2023, DREES — prestations indexation.
 
 Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
-- LIT la méthode ``self._is_first_year_change`` et le sink de logs
+- LIT la méthode ``self._effet_ponctuel`` et le sink de logs
   ``self.debug_logs`` (via ``_log_debug``, sans incidence sur les sorties
   de simulation), fournis par la base class (simulator.py).
 - ``_apply_asu`` n'écrit AUCUN attribut d'instance partagé. Son phasing
@@ -106,8 +107,9 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 - ÉCRIT/LIT ``self._chomage_params_prev`` dans ``_apply_chomage_alloc``
   comme état cross-année : détecte un changement effectif des paramètres
   (taux/durée/dégressivité) pour gater l'impact Gini/PA one-time, là où
-  ``_is_first_year_change`` ne suffit pas (sémantique de re-trigger
-  propre au handler, initialisée paresseusement). La suppression de cet
+  ``_effet_ponctuel`` ne suffit pas (traqueur initialisé à la RÉFÉRENCE,
+  propre au handler, initialisé paresseusement ; même règle d'incrément
+  depuis v0.7.0). La suppression de cet
   attribut entre deux simulations est à la charge de l'hôte.
 - Aucun handler n'appelle un handler d'un autre mixin (invariant ADR).
 
@@ -276,7 +278,7 @@ class DepensesMixin(_MixinBase):
         # one-time du Gini ci-dessous. Elle n'y a plus sa place depuis que le
         # canal d'âge lit l'horloge du CHOC, qui est déjà stable d'une année
         # sur l'autre par construction — l'ancienne clé ne servait qu'à
-        # empêcher `_is_first_year_change` de re-déclencher chaque année sous
+        # empêcher le déclencheur ponctuel de re-déclencher chaque année sous
         # l'effet du calendrier légal 2028-2032.
         indexation = params.get('indexation', 1.0)
         duration = params.get('duree_cotisation', RETRAITES_REF_DUREE_ANS)
@@ -363,7 +365,7 @@ class DepensesMixin(_MixinBase):
         #
         # - INDEXATION : sa référence est FIXE (la pleine indexation). Son
         #   écart s'ouvre donc dès la première année simulée → horloge du RUN,
-        #   celle de `_is_first_year_change`, inchangée.
+        #   celle du déclencheur ponctuel `_ponctuel`, inchangée.
         # - ÂGE : sa référence est le CALENDRIER LÉGAL, mobile jusqu'en 2032
         #   (I3). `gini_age` dérive de l'écart de l'ANNÉE, donc un programme
         #   figeant l'âge à 62,75 a un `gini_age` RIGOUREUSEMENT NUL en
@@ -375,9 +377,18 @@ class DepensesMixin(_MixinBase):
         #   autres canaux d'une mesure d'âge. Elle vaut POLICY_START_YEAR quand
         #   l'écart est nul partout, donc les scénarios sans curseur d'âge et
         #   tout âge ≠ 62,75 restent bit-identiques.
-        if self._is_first_year_change('retraites_gini_indexation',
-                                      {'indexation': indexation}):
+        # v0.7.0 (lot B) : à un CHANGEMENT d'indexation, le flux résiduel de
+        # l'ancien niveau court jusqu'à la bascule et seul l'INCRÉMENT prend le
+        # plein effet — g(avant)·R + (g − g(avant)) ; jusqu'en v0.6.11, g en
+        # entier (la part déjà comptée était recomptée). Première fois : g,
+        # comme avant.
+        statut, precedents = self._ponctuel('retraites_gini_indexation',
+                                            {'indexation': indexation})
+        if statut == 'premier':
             gini = gini_indexation
+        elif statut == 'change':
+            gini_avant = RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1.0 - precedents['indexation'])
+            gini = gini_avant * RETRAITES_GINI_RESIDU_FLUX + (gini_indexation - gini_avant)
         else:
             gini = gini_indexation * RETRAITES_GINI_RESIDU_FLUX
         if year == retraites_annee_debut_ecart_age_handler(params):
@@ -575,13 +586,13 @@ class DepensesMixin(_MixinBase):
         # (repas gratuit). Règle du chantier : contrepartie SOURCÉE ou
         # neutralité réelle. Seules les FRANCHISES gardent leurs impacts,
         # eux sourcés (OFCE 2024, INSEE 2024).
-        if self._is_first_year_change('sante', params_sante):
-            # Gini: Franchises ↑ = impact RÉGRESSIF (touche + les pauvres)
-            # Règle : Franchises 100%→200% (Bayrou) = +0.003 Gini (OFCE 2024)
-            gini = 0.003 * (taux_franchise - 100) / 100
-        else:
-            # Années suivantes : impact déjà intégré
-            gini = 0.0
+        # Gini: Franchises ↑ = impact RÉGRESSIF (touche + les pauvres)
+        # Règle : Franchises 100%→200% (Bayrou) = +0.003 Gini (OFCE 2024)
+        # Émis au changement, en INCRÉMENT (v0.7.0).
+        def _effet_sante(p):
+            return 0.003 * (p['franchise'] - 100) / 100
+
+        gini = self._effet_ponctuel('sante', params_sante, _effet_sante)
 
         # Pouvoir d'achat (v0.6.8) : seules les franchises et participations
         # touchent le reste à charge des ménages (canal ``prestations`` : un
@@ -682,14 +693,27 @@ class DepensesMixin(_MixinBase):
         # Détecter si paramètres ont changé (première année activation)
         # IMPORTANT: Inclure dégressivité pour tracker son activation
         params_current = {'taux': taux_remplacement, 'duree': duree, 'degressivite': degressivite}
-        is_first_year = (params_current != self._chomage_params_prev)
+        reference = {'taux': TAUX_REF, 'duree': DUREE_REF, 'degressivite': False}
+        precedent = self._chomage_params_prev
         self._chomage_params_prev = params_current
 
-        delta_montant = (montant - MONTANT_REF)
-        # Mois marginal proportionnel au taux : les allocations du mois
-        # supplémentaire sont versées au taux courant, pas au taux de réf.
-        delta_duree = (duree - DUREE_REF) * COUT_CHOMAGE_MARGINAL_MOIS_MD \
-            * (taux_remplacement / TAUX_REF)
+        def euros_allocations(taux, duree_mois, degressif):
+            """(delta_montant, delta_duree) en Md€ pour des paramètres donnés —
+            une seule écriture, lue pour l'année ET pour l'incrément ponctuel
+            (v0.7.0). Dégressivité appliquée à la source (cf. ci-dessous)."""
+            d_montant = (MONTANT_REF * (taux / TAUX_REF) - MONTANT_REF)
+            # Mois marginal proportionnel au taux : les allocations du mois
+            # supplémentaire sont versées au taux courant, pas au taux de réf.
+            d_duree = (duree_mois - DUREE_REF) * COUT_CHOMAGE_MARGINAL_MOIS_MD \
+                * (taux / TAUX_REF)
+            if degressif:
+                d_montant *= (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
+                              if d_montant > 0
+                              else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
+                d_duree *= (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
+                            if d_duree > 0
+                            else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
+            return d_montant, d_duree
         # Somme € des allocations, nommée une fois et consommée par la
         # dépense ET les canaux d'indice (PA, compétitivité). v0.6.3 (revue) :
         # la dégressivité s'applique À CETTE SOMME, pas à la seule dépense —
@@ -723,20 +747,18 @@ class DepensesMixin(_MixinBase):
         # filtré par l'orchestrateur (has_macro_impact ne lit pas la clé
         # 'chomage') → activer la dégressivité sans toucher taux/durée est
         # aujourd'hui un no-op de bout en bout.
-        if degressivite:
-            delta_montant *= (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
-                              if delta_montant > 0
-                              else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
-            delta_duree *= (CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE
-                            if delta_duree > 0
-                            else CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE)
+        delta_montant, delta_duree = euros_allocations(taux_remplacement, duree, degressivite)
         delta_alloc = delta_montant + delta_duree
         delta_spending = delta_alloc
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # IMPORTANT : Impacts ONE-TIME uniquement (demande, effet niveau)
-        # Évite cumul absurde sur 10 ans
-        if is_first_year:
+        # Évite cumul absurde sur 10 ans. v0.7.0 (lot B) : à un changement,
+        # l'INCRÉMENT f(paramètres) − f(précédents) ; au premier changement
+        # depuis la référence, f(paramètres) (f(référence) = 0, valeur
+        # inchangée au bit) ; sans changement, 0.
+        def effets_ponctuels(p):
+            d_montant, d_duree = euros_allocations(p['taux'], p['duree'], p['degressivite'])
             # Gini (v0.6.4) : les DEUX canaux se pèsent sur LES MÊMES euros que
             # la dépense (delta_montant / delta_duree — interaction × taux et
             # dégressivité déjà DANS les euros, revue adverse constat 23),
@@ -747,13 +769,40 @@ class DepensesMixin(_MixinBase):
             # METHODOLOGIE § M35 ; ex-0,002/6 mois sans source). Signes :
             # couper (delta < 0) émet un Gini POSITIF (régressif) — symétrie
             # v0.6.3.
-            gini_montant = GINI_ALLOC_PAR_MD_EUR * (-delta_montant)
-            gini_duree = GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD_EUR * (-delta_duree)
+            gini_montant = GINI_ALLOC_PAR_MD_EUR * (-d_montant)
+            gini_duree = GINI_DUREE_SURPOIDS * GINI_ALLOC_PAR_MD_EUR * (-d_duree)
+            gini_p = gini_montant + gini_duree
+            # Chômage : Incitation emploi via dégressivité (ONE-TIME)
+            # Source: France Stratégie 2019, réforme assurance chômage 2019
+            # Dégressivité + durée réduite → Incitation retour emploi rapide
+            # Impact: -0.10 à -0.15 points (France Stratégie)
+            # v0.6.3 (revue) : le canal durée devient SYMÉTRIQUE — la garde
+            # `duree < DUREE_REF` le rendait unilatéral : couper des mois
+            # gagnait un bonus d'emploi, en AJOUTER ne coûtait rien (la théorie
+            # de la recherche d'emploi joue dans les deux sens : des droits plus
+            # longs allongent les durées de recherche). Doctrine du projet :
+            # symétrie par instrument, sauf source contraire — même arbitrage
+            # que le barème d'âge des retraites (C1, v0.6.1).
+            # Durée vs référence, dans les deux sens (nul à la référence)
+            chomage_p = -0.0005 * (DUREE_REF - p['duree']) / 6  # 12m → -0.05 pt ; 24m → +0.05 pt
+            # v0.6.4 (revue passe 1) : l'incitation dégressivité s'AJOUTE au
+            # canal durée au lieu de l'ÉCRASER — l'ancienne branche `if
+            # degressivite` remplaçait tout : durée 36 + dégressivité
+            # basculait de +0,15 à −0,15 pt (0,30 pt de swing sur un booléen),
+            # perdant la symétrie durée restaurée en v0.6.3.
+            if p['degressivite']:
+                chomage_p += -0.0015  # -0.15 points (France Stratégie)
+            return gini_p, chomage_p
 
-            gini = gini_montant + gini_duree
-        else:
+        if params_current == precedent:
             # Années suivantes : impacts déjà intégrés dans indices courants
-            gini = 0.0
+            gini, impact_chomage = 0.0, 0.0
+        elif precedent == reference:
+            gini, impact_chomage = effets_ponctuels(params_current)
+        else:
+            (gini_apres, chomage_apres) = effets_ponctuels(params_current)
+            (gini_avant, chomage_avant) = effets_ponctuels(precedent)
+            gini, impact_chomage = gini_apres - gini_avant, chomage_apres - chomage_avant
 
         # Compétitivité : Léger (flexibilité marché du travail) — ONE-TIME
         # Règle : Baisse alloc = +0.0005 compétitivité (réforme Hartz IV).
@@ -761,35 +810,13 @@ class DepensesMixin(_MixinBase):
         # comptage avait rendu ce canal inerte à la durée (même fuite que le
         # PA, attrapée en revue), alors que Hartz IV, sa justification
         # affichée, est précisément une réforme de DURÉE. À durée de
-        # référence la formule est identique à l'ancienne.
-        if self._is_first_year_change('chomage_alloc_competitivite', params_current):
-            competitivite = -0.0005 * delta_alloc / 5
-        else:
-            competitivite = 0.0
+        # référence la formule est identique à l'ancienne. En INCRÉMENT (v0.7.0).
+        def competitivite_alloc(p):
+            d_montant, d_duree = euros_allocations(p['taux'], p['duree'], p['degressivite'])
+            return -0.0005 * (d_montant + d_duree) / 5
 
-        # Chômage : Incitation emploi via dégressivité (ONE-TIME)
-        # Source: France Stratégie 2019, réforme assurance chômage 2019
-        # Dégressivité + durée réduite → Incitation retour emploi rapide
-        # Impact: -0.10 à -0.15 points (France Stratégie)
-        # v0.6.3 (revue) : le canal durée devient SYMÉTRIQUE — la garde
-        # `duree < DUREE_REF` le rendait unilatéral : couper des mois
-        # gagnait un bonus d'emploi, en AJOUTER ne coûtait rien (la théorie
-        # de la recherche d'emploi joue dans les deux sens : des droits plus
-        # longs allongent les durées de recherche). Doctrine du projet :
-        # symétrie par instrument, sauf source contraire — même arbitrage
-        # que le barème d'âge des retraites (C1, v0.6.1).
-        if is_first_year:
-            # Durée vs référence, dans les deux sens (nul à la référence)
-            impact_chomage = -0.0005 * (DUREE_REF - duree) / 6  # 12m → -0.05 pt ; 24m → +0.05 pt
-            # v0.6.4 (revue passe 1) : l'incitation dégressivité s'AJOUTE au
-            # canal durée au lieu de l'ÉCRASER — l'ancienne branche `if
-            # degressivite` remplaçait tout : durée 36 + dégressivité
-            # basculait de +0,15 à −0,15 pt (0,30 pt de swing sur un booléen),
-            # perdant la symétrie durée restaurée en v0.6.3.
-            if degressivite:
-                impact_chomage += -0.0015  # -0.15 points (France Stratégie)
-        else:
-            impact_chomage = 0.0
+        competitivite = self._effet_ponctuel('chomage_alloc_competitivite', params_current,
+                                             competitivite_alloc)
 
         # Pouvoir d'achat (v0.6.8) : les allocations (taux ET durée) sont un
         # revenu des chômeurs — canal ``prestations``, au montant du budget,
@@ -1044,14 +1071,12 @@ class DepensesMixin(_MixinBase):
         # Réforme = hausse impôts retraités aisés = LÉGÈREMENT PROGRESSIF
         # Mais 10% plus riches = 60% du gain = distribution inégale
         # Rule: Impact modéré car ciblé
+        # Légèrement progressif (taxe les riches) ; en INCRÉMENT (v0.7.0).
         params_tracking = {'reforme': reforme}
-        if self._is_first_year_change('abattement_retraites', params_tracking):
-            if reforme == 1:
-                gini = -0.004  # Légèrement progressif (taxe les riches)
-            else:
-                gini = 0.0
-        else:
-            gini = 0.0
+        def _effet_abattement_retraites(p):
+            return -0.004 if p['reforme'] == 1 else 0.0
+
+        gini = self._effet_ponctuel('abattement_retraites', params_tracking, _effet_abattement_retraites)
 
         # Competitiveness: No direct impact
         competitivite = 0
@@ -1146,12 +1171,12 @@ class DepensesMixin(_MixinBase):
         # Sous-indexation = paupérisation bénéficiaires = TRÈS RÉGRESSIF
         # Rule: 100%→90% = +0.008 Gini (OFCE 2024)
         # (Plus fort que retraites car population plus pauvre)
+        # En INCRÉMENT (v0.7.0).
         params_tracking = {'indexation': indexation}
-        if self._is_first_year_change('prestations_indexation', params_tracking):
-            delta_indexation = indexation_ref - indexation
-            gini = 0.008 * delta_indexation / 0.10
-        else:
-            gini = 0.0
+        def _effet_prestations_indexation(p):
+            return 0.008 * (indexation_ref - p['indexation']) / 0.10
+
+        gini = self._effet_ponctuel('prestations_indexation', params_tracking, _effet_prestations_indexation)
 
         # Pouvoir d'achat (v0.6.8) : l'écart de revalorisation EST le revenu
         # retiré (ou rendu) aux allocataires — canal ``prestations``, au

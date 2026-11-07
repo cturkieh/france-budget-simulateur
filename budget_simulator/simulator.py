@@ -815,32 +815,61 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         from .config import load_default_values
         return load_default_values()
 
+    def _ponctuel(self, cle: str, params_dict: Dict) -> Tuple[str, Dict | None]:
+        """Déclencheur d'un effet PONCTUEL (v0.7.0, lot B) : ``('premier', None)``
+        la première fois que ``cle`` est vue, ``('change', précédents)`` si les
+        paramètres diffèrent de ceux du dernier déclenchement, ``('inchange',
+        None)`` sinon. Le traqueur est mis à jour au déclenchement.
+
+        Chaque sous-effet a sa clé (``<levier>``, ``<levier>_emploi``…) : une clé
+        ne sert qu'à UN appel par année et par levier."""
+        if cle not in self._measure_params_tracker:
+            self._measure_params_tracker[cle] = params_dict.copy()
+            return 'premier', None
+        precedents = self._measure_params_tracker[cle]
+        if params_dict == precedents:
+            return 'inchange', None
+        self._measure_params_tracker[cle] = params_dict.copy()
+        return 'change', precedents
+
+    def _effet_ponctuel(self, cle: str, params_dict: Dict, effet):
+        """Effet PONCTUEL au changement de paramètres, en mode INCRÉMENT (v0.7.0,
+        lot B ; dossier du dépôt parent ``docs/plans/passe-cadre-2027-2032.md``
+        § 2.3).
+
+        ``effet(params)`` = effet du NIVEAU ``params`` contre le défaut du levier,
+        à l'état macro de l'année (un nombre, ou un tuple de nombres pour
+        plusieurs canaux gatés par la même clé). Rend :
+        - la première fois : ``effet(params)`` — exactement la valeur de
+          l'ancien gating ``_is_first_year_change`` (mode historique
+          bit-identique : les paramètres n'y changent jamais en cours de
+          simulation) ;
+        - à un changement : ``effet(params) − effet(précédents)``, l'INCRÉMENT
+          (jusqu'en v0.6.11 : ``effet(params)`` en entier — la part déjà comptée
+          était recomptée à chaque changement, et une rampe sur cinq ans comptait
+          trois fois l'effet) ;
+        - sinon : 0.
+
+        Le cumul ne dépend donc que du niveau atteint, pas du chemin (propriété
+        (d) des tests du cadre), exactement si ``effet`` ne lit que les
+        paramètres, à l'état macro près sinon."""
+        statut, precedents = self._ponctuel(cle, params_dict)
+        if statut == 'premier':
+            return effet(params_dict)
+        if statut == 'inchange':
+            valeur = effet(params_dict)
+            return tuple(0.0 for _ in valeur) if isinstance(valeur, tuple) else 0.0
+        apres, avant = effet(params_dict), effet(precedents)
+        if isinstance(apres, tuple):
+            return tuple(a - b for a, b in zip(apres, avant))
+        return apres - avant
+
     def _is_first_year_change(self, measure_id: str, params_dict: Dict) -> bool:
-        """
-        Helper pour détecter si c'est la première année où une mesure change.
-        Utilisé pour impacts Gini one-time (éviter cumul absurde).
-
-        Args:
-            measure_id: ID unique de la mesure (ex: 'cotisations_salariales')
-            params_dict: Dict des paramètres actuels à tracker
-
-        Returns:
-            True si première année de changement, False sinon
-        """
-        if measure_id not in self._measure_params_tracker:
-            # Première fois qu'on voit cette mesure
-            self._measure_params_tracker[measure_id] = params_dict.copy()
-            return True
-
-        # Comparer avec paramètres précédents
-        prev_params = self._measure_params_tracker[measure_id]
-        is_changed = (params_dict != prev_params)
-
-        # Mettre à jour tracker
-        if is_changed:
-            self._measure_params_tracker[measure_id] = params_dict.copy()
-
-        return is_changed
+        """Ancien déclencheur ponctuel (mode NIVEAU), conservé pour les
+        consommateurs externes du moteur. Les handlers du moteur passent par
+        ``_effet_ponctuel`` depuis v0.7.0. Vrai la première fois et à chaque
+        changement de ``params_dict``."""
+        return self._ponctuel(measure_id, params_dict)[0] != 'inchange'
 
     # =======================================================================
     # SECTION 1 (Efficience et organisation) → budget_simulator/handlers/efficience.py

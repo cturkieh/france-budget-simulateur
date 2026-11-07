@@ -23,17 +23,19 @@ Convention d'application :
   DIRECTS (IR, CSG, cotisations salariales, patrimoine) ou INDIRECTS (TVA) ;
   l'indice RDB-moteur (``engine/rdb.py``) les lit chaque année, en niveau.
   Les coefficients forfaitaires ``pouvoir_achat`` (non sourcés) ont disparu.
-- Effets ``gini`` / ``competitivite`` en mode NIVEAU
-  one-time, gated selon DEUX idiomes distincts coexistant dans le monolithe :
-  - ``self._is_first_year_change(<measure>, params)`` : tva_rate,
-    impot_revenu, elargissement_ir, fiscalite_patrimoine, cotisations_salariales.
-  - ``years_elapsed == 0`` : tva_energie, isf_climatique, et csg (pour ses
-    effets Gini).
+- Effets ``gini`` / ``competitivite`` PONCTUELS, émis selon DEUX idiomes
+  distincts coexistant dans le monolithe :
+  - au CHANGEMENT de paramètre, ``self._effet_ponctuel(<clé>, params, effet)``
+    (v0.7.0 : en INCRÉMENT, effet du niveau atteint moins effet du niveau au
+    dernier déclenchement) : tva_rate, impot_revenu, elargissement_ir,
+    fiscalite_patrimoine, cotisations_salariales ;
+  - à l'ANNÉE d'entrée en vigueur, ``years_elapsed == 0`` : tva_energie,
+    isf_climatique, et csg (pour ses effets Gini) — horloge du levier.
   Cas mixte : ``csg`` combine les deux — Gini gated ``years_elapsed == 0``
-  MAIS son sous-effet ``competitivite`` (mode progressif) gated
-  ``self._is_first_year_change('csg_competitivite', ...)``. Cette nuance
-  sémantique est PRÉSERVÉE telle quelle depuis le monolithe — toute
-  unification éventuelle = chantier dédié avec double validation adverse
+  MAIS son sous-effet ``competitivite`` (progressivité) passe par
+  ``self._effet_ponctuel('csg_competitivite', ...)``, appelé quel que soit le
+  mode depuis v0.7.0 (le retrait de la progressivité rend l'effet). Toute
+  unification des deux idiomes = chantier dédié avec double validation adverse
   + golden master audité (pas une simple refactor cosmétique).
 - Effet ``recettes`` : RÉCURRENT (proportionnel au taux) pour csg/tva ;
   one-shot delta pour les barèmes.
@@ -48,8 +50,8 @@ Sources principales :
 - EU Tax Observatory 2024, Gabriel Zucman, IPP 2025 (ISF climatique).
 
 Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
-- Lit ``self.debug_logs`` et la méthode ``self._is_first_year_change`` (base
-  class, simulator.py).
+- Lit ``self.debug_logs`` et la méthode ``self._effet_ponctuel`` (base
+  class, simulator.py ; seul son traqueur, tenu par l'hôte, est écrit).
 - N'écrit aucun attribut d'instance.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
@@ -90,20 +92,21 @@ class FiscaliteMenagesMixin(_MixinBase):
             delta_revenue *= (1 - 0.2 * (rate - 0.22) / 0.03)
 
         # === IMPACTS MACROÉCONOMIQUES ===
-        # Gini : Impact ONE-TIME (changement structure fiscale)
-        if self._is_first_year_change('tva_rate', {'rate': rate}):
-            # Gini : TVA = impôt RÉGRESSIF (touche + les pauvres)
-            # Règle : TVA 20%→22% = +0.005 Gini (OFCE 2024)
-            gini = 0.005 * (rate - 0.20) / 0.02
-        else:
-            gini = 0.0
+        # Gini : Impact ONE-TIME (changement structure fiscale), en INCRÉMENT
+        # (v0.7.0, simulator._effet_ponctuel).
+        # Gini : TVA = impôt RÉGRESSIF (touche + les pauvres)
+        # Règle : TVA 20%→22% = +0.005 Gini (OFCE 2024)
+        def _effet_tva_rate(p):
+            return 0.005 * (p['rate'] - 0.20) / 0.02
+
+        gini = self._effet_ponctuel('tva_rate', {'rate': rate}, _effet_tva_rate)
 
         # Compétitivité : Impact ONE-TIME (changement structure fiscale)
         # Règle : TVA +2% = -0.0005 compétitivité (CAE 2022, répercussion prix)
-        if self._is_first_year_change('tva_rate_competitivite', {'rate': rate}):
-            competitivite = -0.0005 * (rate - 0.20) / 0.02  # ONE-TIME changement taux
-        else:
-            competitivite = 0.0  # Niveau conservé dans indice
+        def _effet_tva_rate_competitivite(p):
+            return -0.0005 * (p['rate'] - 0.20) / 0.02
+
+        competitivite = self._effet_ponctuel('tva_rate_competitivite', {'rate': rate}, _effet_tva_rate_competitivite)
 
         _log_debug(self.debug_logs, f"Mesure tva_rate: Δdép=0.0 Md€, Δrec={delta_revenue:.1f} Md€")
         impacts = {
@@ -216,23 +219,24 @@ class FiscaliteMenagesMixin(_MixinBase):
         delta_revenue = delta_taux + delta_decote
 
         # === IMPACTS MACROÉCONOMIQUES ===
-        # Gini : Impact ONE-TIME (changement barème fiscal)
-        if self._is_first_year_change('impot_revenu', {'taux_sup': taux_sup, 'decote': decote}):
-            # IR = impôt PROGRESSIF (redistribution forte)
-            # Règle : Taux sup 45%→50% = -0.008 Gini (OFCE 2023)
-            gini = -0.008 * (taux_sup - 0.45) / 0.05
-            # Décote : Baisse décote = hausse impôt classes moyennes = +Gini
-            gini += 0.003 * (1.0 - decote)
-        else:
-            gini = 0.0
+        # Gini : Impact ONE-TIME (changement barème fiscal), en INCRÉMENT (v0.7.0)
+        # IR = impôt PROGRESSIF (redistribution forte)
+        # Règle : Taux sup 45%→50% = -0.008 Gini (OFCE 2023)
+        # Décote : Baisse décote = hausse impôt classes moyennes = +Gini
+        def _effet_impot_revenu(p):
+            return -0.008 * (p['taux_sup'] - 0.45) / 0.05 + 0.003 * (1.0 - p['decote'])
+
+        gini = self._effet_ponctuel(
+            'impot_revenu', {'taux_sup': taux_sup, 'decote': decote}, _effet_impot_revenu)
 
         # Compétitivité : Impact ONE-TIME (changement structure fiscale)
         # Règle : Taux sup 45%→50% = -0.0002 (CAE 2024, attractivité hauts revenus/expatriation)
         params_ir_comp = {'taux_sup': taux_sup, 'decote': decote}
-        if self._is_first_year_change('impot_revenu_competitivite', params_ir_comp):
-            competitivite = -0.0002 * (taux_sup - 0.45) / 0.05  # ONE-TIME changement taux
-        else:
-            competitivite = 0.0  # Niveau conservé dans indice
+        def _effet_impot_revenu_competitivite(p):
+            return -0.0002 * (p['taux_sup'] - 0.45) / 0.05
+
+        competitivite = self._effet_ponctuel(
+            'impot_revenu_competitivite', params_ir_comp, _effet_impot_revenu_competitivite)
 
         impacts = {
             'recettes': delta_revenue,
@@ -306,14 +310,20 @@ class FiscaliteMenagesMixin(_MixinBase):
             impact_gini_progressif = _one_time_level(years_elapsed, -0.015)
             impact_emploi_progressif = _one_time_level(years_elapsed, -0.0015)
 
-            # Compétitivité : Impact ONE-TIME (changement structure fiscale)
-            # Signal taux marginal D10 → attractivité fiscale
-            params_csg_comp = {'progressive': progressive, 'taux': taux_global}
-            if self._is_first_year_change('csg_competitivite', params_csg_comp):
-                impact_competitivite = -0.003  # ONE-TIME année activation
-            else:
-                impact_competitivite = 0.0  # Années suivantes (niveau conservé dans indice)
-        # progressive != 1 : impact_competitivite reste à 0.0 (init ci-dessus)
+        # Compétitivité : Impact ONE-TIME (changement structure fiscale)
+        # Signal taux marginal D10 → attractivité fiscale : −0,003 l'année où la
+        # progressivité s'active. v0.7.0 : déclencheur appelé QUEL QUE SOIT le
+        # mode, en INCRÉMENT — un programme qui retire la progressivité rend le
+        # −0,003 (jusqu'en v0.6.11, la branche n'était pas atteinte) ; un
+        # changement de taux sans changement de progressivité n'émet plus rien
+        # (il réémettait −0,003). Mode historique : 0,0 si progressive ≠ 1,
+        # −0,003 l'année d'activation, comme avant.
+        params_csg_comp = {'progressive': progressive, 'taux': taux_global}
+        def _effet_csg_competitivite(p):
+            return -0.003 if p['progressive'] == 1 else 0.0
+
+        impact_competitivite = self._effet_ponctuel(
+            'csg_competitivite', params_csg_comp, _effet_csg_competitivite)
 
         # ===== IMPACTS TOTAUX =====
         impacts = {
@@ -369,21 +379,18 @@ class FiscaliteMenagesMixin(_MixinBase):
             'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
-        # ONE-TIME gate: le Gini ne s'applique que la première année de changement
-        is_first_year = self._is_first_year_change('cotisations_salariales', {'baisse_points': baisse_points})
+        # Gini: Impact ONE-TIME au changement, en INCRÉMENT (v0.7.0)
+        # Gini: INÉGALITAIRE (bénéfice absolu croît avec revenu)
+        # Baisse cotis = MOINS de redistribution sociale → Gini AUGMENTE
+        # Mécanisme : -1 pt cotis → -6 Md€ sécu → moins de transferts progressifs
+        # Source: OFCE 2023 - Baisse uniforme 3 pts = +0.008 Gini
+        # Donc: -1 pt cotis = +0.0027 Gini (hausse inégalités)
+        # ATTENTION AU SIGNE : baisse_points POSITIF → Gini AUGMENTE (+)
+        def _effet_cotisations_salariales(p):
+            return 0.0027 * p['baisse_points']
 
-        # Gini: Impact ONE-TIME (première année changement seulement)
-        if is_first_year:
-            # Gini: INÉGALITAIRE (bénéfice absolu croît avec revenu)
-            # Baisse cotis = MOINS de redistribution sociale → Gini AUGMENTE
-            # Mécanisme : -1 pt cotis → -6 Md€ sécu → moins de transferts progressifs
-            # Source: OFCE 2023 - Baisse uniforme 3 pts = +0.008 Gini
-            # Donc: -1 pt cotis = +0.0027 Gini (hausse inégalités)
-            # ATTENTION AU SIGNE : baisse_points POSITIF → Gini AUGMENTE (+)
-            impacts['gini'] = 0.0027 * baisse_points
-        else:
-            # Années suivantes : impact déjà intégré
-            impacts['gini'] = 0.0
+        impacts['gini'] = self._effet_ponctuel(
+            'cotisations_salariales', {'baisse_points': baisse_points}, _effet_cotisations_salariales)
 
         # Compétitivité: Neutre (ne change pas coût travail pour entreprises)
         impacts['competitivite'] = 0.0
@@ -450,14 +457,13 @@ class FiscaliteMenagesMixin(_MixinBase):
             'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
-        delta_contrib = taux_cible - TAUX_ACTUEL
+        # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
+        # Légèrement régressif (élargit mais touche classes moyennes D4-D6)
+        def _effet_elargissement_ir(p):
+            return 0.005 * ((p['taux_cible'] - TAUX_ACTUEL) / 0.20)
 
-        # Gini: Impact ONE-TIME (changement structure fiscale)
-        if self._is_first_year_change('elargissement_ir', {'taux_cible': taux_cible}):
-            # Légèrement régressif (élargit mais touche classes moyennes D4-D6)
-            impacts['gini'] = 0.005 * (delta_contrib / 0.20)
-        else:
-            impacts['gini'] = 0.0
+        impacts['gini'] = self._effet_ponctuel(
+            'elargissement_ir', {'taux_cible': taux_cible}, _effet_elargissement_ir)
 
         # Compétitivité: Neutre
         impacts['competitivite'] = 0.0
@@ -513,20 +519,22 @@ class FiscaliteMenagesMixin(_MixinBase):
                 intensite * (IFI_BASE + PART_MENAGES_TAXE_FONCIERE * FONCIERE_BASE))),
         }
 
-        # Gini: Impact ONE-TIME (changement structure fiscale)
-        if self._is_first_year_change('fiscalite_patrimoine', {'intensite': intensite}):
-            # Fort effet redistributif si hausse (patrimoine concentré D9-D10)
-            impacts['gini'] = -0.010 * (delta_revenue / 10.0)
-        else:
-            impacts['gini'] = 0.0
+        # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
+        # Fort effet redistributif si hausse (patrimoine concentré D9-D10)
+        def _effet_fiscalite_patrimoine(p):
+            return -0.010 * ((TOTAL_BASE * p['intensite']) / 10.0)
+
+        impacts['gini'] = self._effet_ponctuel(
+            'fiscalite_patrimoine', {'intensite': intensite}, _effet_fiscalite_patrimoine)
 
         # Compétitivité: Impact ONE-TIME (changement structure fiscale)
         # Règle : Hausse 10 Md€ = -0.002 compétitivité (exil fiscal entrepreneurs)
         params_patrimoine_comp = {'intensite': intensite}
-        if self._is_first_year_change('fiscalite_patrimoine_competitivite', params_patrimoine_comp):
-            impacts['competitivite'] = -0.002 * (delta_revenue / 10.0)  # ONE-TIME changement intensité
-        else:
-            impacts['competitivite'] = 0.0  # Niveau conservé dans indice
+        def _effet_fiscalite_patrimoine_competitivite(p):
+            return -0.002 * ((TOTAL_BASE * p['intensite']) / 10.0)
+
+        impacts['competitivite'] = self._effet_ponctuel(
+            'fiscalite_patrimoine_competitivite', params_patrimoine_comp, _effet_fiscalite_patrimoine_competitivite)
 
         _log_debug(self.debug_logs,
                    f"Y{year}: Fiscalité patrimoine {intensite*100:+.0f}% - "

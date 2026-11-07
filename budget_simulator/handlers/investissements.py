@@ -11,8 +11,9 @@ Mesures couvertes :
 Convention d'application :
 - Effet ``competitivite`` PROGRESSIF (capital humain / innovation = long terme),
   pas gated sur ``years_elapsed == 0`` mais avec un ``phasing`` croissant.
-- Effet ``gini`` en mode NIVEAU one-time, gated par
-  ``self._is_first_year_change(<measure>, params)``.
+- Effet ``gini`` (et compétitivité de la taxe carbone) PONCTUEL, émis au
+  changement de paramètres par ``self._effet_ponctuel(<clé>, params, effet)``,
+  en INCRÉMENT depuis v0.7.0.
 - Pouvoir d'achat (v0.6.8, arbitrage du mainteneur) : la dépense publique
   (budget, recrutements, investissement, rénovation, recherche) n'a AUCUN
   effet direct, elle passe par la croissance. Deux canaux ménages seulement :
@@ -32,7 +33,7 @@ Sources principales :
 - OECD 2017 "Impact of Public R&D Expenditure", Oxford Academic 2021,
   Guellec & Van Pottelsberghe 2004, France Stratégie 2023 (recherche publique).
 
-Le mixin accède à ``self.debug_logs`` et ``self._is_first_year_change``,
+Le mixin accède à ``self.debug_logs`` et ``self._effet_ponctuel``,
 attribut/méthode d'instance de ``BudgetSimulatorV45``.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
@@ -216,36 +217,41 @@ class InvestissementsMixin(_MixinBase):
             'carbon_tax': carbon_tax,
             'renovation': renovation
         }
-        if self._is_first_year_change('transition_ecologique', params_transition):
-            # 1) Aides à la rénovation = REDISTRIBUTIF (v0.6.1, item I29)
-            # -0,00034 de Gini par Md€, soit -0,0017 pour +5 Md€.
-            # Sources : ONRE/SDES fév. 2023 (MaPrimeRénov' concentre 60 % des
-            # économies d'énergie sur D1-D4) + ONPE 2024 (67 % des dossiers
-            # engagés en 2023 = ménages modestes et très modestes).
-            # Contrairement à l'éducation, c'est un transfert MONÉTAIRE aux
-            # ménages : le canal est pleinement dans le périmètre du Gini du
-            # niveau de vie. Le coefficient de la v0.6.0 (-0,001 pour 5 Md€)
-            # avait le bon signe mais était ~1,7× trop faible, et citait une
-            # source introuvable. Détail de la dérivation et hypothèse
-            # déclarée : constants.py § CANAUX GINI.
-            gini_renovation = GINI_RENOVATION_PAR_MD_EUR * renovation
+        # Émis au CHANGEMENT de paramètres, en INCRÉMENT (v0.7.0,
+        # simulator._effet_ponctuel) : un changement d'investissement seul
+        # n'émet plus rien (il réémettait le Gini de la rénovation et du carbone).
+        # 1) Aides à la rénovation = REDISTRIBUTIF (v0.6.1, item I29)
+        # -0,00034 de Gini par Md€, soit -0,0017 pour +5 Md€.
+        # Sources : ONRE/SDES fév. 2023 (MaPrimeRénov' concentre 60 % des
+        # économies d'énergie sur D1-D4) + ONPE 2024 (67 % des dossiers
+        # engagés en 2023 = ménages modestes et très modestes).
+        # Contrairement à l'éducation, c'est un transfert MONÉTAIRE aux
+        # ménages : le canal est pleinement dans le périmètre du Gini du
+        # niveau de vie. Le coefficient de la v0.6.0 (-0,001 pour 5 Md€)
+        # avait le bon signe mais était ~1,7× trop faible, et citait une
+        # source introuvable. Détail de la dérivation et hypothèse
+        # déclarée : constants.py § CANAUX GINI.
+        # (formule : gini_transition ci-dessous, rénovation)
 
-            # 2) Taxe carbone = RÉGRESSIF (v0.6.1, item I28)
-            # +0,0010 de Gini pour +50 €/tCO2. Sources : Douenne (2020),
-            # The Energy Journal 41(3) + Note IPP n° 34 (juillet 2018) :
-            # taux d'effort D1 = 0,55 % du revenu disponible contre
-            # D10 = 0,20-0,21 %. La v0.6.0 était exactement au DOUBLE, sur
-            # une source introuvable.
-            # ⚠️ Valable SOUS CONDITION D'ABSENCE DE RECYCLAGE des recettes
-            # — ce qui est bien le cas ici (la taxe abonde le budget
-            # général). Avec une compensation forfaitaire, Douenne montre que
-            # D1-D5 deviennent gagnants et que le SIGNE S'INVERSE.
+        # 2) Taxe carbone = RÉGRESSIF (v0.6.1, item I28)
+        # +0,0010 de Gini pour +50 €/tCO2. Sources : Douenne (2020),
+        # The Energy Journal 41(3) + Note IPP n° 34 (juillet 2018) :
+        # taux d'effort D1 = 0,55 % du revenu disponible contre
+        # D10 = 0,20-0,21 %. La v0.6.0 était exactement au DOUBLE, sur
+        # une source introuvable.
+        # ⚠️ Valable SOUS CONDITION D'ABSENCE DE RECYCLAGE des recettes
+        # — ce qui est bien le cas ici (la taxe abonde le budget
+        # général). Avec une compensation forfaitaire, Douenne montre que
+        # D1-D5 deviennent gagnants et que le SIGNE S'INVERSE.
+        # (formule : gini_transition ci-dessous, taxe carbone)
+        def gini_transition(p):
+            gini_renovation = GINI_RENOVATION_PAR_MD_EUR * p['renovation']
             gini_carbon = GINI_TAXE_CARBONE_PAR_EUR_TONNE * (
-                carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T)
+                p['carbon_tax'] - CARBONE_PRIX_REFERENCE_EUR_T)
+            return gini_renovation + gini_carbon
 
-            gini = gini_renovation + gini_carbon
-        else:
-            gini = 0.0
+        gini = self._effet_ponctuel('transition_ecologique', params_transition,
+                                    gini_transition)
 
         # === POUVOIR D'ACHAT (v0.6.8) ===
         # Taxe carbone : prélèvement indirect, via les prix (montant de l'année,
@@ -276,13 +282,14 @@ class InvestissementsMixin(_MixinBase):
         # 2) Taxe carbone : Impact ONE-TIME négatif (coût industries énergivores)
         # MAIS atténué par CBAM (mécanisme ajustement carbone frontière UE 2026)
         # CAE 2023 : impact négatif court terme, neutre long terme avec CBAM
+        # Coefficient réduit car CBAM atténue l'effet (protège industrie UE)
+        # (réduit de -0.003 à -0.002) ; en INCRÉMENT (v0.7.0).
         params_carbon = {'carbon_tax': carbon_tax}
-        if self._is_first_year_change('taxe_carbone', params_carbon):
-            # Coefficient réduit car CBAM atténue l'effet (protège industrie UE)
-            competitivite_carbon = -0.002 * (
-                carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) / 50  # Réduit de -0.003 à -0.002
-        else:
-            competitivite_carbon = 0.0
+        def _effet_taxe_carbone(p):
+            return -0.002 * (p['carbon_tax'] - CARBONE_PRIX_REFERENCE_EUR_T) / 50
+
+        competitivite_carbon = self._effet_ponctuel(
+            'taxe_carbone', params_carbon, _effet_taxe_carbone)
 
         competitivite = competitivite_invest + competitivite_carbon
 

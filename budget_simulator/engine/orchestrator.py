@@ -1027,7 +1027,7 @@ class OrchestratorMixin:
             # Compétitivité des entreprises - Mise à jour MULTIPLICATIVE (comme PA)
             # Sources : OCDE 2024, Banque de France, DG Trésor
             # IMPORTANT : Appliqué CHAQUE ANNÉE pour cumuler impacts RÉCURRENT (éducation, transition)
-            # Les impacts ONE-TIME sont automatiquement filtrés par _is_first_year_change()
+            # Les impacts ONE-TIME sont émis une fois, en incrément, par _effet_ponctuel() (v0.7.0)
             competitivite_delta = self.calculate_competitivite(impacts, gdp_nominal, year)
             # Même borne physique que le PA (v0.6.7) : l'indice était sans
             # aucune borne, et une variation ≤ −100 points inversait son signe.

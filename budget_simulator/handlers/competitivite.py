@@ -20,10 +20,13 @@ Mesures couvertes (7 handlers) :
   max 15 Md€). Signal fiscal one-time.
 
 Convention d'application :
-- Effets ``competitivite`` / ``chomage`` / ``emploi`` en
-  mode NIVEAU one-time, gated par ``self._is_first_year_change(<clé>, params)``
+- Effets ``competitivite`` / ``chomage`` / ``emploi`` PONCTUELS, émis au
+  changement de paramètre par ``self._effet_ponctuel(<clé>, params, effet)``
   (chaque sous-effet a sa propre clé : ``<measure>``, ``<measure>_emploi``,
-  etc. — re-trigger sur changement effectif du slider).
+  etc.). Depuis v0.7.0, en INCRÉMENT : effet du niveau atteint moins effet du
+  niveau au dernier déclenchement (la première fois : effet contre le défaut,
+  comme avant) — une bascule ne recompte plus la part héritée, une rampe ne
+  compte plus trois fois l'effet.
 - Pouvoir d'achat (v0.6.8, arbitrage du mainteneur) : AUCUN effet direct.
   Un impôt sur les entreprises n'est pas un revenu des ménages ; il agit sur
   leur pouvoir d'achat par la croissance et l'emploi (salaires privés de
@@ -44,7 +47,8 @@ Sources principales :
 - FMI 2023, Fipeco (IS exceptionnel TGE).
 
 Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
-- LIT ``self.debug_logs``, la méthode ``self._is_first_year_change`` et
+- LIT ``self.debug_logs``, la méthode ``self._effet_ponctuel`` (traqueur de
+  l'hôte, seul état écrit — par l'hôte) et
   ``self.base_params['pib_base']`` (état/méthode de la base class,
   simulator.py).
 - N'ÉCRIT aucun attribut d'instance : les 7 handlers sont purement
@@ -103,12 +107,13 @@ class CompetitiviteMixin(_MixinBase):
         # Coefficient : -0.015 par Md€ (recalibré pour refléter impact réel incluant optimisation fiscale)
         # Référence : Impact moindre que impôts production (fiscalité ciblée vs généralisée)
         # Exemple : Suppression 58 Md€ → -58 × 0.015 = -0.87 compétitivité
+        # v0.7.0 : effet ponctuel en INCRÉMENT (simulator._effet_ponctuel).
         params_niches_fisc = {'montant': montant}
-        if self._is_first_year_change('niches_fiscales_tge', params_niches_fisc):
-            montant_suppression = montant_base - montant  # Montant supprimé en Md€
-            impact_competitivite = -montant_suppression * COEFF_COMPETITIVITE_NICHES_FISCALES_TGE
-        else:
-            impact_competitivite = 0.0
+        def _effet_niches_fiscales_tge(p):
+            return -(montant_base - p['montant']) * COEFF_COMPETITIVITE_NICHES_FISCALES_TGE
+
+        impact_competitivite = self._effet_ponctuel(
+            'niches_fiscales_tge', params_niches_fisc, _effet_niches_fiscales_tge)
 
         impacts = {
             'recettes': delta_revenue,
@@ -134,11 +139,11 @@ class CompetitiviteMixin(_MixinBase):
         # Référence : Même logique que CICE mais en sens inverse
         # Exemple : Suppression 70 Md€ → -70 × 0.020 = -1.40 compétitivité
         params_niches_soc = {'montant': montant}
-        if self._is_first_year_change('niches_sociales_tge', params_niches_soc):
-            montant_suppression = montant_base - montant  # Montant supprimé en Md€
-            impact_competitivite = -montant_suppression * COEFF_COMPETITIVITE_NICHES_SOCIALES_TGE
-        else:
-            impact_competitivite = 0.0
+        def _effet_niches_sociales_tge(p):
+            return -(montant_base - p['montant']) * COEFF_COMPETITIVITE_NICHES_SOCIALES_TGE
+
+        impact_competitivite = self._effet_ponctuel(
+            'niches_sociales_tge', params_niches_soc, _effet_niches_sociales_tge)
 
         # Impact CHÔMAGE : coefficient à 0 (mai 2026, anti double-comptage).
         # Cible Bozio-Wasmer 2024 (~138k emplois pour suppression 60 Md€) déjà atteinte
@@ -148,11 +153,11 @@ class CompetitiviteMixin(_MixinBase):
         # Voir : constants.py L60-67, METHODOLOGIE.md L8, test_calibration_guard.py
         # test_niches_sociales_tge_suppression_60mds_destroys_jobs.
         # Code conservé (résultats = 0) pour réactivation rapide si moteur évolue.
-        if self._is_first_year_change('niches_sociales_tge_emploi', params_niches_soc):
-            montant_suppression = montant_base - montant
-            impact_chomage = montant_suppression * COEFF_CHOMAGE_NICHES_SOCIALES_TGE
-        else:
-            impact_chomage = 0.0
+        def _effet_niches_sociales_tge_emploi(p):
+            return (montant_base - p['montant']) * COEFF_CHOMAGE_NICHES_SOCIALES_TGE
+
+        impact_chomage = self._effet_ponctuel(
+            'niches_sociales_tge_emploi', params_niches_soc, _effet_niches_sociales_tge_emploi)
 
 
         impacts = {
@@ -180,11 +185,11 @@ class CompetitiviteMixin(_MixinBase):
         # Référence : Impact moindre que coût direct, mais affecte position concurrentielle LT
         # Exemple : Suppression 35 Md€ → -35 × 0.008 = -0.28 compétitivité
         params_subv = {'montant': montant}
-        if self._is_first_year_change('subventions_tge', params_subv):
-            montant_suppression = montant_base - montant  # Montant supprimé en Md€
-            impact_competitivite = -montant_suppression * COEFF_COMPETITIVITE_SUBVENTIONS_TGE
-        else:
-            impact_competitivite = 0.0
+        def _effet_subventions_tge(p):
+            return -(montant_base - p['montant']) * COEFF_COMPETITIVITE_SUBVENTIONS_TGE
+
+        impact_competitivite = self._effet_ponctuel(
+            'subventions_tge', params_subv, _effet_subventions_tge)
 
         impacts = {
             'depenses': delta_spending,
@@ -220,14 +225,17 @@ class CompetitiviteMixin(_MixinBase):
         # Coefficient : 0.020 par Md€ (DG Trésor 2019, transformation CICE, ajusté pour effets indirects)
         # Référence : -50 Md€ CICE → +0.7 compétitivité observée
         # Recalibré pour refléter l'impact réel incluant emploi/investissement
+        # delta_revenue_social POSITIF si hausse cotisations (recettes ↑)
+        # delta_revenue_social NÉGATIF si baisse cotisations (recettes ↓)
+        # Impact: Baisse → +compétitivité, Hausse → -compétitivité
+        # ONE-TIME (baisse 50 Md€ → +1.0), en INCRÉMENT à la masse salariale de
+        # l'année (v0.7.0).
         params_cotis_pat = {'taux': taux}
-        if self._is_first_year_change('cotisations_patronales', params_cotis_pat):
-            # delta_revenue_social POSITIF si hausse cotisations (recettes ↑)
-            # delta_revenue_social NÉGATIF si baisse cotisations (recettes ↓)
-            # Impact: Baisse → +compétitivité, Hausse → -compétitivité
-            impact_competitivite = -delta_revenue_social * 0.020  # ONE-TIME (baisse 50 Md€ → +1.0)
-        else:
-            impact_competitivite = 0.0  # Niveau conservé dans indice
+        def _effet_cotisations_patronales(p):
+            return -((p['taux'] - taux_actuel) * masse_salariale) * 0.020
+
+        impact_competitivite = self._effet_ponctuel(
+            'cotisations_patronales', params_cotis_pat, _effet_cotisations_patronales)
 
         # Gini : PAS D'IMPACT MICRO (cotisations PATRONALES, pas modification directe salaire net)
         # Effet passe par compétitivité → emploi → distribution revenus = MACRO
@@ -238,17 +246,23 @@ class CompetitiviteMixin(_MixinBase):
         # Baisse 5 pts cotisations → Baisse coût → +emploi → -0.30 pt chômage
         # Hausse 5 pts cotisations → Hausse coût → -emploi → +0.30 pt chômage
         # Formule: +0.06 pt chômage par point de hausse cotisation
-        if self._is_first_year_change('cotisations_patronales_emploi', params_cotis_pat):
-            # delta_taux POSITIF si hausse (29%-27% = +0.02)
-            # delta_taux NÉGATIF si baisse (25%-27% = -0.02)
-            # Impact: Hausse → +chômage, Baisse → -chômage
-            impact_chomage = delta_taux * 0.06  # Hausse +5 pts → +0.30 pt, Baisse -5 pts → -0.30 pt
-        else:
-            impact_chomage = 0.0
+        # delta_taux POSITIF si hausse (29%-27% = +0.02)
+        # delta_taux NÉGATIF si baisse (25%-27% = -0.02)
+        # Impact: Hausse → +chômage, Baisse → -chômage
+        # Hausse +5 pts → +0.30 pt, Baisse -5 pts → -0.30 pt
+        def _effet_cotisations_patronales_emploi(p):
+            return (p['taux'] - taux_actuel) * 0.06
+
+        impact_chomage = self._effet_ponctuel(
+            'cotisations_patronales_emploi', params_cotis_pat, _effet_cotisations_patronales_emploi)
 
         # impact_emploi_pct exporte ONE-TIME pour coherence avec pa/chomage/competitivite (sinon
         # double-comptage si frontend somme sur N annees). Effet de NIVEAU conserve via baseline.
-        impact_emploi_export = impact_emploi_pct if self._is_first_year_change('cotisations_patronales_emploi_export', params_cotis_pat) else 0.0
+        def _effet_cotisations_patronales_emploi_export(p):
+            return -(p['taux'] - taux_actuel) * 0.08
+
+        impact_emploi_export = self._effet_ponctuel(
+            'cotisations_patronales_emploi_export', params_cotis_pat, _effet_cotisations_patronales_emploi_export)
 
         impacts = {
             'recettes': delta_revenue_social,
@@ -282,12 +296,15 @@ class CompetitiviteMixin(_MixinBase):
         # l'assiette qui part, et exagérait l'effet dans les DEUX sens (35 % : 24,6
         # au lieu de 17,7 Md€ à PIB 3 000 ; 33→25 % au PIB 2017 : 15,4, hors de la
         # fourchette DG Trésor citée ci-dessus — la formule corrigée donne 11,2).
-        delta_taux = 0
-        if rate != 0.25:
-            elasticity = -1.0 if rate > 0.25 else -0.6
+        def variation_recette_taux(taux_is):
+            if taux_is == 0.25:
+                return 0
+            elasticity = -1.0 if taux_is > 0.25 else -0.6
             assiette_actuelle = 0.091 * gdp * recession_factor
-            tax_base = assiette_actuelle * (1 + elasticity * (rate - 0.25))
-            delta_taux = rate * tax_base - 0.25 * assiette_actuelle
+            tax_base = assiette_actuelle * (1 + elasticity * (taux_is - 0.25))
+            return taux_is * tax_base - 0.25 * assiette_actuelle
+
+        delta_taux = variation_recette_taux(rate)
 
         delta_revenue = delta_niches + delta_taux
 
@@ -303,14 +320,15 @@ class CompetitiviteMixin(_MixinBase):
         # Coefficient : 0.015 par Md€ (OCDE 2024, effet modéré car assiette mobile, unifié avec autres mesures fiscales)
         # Référence : Moyenne UE 21%, France 25% → écart de compétitivité fiscale
         # Exemple : IS 25%→15% (coût 76 Md€) = +76 × 0.015 = +1.14 compétitivité
+        # ONE-TIME basé sur montant (−variation de recette : une baisse de taux
+        # est un montant positif), en INCRÉMENT à l'assiette de l'année (v0.7.0).
         params_is_taux = {'rate': rate}  # Seul le TAUX impacte la compétitivité
-        if self._is_first_year_change('impot_societes_taux', params_is_taux):
-            montant_baisse_mde = -delta_taux  # delta_taux négatif si baisse taux → montant positif
-            competitivite = montant_baisse_mde * 0.015  # ONE-TIME basé sur montant
-            _log_debug(self.debug_logs, f"Y{year}: IS TAUX CHANGE DETECTED - rate={rate*100:.0f}%, montant={montant_baisse_mde:.1f}Md€, competitivite={competitivite:+.3f}")
-        else:
-            competitivite = 0.0  # Niveau conservé dans indice
-            _log_debug(self.debug_logs, f"Y{year}: IS taux={rate*100:.0f}% (no change detected)")
+        def _effet_impot_societes_taux(p):
+            return -variation_recette_taux(p['rate']) * 0.015
+
+        competitivite = self._effet_ponctuel(
+            'impot_societes_taux', params_is_taux, _effet_impot_societes_taux)
+        _log_debug(self.debug_logs, f"Y{year}: IS taux={rate*100:.0f}%, competitivite (ponctuel)={competitivite:+.3f}")
 
         impacts = {
             'recettes': delta_revenue,
@@ -344,10 +362,11 @@ class CompetitiviteMixin(_MixinBase):
         # Référence empirique : -20 Md€ (2021-2023) → +0.3 compétitivité observée
         # Recalibré pour refléter l'impact réel incluant délocalisation/investissement
         params_impots_prod = {'montant': montant}
-        if self._is_first_year_change('impots_production', params_impots_prod):
-            impact_competitivite = delta_revenue * 0.020  # ONE-TIME changement montant
-        else:
-            impact_competitivite = 0.0  # Niveau conservé dans indice
+        def _effet_impots_production(p):
+            return (montant_base - p['montant']) * 0.020
+
+        impact_competitivite = self._effet_ponctuel(  # ONE-TIME, en INCRÉMENT (v0.7.0)
+            'impots_production', params_impots_prod, _effet_impots_production)
 
         # Gini : PAS D'IMPACT MICRO (impôts entreprises, pas modification directe revenus ménages)
         # Répercussion prix uniforme sur tous déciles → pas redistributif
@@ -361,13 +380,15 @@ class CompetitiviteMixin(_MixinBase):
         # Formule conservative: +0.0007 pt chômage par Md€ (coefficient médian)
         # Exemple: Hausse 15 Md€ → delta_revenue = -15 → impact = -(-15) * 0.0001 = +0.0015 pt
         #          Baisse 10 Md€ → delta_revenue = +10 → impact = -(+10) * 0.0001 = -0.0010 pt
-        if self._is_first_year_change('impots_production_emploi', params_impots_prod):
-            # delta_revenue POSITIF si baisse impôts (97→87 = +10)
-            # delta_revenue NÉGATIF si hausse impôts (97→112 = -15)
-            # Impact: Hausse 15 Md€ → +0.10 pt, Baisse 10 Md€ → -0.07 pt
-            impact_chomage = -delta_revenue * 0.00007  # RECALIBRÉ pour +10 Md€ → +0.07 pt
-        else:
-            impact_chomage = 0.0
+        # delta_revenue POSITIF si baisse impôts (97→87 = +10)
+        # delta_revenue NÉGATIF si hausse impôts (97→112 = -15)
+        # Impact: Hausse 15 Md€ → +0.10 pt, Baisse 10 Md€ → -0.07 pt
+        # RECALIBRÉ pour +10 Md€ → +0.07 pt
+        def _effet_impots_production_emploi(p):
+            return -(montant_base - p['montant']) * 0.00007
+
+        impact_chomage = self._effet_ponctuel(
+            'impots_production_emploi', params_impots_prod, _effet_impots_production_emploi)
 
         impacts = {
             'recettes': -delta_revenue,  # Négatif car baisse = perte recettes
@@ -394,14 +415,15 @@ class CompetitiviteMixin(_MixinBase):
         # Hausse = perte attractivité (signal fiscal négatif)
         # Coefficient : -0.003 par Md€ (impact modéré, taxe ponctuelle)
         # Exemple : Suppression 8 Md€ → +8 × 0.003 = +0.024 compétitivité
+        # Hausse positive, baisse négative ; ONE-TIME (hausse = négatif), en
+        # INCRÉMENT (v0.7.0).
         params_is_excep = {'montant': montant}
-        if self._is_first_year_change('is_exceptionnel_tge', params_is_excep):
-            delta_montant = montant - montant_base  # Hausse positive, baisse négative
-            impact_competitivite = -delta_montant * 0.003  # ONE-TIME (hausse = négatif)
-            _log_debug(self.debug_logs, f"Y{year}: IS EXCEP TGE CHANGE DETECTED - montant={montant:.0f}Md€, delta={delta_montant:+.0f}Md€, competitivite={impact_competitivite:+.3f}")
-        else:
-            impact_competitivite = 0.0
-            _log_debug(self.debug_logs, f"Y{year}: IS excep TGE montant={montant:.0f}Md€ (no change detected)")
+        def _effet_is_exceptionnel_tge(p):
+            return -(p['montant'] - montant_base) * 0.003
+
+        impact_competitivite = self._effet_ponctuel(
+            'is_exceptionnel_tge', params_is_excep, _effet_is_exceptionnel_tge)
+        _log_debug(self.debug_logs, f"Y{year}: IS excep TGE montant={montant:.0f}Md€, competitivite (ponctuel)={impact_competitivite:+.3f}")
 
         impacts = {
             'recettes': delta_revenue,
