@@ -51,9 +51,9 @@ import logging
 import math
 import numbers
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, FrozenSet, Optional
+from typing import Dict, FrozenSet, Literal, Optional, Tuple, get_args
 
 from ..constants import (
     CHOMAGE_CLIP_MAX,
@@ -61,6 +61,7 @@ from ..constants import (
     CONJONCTURE_AMPLITUDE_MAX,
     CONJONCTURE_DERNIERE_ANNEE,
     CONJONCTURE_PREMIERE_ANNEE,
+    PLAFOND_IMPACT_TOTAL_PIB,
     POLICY_START_YEAR,
 )
 from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
@@ -126,7 +127,7 @@ _RAMPE_CLES = frozenset({'annees', 'leviers'})
 @dataclass(frozen=True)
 class Rampe:
     annees: int
-    leviers: tuple
+    leviers: Tuple[str, ...]
 
 
 def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
@@ -167,8 +168,9 @@ def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
     if isinstance(annees, bool) or not isinstance(annees, numbers.Integral):
         return defaut(f"annees = {_apercu(annees)} : entier attendu dans "
                       f"[{RAMPE_ANNEES_MIN} ; {RAMPE_ANNEES_MAX}] — rampe ignorée", None, 'annees')
+    annees = int(annees)
     if not RAMPE_ANNEES_MIN <= annees <= RAMPE_ANNEES_MAX:
-        borne = min(max(int(annees), RAMPE_ANNEES_MIN), RAMPE_ANNEES_MAX)
+        borne = min(max(annees, RAMPE_ANNEES_MIN), RAMPE_ANNEES_MAX)
         annees = defaut(f"annees = {_apercu(annees)} hors de [{RAMPE_ANNEES_MIN} ; "
                         f"{RAMPE_ANNEES_MAX}] — ramenée à {borne}", borne, 'annees')
     leviers = valeur.get('leviers')
@@ -248,15 +250,29 @@ def valider_mesures_serveur(mesures, origine: str) -> None:
             raise _defaut_serveur(f"{origine} : {levier} : {e}") from e
 
 
-@functools.lru_cache(maxsize=1)
 def charger_droit_en_vigueur() -> DroitEnVigueur:
-    """Lit et valide le droit en vigueur (cache : une lecture par processus ;
-    ``cache_clear()`` en test). ``RuntimeError`` si le fichier est absent,
-    illisible ou invalide."""
+    """Droit en vigueur validé, en COPIE PROFONDE à chaque appel : le cache du
+    processus (une lecture, ``vider_caches()`` en test) ne peut pas être altéré
+    par un appelant pour la simulation suivante. ``RuntimeError`` si le fichier
+    est absent, illisible ou invalide."""
+    return copy.deepcopy(_droit_en_vigueur_valide())
+
+
+def vider_caches() -> None:
+    """Vide les caches des deux fichiers de données serveur (tests ; un
+    remplacement à chaud du fichier en production passe par un redémarrage)."""
+    _droit_en_vigueur_valide.cache_clear()
+    _atterrissage_valide.cache_clear()
+
+
+@functools.lru_cache(maxsize=1)
+def _droit_en_vigueur_valide() -> DroitEnVigueur:
     try:
         contenu = json.loads(DROIT_EN_VIGUEUR_PATH.read_text(encoding='utf-8'))
     except FileNotFoundError as e:
         raise _defaut_serveur("fichier introuvable") from e
+    except OSError as e:
+        raise _defaut_serveur(f"lecture impossible ({e})") from e
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         raise _defaut_serveur(f"JSON illisible : {e}") from e
     if not isinstance(contenu, dict):
@@ -334,14 +350,15 @@ def normaliser_annee_debut(valeur, *, strict: bool, warned: Optional[set] = None
         _signaler(warned, corrections, message + " — ignorée, programme appliqué dès "
                   f"{ANNEE_DEBUT_MIN} (mode historique)")
         return None
+    valeur = int(valeur)
     if not ANNEE_DEBUT_MIN <= valeur <= ANNEE_DEBUT_MAX:
-        borne = min(max(int(valeur), ANNEE_DEBUT_MIN), ANNEE_DEBUT_MAX)
+        borne = min(max(valeur, ANNEE_DEBUT_MIN), ANNEE_DEBUT_MAX)
         message = f"annee_debut = {valeur} hors de {domaine}"
         if strict:
             raise AnneeDebutInvalide(message + " (mode BUDGETLAB_STRICT)")
         _signaler(warned, corrections, message + f" — ramenée à {borne}")
         return borne
-    return int(valeur)
+    return valeur
 
 
 def _resume(noms: list) -> str:
@@ -365,13 +382,21 @@ def heriter_du_droit(programme: Dict, droit_vote: Dict, droit_en_vigueur: Dict) 
     l'atterrissage compris (lot E).
 
     Un levier absent ou ``null``, ou dont le programme reprend le bloc VOTÉ, est
-    celui du droit en vigueur. Un levier réajusté que le programme modifie garde
-    le réajustement sur chaque paramètre que le programme reprend du budget voté
-    (modifier la prévention ne remet pas les franchises à leur valeur votée) ; un
-    paramètre que le programme change garde la valeur du programme (son niveau
-    encodé). Un paramètre absent du bloc du programme reçoit le réajustement,
-    sauf pour un levier à modes exclusifs (on n'ajoute jamais une clé qui en
-    masquerait une autre). Sans réajustement : ``fusionner`` au bit près."""
+    celui du droit en vigueur. Un levier que le programme modifie est COMPLÉTÉ
+    paramètre par paramètre (revue passe 1) :
+
+    - un paramètre que le programme change garde la valeur du programme (son
+      niveau encodé) ;
+    - un paramètre que le programme reprend du budget voté reçoit le
+      réajustement (modifier la prévention ne remet pas les franchises à leur
+      valeur votée) ;
+    - un paramètre ABSENT du bloc reçoit la valeur du droit en vigueur
+      (réajustée ou votée), jamais le défaut du moteur : un bloc partiel vaut le
+      bloc complet qui reprend le droit en vigueur. Sauf pour un levier à modes
+      exclusifs : on n'y ajoute jamais une clé qui en masquerait une autre (le
+      handler y lit alors ses défauts, comme en mode historique).
+
+    Un levier absent du droit en vigueur reste le bloc du programme."""
     effectif = dict(droit_en_vigueur)
     for levier, bloc in programme.items():
         if bloc is None:
@@ -379,18 +404,15 @@ def heriter_du_droit(programme: Dict, droit_vote: Dict, droit_en_vigueur: Dict) 
         vote = droit_vote.get(levier)
         if bloc == vote:
             continue
-        reajuste = droit_en_vigueur.get(levier)
-        if isinstance(bloc, dict) and isinstance(vote, dict) and isinstance(reajuste, dict) \
-                and reajuste != vote:
-            bloc = dict(bloc)
-            for param, valeur in reajuste.items():
-                if vote.get(param) == valeur:
-                    continue
-                if param in bloc:
-                    if bloc[param] == vote.get(param):
-                        bloc[param] = valeur
-                elif levier not in MODES_EXCLUSIFS:
-                    bloc[param] = valeur
+        reference = droit_en_vigueur.get(levier)
+        if isinstance(bloc, dict) and isinstance(reference, dict):
+            vote = vote if isinstance(vote, dict) else {}
+            herites = ({} if levier in MODES_EXCLUSIFS else
+                       {p: v for p, v in reference.items() if p not in bloc})
+            reajustes = {p: reference[p] for p, v in bloc.items()
+                         if p in vote and v == vote[p] and p in reference and reference[p] != v}
+            if herites or reajustes:
+                bloc = {**herites, **bloc, **reajustes}
         effectif[levier] = bloc
     return effectif
 
@@ -408,40 +430,49 @@ def fusionner(droit: Dict, programme: Dict) -> Dict:
     return effectif
 
 
-@dataclass
-class CadreTemporel:
-    """Cadre d'UNE simulation : mode, année de début, droit en vigueur et
-    programme effectif. ``mesures_de_l_annee`` est le point unique lu par
-    l'orchestrateur en tête d'année."""
-    mode: str
-    annee_debut: int
-    droit: Optional[DroitEnVigueur]
-    mesures_droit: Optional[Dict]
-    programme: Dict
+@dataclass(frozen=True)
+class EtatCadre:
+    """Champs du MODE CADRE (revue passe 1) : tous présents dès que le mode est
+    établi, jamais optionnels ; absents en mode historique, où
+    ``CadreTemporel.etat`` vaut ``None``. Un seul test, ``actif``. Gelé : une
+    simulation lit son cadre, elle ne le réécrit jamais."""
+    droit: DroitEnVigueur
+    droit_vote: Dict
+    mesures_droit: Dict
+    droit_par_annee: Dict[int, Dict]
     leviers_modifies: FrozenSet[str]
+    atterrissage: 'Atterrissage'
     rampe: Optional[Rampe] = None
-    leviers_rampes: tuple = ()
+    leviers_rampes: Tuple[str, ...] = ()
+    leviers_ignores: Tuple[str, ...] = ()
     mesures_rampe: Optional[Dict[int, Dict]] = None
-    atterrissage: Optional['Atterrissage'] = None
-    droit_par_annee: Optional[Dict[int, Dict]] = None
-    droit_vote: Optional[Dict] = None
+
+
+@dataclass(frozen=True)
+class CadreTemporel:
+    """Cadre d'UNE simulation : année de début, programme effectif et, en mode
+    cadre, son état (``etat``). ``mesures_de_l_annee`` est le point unique lu
+    par l'orchestrateur en tête d'année."""
+    annee_debut: int
+    programme: Dict
+    etat: Optional[EtatCadre] = None
 
     @classmethod
     def preparer(cls, programme: Dict, annee_debut, *, droit: Optional[DroitEnVigueur] = None,
                  rampe=None, strict: bool = False, warned: Optional[set] = None,
-                 corrections: Optional[dict] = None) -> 'CadreTemporel':
+                 corrections: Optional[dict] = None,
+                 avis: Optional[dict] = None) -> 'CadreTemporel':
         """``programme`` : mesures de l'appelant APRÈS la porte d'entrée
         (``assainir_mesures``). ``droit`` : injecté en test, sinon le fichier.
-        ``rampe`` : demande de l'appelant (lot D), validée ici."""
+        ``rampe`` : demande de l'appelant (lot D), validée ici. ``avis`` : avis
+        informatifs (``report.warnings`` sans toucher ``report.valid``)."""
         debut = normaliser_annee_debut(annee_debut, strict=strict, warned=warned,
                                        corrections=corrections)
         historique = debut is None or debut == POLICY_START_YEAR
         rampe_effective = normaliser_rampe(rampe, mode_cadre=not historique, strict=strict,
                                            warned=warned, corrections=corrections)
-        if historique:
-            return cls(mode=MODE_HISTORIQUE, annee_debut=POLICY_START_YEAR, droit=None,
-                       mesures_droit=None, programme=programme,
-                       leviers_modifies=frozenset())
+        if debut is None or debut == POLICY_START_YEAR:
+            return cls(annee_debut=POLICY_START_YEAR, programme=programme)
         droit = droit if droit is not None else charger_droit_en_vigueur()
         atterrissage = charger_atterrissage()
         # Un atterrissage ÉCRASE des niveaux : il exige que le programme
@@ -458,8 +489,7 @@ class CadreTemporel:
             _signaler(warned, corrections, message + f" — ramenée à {derniere + 1}",
                       cle=('cadre', 'annee_debut_atterrissage'))
             debut = derniere + 1
-        # Copie PAR SIMULATION : le droit chargé est partagé par le cache du
-        # processus ; aucune simulation ne doit pouvoir l'altérer pour la suivante.
+        # Copie PAR SIMULATION (le droit injecté en test n'est jamais altéré).
         droit_vote = copy.deepcopy(droit.mesures)
         droit_par_annee = {an: droit_reajuste(droit_vote, atterrissage, an)
                            for an in range(POLICY_START_YEAR, debut)}
@@ -468,25 +498,43 @@ class CadreTemporel:
         effectif = heriter_du_droit(programme, droit_vote, mesures_droit)
         modifies = frozenset(l for l in set(effectif) | set(mesures_droit)
                              if effectif.get(l) != mesures_droit.get(l))
-        rampes, par_annee = _mesures_rampees(effectif, mesures_droit, debut, rampe_effective)
-        return cls(mode=MODE_CADRE, annee_debut=debut, droit=droit,
-                   mesures_droit=mesures_droit, programme=effectif,
-                   leviers_modifies=modifies, rampe=rampe_effective,
-                   leviers_rampes=rampes, mesures_rampe=par_annee,
-                   atterrissage=atterrissage, droit_par_annee=droit_par_annee,
-                   droit_vote=droit_vote)
+        rampes, ignores, par_annee = _mesures_rampees(effectif, mesures_droit, debut,
+                                                      rampe_effective)
+        if ignores:
+            # Demande sans effet, lue telle quelle : avis informatif, jamais une
+            # correction (``report.valid`` inchangé).
+            _signaler(warned, avis,
+                      f"rampe : {_resume(list(ignores))} égal(s) au droit en vigueur dans le "
+                      f"programme — rien à ramper, demande sans effet",
+                      cle=('cadre', 'rampe', 'ignores'))
+        return cls(annee_debut=debut, programme=effectif, etat=EtatCadre(
+            droit=droit, droit_vote=droit_vote, mesures_droit=mesures_droit,
+            droit_par_annee=droit_par_annee, leviers_modifies=modifies,
+            atterrissage=atterrissage, rampe=rampe_effective, leviers_rampes=rampes,
+            leviers_ignores=ignores, mesures_rampe=par_annee))
 
     @property
     def actif(self) -> bool:
-        return self.mode == MODE_CADRE
+        return self.etat is not None
+
+    @property
+    def mode(self) -> str:
+        return MODE_CADRE if self.etat is not None else MODE_HISTORIQUE
+
+    @property
+    def leviers_modifies(self) -> FrozenSet[str]:
+        return self.etat.leviers_modifies if self.etat is not None else frozenset()
 
     def mesures_de_l_annee(self, annee: int) -> Dict:
         """Droit en vigueur avant ``annee_debut``, programme ensuite. Mode
         historique : le programme, toujours (le même objet : bit-identique)."""
-        if self.actif and annee < self.annee_debut:
-            return self.droit_par_annee.get(annee, self.mesures_droit)
-        if self.mesures_rampe and annee in self.mesures_rampe:
-            return self.mesures_rampe[annee]
+        etat = self.etat
+        if etat is None:
+            return self.programme
+        if annee < self.annee_debut:
+            return etat.droit_par_annee.get(annee, etat.mesures_droit)
+        if etat.mesures_rampe and annee in etat.mesures_rampe:
+            return etat.mesures_rampe[annee]
         return self.programme
 
     def origines_de_l_annee(self, annee: int) -> Dict[str, int]:
@@ -494,30 +542,43 @@ class CadreTemporel:
         du début (lot C) ; ``{}`` avant (et en mode historique) : tous les
         leviers comptent alors depuis ``POLICY_START_YEAR``. Lue par
         ``BudgetSimulatorV45._origine(levier)``."""
-        if not self.actif or annee < self.annee_debut:
+        if self.etat is None or annee < self.annee_debut:
             return {}
-        return {levier: self.annee_debut for levier in self.leviers_modifies}
+        return {levier: self.annee_debut for levier in self.etat.leviers_modifies}
 
-    def cible(self, annee: int, grandeur: str) -> Optional[float]:
-        """Valeur injectée de ``grandeur`` pour ``annee`` (mode cadre), sinon None."""
-        if not self.actif or self.atterrissage is None:
+    def cible(self, annee: int, grandeur: 'Grandeur') -> Optional[float]:
+        """Valeur injectée de ``grandeur`` pour ``annee`` (mode cadre), sinon
+        None. Une grandeur hors de ``GRANDEURS_ATTERRISSAGE`` est une faute de
+        programmation : ``ValueError``, jamais « non injectée »."""
+        verifier_grandeur(grandeur)
+        if self.etat is None:
             return None
-        bloc = self.atterrissage.annees.get(annee)
+        bloc = self.etat.atterrissage.annees.get(annee)
         c = bloc.cibles.get(grandeur) if bloc is not None else None
         return None if c is None else c.valeur
 
     def compose(self, annee: int) -> bool:
         """Vrai si l'année exige la composition à trois mondes : mode cadre, à
         partir du début, programme différent du droit en vigueur."""
-        return self.actif and annee >= self.annee_debut and bool(self.leviers_modifies)
+        return (self.etat is not None and annee >= self.annee_debut
+                and bool(self.etat.leviers_modifies))
 
     def rapport_atterrissage(self, journal: Optional[Dict] = None) -> Optional[Dict]:
         """Bloc ``cadre.atterrissage`` : cibles sourcées, réajustements, et la
         DÉCOMPOSITION de chaque année simulée (valeur du modèle, valeur observée,
         choc de croissance, coin IPC, écart de solde réajustements + résidu,
         ajustement stock-flux), en % du PIB et en Md€. Identique pour tous les
-        scénarios (l'année injectée est le droit en vigueur pour tous)."""
-        if not self.actif or self.atterrissage is None:
+        scénarios (l'année injectée est le droit en vigueur pour tous).
+
+        Clés de la décomposition = ``GRANDEURS_ATTERRISSAGE`` (le solde sous
+        ``deficit``, comme sa cible). ``journal`` : {année simulée: entrées} ;
+        une année injectée hors de l'horizon simulé n'y figure pas
+        (décomposition ``None``) ; une année simulée au journal incomplet est
+        un défaut du moteur : ``RuntimeError``, jamais une décomposition
+        partielle publiée en silence. Montant sans objet (cible ``null``) :
+        ``None``, jamais 0,0."""
+        etat = self.etat
+        if etat is None:
             return None
         journal = journal or {}
 
@@ -530,15 +591,20 @@ class CadreTemporel:
             return None if entree['observe'] is None else round((entree['observe'] - entree['modele']) * 100, 4)
 
         def md(x):
-            return round(x, 3)
+            return None if x is None else round(x, 3)
 
         annees = {}
-        for an, bloc in sorted(self.atterrissage.annees.items()):
-            j = journal.get(an) or {}
+        for an, bloc in sorted(etat.atterrissage.annees.items()):
             decomposition = None
-            if {'croissance', 'deflateur', 'chomage', 'solde', 'dette', 'ipc'} <= set(j):
-                solde, dette, ipc = j['solde'], j['dette'], j['ipc']
-                reaj = j.get('reajustements_md_eur', 0.0)
+            if an in journal:
+                j = journal[an]
+                manquantes = [c for c in CLES_JOURNAL_ATTERRISSAGE if c not in j]
+                if manquantes:
+                    raise RuntimeError(
+                        f"Atterrissage {an} : journal incomplet ({', '.join(manquantes)}) — "
+                        f"défaut du moteur : l'année simulée n'a pas été atterrie en entier")
+                deficit, dette, ipc = j['deficit'], j['dette'], j['ipc']
+                reaj, residuel = j['reajustements_md_eur'], deficit['residuel_md_eur']
                 decomposition = {
                     'croissance': {'modele_pct': pct(j['croissance']['modele']),
                                    'observe_pct': pct(j['croissance']['observe']),
@@ -551,60 +617,81 @@ class CadreTemporel:
                     'chomage': {'modele_pct': pct(j['chomage']['modele']),
                                 'observe_pct': pct(j['chomage']['observe']),
                                 'ecart_pt': ecart(j['chomage'])},
-                    'solde': {'modele_pct': pct(solde['modele']), 'observe_pct': pct(solde['observe']),
-                              'reajustements_md_eur': md(reaj),
-                              'residuel_md_eur': md(solde['residuel_md_eur']),
-                              'ecart_md_eur': md(reaj + solde['residuel_md_eur'])},
+                    'deficit': {'modele_pct': pct(deficit['modele']),
+                                'observe_pct': pct(deficit['observe']),
+                                'reajustements_md_eur': md(reaj),
+                                'residuel_md_eur': md(residuel),
+                                'ecart_md_eur': (None if reaj is None or residuel is None
+                                                 else md(reaj + residuel))},
                     'dette': {'modele_pct': pct(dette['modele']), 'observe_pct': pct(dette['observe']),
                               'ajustement_stock_flux_md_eur': md(dette['ajustement_md_eur'])},
                 }
             annees[str(an)] = {
                 'cibles': {g: (None if c is None else c.publier()) for g, c in bloc.cibles.items()},
                 'reajustements_droit_en_vigueur': copy.deepcopy(bloc.reajustements),
-                'sources_reajustements': dict(bloc.sources_reajustements or {}),
+                'sources_reajustements': dict(bloc.sources_reajustements),
                 'decomposition': decomposition,
             }
-        return {'version': self.atterrissage.version, 'date': self.atterrissage.date,
-                'description': self.atterrissage.description, 'annees': annees}
+        return {'version': etat.atterrissage.version, 'date': etat.atterrissage.date,
+                'description': etat.atterrissage.description, 'annees': annees}
 
-    def rapport(self, journal_atterrissage: Optional[Dict] = None) -> Dict:
-        """Bloc ``cadre`` de la réponse."""
+    def rapport(self, journal_atterrissage: Optional[Dict] = None,
+                annees_plafond_total=()) -> Dict:
+        """Bloc ``cadre`` de la réponse. ``mesures_effectives`` (mode cadre) :
+        les mesures appliquées à partir du début, rampe achevée — le droit en
+        vigueur RÉAJUSTÉ et, par-dessus, le programme ; pour le statu quo, le
+        droit en vigueur réajusté lui-même. ``plafond_total`` : le plafond de
+        l'impact total des mesures (``constants.PLAFOND_IMPACT_TOTAL_PIB``,
+        inchangé), sur les écarts au DÉFAUT du moteur, et les années où il
+        mord."""
+        etat = self.etat
         return {
             'mode': self.mode,
             'annee_debut': self.annee_debut,
             'annees_droit_en_vigueur': (list(range(POLICY_START_YEAR, self.annee_debut))
-                                        if self.actif else []),
-            'droit_en_vigueur': self.droit.meta() if self.droit is not None else None,
+                                        if etat is not None else []),
+            'droit_en_vigueur': etat.droit.meta() if etat is not None else None,
             'leviers_modifies': sorted(self.leviers_modifies),
-            'rampe': (None if self.rampe is None else
-                      {'annees': self.rampe.annees, 'leviers': list(self.rampe.leviers),
-                       'leviers_rampes': list(self.leviers_rampes)}),
+            'mesures_effectives': copy.deepcopy(self.programme) if etat is not None else None,
+            'rampe': (None if etat is None or etat.rampe is None else
+                      {'annees': etat.rampe.annees, 'leviers': list(etat.rampe.leviers),
+                       'leviers_rampes': list(etat.leviers_rampes),
+                       'leviers_ignores': list(etat.leviers_ignores)}),
             'atterrissage': self.rapport_atterrissage(journal_atterrissage),
+            'plafond_total': {'seuil_pct_pib': round(PLAFOND_IMPACT_TOTAL_PIB * 100, 6),
+                              'reference': 'defauts_du_moteur',
+                              'annees': list(annees_plafond_total)},
         }
 
 
 def _mesures_rampees(programme: Dict, droit: Dict, debut: int, rampe: Optional[Rampe]):
-    """(leviers effectivement rampés, {année: mesures}) pour les années de rampe
-    non pleines (début … début + n − 2) ; ensuite, le programme lui-même (valeur
-    EXACTE du programme, jamais p_droit + (p − p_droit) × 1). Référence d'un
-    levier absent du droit : le défaut du moteur."""
-    if rampe is None or rampe.annees == 1:
-        return (), None
+    """(leviers effectivement rampés, leviers demandés SANS effet, {année:
+    mesures}) pour les années de rampe non pleines (début … début + n − 2) ;
+    ensuite, le programme lui-même (valeur EXACTE du programme, jamais p_droit +
+    (p − p_droit) × 1). Référence d'un levier absent du droit : le défaut du
+    moteur. Sans effet : paramètre égal à la référence (levier non modifié par
+    le programme) ou non numérique."""
+    if rampe is None:
+        return (), (), None
     from ..config import load_default_values
     defauts = load_default_values()
-    a_ramper = []
+    a_ramper, ignores = [], []
     for nom in rampe.leviers:
         levier, param = nom.split('.')
         bloc = programme.get(levier)
         if not isinstance(bloc, dict) or param not in bloc:
+            ignores.append(nom)
             continue
-        ref_bloc = droit.get(levier) if isinstance(droit.get(levier), dict) else {}
+        ref_bloc = droit.get(levier)
+        ref_bloc = ref_bloc if isinstance(ref_bloc, dict) else {}
         p_ref = ref_bloc.get(param, defauts.get(levier, {}).get(param))
         p_prog = bloc[param]
         if _nombre(p_ref) and _nombre(p_prog) and p_prog != p_ref:
             a_ramper.append((nom, levier, param, p_ref, p_prog))
-    if not a_ramper:
-        return (), None
+        else:
+            ignores.append(nom)
+    if not a_ramper or rampe.annees == 1:
+        return (), tuple(ignores), None
     par_annee = {}
     for k in range(1, rampe.annees):
         m = dict(programme)
@@ -613,7 +700,7 @@ def _mesures_rampees(programme: Dict, droit: Dict, debut: int, rampe: Optional[R
             bloc[param] = p_ref + (p_prog - p_ref) * k / rampe.annees
             m[levier] = bloc
         par_annee[debut + k - 1] = m
-    return tuple(nom for nom, *_ in a_ramper), par_annee
+    return tuple(nom for nom, *_ in a_ramper), tuple(ignores), par_annee
 
 
 # ---------------------------------------------------------------------------
@@ -621,8 +708,14 @@ def _mesures_rampees(programme: Dict, droit: Dict, debut: int, rampe: Optional[R
 # ---------------------------------------------------------------------------
 
 ATTERRISSAGE_PATH = Path(__file__).resolve().parent.parent / 'data' / 'atterrissage_observe.json'
-# Grandeurs injectables, dans l'ordre d'application de l'année.
-GRANDEURS_ATTERRISSAGE = ('croissance', 'deflateur', 'ipc', 'chomage', 'deficit', 'dette')
+# Grandeurs injectables, dans l'ordre d'application de l'année : SOURCE UNIQUE
+# des clés du fichier (toutes présentes chaque année, ``null`` = non injectée),
+# du journal de l'orchestrateur et de la décomposition publiée.
+Grandeur = Literal['croissance', 'deflateur', 'ipc', 'chomage', 'deficit', 'dette']
+GRANDEURS_ATTERRISSAGE: Tuple[str, ...] = get_args(Grandeur)
+# Entrées du journal d'une année simulée : les six grandeurs et l'effet des
+# réajustements (premier temps).
+CLES_JOURNAL_ATTERRISSAGE: Tuple[str, ...] = GRANDEURS_ATTERRISSAGE + ('reajustements_md_eur',)
 # Domaine des VALEURS (fractions) : garde d'unité et de plausibilité.
 DOMAINES_ATTERRISSAGE = {
     'croissance': (-0.10, 0.10), 'deflateur': (-0.05, 0.15), 'ipc': (-0.05, 0.15),
@@ -638,6 +731,15 @@ ECART_ATTERRISSAGE_MAX = CONJONCTURE_AMPLITUDE_MAX
 _CLE_REAJUSTEMENTS = 'reajustements_droit_en_vigueur'
 _CLE_SOURCES_REAJUSTEMENTS = 'sources_reajustements'
 _CHAMPS_CIBLE = frozenset({'valeur', 'source', 'date', 'provisoire', 'note'})
+
+
+def verifier_grandeur(grandeur) -> None:
+    """``ValueError`` si ``grandeur`` n'est pas une grandeur d'atterrissage :
+    une faute de frappe (« solde », « pib ») rendrait sinon « non injectée »
+    en silence."""
+    if grandeur not in GRANDEURS_ATTERRISSAGE:
+        raise ValueError(f"grandeur d'atterrissage inconnue {grandeur!r} "
+                         f"(attendues : {', '.join(GRANDEURS_ATTERRISSAGE)})")
 
 
 @dataclass(frozen=True)
@@ -657,7 +759,7 @@ class Cible:
 class AtterrissageAnnee:
     cibles: Dict[str, Optional[Cible]]
     reajustements: Dict
-    sources_reajustements: Dict[str, str] = None
+    sources_reajustements: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -688,6 +790,7 @@ def _lire_cible(annee: int, grandeur: str, brut) -> Optional[Cible]:
     valeur = brut.get('valeur')
     if isinstance(valeur, bool) or not isinstance(valeur, numbers.Real) or not math.isfinite(valeur):
         raise _defaut_atterrissage(f"{annee}.{grandeur}.valeur = {valeur!r} : nombre fini attendu")
+    valeur = float(valeur)
     bas, haut = DOMAINES_ATTERRISSAGE[grandeur]
     if not bas <= valeur <= haut:
         raise _defaut_atterrissage(f"{annee}.{grandeur}.valeur = {valeur!r} hors de [{bas} ; {haut}] "
@@ -698,19 +801,26 @@ def _lire_cible(annee: int, grandeur: str, brut) -> Optional[Cible]:
     provisoire = brut.get('provisoire', False)
     if not isinstance(provisoire, bool):
         raise _defaut_atterrissage(f"{annee}.{grandeur}.provisoire : booléen attendu")
-    return Cible(valeur=float(valeur), source=brut['source'], date=brut['date'],
+    return Cible(valeur=valeur, source=brut['source'], date=brut['date'],
                  provisoire=provisoire, note=str(brut.get('note', '')))
 
 
-@functools.lru_cache(maxsize=1)
 def charger_atterrissage() -> Atterrissage:
-    """Lit et valide l'atterrissage observé (cache ; ``cache_clear()`` en test).
+    """Atterrissage observé validé, en COPIE PROFONDE à chaque appel (même
+    règle que ``charger_droit_en_vigueur`` ; ``vider_caches()`` en test).
     Réajustements validés sur le droit en vigueur qu'ils modifient (mêmes portes,
     sans aucune correction, et même garde de composabilité)."""
+    return copy.deepcopy(_atterrissage_valide())
+
+
+@functools.lru_cache(maxsize=1)
+def _atterrissage_valide() -> Atterrissage:
     try:
         contenu = json.loads(ATTERRISSAGE_PATH.read_text(encoding='utf-8'))
     except FileNotFoundError as e:
         raise _defaut_atterrissage("fichier introuvable") from e
+    except OSError as e:
+        raise _defaut_atterrissage(f"lecture impossible ({e})") from e
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         raise _defaut_atterrissage(f"JSON illisible : {e}") from e
     if not isinstance(contenu, dict):
@@ -738,6 +848,12 @@ def charger_atterrissage() -> Atterrissage:
                               - {_CLE_REAJUSTEMENTS, _CLE_SOURCES_REAJUSTEMENTS}))
         if inconnus:
             raise _defaut_atterrissage(f"{annee} : grandeur(s) inconnue(s) {', '.join(inconnus)}")
+        # Les six grandeurs sont ÉCRITES chaque année (``null`` = non injectée) :
+        # une clé oubliée ne vaut jamais « non injectée » en silence.
+        absentes = [g for g in GRANDEURS_ATTERRISSAGE if g not in bloc]
+        if absentes:
+            raise _defaut_atterrissage(f"{annee} : grandeur(s) absente(s) {', '.join(absentes)} "
+                                       f"(null pour « non injectée »)")
         reaj = bloc.get(_CLE_REAJUSTEMENTS, {})
         if not isinstance(reaj, dict):
             raise _defaut_atterrissage(f"{annee}.{_CLE_REAJUSTEMENTS} : dict de leviers attendu")
@@ -763,7 +879,7 @@ def charger_atterrissage() -> Atterrissage:
                 raise _defaut_atterrissage(f"{annee}.{_CLE_SOURCES_REAJUSTEMENTS}.{cle_source} : "
                                            f"source d'un paramètre réajusté, texte non vide attendu")
         manquantes = sorted(attendues - set(sources))
-        if manquantes and sources:
+        if manquantes:
             raise _defaut_atterrissage(f"{annee} : réajustement(s) sans source : {', '.join(manquantes)}")
         annees[annee] = AtterrissageAnnee(
             cibles={g: _lire_cible(annee, g, bloc.get(g)) for g in GRANDEURS_ATTERRISSAGE},
@@ -808,11 +924,20 @@ class Monde:
     chomage_prev: Optional[Dict] = None
 
 
+# Attributs du simulateur que les handlers ÉCRIVENT, donc PROPRES à chaque monde
+# (échangés par ``_dans_le_monde`` : ``Monde.traqueur``, ``Monde.chomage_prev``).
+# Un handler qui écrirait un autre attribut le ferait fuir d'un monde à l'autre
+# en silence : la garde de test_cadre_v070_horloges.py (revue passe 1) le refuse.
+ETATS_PAR_MONDE = frozenset({'_measure_params_tracker', '_chomage_params_prev'})
+
+
 def creer_mondes(cadre_temporel: 'CadreTemporel') -> Dict[str, Monde]:
     """Les trois mondes d'une simulation en mode cadre. ``programme`` et
     ``droit_debut`` démarrent vides au début du programme ; leurs origines et
     leurs mesures sont posées chaque année par l'orchestrateur."""
-    droit = cadre_temporel.mesures_droit
+    if cadre_temporel.etat is None:
+        raise ValueError("creer_mondes : mode cadre attendu (mode historique : un seul monde)")
+    droit = cadre_temporel.etat.mesures_droit
     return {
         'droit_2026': Monde('droit_2026', droit, {}, principal=True),
         'programme': Monde('programme', cadre_temporel.programme, {}, traqueur={}),

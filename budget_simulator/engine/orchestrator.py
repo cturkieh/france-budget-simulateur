@@ -98,9 +98,16 @@ from ..constants import (
     COMPETITIVITE_VARIATION_ANNUELLE_MAX,
     HANDLER_FAILED_KEY,
     PA_VARIATION_ANNUELLE_MAX,
+    PLAFOND_IMPACT_TOTAL_PIB,
     conjoncture_observee,
 )
-from .cadre import ECART_ATTERRISSAGE_MAX, CadreTemporel, combiner, creer_mondes
+from .cadre import (
+    ECART_ATTERRISSAGE_MAX,
+    CadreTemporel,
+    combiner,
+    creer_mondes,
+    verifier_grandeur,
+)
 from .growth import part_investissement_expansion
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
@@ -312,13 +319,34 @@ class OrchestratorMixin:
     def _effet_reajustements(self, year, gdp, inflation, unemployment):
         """Effet des réajustements du droit en vigueur sur le solde de ``year``
         (Md€) : Σ levier réajusté [solde(réajusté) − solde(voté)], à l'état macro
-        de l'année. 0,0 sans réajustement."""
-        droit = self._cadre.droit_par_annee.get(year, self._cadre.mesures_droit)
-        vote = self._cadre.droit_vote
+        de l'année. 0,0 sans réajustement.
+
+        Échec d'un handler : MÊME POLITIQUE que le chemin principal
+        (``apply_measures``) — strict, l'exception remonte (annotée) ; tolérant,
+        ERROR une fois, correction tracée (``report.valid = false``) et effet
+        inconnu (``None``, publié tel quel). La trajectoire n'en dépend pas :
+        seule la répartition de l'écart de solde est inconnue."""
+        etat = self._cadre.etat
+        droit = etat.droit_par_annee.get(year, etat.mesures_droit)
+        vote = etat.droit_vote
         total = 0.0
         for levier in sorted(l for l in droit if droit[l] != vote.get(l)):
-            total += (self._solde_isole(levier, droit[levier], year, gdp, inflation, unemployment, droit)
-                      - self._solde_isole(levier, vote[levier], year, gdp, inflation, unemployment, droit))
+            try:
+                total += (self._solde_isole(levier, droit[levier], year, gdp, inflation, unemployment, droit)
+                          - self._solde_isole(levier, vote[levier], year, gdp, inflation, unemployment, droit))
+            except Exception as e:
+                if _mode_strict():
+                    e.add_note(f"réajustement {levier} de l'atterrissage {year} (évaluation isolée)")
+                    raise
+                if (levier, 'ECHEC_REAJUSTEMENT') not in self._domain_clamp_warned:
+                    self._domain_clamp_warned.add((levier, 'ECHEC_REAJUSTEMENT'))
+                    logger.error("Atterrissage %d : effet du réajustement %s non mesuré : %s",
+                                 year, levier, e, exc_info=True)
+                self._corrections.setdefault(
+                    (levier, 'ECHEC_REAJUSTEMENT'),
+                    f"atterrissage {year} : effet du réajustement {levier} non mesuré (erreur "
+                    f"interne du moteur), répartition de l'écart de solde inconnue")
+                return None
         return total
 
     def _atterrir(self, annee, grandeur, modele):
@@ -326,6 +354,7 @@ class OrchestratorMixin:
         ``modele``. Journalise les deux. Un écart au-delà du domaine du mécanisme
         (``cadre.ECART_ATTERRISSAGE_MAX``) est un défaut des données serveur :
         RuntimeError, jamais un écrêtage."""
+        verifier_grandeur(grandeur)
         if annee not in self._journal_atterrissage:
             return modele
         cible = self._cadre.cible(annee, grandeur)
@@ -631,8 +660,8 @@ class OrchestratorMixin:
             )
         # Plafonne l'impact total à 10% PIB (FMI, 2010)
         total_impact = abs(delta_spending_total) + abs(delta_revenue_total)
-        if total_impact > 0.10 * gdp:
-            scaling_factor = (0.10 * gdp) / total_impact
+        if total_impact > PLAFOND_IMPACT_TOTAL_PIB * gdp:
+            scaling_factor = (PLAFOND_IMPACT_TOTAL_PIB * gdp) / total_impact
             # Plafond systémique (FMI 2010) : signal visible hors mode debug —
             # cohérent avec le CLIP 5 % PIB par mesure (un total >10 % PIB
             # traduit une calibration agrégée aberrante, pas un cas nominal).
@@ -643,12 +672,12 @@ class OrchestratorMixin:
                 logger.warning(
                     "CLIP 10%% PIB TOTAL Y%d : impact total %.1f Md€ > 10%% PIB "
                     "(plafond=%.1f Md€) → scaling ×%.4f",
-                    year, total_impact, 0.10 * gdp, scaling_factor,
+                    year, total_impact, PLAFOND_IMPACT_TOTAL_PIB * gdp, scaling_factor,
                 )
             self._avis.setdefault(
                 ('*', 'CLIP_10'),
-                f"impact total des mesures plafonné à 10 % du PIB (plafond du "
-                f"modèle, FMI 2010), dès {year}")
+                f"impact total des mesures plafonné à {PLAFOND_IMPACT_TOTAL_PIB * 100:g} % du "
+                f"PIB (plafond du modèle, FMI 2010), dès {year}")
             # Années où le plafond mord (v0.7.0) : l'avis existant, exposé sous
             # forme structurée dans le bloc `cadre` (fiche d'un programme
             # concerné). Rapport seulement : le plafond lui-même est inchangé.
@@ -697,15 +726,19 @@ class OrchestratorMixin:
         # programme s'applique dès 2026, au bit près comme en v0.6.11.
         self._cadre = CadreTemporel.preparer(
             self.mesures, self.annee_debut, rampe=self.rampe, strict=_mode_strict(),
-            warned=self._domain_clamp_warned, corrections=self._corrections)
+            warned=self._domain_clamp_warned, corrections=self._corrections,
+            avis=self._avis)
         # Mondes de la composition des horloges (lot C) : mode cadre seulement.
         self._mondes = creer_mondes(self._cadre) if self._cadre.actif else None
         # Années où le plafond de 10 % du PIB mord (rapport, v0.7.0).
         self._annees_plafond_total = []
-        # Atterrissage (lot E) : années injectées, journal de la décomposition.
+        # Atterrissage (lot E) : années injectées DANS l'horizon simulé, journal
+        # de la décomposition (une année simulée doit y être complète :
+        # CadreTemporel.rapport_atterrissage).
         self._journal_atterrissage = {}
-        if self._cadre.actif and self._cadre.atterrissage is not None:
-            self._journal_atterrissage = {an: {} for an in self._cadre.atterrissage.annees}
+        if self._cadre.etat is not None:
+            self._journal_atterrissage = {an: {} for an in self._cadre.etat.atterrissage.annees
+                                          if an <= self.annee_base + self.periods}
 
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
@@ -887,9 +920,10 @@ class OrchestratorMixin:
                     'annee_pass_through_tva': self._origine('tva_rate') - self.annee_base + 1,
                 }
                 inflation = self.calculate_inflation(year_idx, economic_state_inflation)
-                # Atterrissage (lot E) : DÉFLATEUR du PIB sourcé, seulement s'il
-                # est donné (place prévue, null en v0.7.0). Jamais l'IPC : il passe
-                # par le coin de prix de la consommation (bloc pouvoir d'achat).
+                # Atterrissage (lot E) : DÉFLATEUR du PIB sourcé, imposé s'il est
+                # donné (2026 : 1,5 % injecté ; null = déflateur du modèle). Jamais
+                # l'IPC : il passe par le coin de prix de la consommation (bloc
+                # pouvoir d'achat).
                 inflation_atterrie = self._atterrir(year, 'deflateur', inflation)
                 if inflation_atterrie != inflation:
                     inflation = inflation_atterrie
@@ -1014,8 +1048,9 @@ class OrchestratorMixin:
                 if year in self._journal_atterrissage:
                     cible_solde = self._cadre.cible(year, 'deficit')
                     j = self._journal_atterrissage[year]
-                    j['solde'] = {'modele': deficit / gdp_nominal, 'observe': cible_solde,
-                                  'residuel_md_eur': 0.0}
+                    # Résidu ``None`` sans cible : sans objet, jamais 0,0.
+                    j['deficit'] = {'modele': deficit / gdp_nominal, 'observe': cible_solde,
+                                    'residuel_md_eur': None}
                     if cible_solde is not None:
                         ecart = cible_solde * gdp_nominal - deficit
                         if abs(ecart) > ECART_ATTERRISSAGE_MAX * gdp_nominal:
@@ -1025,7 +1060,7 @@ class OrchestratorMixin:
                         revenues = revenues + ecart
                         self.recettes_precedentes += ecart
                         deficit = cible_solde * gdp_nominal
-                        j['solde']['residuel_md_eur'] = ecart
+                        j['deficit']['residuel_md_eur'] = ecart
 
                 # (Chômage : calculé plus haut, étape 3 du bloc REFONTE — avant
                 # les flux, pour que la dépense chômage de l'année suive le taux
@@ -1053,7 +1088,7 @@ class OrchestratorMixin:
                     cible_dette = self._cadre.cible(year, 'dette')
                     j = self._journal_atterrissage[year]
                     j['dette'] = {'modele': debt / gdp_nominal, 'observe': cible_dette,
-                                  'ajustement_md_eur': 0.0}
+                                  'ajustement_md_eur': None}
                     if cible_dette is not None:
                         ajustement = cible_dette * gdp_nominal - debt
                         if abs(ajustement) > ECART_ATTERRISSAGE_MAX * gdp_nominal:
@@ -1417,12 +1452,10 @@ class OrchestratorMixin:
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year
         # Cadre temporel (v0.7.0) : publié tel quel (l'API le remonte au niveau
         # de la réponse, bloc `cadre`).
-        trajectory_report['cadre'] = self._cadre.rapport(self._journal_atterrissage)
-        # Plafond de 10 % du PIB sur l'impact total des mesures (inchangé) : il
+        # Plafond de l'impact total (PLAFOND_IMPACT_TOTAL_PIB, inchangé) : il
         # porte sur les écarts AU DÉFAUT DU MOTEUR, pas au droit voté ; avis
-        # existant exposé ici, années comprises (v0.7.0).
-        trajectory_report['cadre']['plafond_total'] = {
-            'seuil_pct_pib': 10, 'reference': 'defauts_du_moteur',
-            'annees': list(self._annees_plafond_total)}
+        # existant exposé dans le bloc, années comprises.
+        trajectory_report['cadre'] = self._cadre.rapport(self._journal_atterrissage,
+                                                         self._annees_plafond_total)
 
         return results_df, pd.DataFrame(results_detailed), trajectory_report

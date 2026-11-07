@@ -94,12 +94,12 @@ def test_droit_en_vigueur_invalide_est_un_defaut_serveur(tmp_path, monkeypatch, 
     chemin = tmp_path / 'droit.json'
     chemin.write_text(json.dumps(contenu), encoding='utf-8')
     monkeypatch.setattr(cadre, 'DROIT_EN_VIGUEUR_PATH', chemin)
-    cadre.charger_droit_en_vigueur.cache_clear()
+    cadre.vider_caches()
     try:
         with pytest.raises(RuntimeError, match=motif):
             cadre.charger_droit_en_vigueur()
     finally:
-        cadre.charger_droit_en_vigueur.cache_clear()
+        cadre.vider_caches()
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +115,9 @@ def test_mesures_de_l_annee_avant_et_apres_le_debut():
     prog['csg'] = None                     # null : hérite du droit
     with atterrissage({}):                 # mécanique du lot A, sans réajustement (lot E)
         c = cadre.CadreTemporel.preparer(prog, DEBUT, droit=cadre.charger_droit_en_vigueur())
-    assert c.mesures_droit == droit and c.mesures_droit is not droit  # copie par simulation
+    assert c.etat.mesures_droit == droit and c.etat.mesures_droit is not droit  # copie par simulation
     for an in (2026, 2027):
-        assert c.mesures_de_l_annee(an) is c.mesures_droit
+        assert c.mesures_de_l_annee(an) is c.etat.mesures_droit
     m = c.mesures_de_l_annee(DEBUT)
     assert m['defense'] == {'budget': 70}
     assert m['rabot_uniforme'] == {'taux_reduction': 0.02}

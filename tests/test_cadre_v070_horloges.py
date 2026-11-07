@@ -340,12 +340,12 @@ def test_droit_non_composable_refuse_au_chargement(tmp_path, monkeypatch, bloc, 
     chemin = tmp_path / 'droit.json'
     chemin.write_text(json.dumps(contenu), encoding='utf-8')
     monkeypatch.setattr(cadre, 'DROIT_EN_VIGUEUR_PATH', chemin)
-    cadre.charger_droit_en_vigueur.cache_clear()
+    cadre.vider_caches()
     try:
         with pytest.raises(RuntimeError, match=motif):
             cadre.charger_droit_en_vigueur()
     finally:
-        cadre.charger_droit_en_vigueur.cache_clear()
+        cadre.vider_caches()
 
 
 # ---------------------------------------------------------------------------

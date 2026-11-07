@@ -3,8 +3,9 @@
 - ``simuler`` : simulation PLEINE PRÉCISION (``round`` de l'orchestrateur
   neutralisé), mode tolérant sauf demande contraire ;
 - ``CAS`` : les scénarios publiés (si ``scenarios.json`` du dépôt parent est
-  disponible) + deux programmes toujours présents (mixte, extrême), pour que les
-  propriétés tournent aussi dans la CI du dépôt public seul ;
+  disponible) + le programme mixte, toujours présent, pour que les propriétés
+  tournent aussi dans la CI du dépôt public seul (aucun test n'y suppose
+  ``plf_2026`` : la référence « droit en vigueur » est ``DROIT``) ;
 - ``egalite_bit_a_bit`` : comparaison exacte de deux sorties (résultats,
   détails, impacts par levier), avec un message qui nomme la première cellule
   qui diffère.
@@ -83,26 +84,32 @@ def atterrissage(cibles_par_annee, reajustements=None):
     """Remplace le temps du bloc le fichier d'atterrissage par des données de
     TEST, qui passent par la vraie validation du moteur. ``cibles_par_annee`` :
     {année: {grandeur: valeur}} ; ``{}`` = aucune année injectée (« tables
-    vides »). ``reajustements`` : {année: {levier: {paramètre: valeur}}}."""
+    vides ») ; une grandeur non citée est écrite ``null`` (le fichier porte les
+    six chaque année). ``reajustements`` : {année: {levier: {paramètre:
+    valeur}}}, chacun avec une source de test (aucun réajustement sans source)."""
     import json
     import tempfile
     import budget_simulator.engine.cadre as cadre
     annees = {}
     for an in sorted(set(cibles_par_annee) | set(reajustements or {})):
-        bloc = {g: {'valeur': v, 'source': 'donnée de test', 'date': '2026-11-07'}
-                for g, v in (cibles_par_annee.get(an) or {}).items()}
-        bloc['reajustements_droit_en_vigueur'] = (reajustements or {}).get(an, {})
+        bloc = {g: None for g in cadre.GRANDEURS_ATTERRISSAGE}
+        bloc.update({g: {'valeur': v, 'source': 'donnée de test', 'date': '2026-11-07'}
+                     for g, v in (cibles_par_annee.get(an) or {}).items()})
+        reaj = (reajustements or {}).get(an, {})
+        bloc['reajustements_droit_en_vigueur'] = reaj
+        bloc['sources_reajustements'] = {f'{l}.{p}': 'source de test'
+                                         for l, params in reaj.items() for p in params}
         annees[str(an)] = bloc
     contenu = {'version': 'test', 'date': '2026-11-07', 'description': 'test', 'annees': annees}
     with tempfile.TemporaryDirectory() as d, pytest.MonkeyPatch.context() as mp:
         chemin = Path(d) / 'atterrissage.json'
         chemin.write_text(json.dumps(contenu), encoding='utf-8')
         mp.setattr(cadre, 'ATTERRISSAGE_PATH', chemin)
-        cadre.charger_atterrissage.cache_clear()
+        cadre.vider_caches()
         try:
             yield
         finally:
-            cadre.charger_atterrissage.cache_clear()
+            cadre.vider_caches()
 
 
 def simuler(mesures, periods=10, strict=False, **kwargs):

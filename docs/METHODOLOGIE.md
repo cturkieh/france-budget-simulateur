@@ -94,7 +94,11 @@ Aucune équation macro n'est modifiée ; seul le calendrier d'application change
 Le droit en vigueur est un **fichier de données** (`budget_simulator/data/droit_en_vigueur.json`),
 égal au scénario « Budget 2026 (voté) ». Il se remplace sans code le jour où une loi de finances
 pour 2027 est promulguée. Un levier que le programme ne mentionne pas, ou laisse à `null`, garde
-la valeur du droit en vigueur : « le programme ne dit rien » veut dire « rien ne change ».
+la valeur du droit en vigueur : « le programme ne dit rien » veut dire « rien ne change ». De même,
+un paramètre absent d'un levier que le programme modifie garde la valeur du droit en vigueur, sauf
+pour les leviers à modes exclusifs (assurance chômage, taxe sur les superprofits, exonérations sur
+les salaires), dont le handler lit alors ses défauts. Les mesures appliquées à partir de l'année de
+début sont publiées dans le bloc `cadre.mesures_effectives` de la réponse.
 
 ### Les mesures de l'année : un point unique
 

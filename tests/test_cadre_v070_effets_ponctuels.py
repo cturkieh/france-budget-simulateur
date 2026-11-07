@@ -172,7 +172,7 @@ def _simuler_chemin(chemin, monkeypatch):
 
     def preparer(cls, *args, **kwargs):
         c = vrai(_CadreChemin, *args, **kwargs)
-        c.chemin = chemin
+        object.__setattr__(c, 'chemin', chemin)      # cadre gelé : attribut de test
         return c
     monkeypatch.setattr(orch.CadreTemporel, 'preparer', classmethod(preparer))
     final = {k: v for an in sorted(chemin) for k, v in chemin[an].items()}

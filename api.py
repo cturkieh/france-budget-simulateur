@@ -388,7 +388,9 @@ async def simulate(request: SimulationRequest):
       fiscaux des grandes entreprises (`engine/cadre.py`,
       `RAMPE_LEVIERS_ELIGIBLES`) ; aucune rampe par défaut. La réponse porte
       un bloc `cadre` (mode, `annee_debut`, années de droit en vigueur,
-      identifiant du droit en vigueur, leviers modifiés, rampe effective).
+      identifiant du droit en vigueur, leviers modifiés, mesures effectives
+      à partir du début, rampe effective, atterrissage 2026, plafond de
+      l'impact total).
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
     """
     mesures = request.mesures or {}

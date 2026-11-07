@@ -53,7 +53,7 @@ def _cadre(programme, rampe, debut=DEBUT):
 
 # Référence d'une rampe : le droit en vigueur EFFECTIF (réajustements de
 # l'atterrissage compris : défense 58 au lieu de 57 votés).
-DEF_REF = cadre.CadreTemporel.preparer({}, DEBUT).mesures_droit['defense']['budget']
+DEF_REF = cadre.CadreTemporel.preparer({}, DEBUT).etat.mesures_droit['defense']['budget']
 
 
 # ---------------------------------------------------------------------------
@@ -211,16 +211,33 @@ def client():
     return TestClient(module.app, raise_server_exceptions=False)
 
 
-def test_api_rampe_bloc_cadre(client, monkeypatch):
-    monkeypatch.setenv('BUDGETLAB_STRICT', '')
-    corps = client.post('/simulate', json={
+@pytest.mark.parametrize('strict', ['', '1'])
+def test_api_rampe_bloc_cadre(client, monkeypatch, strict):
+    """Revue passe 1 (LOW 13) : une rampe demandée sur un levier que le
+    programme ne modifie pas (recherche à 10, la valeur du droit) est lue telle
+    quelle, sans effet : avis INFORMATIF et liste ``leviers_ignores``, jamais une
+    correction (``valid`` reste vrai) ni un 422, dans les deux modes."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', strict)
+    reponse = client.post('/simulate', json={
         'mesures': {'defense': {'budget': 70}, 'recherche_publique': {'budget': 10}},
         'annee_debut': DEBUT,
-        'rampe': {'annees': 5, 'leviers': ['defense.budget', 'recherche_publique.budget']}}).json()
+        'rampe': {'annees': 5, 'leviers': ['defense.budget', 'recherche_publique.budget']}})
+    assert reponse.status_code == 200, reponse.text
+    corps = reponse.json()
     r = corps['cadre']['rampe']
     assert r == {'annees': 5, 'leviers': ['defense.budget', 'recherche_publique.budget'],
-                 'leviers_rampes': ['defense.budget']}
+                 'leviers_rampes': ['defense.budget'],
+                 'leviers_ignores': ['recherche_publique.budget']}
     assert corps['report']['valid'] is True
+    avis = [w for w in corps['report']['warnings'] if 'recherche_publique.budget' in w]
+    assert len(avis) == 1 and avis[0].startswith('Avis — ') and 'sans effet' in avis[0]
+
+
+def test_rampe_sans_levier_ignore_n_emet_aucun_avis():
+    rapport = simuler(_programme(defense={'budget': 70}), annee_debut=DEBUT,
+                      rampe={'annees': 3, 'leviers': ['defense.budget']})[2]
+    assert rapport['cadre']['rampe']['leviers_ignores'] == []
+    assert not any('rampe' in w for w in rapport['warnings'])
 
 
 @pytest.mark.parametrize('rampe', [{'annees': '5', 'leviers': ['defense.budget']},

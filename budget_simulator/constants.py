@@ -660,6 +660,15 @@ ETI_TRANCHE_SUPERIEURE = 0.25
 # changement d'horizon (ex. campagne active 2027) ne soit pas un grep-replace.
 POLICY_START_YEAR = 2026
 
+# === PLAFOND DE L'IMPACT TOTAL DES MESURES (FMI 2010) ===
+# Somme des |Δ dépenses| + |Δ recettes| de toutes les mesures d'une année,
+# rapportée au PIB : au-delà, tous les impacts sont réduits au prorata
+# (engine/orchestrator.py, apply_measures). Porte sur les écarts au DÉFAUT du
+# moteur. Valeur INCHANGÉE depuis v4 (littéral 0.10 jusqu'en v0.7.0) ; nommée
+# ici pour que le calcul et le bloc `cadre.plafond_total` de la réponse lisent
+# la même source (revue passe 1 de v0.7.0).
+PLAFOND_IMPACT_TOTAL_PIB = 0.10
+
 # === CONJONCTURE OBSERVÉE (v0.6.9) — tables par année calendaire, VIDES ===
 # Pourquoi : la croissance de l'année part du potentiel et y revient (rappel
 # OUTPUT_GAP_RAPPEL) ; aucun terme ne représente un choc DÉJÀ CONSTATÉ par la

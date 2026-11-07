@@ -86,6 +86,8 @@ simulateur dès 2028 ; croissance 2027 jamais forcée.
 - Golden master du cadre : `tests/snapshots/golden_master_cadre_2028.json`
   (`tests/test_cadre_v070_golden.py`).
 
+**Revue passe 1** (`tests/test_cadre_v070_revue_passe1.py`) : suite verte sans le `scenarios.json` de l'application (référence « droit en vigueur », jamais `plf_2026`) ; un bloc partiel est complété paramètre par paramètre par le droit en vigueur (hors leviers à modes exclusifs ; aucun scénario publié n'en contient) ; aucun réajustement sans source ; six grandeurs écrites chaque année (`null` permis) ; montant sans objet publié `null`, jamais 0 ; grandeurs fermées, journal complet exigé, solde publié sous `deficit` ; plafond nommé `PLAFOND_IMPACT_TOTAL_PIB` (valeur inchangée) et `plafond_total` dans le rapport du cadre ; état du mode cadre gelé (`EtatCadre`) ; garde des états propres à chaque monde ; échec de l'évaluation isolée des réajustements traité comme le chemin principal ; toute erreur de lecture d'un fichier serveur = défaut du serveur ; rampe sans effet = avis informatif et `rampe.leviers_ignores` ; caches rendus en copie profonde ; `cadre.mesures_effectives` exposé (droit en vigueur réajusté, programme par-dessus).
+
 ### Limites connues
 
 - Superposition linéaire des horloges : un programme qui retire une mesure héritée à profil non
