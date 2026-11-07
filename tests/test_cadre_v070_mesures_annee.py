@@ -113,7 +113,8 @@ def test_mesures_de_l_annee_avant_et_apres_le_debut():
     prog['rabot_uniforme'] = {'taux_reduction': 0.02}
     del prog['collectivites']             # absent : hérite du droit
     prog['csg'] = None                     # null : hérite du droit
-    c = cadre.CadreTemporel.preparer(prog, DEBUT, droit=cadre.charger_droit_en_vigueur())
+    with atterrissage({}):                 # mécanique du lot A, sans réajustement (lot E)
+        c = cadre.CadreTemporel.preparer(prog, DEBUT, droit=cadre.charger_droit_en_vigueur())
     assert c.mesures_droit == droit and c.mesures_droit is not droit  # copie par simulation
     for an in (2026, 2027):
         assert c.mesures_de_l_annee(an) is c.mesures_droit
@@ -246,7 +247,8 @@ def test_lecteurs_lateraux_lisent_les_mesures_de_l_annee(monkeypatch):
             return super().update_labour_supply(year)
 
     sim = SimAnnee(periods=10, mesures=copy.deepcopy(PROGRAMME_MIXTE), annee_debut=DEBUT)
-    sim.simulate()
+    with atterrissage({}):                 # droit voté tel quel (réajustements : lot E)
+        sim.simulate()
     droit = _droit()
     assert set(vus) == {'offre_seniors', 'chomage_seniors', 'effet_offre', 'asu_fraude',
                         'asu', 'asu_prestations', 'point_indice', 'reforme_fp'}, set(vus)

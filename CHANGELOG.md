@@ -31,14 +31,16 @@ l'atterrissage.
 | B — effets ponctuels en incrément | `effet(p) − effet(p au dernier déclenchement)` : la part héritée n'est plus recomptée à la bascule, une rampe ne compte plus trois fois l'effet | compétitivité seule, +0,01 à +0,07 point |
 | C — horloges | `H = H(droit, 2026) + [H(programme, début) − H(droit, début)]`, trois mondes d'évaluation des handlers ; 22 sites passés sur l'horloge du levier ; rampes de mandat (effectifs FP, réforme FP) de max(début, 2027) à 2032 ; choc d'âge, ASU, revalorisations, passage de la TVA dans les prix sur l'horloge du levier | de −1,74 (LFI) à +1,65 (IM compétitivité), dont l'horloge de l'âge de départ −1,9 à +1,0 |
 | D — rampe | rampe paramétrique sur demande (aucune par défaut) ; postes d'enseignants sur la rampe de mandat des effectifs FP (mode cadre) | ±0,1 par défaut (enseignants) |
-| E — atterrissage 2026 | `data/atterrissage_observe.json` : réajustements du droit en vigueur (vides), puis cibles ; écart de solde persistant, ajustement stock-flux, choc de croissance, coin IPC ; colonne IPC | +1,3 à +1,5 pour tous |
+| E — atterrissage 2026 | `data/atterrissage_observe.json` : réajustements du droit en vigueur (défense 58, franchises 120 %, surtaxe IS 6,8), puis cibles ; déflateur injecté, écart de solde persistant, ajustement stock-flux, choc de croissance, coin IPC ; colonne IPC | +2,1 à +2,3 pour tous |
 
-Statu quo 2027 à droit constant : déficit −5,51 % du PIB, dette 121,74 %, croissance 1,31 %
-(rebond du modèle, jamais forcé), chômage 8,37 %. Atterrissage 2026 publié (`cadre.atterrissage`) :
-croissance du modèle 1,24 % → 0,4 % (choc −0,84 point), IPC 2,1 % par un coin de +0,75 point
-(déflateur du modèle 1,34 % inchangé), chômage 7,82 % → 8,5 %, solde −5,82 % → −5,4 % (écart
-+12,9 Md€ de recettes, réajustements 0, résidu +12,9), dette 119,02 % → 119,3 % (ajustement
-stock-flux +8,7 Md€). Garde des valeurs publiées :
+Statu quo 2027 à droit constant (budget 2026 exécuté, reconduit) : déficit −5,63 % du PIB,
+dette 121,87 %, croissance 1,33 % (rebond du modèle, jamais forcé), chômage 8,17 %. Atterrissage
+2026 publié (`cadre.atterrissage`, valeurs arrêtées par le mainteneur le 07/11/2026) : croissance
+du modèle 1,24 % → 0,4 % brut (choc −0,84 point) ; déflateur 1,34 % → 1,5 % injecté (+0,16
+point, dénominateur des ratios officiels) ; IPC 2,3 % par un coin de +0,79 point rapporté au
+déflateur injecté ; chômage 7,82 % → 8,3 % (moyenne annuelle) ; solde −5,78 % → −5,5 %
+(réajustements −1,2 Md€, puis résidu +8,5 Md€ de recettes, persistant) ; dette 118,94 % →
+119,4 % (ajustement stock-flux +14,1 Md€). Garde des valeurs publiées :
 `tests/test_cadre_v070_atterrissage.py`.
 
 ### Contrat API `/simulate`
@@ -54,14 +56,18 @@ stock-flux +8,7 Md€). Garde des valeurs publiées :
   `report.valid = false`.
 - Réponse : bloc `cadre` (mode, `annee_debut`, années de droit en vigueur, identifiant et
   source du droit en vigueur, leviers modifiés, rampe effective, atterrissage avec cibles
-  sourcées et décomposition, années où le plafond de 10 % mord) ; colonne
-  `Inflation IPC %` (prix de la consommation des ménages ; `Inflation %` reste le déflateur).
+  sourcées, réajustements et leurs sources, décomposition, années où le plafond de 10 % mord) ;
+  colonne `Inflation IPC %` (prix de la consommation des ménages ; `Inflation %` reste le
+  déflateur, injecté en 2026 en mode cadre).
+- Taille bornée de `rampe.leviers` (revue de sécurité) : au plus 15 noms de 64 caractères au
+  plus (422) ; côté moteur, rejet au-delà, dédoublonnage, un seul avertissement agrégé.
 
 ### Décisions appliquées (arbitrages du mainteneur du 07/11/2026)
 
 Programmes de 2028 à 2032 ; 2027 à droit constant ; atterrissage 2026 en deux temps (leviers
-réels, puis résidu forcé et persistant) ; IPC par le coin de prix, jamais dans le déflateur ;
-chômage 2026 en moyenne annuelle, valeur provisoire sourcée ; aucune rampe par défaut ;
+réels réajustés et reconduits, puis résidu forcé et persistant) ; déflateur du PIB injecté, IPC
+par le coin de prix, jamais dans le déflateur ; chômage 2026 en moyenne annuelle sourcée ;
+fraude fiscale inchangée à 0,14 ; aucune rampe par défaut ;
 effets ponctuels en incrément ; horloges recalées dès cette passe ; plafond de 10 % inchangé ;
 simulateur dès 2028 ; croissance 2027 jamais forcée.
 
@@ -73,8 +79,10 @@ simulateur dès 2028 ; croissance 2027 jamais forcée.
   implémentée : un droit en vigueur qui s'en écarte fait échouer le chargement.
 - Écart modèle → cible au-delà de ±0,03 (domaine des tables v0.6.9) : erreur, jamais un
   écrêtage. Une année injectée ne peut pas figurer aussi dans les tables v0.6.9.
-- Le budget voté de l'application doit rester égal au droit en vigueur
-  (`tests/test_cadre_v070_mesures_annee.py`).
+- Le budget voté de l'application doit rester égal au droit en vigueur VOTÉ
+  (`tests/test_cadre_v070_mesures_annee.py`) ; les réajustements vivent dans le fichier
+  d'atterrissage, chacun avec sa source, et s'appliquent au droit en vigueur à partir de 2026 en
+  mode cadre : l'application n'a rien à changer pour eux.
 - Golden master du cadre : `tests/snapshots/golden_master_cadre_2028.json`
   (`tests/test_cadre_v070_golden.py`).
 

@@ -160,22 +160,32 @@ la déclare levier par levier.
 
 Le fichier `budget_simulator/data/atterrissage_observe.json` porte, par année jouée, des
 réajustements du droit en vigueur puis des cibles sourcées. Il est appliqué en mode cadre, à
-l'identique pour tous les scénarios, et se révise sans code.
+l'identique pour tous les scénarios, et se révise sans code (valeurs arrêtées par le mainteneur
+le 07/11/2026).
 
-1. **Réajustements du droit en vigueur** : un levier réel qui a dérapé (crédits votés, rendement
-   d'une mesure) est corrigé dans le droit en vigueur et le suit ensuite. Aucun n'est retenu en
-   v0.7.0.
-2. **Cibles** : le moteur mesure l'écart entre son résultat et l'observé, après les
-   réajustements, et le force.
+1. **Réajustements du droit en vigueur** : un levier réel qui a dérapé est corrigé dans le droit en
+   vigueur et le suit ensuite : le budget réellement exécuté devient le droit constant de 2027. Un
+   programme hérite du réajustement sur chaque paramètre qu'il reprend du budget voté ; un
+   paramètre qu'il change garde la valeur du programme. Le fichier du droit en vigueur reste le
+   budget VOTÉ, égal au scénario « Budget 2026 (voté) » de l'application.
+
+| Levier | Voté → réajusté | Motif (source dans le fichier) |
+|---|---|---|
+| `defense.budget` | 57 → 58 Md€ | crédits de la loi de programmation militaire exécutés à 58 Md€ |
+| `sante.franchise_participation_taux` | 100 → 120 % | hausse des plafonds des franchises décidée en 2026, environ 0,3 Md€ |
+| `is_exceptionnel_tge.montant` | 7,3 → 6,8 Md€ | rendement de la surtaxe révisé de −0,5 Md€ en comptabilité nationale |
+
+2. **Cibles** : le moteur mesure l'écart entre son résultat, après les réajustements, et l'observé,
+   puis le force.
 
 | Grandeur 2026 | Valeur | Mécanisme |
 |---|---|---|
-| Croissance | 0,4 % | choc de demande = cible − croissance du modèle, au point d'application des chocs observés |
-| Prix | IPC 2,1 % | coin du prix de la consommation : il touche l'indice de pouvoir d'achat et la colonne IPC, jamais le déflateur |
-| Déflateur | non injecté | place prévue pour un déflateur sourcé ; sans lui, déflateur du modèle |
-| Chômage | 8,5 % | niveau imposé après la loi d'Okun ; valeur provisoire (taux de fin d'année retenu en moyenne annuelle) |
-| Déficit | 5,4 % du PIB | écart ajouté au niveau organique des recettes, donc **persistant** (rebasage) |
-| Dette | 119,3 % du PIB | ajustement stock-flux de l'année |
+| Croissance | 0,4 % (brut annuel) | choc de demande = cible − croissance du modèle, au point d'application des chocs observés |
+| Déflateur du PIB | 1,5 % | imposé : c'est le dénominateur des ratios officiels de déficit et de dette |
+| IPC | 2,3 % | coin du prix de la consommation, rapporté au déflateur injecté : il touche l'indice de pouvoir d'achat et la colonne IPC, jamais le déflateur |
+| Chômage | 8,3 % (moyenne annuelle) | niveau imposé après la loi d'Okun |
+| Déficit | 5,5 % du PIB | écart résiduel ajouté au niveau organique des recettes, donc **persistant** (rebasage) |
+| Dette | 119,4 % du PIB | ajustement stock-flux de l'année |
 
 Sources et dates de chaque valeur : dans le fichier. Décomposition publiée par le moteur pour
 2026 (bloc `cadre.atterrissage` de la réponse) :
@@ -183,15 +193,18 @@ Sources et dates de chaque valeur : dans le fichier. Décomposition publiée par
 | Grandeur 2026 | Modèle | Observé | Écart forcé |
 |---|---|---|---|
 | Croissance | 1,24 % | 0,4 % | choc de −0,84 point |
-| Prix | déflateur 1,34 % | IPC 2,1 % | coin de +0,75 point |
-| Chômage | 7,82 % | 8,5 % | +0,68 point |
-| Solde | −5,82 % du PIB | −5,4 % | +12,9 Md€ de recettes (réajustements 0, résidu +12,9) |
-| Dette | 119,02 % du PIB | 119,3 % | ajustement stock-flux de +8,7 Md€ |
+| Déflateur du PIB | 1,34 % | 1,5 % | +0,16 point |
+| IPC | déflateur injecté 1,5 % | 2,3 % | coin de +0,79 point |
+| Chômage | 7,82 % | 8,3 % | +0,48 point |
+| Solde | −5,78 % du PIB | −5,5 % | réajustements −1,2 Md€, puis résidu +8,5 Md€ de recettes |
+| Dette | 118,94 % du PIB | 119,4 % | ajustement stock-flux de +14,1 Md€ |
 
-Le modèle est plus pessimiste que le Gouvernement sur le solde : l'écart est porté en recettes et
-persiste. Sans rebasage, le déficit rebondirait de 5,4 % à environ 5,9 % en 2027 sans aucune
-mesure. Avec lui, le budget 2026 reconduit à droit constant donne en 2027 un **déficit de
-−5,51 %** du PIB et une **dette de 121,74 %**. La croissance 2027, 1,31 %, est le rebond du
+Le solde « modèle » est celui du moteur avec les réajustements et le déflateur injecté. Même
+après eux, le moteur reste plus pessimiste que la dernière prévision officielle : le résidu est
+porté en recettes et persiste. Sans ce rebasage, l'écart disparaîtrait en 2027 et le déficit y
+rebondirait sans aucune mesure. Avec lui, le budget 2026 exécuté, reconduit à droit constant,
+donne en 2027 un **déficit de
+−5,63 %** du PIB et une **dette de 121,87 %**. La croissance 2027, 1,33 %, est le rebond du
 modèle : elle n'est jamais forcée. Une année injectée ne peut pas être l'année de début d'un
 programme : l'atterrissage écrase des niveaux (422 en mode strict).
 

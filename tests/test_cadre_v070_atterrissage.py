@@ -40,7 +40,11 @@ from cadre_harness import CAS, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_
 DEBUT = 2028
 DROIT = cadre.charger_droit_en_vigueur().mesures
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
-CIBLES_2026 = {'croissance': 0.004, 'ipc': 0.021, 'chomage': 0.085, 'deficit': -0.054, 'dette': 1.193}
+# Valeurs arrêtées par le mainteneur le 07/11/2026 (sources dans le fichier de données).
+CIBLES_2026 = {'croissance': 0.004, 'deflateur': 0.015, 'ipc': 0.023, 'chomage': 0.083,
+               'deficit': -0.055, 'dette': 1.194}
+REAJUSTEMENTS_2026 = {'defense': {'budget': 58}, 'sante': {'franchise_participation_taux': 120},
+                      'is_exceptionnel_tge': {'montant': 6.8}}
 
 
 def _cibles():
@@ -61,12 +65,11 @@ def test_fichier_livre_valeurs_des_decisions_du_07_11():
     assert sorted(a.annees) == [2026]
     assert _cibles() == CIBLES_2026
     annee = a.annees[2026]
-    assert annee.cibles.get('deflateur') is None            # place prévue, non remplie
-    assert annee.reajustements == {}                         # premier temps : vide en v0.7.0
+    assert annee.reajustements == REAJUSTEMENTS_2026        # premier temps : trois leviers réels
     for grandeur in CIBLES_2026:
         c = annee.cibles[grandeur]
         assert c.source.strip() and c.date.strip(), grandeur
-    assert annee.cibles['chomage'].provisoire is True
+    assert annee.cibles['chomage'].provisoire is False       # moyenne annuelle sourcée
 
 
 @pytest.mark.parametrize('modif, motif', [
@@ -108,10 +111,11 @@ def test_e_valeurs_2026_reproduites_exactement(nom, sorties):
     df, det, rapport, _ = sorties[nom]
     a = df.set_index('Année').loc[2026]
     assert a['Croissance %'] == pytest.approx(0.4, abs=1e-12)
-    assert a['Inflation IPC %'] == pytest.approx(2.1, abs=1e-12)
-    assert a['Chômage %'] == pytest.approx(8.5, abs=1e-12)
-    assert a['Déficit/PIB %'] == pytest.approx(-5.4, abs=1e-12)
-    assert a['Dette/PIB %'] == pytest.approx(119.3, abs=1e-12)
+    assert a['Inflation %'] == pytest.approx(1.5, abs=1e-12)        # déflateur injecté
+    assert a['Inflation IPC %'] == pytest.approx(2.3, abs=1e-12)
+    assert a['Chômage %'] == pytest.approx(8.3, abs=1e-12)
+    assert a['Déficit/PIB %'] == pytest.approx(-5.5, abs=1e-12)
+    assert a['Dette/PIB %'] == pytest.approx(119.4, abs=1e-12)
 
 
 def test_e_identiques_pour_tous_et_decomposition_publiee(sorties):
@@ -122,26 +126,25 @@ def test_e_identiques_pour_tous_et_decomposition_publiee(sorties):
     assert set(d) == {'croissance', 'deflateur', 'ipc', 'chomage', 'solde', 'dette'}
     assert d['croissance']['observe_pct'] == pytest.approx(0.4)
     assert d['croissance']['choc_pt'] == pytest.approx(0.4 - d['croissance']['modele_pct'])
-    assert d['deflateur']['observe_pct'] is None
-    # Valeurs publiées arrondies (4 décimales en points) : tolérance d'arrondi.
-    assert d['ipc']['coin_pt'] == pytest.approx(
-        ((1.021 / (1 + d['ipc']['deflateur_pct'] / 100)) - 1) * 100, abs=2e-4)
+    assert d['deflateur']['observe_pct'] == pytest.approx(1.5)
+    assert d['deflateur']['ecart_pt'] == pytest.approx(1.5 - d['deflateur']['modele_pct'], abs=1e-4)
+    # coin = IPC rapporté au déflateur INJECTÉ (valeurs publiées arrondies à 4 décimales)
+    assert d['ipc']['deflateur_pct'] == pytest.approx(1.5)
+    assert d['ipc']['coin_pt'] == pytest.approx((1.023 / 1.015 - 1) * 100, abs=2e-4)
     assert d['solde']['ecart_md_eur'] == pytest.approx(d['solde']['reajustements_md_eur']
-                                                       + d['solde']['residuel_md_eur'])
-    assert d['solde']['reajustements_md_eur'] == 0.0
-    assert d['dette']['observe_pct'] == pytest.approx(119.3)
+                                                       + d['solde']['residuel_md_eur'], abs=2e-3)
+    assert d['dette']['observe_pct'] == pytest.approx(119.4)
     assert reference['annees']['2026']['cibles']['deficit']['source']
 
 
-def test_e_ordres_de_grandeur_de_l_emulation(sorties):
-    """L'émulation du 07/11 (§ 3.1 du dossier) donnait : choc −0,84 pt, coin
-    +0,76 pt, écart de solde +12,9 Md€, ajustement stock-flux +8,7 Md€. Même
-    mécanisme, mêmes ordres de grandeur."""
+def test_e_reajustements_premier_temps_mesures_levier_par_levier(sorties):
+    """Premier temps : effet des trois réajustements sur le solde 2026, mesuré à
+    l'état de l'année. Défense +1 Md€ de dépense ; surtaxe IS −0,5 Md€ de
+    recettes ; franchises 120 % : 0,4 × (1 − 0,10) × 0,93 = 0,3348 Md€ de moindre
+    dépense (handler santé). Le résidu forcé est mesuré APRÈS eux."""
     d = _bloc(sorties['plf_2026'][2])['annees']['2026']['decomposition']
-    assert d['croissance']['choc_pt'] == pytest.approx(-0.84, abs=0.02)
-    assert d['ipc']['coin_pt'] == pytest.approx(0.75, abs=0.03)
-    assert d['solde']['ecart_md_eur'] == pytest.approx(12.9, abs=1.0)
-    assert d['dette']['ajustement_stock_flux_md_eur'] == pytest.approx(8.7, abs=3.0)
+    assert d['solde']['reajustements_md_eur'] == pytest.approx(-1.0 - 0.5 + 0.4 * 0.9 * 0.93, abs=2e-3)
+    assert d['croissance']['choc_pt'] == pytest.approx(0.4 - d['croissance']['modele_pct'], abs=1e-4)
 
 
 def test_e_ecart_de_solde_persistant():
@@ -155,13 +158,19 @@ def test_e_ecart_de_solde_persistant():
 
 
 def test_e_jamais_d_ipc_dans_le_deflateur(sorties):
-    """L'IPC passe par le coin : le déflateur publié (« Inflation % ») reste celui
-    du modèle en 2026, la colonne IPC vaut la cible."""
+    """L'IPC passe par le coin : le déflateur publié (« Inflation % ») est le
+    déflateur INJECTÉ (1,5 %), jamais l'IPC (2,3 %) ; sans déflateur injecté, il
+    reste celui du modèle."""
     df = sorties['plf_2026'][0].set_index('Année')
+    assert df.at[2026, 'Inflation %'] == pytest.approx(1.5, abs=1e-12)
+    assert df.at[2026, 'Inflation IPC %'] == pytest.approx(2.3, abs=1e-12)
+    sans_deflateur = {g: v for g, v in CIBLES_2026.items() if g != 'deflateur'}
+    with atterrissage({2026: sans_deflateur}):
+        modele = simuler(DROIT, annee_debut=DEBUT)[0].set_index('Année')
     with atterrissage({}):
-        sans = simuler(DROIT, annee_debut=DEBUT)[0].set_index('Année')
-    assert df.at[2026, 'Inflation %'] == sans.at[2026, 'Inflation %']
-    assert df.at[2026, 'Inflation IPC %'] != df.at[2026, 'Inflation %']
+        vide = simuler(DROIT, annee_debut=DEBUT)[0].set_index('Année')
+    assert modele.at[2026, 'Inflation %'] == vide.at[2026, 'Inflation %']
+    assert modele.at[2026, 'Inflation IPC %'] == pytest.approx(2.3, abs=1e-12)
 
 
 def test_e_422_si_annee_debut_dans_l_atterrissage():
@@ -200,7 +209,7 @@ def test_deflateur_source_impose_si_donne():
         df, _, rapport, _ = simuler(DROIT, annee_debut=DEBUT)
     a = df.set_index('Année').loc[2026]
     assert a['Inflation %'] == pytest.approx(1.5, abs=1e-12)
-    assert a['Inflation IPC %'] == pytest.approx(2.1, abs=1e-12)
+    assert a['Inflation IPC %'] == pytest.approx(2.3, abs=1e-12)
     d = _bloc(rapport)['annees']['2026']['decomposition']
     assert d['deflateur']['observe_pct'] == pytest.approx(1.5)
     assert d['ipc']['deflateur_pct'] == pytest.approx(1.5)
@@ -221,7 +230,7 @@ def test_reajustements_du_droit_en_vigueur_deux_temps():
     assert d['solde']['reajustements_md_eur'] == pytest.approx(-1.0, abs=1e-9)
     assert d['solde']['ecart_md_eur'] == pytest.approx(d['solde']['reajustements_md_eur']
                                                        + d['solde']['residuel_md_eur'])
-    assert df.set_index('Année').at[2026, 'Déficit/PIB %'] == pytest.approx(-5.4, abs=1e-12)
+    assert df.set_index('Année').at[2026, 'Déficit/PIB %'] == pytest.approx(-5.5, abs=1e-12)
     assert 'defense' not in rapport['cadre']['leviers_modifies']
     # Un programme qui fixe la défense à 45 : son niveau prime à partir du début
     # (droit réajusté avant ; le réajustement ne s'ajoute pas au niveau encodé).
@@ -274,7 +283,11 @@ def test_api_bloc_atterrissage_et_colonne_ipc(client, monkeypatch):
     corps = client.post('/simulate', json={'mesures': {}, 'annee_debut': DEBUT}).json()
     att = corps['cadre']['atterrissage']
     assert att['annees']['2026']['cibles']['croissance']['valeur'] == 0.004
-    assert corps['results'][1]['Inflation IPC %'] == 2.1
+    assert att['annees']['2026']['reajustements_droit_en_vigueur'] == REAJUSTEMENTS_2026
+    assert set(att['annees']['2026']['sources_reajustements']) == {
+        'defense.budget', 'sante.franchise_participation_taux', 'is_exceptionnel_tge.montant'}
+    assert corps['results'][1]['Inflation IPC %'] == 2.3
+    assert corps['results'][1]['Inflation %'] == 1.5
     assert corps['results'][1]['Croissance %'] == 0.4
     assert corps['report']['valid'] is True
 
@@ -314,20 +327,23 @@ def test_refuteur_e_atterrissage_independant_du_debut_et_du_programme(debut, sor
     df, _, rapport, _ = simuler(PROGRAMME_MIXTE, annee_debut=debut)
     assert _bloc(rapport) == _bloc(sorties['plf_2026'][2])
     a = df.set_index('Année').loc[2026]
-    assert (a['Croissance %'], a['Chômage %']) == pytest.approx((0.4, 8.5), abs=1e-12)
+    assert (a['Croissance %'], a['Chômage %']) == pytest.approx((0.4, 8.3), abs=1e-12)
 
 
 def test_refuteur_e_ecart_jamais_compte_comme_une_impulsion():
-    """L'écart de solde est un rebasage, pas une mesure : il n'entre ni dans
+    """Le résidu forcé est un rebasage, pas une mesure : il n'entre ni dans
     l'effort budgétaire ni dans les impulsions (multiplicateurs). Compté comme
-    une mesure, il porterait l'effort 2026 de +0,42 point de PIB (12,9 Md€) ;
-    l'effort publié ne bouge que par le dénominateur et l'état macro (< 0,01)."""
+    une mesure, il porterait l'effort 2026 d'environ +0,28 point de PIB
+    (8,5 Md€) ; l'effort publié ne bouge que par le dénominateur et l'état
+    macro (< 0,01). Les réajustements, eux, SONT des mesures : présents des
+    deux côtés de la comparaison."""
     _, det_avec, rapport, _ = simuler(DROIT, annee_debut=DEBUT)
-    with atterrissage({}):
+    # Même droit réajusté (les réajustements SONT des mesures), sans cible.
+    with atterrissage({2026: {}}, reajustements={2026: REAJUSTEMENTS_2026}):
         _, det_sans, _, _ = simuler(DROIT, annee_debut=DEBUT)
     a, b = det_avec.set_index('Année'), det_sans.set_index('Année')
-    ecart = _bloc(rapport)['annees']['2026']['decomposition']['solde']['ecart_md_eur']
-    assert ecart / a.at[2026, 'PIB_Réel_Base2025'] * 100 > 0.3
+    residu = _bloc(rapport)['annees']['2026']['decomposition']['solde']['residuel_md_eur']
+    assert residu / a.at[2026, 'PIB_Réel_Base2025'] * 100 > 0.1   # 10 fois la tolérance
     assert abs(a.at[2026, 'Effort_Budgétaire %'] - b.at[2026, 'Effort_Budgétaire %']) < 0.01
 
 
@@ -371,16 +387,52 @@ def test_methodologie_publie_la_decomposition_mesuree():
         return f"{x:.{n}f}".replace('.', ',').replace('-', '−')
 
     attendus = [
-        f"| Croissance | {fr(d['croissance']['modele_pct'], 2)} % | 0,4 % | choc de {fr(d['croissance']['choc_pt'], 2)} point |",
-        f"| Prix | déflateur {fr(d['ipc']['deflateur_pct'], 2)} % | IPC 2,1 % | coin de +{fr(d['ipc']['coin_pt'], 2)} point |",
-        f"| Chômage | {fr(d['chomage']['modele_pct'], 2)} % | 8,5 % | +{fr(d['chomage']['ecart_pt'], 2)} point |",
-        f"| Solde | {fr(d['solde']['modele_pct'], 2)} % du PIB | −5,4 % | +{fr(d['solde']['ecart_md_eur'], 1)} Md€ de recettes "
-        f"(réajustements {fr(d['solde']['reajustements_md_eur'], 0)}, résidu +{fr(d['solde']['residuel_md_eur'], 1)}) |",
-        f"| Dette | {fr(d['dette']['modele_pct'], 2)} % du PIB | 119,3 % | ajustement stock-flux de "
-        f"+{fr(d['dette']['ajustement_stock_flux_md_eur'], 1)} Md€ |",
+        f"| Croissance | {fr(d['croissance']['modele_pct'], 2)} % | {fr(d['croissance']['observe_pct'], 1)} % | "
+        f"choc de {fr(d['croissance']['choc_pt'], 2)} point |",
+        f"| Déflateur du PIB | {fr(d['deflateur']['modele_pct'], 2)} % | {fr(d['deflateur']['observe_pct'], 1)} % | "
+        f"+{fr(d['deflateur']['ecart_pt'], 2)} point |",
+        f"| IPC | déflateur injecté {fr(d['ipc']['deflateur_pct'], 1)} % | {fr(d['ipc']['observe_pct'], 1)} % | "
+        f"coin de +{fr(d['ipc']['coin_pt'], 2)} point |",
+        f"| Chômage | {fr(d['chomage']['modele_pct'], 2)} % | {fr(d['chomage']['observe_pct'], 1)} % | "
+        f"+{fr(d['chomage']['ecart_pt'], 2)} point |",
+        f"| Solde | {fr(d['solde']['modele_pct'], 2)} % du PIB | {fr(d['solde']['observe_pct'], 1)} % | "
+        f"réajustements {fr(d['solde']['reajustements_md_eur'], 1)} Md€, puis résidu "
+        f"+{fr(d['solde']['residuel_md_eur'], 1)} Md€ de recettes |",
+        f"| Dette | {fr(d['dette']['modele_pct'], 2)} % du PIB | {fr(d['dette']['observe_pct'], 1)} % | "
+        f"ajustement stock-flux de +{fr(d['dette']['ajustement_stock_flux_md_eur'], 1)} Md€ |",
         f"**déficit de\n{fr(a.at[2027, 'Déficit/PIB %'], 2)} %**",
         f"**dette de {fr(a.at[2027, 'Dette/PIB %'], 2)} %**",
         f"La croissance 2027, {fr(a.at[2027, 'Croissance %'], 2)} %",
     ]
     for attendu in attendus:
         assert attendu in section, attendu
+
+
+def test_reajustements_herites_parametre_par_parametre():
+    """Un programme qui modifie UN paramètre d'un levier réajusté garde le
+    réajustement sur les paramètres qu'il reprend du budget voté : modifier la
+    prévention ne remet pas les franchises à 100. Un paramètre que le programme
+    change garde sa valeur (niveau encodé du programme)."""
+    sante_vote = dict(DROIT['sante'])
+    reaj = {2026: {'sante': {'franchise_participation_taux': 120}}}
+    with atterrissage({2026: CIBLES_2026}, reajustements=reaj):
+        autre_param = cadre.CadreTemporel.preparer(
+            {'sante': dict(sante_vote, effort_prev_org=20)}, DEBUT)
+        franchise_touchee = cadre.CadreTemporel.preparer(
+            {'sante': dict(sante_vote, franchise_participation_taux=0)}, DEBUT)
+        identique = cadre.CadreTemporel.preparer({'sante': dict(sante_vote)}, DEBUT)
+    m = autre_param.mesures_de_l_annee(DEBUT)['sante']
+    assert m['franchise_participation_taux'] == 120 and m['effort_prev_org'] == 20
+    assert franchise_touchee.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 0
+    assert identique.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 120
+    assert 'sante' not in identique.leviers_modifies
+    assert all(c.mesures_de_l_annee(2027)['sante']['franchise_participation_taux'] == 120
+               for c in (autre_param, franchise_touchee, identique))
+
+
+def test_chaque_reajustement_livre_porte_sa_source():
+    a = cadre.charger_atterrissage()
+    for an, bloc in a.annees.items():
+        for levier, params in bloc.reajustements.items():
+            for param in params:
+                assert bloc.sources_reajustements.get(f'{levier}.{param}', '').strip(), (an, levier, param)

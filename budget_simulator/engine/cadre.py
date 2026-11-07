@@ -63,7 +63,7 @@ from ..constants import (
     CONJONCTURE_PREMIERE_ANNEE,
     POLICY_START_YEAR,
 )
-from ._noms_parametres import NOMS_PARAMETRES_ADMIS
+from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
 from ._param_domain import (
     _DETAILS_MAX,
     EntreeInvalide,
@@ -360,6 +360,41 @@ def _signaler(warned: Optional[set], corrections: Optional[dict], texte: str,
         corrections.setdefault(cle, texte)
 
 
+def heriter_du_droit(programme: Dict, droit_vote: Dict, droit_en_vigueur: Dict) -> Dict:
+    """Mesures du programme par-dessus le droit en vigueur, réajustements de
+    l'atterrissage compris (lot E).
+
+    Un levier absent ou ``null``, ou dont le programme reprend le bloc VOTÉ, est
+    celui du droit en vigueur. Un levier réajusté que le programme modifie garde
+    le réajustement sur chaque paramètre que le programme reprend du budget voté
+    (modifier la prévention ne remet pas les franchises à leur valeur votée) ; un
+    paramètre que le programme change garde la valeur du programme (son niveau
+    encodé). Un paramètre absent du bloc du programme reçoit le réajustement,
+    sauf pour un levier à modes exclusifs (on n'ajoute jamais une clé qui en
+    masquerait une autre). Sans réajustement : ``fusionner`` au bit près."""
+    effectif = dict(droit_en_vigueur)
+    for levier, bloc in programme.items():
+        if bloc is None:
+            continue
+        vote = droit_vote.get(levier)
+        if bloc == vote:
+            continue
+        reajuste = droit_en_vigueur.get(levier)
+        if isinstance(bloc, dict) and isinstance(vote, dict) and isinstance(reajuste, dict) \
+                and reajuste != vote:
+            bloc = dict(bloc)
+            for param, valeur in reajuste.items():
+                if vote.get(param) == valeur:
+                    continue
+                if param in bloc:
+                    if bloc[param] == vote.get(param):
+                        bloc[param] = valeur
+                elif levier not in MODES_EXCLUSIFS:
+                    bloc[param] = valeur
+        effectif[levier] = bloc
+    return effectif
+
+
 def fusionner(droit: Dict, programme: Dict) -> Dict:
     """Mesures d'une année de programme : le droit en vigueur, dont chaque levier
     présent (non ``null``) dans le programme est REMPLACÉ en bloc par celui du
@@ -430,11 +465,7 @@ class CadreTemporel:
                            for an in range(POLICY_START_YEAR, debut)}
         # Droit en vigueur au début (et ensuite) : réajustements compris.
         mesures_droit = droit_reajuste(droit_vote, atterrissage, debut)
-        # Un levier dont le programme reprend le bloc VOTÉ n'est pas touché par
-        # le programme : il hérite du droit en vigueur, réajustements compris.
-        touches = {l: b for l, b in programme.items()
-                   if b is not None and b != droit_vote.get(l)}
-        effectif = fusionner(mesures_droit, touches)
+        effectif = heriter_du_droit(programme, droit_vote, mesures_droit)
         modifies = frozenset(l for l in set(effectif) | set(mesures_droit)
                              if effectif.get(l) != mesures_droit.get(l))
         rampes, par_annee = _mesures_rampees(effectif, mesures_droit, debut, rampe_effective)
@@ -530,6 +561,7 @@ class CadreTemporel:
             annees[str(an)] = {
                 'cibles': {g: (None if c is None else c.publier()) for g, c in bloc.cibles.items()},
                 'reajustements_droit_en_vigueur': copy.deepcopy(bloc.reajustements),
+                'sources_reajustements': dict(bloc.sources_reajustements or {}),
                 'decomposition': decomposition,
             }
         return {'version': self.atterrissage.version, 'date': self.atterrissage.date,
@@ -604,6 +636,7 @@ DOMAINES_ATTERRISSAGE = {
 # est un défaut des données ou du modèle, à instruire : RuntimeError.
 ECART_ATTERRISSAGE_MAX = CONJONCTURE_AMPLITUDE_MAX
 _CLE_REAJUSTEMENTS = 'reajustements_droit_en_vigueur'
+_CLE_SOURCES_REAJUSTEMENTS = 'sources_reajustements'
 _CHAMPS_CIBLE = frozenset({'valeur', 'source', 'date', 'provisoire', 'note'})
 
 
@@ -624,6 +657,7 @@ class Cible:
 class AtterrissageAnnee:
     cibles: Dict[str, Optional[Cible]]
     reajustements: Dict
+    sources_reajustements: Dict[str, str] = None
 
 
 @dataclass(frozen=True)
@@ -700,7 +734,8 @@ def charger_atterrissage() -> Atterrissage:
         bloc = brutes[cle]
         if not isinstance(bloc, dict):
             raise _defaut_atterrissage(f"{annee} : objet attendu")
-        inconnus = sorted(map(str, set(bloc) - set(GRANDEURS_ATTERRISSAGE) - {_CLE_REAJUSTEMENTS}))
+        inconnus = sorted(map(str, set(bloc) - set(GRANDEURS_ATTERRISSAGE)
+                              - {_CLE_REAJUSTEMENTS, _CLE_SOURCES_REAJUSTEMENTS}))
         if inconnus:
             raise _defaut_atterrissage(f"{annee} : grandeur(s) inconnue(s) {', '.join(inconnus)}")
         reaj = bloc.get(_CLE_REAJUSTEMENTS, {})
@@ -717,9 +752,22 @@ def charger_atterrissage() -> Atterrissage:
             valider_droit_composable(cumul, f"{annee}.{_CLE_REAJUSTEMENTS}")
         except RuntimeError as e:
             raise _defaut_atterrissage(str(e)) from e
+        # Chaque paramètre réajusté porte sa source (aucun chiffre sans source) ;
+        # une source sans réajustement est une erreur d'écriture.
+        sources = bloc.get(_CLE_SOURCES_REAJUSTEMENTS, {})
+        if not isinstance(sources, dict):
+            raise _defaut_atterrissage(f"{annee}.{_CLE_SOURCES_REAJUSTEMENTS} : dict attendu")
+        attendues = {f"{l}.{prm}" for l, params in reaj.items() for prm in params}
+        for cle_source, texte in sources.items():
+            if cle_source not in attendues or not isinstance(texte, str) or not texte.strip():
+                raise _defaut_atterrissage(f"{annee}.{_CLE_SOURCES_REAJUSTEMENTS}.{cle_source} : "
+                                           f"source d'un paramètre réajusté, texte non vide attendu")
+        manquantes = sorted(attendues - set(sources))
+        if manquantes and sources:
+            raise _defaut_atterrissage(f"{annee} : réajustement(s) sans source : {', '.join(manquantes)}")
         annees[annee] = AtterrissageAnnee(
             cibles={g: _lire_cible(annee, g, bloc.get(g)) for g in GRANDEURS_ATTERRISSAGE},
-            reajustements=copy.deepcopy(reaj))
+            reajustements=copy.deepcopy(reaj), sources_reajustements=dict(sources))
     return Atterrissage(version=contenu['version'], date=contenu['date'],
                         description=contenu['description'], annees=annees)
 

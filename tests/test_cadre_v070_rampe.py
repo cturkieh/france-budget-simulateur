@@ -51,6 +51,11 @@ def _cadre(programme, rampe, debut=DEBUT):
     return cadre.CadreTemporel.preparer(programme, debut, rampe=rampe)
 
 
+# Référence d'une rampe : le droit en vigueur EFFECTIF (réajustements de
+# l'atterrissage compris : défense 58 au lieu de 57 votés).
+DEF_REF = cadre.CadreTemporel.preparer({}, DEBUT).mesures_droit['defense']['budget']
+
+
 # ---------------------------------------------------------------------------
 # (c) la rampe des paramètres
 # ---------------------------------------------------------------------------
@@ -60,9 +65,9 @@ def test_c_rampe_nulle_avant_egale_par_pas_monotone_pleine_a_la_fin(n):
     prog = _programme(defense={'budget': 70}, collectivites={'dotation': 100.0, 'investissement': 10})
     c = _cadre(prog, {'annees': n, 'leviers': ['defense.budget', 'collectivites.investissement']})
     valeurs = {an: c.mesures_de_l_annee(an)['defense']['budget'] for an in range(2026, 2036)}
-    assert all(valeurs[an] == DROIT['defense']['budget'] for an in range(2026, DEBUT))
+    assert all(valeurs[an] == DEF_REF for an in range(2026, DEBUT))
     pas = [valeurs[an] - valeurs[an - 1] for an in range(DEBUT, DEBUT + n)]
-    assert all(p == pytest.approx((70 - 57) / n, rel=1e-12) for p in pas)
+    assert all(p == pytest.approx((70 - DEF_REF) / n, rel=1e-12) for p in pas)
     assert valeurs[DEBUT + n - 1] == 70
     assert all(valeurs[an] == 70 for an in range(DEBUT + n - 1, 2036))
     assert all(valeurs[an + 1] >= valeurs[an] for an in range(2026, 2035))
@@ -83,8 +88,8 @@ def test_c_rampe_dans_le_moteur_increments_egaux():
     imp = _impacts(simuler(_programme(defense={'budget': 70}), annee_debut=DEBUT,
                            rampe={'annees': 5, 'leviers': ['defense.budget']})[2])
     for k, an in enumerate(range(DEBUT, DEBUT + 5), start=1):
-        assert imp[an]['defense']['depenses'] == pytest.approx((57 - 50) + (70 - 57) * k / 5, rel=1e-12)
-    assert imp[2027]['defense']['depenses'] == 57 - 50
+        assert imp[an]['defense']['depenses'] == pytest.approx((DEF_REF - 50) + (70 - DEF_REF) * k / 5, rel=1e-12)
+    assert imp[2027]['defense']['depenses'] == DEF_REF - 50
 
 
 def test_c_rampe_sans_levier_modifie_est_neutre():
@@ -249,14 +254,17 @@ def test_refuteur_d_rampe_au_dela_de_l_horizon():
     """Début 2031, rampe sur 6 ans : la rampe n'est pas finie en 2035 (5/6), sans
     erreur ni extrapolation."""
     c = _cadre(_programme(defense={'budget': 69}), {'annees': 6, 'leviers': ['defense.budget']}, debut=2031)
-    assert c.mesures_de_l_annee(2035)['defense']['budget'] == pytest.approx(57 + 12 * 5 / 6, rel=1e-12)
+    assert c.mesures_de_l_annee(2035)['defense']['budget'] == pytest.approx(
+        DEF_REF + (69 - DEF_REF) * 5 / 6, rel=1e-12)
 
 
 def test_refuteur_d_rampe_vers_le_bas():
-    """Baisse (défense 57 → 45) : même règle, décroissante, jamais sous la cible."""
+    """Baisse (défense du droit → 45) : même règle, décroissante, jamais sous la cible."""
     c = _cadre(_programme(defense={'budget': 45}), {'annees': 4, 'leviers': ['defense.budget']})
     v = [c.mesures_de_l_annee(an)['defense']['budget'] for an in range(2027, 2034)]
-    assert v == [57, 54, 51, 48, 45, 45, 45]
+    attendu = [DEF_REF] + [DEF_REF + (45 - DEF_REF) * k / 4 for k in (1, 2, 3)] + [45, 45, 45]
+    assert v == pytest.approx(attendu, rel=1e-12)
+    assert all(a >= b for a, b in zip(v, v[1:]))
 
 
 def test_refuteur_d_levier_absent_du_droit():

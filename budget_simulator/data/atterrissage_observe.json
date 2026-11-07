@@ -1,36 +1,48 @@
 {
   "version": "2026-11-07",
   "date": "2026-11-07",
-  "description": "Atterrissage observé ou prévu des années déjà jouées, appliqué en mode cadre (annee_debut de 2027 à 2032) et identique pour tous les scénarios. Deux temps par année : (1) réajustements du droit en vigueur sur les leviers réels (décisions publiques durables), (2) cibles macroéconomiques et de finances publiques ; le moteur mesure l'écart résiduel après les réajustements et le force (écart de solde persistant porté par les recettes, ajustement stock-flux de la dette, choc de demande, coin de prix de la consommation). Révisable sans code (comptes provisoires INSEE de mars 2027). Valeurs en fraction : 0.004 = 0,4 %.",
+  "description": "Atterrissage observé ou prévu des années déjà jouées, appliqué en mode cadre (annee_debut de 2027 à 2032) et identique pour tous les scénarios. Deux temps par année : (1) réajustements du droit en vigueur sur les leviers réels (décisions publiques durables, reconduites ensuite à droit constant), (2) cibles macroéconomiques et de finances publiques ; le moteur mesure l'écart résiduel après les réajustements et le force (écart de solde persistant porté par les recettes, ajustement stock-flux de la dette, choc de demande, déflateur imposé, coin de prix de la consommation). Révisable sans code (comptes provisoires INSEE de mars 2027). Valeurs en fraction : 0.004 = 0,4 %. Arbitrage du mainteneur du 07/11/2026.",
   "annees": {
     "2026": {
-      "reajustements_droit_en_vigueur": {},
+      "reajustements_droit_en_vigueur": {
+        "defense": {"budget": 58},
+        "sante": {"franchise_participation_taux": 120},
+        "is_exceptionnel_tge": {"montant": 6.8}
+      },
+      "sources_reajustements": {
+        "defense.budget": "Crédits de la loi de programmation militaire exécutés à 58 Md€ en 2026 (HCFP, avis HCFP-2026-6 du 02/11/2026, tableau 2 : 57 → 58) ; projet de loi de finances de fin de gestion n° 3434 (04/11/2026) : +0,7 Md€ de crédits de paiement pour l'accélération de l'effort de défense.",
+        "sante.franchise_participation_taux": "Hausse des plafonds des franchises médicales et participations forfaitaires décidée en 2026, environ 0,3 Md€ de moindre dépense (HCFP, avis HCFP-2026-5 § 83 et HCFP-2026-6 § 49) ; 120 % est la valeur du curseur qui reproduit ce montant (0,33 Md€).",
+        "is_exceptionnel_tge.montant": "Rendement de la contribution exceptionnelle sur les bénéfices des grandes entreprises révisé de −0,5 Md€ en comptabilité nationale (HCFP, avis HCFP-2026-6 § 33c, http://www.hcfp.fr/sites/default/files/2026-11/Avis%20HCFP-2026-6%20-%20PLFG%202026.pdf), sur une base votée de 7,3 Md€."
+      },
       "croissance": {
         "valeur": 0.004,
-        "source": "INSEE, Note de conjoncture « Vigilance orange sur la croissance », 10/09/2026 (https://www.insee.fr/fr/statistiques/9050743?sommaire=9050757) ; Banque de France, projections macroéconomiques intermédiaires de septembre 2026 ; OFCE, prévision du 14/10/2026 : 0,4 %. Le HCFP (avis 2026-6 du 02/11/2026, § 14 et note 4) juge 0,3 % en données corrigées des jours ouvrables plus vraisemblable, soit environ 0,4 % en brut annuel, convention du moteur.",
-        "date": "2026-09-10"
+        "source": "HCFP, avis HCFP-2026-6 sur le projet de loi de finances de fin de gestion 2026 (02/11/2026, publié le 04/11), § 14 et note 4 : 0,3 % en données corrigées des jours ouvrables jugé « plus vraisemblable », soit 0,4 % en brut annuel, convention du moteur (http://www.hcfp.fr/sites/default/files/2026-11/Avis%20HCFP-2026-6%20-%20PLFG%202026.pdf). INSEE (10/09/2026), Banque de France (septembre 2026), OFCE (14/10/2026) et consensus d'octobre : 0,4 %.",
+        "date": "2026-11-02"
       },
-      "deflateur": null,
+      "deflateur": {
+        "valeur": 0.015,
+        "source": "Gouvernement, déflateur du PIB 2026, PLF 2027 (25/09/2026) et projet de loi de finances de fin de gestion n° 3434 (04/11/2026), jugé plausible par le HCFP (avis HCFP-2026-5 § 49 et HCFP-2026-6 § 24). Seul déflateur 2026 publié ; les ratios officiels de déficit et de dette 2026 sont calculés avec ce dénominateur.",
+        "date": "2026-11-02"
+      },
       "ipc": {
-        "valeur": 0.021,
-        "source": "Gouvernement, indice des prix à la consommation 2026 en moyenne annuelle, PLF 2027 (25/09/2026) et projet de loi de finances de fin de gestion n° 3434 (04/11/2026), repris par les avis HCFP-2026-5 § 45 et HCFP-2026-6 § 20. Le HCFP juge cette prévision « trop basse d'un ou deux dixièmes » (avis HCFP-2026-6 § 25, http://www.hcfp.fr/sites/default/files/2026-11/Avis%20HCFP-2026-6%20-%20PLFG%202026.pdf).",
+        "valeur": 0.023,
+        "source": "HCFP, avis HCFP-2026-6 § 25 : la prévision gouvernementale de 2,1 % d'inflation moyenne est « trop basse d'un ou deux dixièmes » ; Banque de France, projections de septembre 2026 : 2,3 % (IPCH) ; OFCE et consensus d'octobre : 2,2 à 2,3 % ; INSEE, Informations rapides n° 266 du 30/10/2026 (https://www.insee.fr/fr/statistiques/9107965) : glissement de 3,4 % en octobre.",
         "date": "2026-11-02"
       },
       "chomage": {
-        "valeur": 0.085,
-        "source": "Taux de chômage BIT de fin 2026, médiane des prévisions INSEE (8,6 %, note de conjoncture du 10/09/2026), OFCE (8,5 %, 14/10/2026) et Banque de France (8,4 %, septembre 2026), retenu à titre provisoire comme moyenne annuelle (arbitrage du mainteneur du 07/11/2026). À remplacer par une moyenne annuelle sourcée : Banque de France, projections de septembre 2026, 8,3 % en moyenne.",
-        "date": "2026-11-07",
-        "provisoire": true
+        "valeur": 0.083,
+        "source": "Taux de chômage BIT, moyenne annuelle 2026 : Banque de France, projections macroéconomiques de septembre 2026 (« s'établirait en moyenne à 8,3 % en 2026 ») ; OFCE, prévision du 14/10/2026, moyenne de ses trimestres 8,1 / 8,3 / 8,4 / 8,5 % (https://www.ofce.fr/prev/prev2609/france/emploi.html).",
+        "date": "2026-10-14"
       },
       "deficit": {
-        "valeur": -0.054,
-        "source": "Gouvernement, PLF 2027 (25/09/2026), jugé « plausible » par le HCFP (avis HCFP-2026-5 § 92, https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000054939509) ; confirmé par le projet de loi de finances de fin de gestion n° 3434 du 04/11/2026 (article liminaire : −166,0 Md€, 5,44 % avant arrondi, https://www.assemblee-nationale.fr/dyn/17/textes/l17b3434_projet-loi).",
+        "valeur": -0.055,
+        "source": "Projet de loi de finances de fin de gestion n° 3434 du 04/11/2026, article liminaire : −166,0 Md€ (5,44 %), plus 0,7 Md€ d'intérêts sur titres indexés non intégrés qui portent « mécaniquement » le déficit à 5,5 % du PIB (HCFP, avis HCFP-2026-6 § 55-57 ; https://www.assemblee-nationale.fr/dyn/17/textes/l17b3434_projet-loi).",
         "date": "2026-11-04"
       },
       "dette": {
-        "valeur": 1.193,
-        "source": "Gouvernement, PLF 2027 (avis HCFP-2026-5, annexe 2, 25/09/2026). Le projet de loi de finances de fin de gestion n° 3434 du 04/11/2026 affiche 119,4 % (article liminaire).",
-        "date": "2026-09-25"
+        "valeur": 1.194,
+        "source": "Projet de loi de finances de fin de gestion n° 3434 du 04/11/2026, article liminaire : 119,4 % du PIB fin 2026, après 115,7 % fin 2025 (HCFP, avis HCFP-2026-6 § 71-73).",
+        "date": "2026-11-04"
       }
     }
   }

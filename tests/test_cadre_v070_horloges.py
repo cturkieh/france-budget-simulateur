@@ -304,7 +304,9 @@ def test_b_programme_identique_au_droit_un_seul_monde():
     appel par levier et par année)."""
     sim = _SimMondes(periods=10, mesures=copy.deepcopy(DROIT), annee_debut=DEBUT)
     sim.simulate()
-    assert all(len(s) == 1 and s[0][0] is None for s in sim.sorties.values())
+    # Hors évaluations isolées de la décomposition de l'atterrissage (2026, monde « isole »).
+    annuels = {k: [x for x in v if x[0] != 'isole'] for k, v in sim.sorties.items()}
+    assert all(len(s) == 1 and s[0][0] is None for s in annuels.values() if s)
 
 
 # ---------------------------------------------------------------------------
