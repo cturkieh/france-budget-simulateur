@@ -45,6 +45,7 @@ from ..constants import (
     PART_MENAGES_COMPOSANTE_CARBONE,
 )
 from .._logging import _log_debug
+from .efficience import FP_EFFECTIFS_ANNEE_CIBLE, _fp_effectifs_annees_de_rampe, premiere_annee_de_mandat
 from ._phasing import _year_phasing
 from ._types import ImpactsDict, canaux_menages
 
@@ -81,7 +82,19 @@ class InvestissementsMixin(_MixinBase):
         teachers = params.get('enseignants', 0)
         salaries = params.get('salaires', 0)
 
-        delta_spending = (budget - 65) + teachers * 65000 / 1e9 + salaries * 0.01 * 50
+        # Postes d'enseignants (v0.7.0, lot D ; règle 8 de l'audit des unités,
+        # symétrie des rampes) : en mode CADRE, la cible est un STOCK atteint par
+        # la même rampe de mandat que les effectifs de la fonction publique
+        # (handlers/efficience.py) — un cinquième par an de 2028 à 2032 pour un
+        # programme qui commence en 2028. Mode historique : stock entier dès 2026,
+        # comme en v0.6.11.
+        postes = teachers
+        if teachers and self._mode_cadre():
+            premiere = premiere_annee_de_mandat(self._origine('education'))
+            postes = (teachers * _fp_effectifs_annees_de_rampe(year, premiere)
+                      / (FP_EFFECTIFS_ANNEE_CIBLE - premiere + 1))
+
+        delta_spending = (budget - 65) + postes * 65000 / 1e9 + salaries * 0.01 * 50
 
         if delta_spending == 0 and teachers == 0 and salaries == 0:
             return 0, 0, {}
@@ -124,7 +137,7 @@ class InvestissementsMixin(_MixinBase):
 
         # Bonus enseignants : qualité > quantité (Hanushek)
         # +10k enseignants avec meilleurs salaires = meilleure qualité
-        competitivite_teachers = 0.0005 * (teachers / 1000) * phasing_edu
+        competitivite_teachers = 0.0005 * (postes / 1000) * phasing_edu
         competitivite_salaires = 0.0003 * salaries * phasing_edu  # Attractivité métier
 
         competitivite = competitivite_budget + competitivite_teachers + competitivite_salaires

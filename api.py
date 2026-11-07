@@ -50,7 +50,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from budget_simulator import BudgetSimulatorV45, EntreeInvalide, load_default_values
 
@@ -248,6 +248,17 @@ def _limiter_debit(request: Request) -> None:
                                   "réessayez dans {secondes} s.")
 
 
+class RampeRequete(BaseModel):
+    """Rampe générique (v0.7.0, lot D) : montée en charge linéaire des
+    paramètres listés, du droit en vigueur au programme, sur `annees` budgets à
+    partir de `annee_debut`. Forme validée ici (entier strict, liste de textes,
+    aucune autre clé : 422) ; domaine et éligibilité par le moteur (422 en
+    strict, correction tracée en tolérant)."""
+    model_config = ConfigDict(extra='forbid')
+    annees: int = Field(strict=True)
+    leviers: list[str]
+
+
 class SimulationRequest(BaseModel):
     """Requête de simulation avec validation stricte."""
     mesures: dict[str, Any] | None = Field(default_factory=dict)
@@ -258,6 +269,8 @@ class SimulationRequest(BaseModel):
     # booléen, ni flottant : 422) ; le domaine [2026 ; 2032] est validé par le
     # moteur (422 en strict, correction tracée en tolérant).
     annee_debut: int | None = Field(default=None, strict=True)
+    # Rampe générique (v0.7.0) : mode cadre seulement ; défaut, aucune rampe.
+    rampe: RampeRequete | None = None
 
     @field_validator('mesures')
     @classmethod
@@ -362,9 +375,14 @@ async def simulate(request: SimulationRequest):
       levier par levier (un levier absent du programme garde la valeur du
       droit en vigueur). Non entier (texte, booléen, flottant) : 422 dans les
       deux modes ; hors [2026 ; 2032] : 422 en strict, ramené à la borne en
-      tolérant (`report.valid` à `false`). La réponse porte un bloc `cadre`
-      (mode, `annee_debut`, années de droit en vigueur, identifiant du droit
-      en vigueur, leviers modifiés).
+      tolérant (`report.valid` à `false`). `rampe` (facultative, mode cadre) :
+      `{"annees": 1-6, "leviers": ["levier.parametre", …]}`, montée en charge
+      linéaire du paramètre, de la valeur du droit en vigueur à celle du
+      programme ; leviers éligibles : budgets et dotations en Md€ et leviers
+      fiscaux des grandes entreprises (`engine/cadre.py`,
+      `RAMPE_LEVIERS_ELIGIBLES`) ; aucune rampe par défaut. La réponse porte
+      un bloc `cadre` (mode, `annee_debut`, années de droit en vigueur,
+      identifiant du droit en vigueur, leviers modifiés, rampe effective).
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
     """
     mesures = request.mesures or {}
@@ -372,7 +390,8 @@ async def simulate(request: SimulationRequest):
     # En cas d'échec systémique (fichier corrompu, schema cassé) → 500.
     try:
         sim = BudgetSimulatorV45(periods=request.periods, mesures=mesures,
-                                 annee_debut=request.annee_debut)
+                                 annee_debut=request.annee_debut,
+                                 rampe=request.rampe.model_dump() if request.rampe else None)
     except Exception as e:
         logger.error("Échec instantiation moteur : %s", e, exc_info=True)
         raise HTTPException(

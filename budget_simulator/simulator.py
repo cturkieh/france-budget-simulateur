@@ -442,7 +442,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         return BudgetSimulatorV45.DECAY_PROFILE_TAXES
 
     def __init__(self, periods: int = 10, mesures: Dict = None, *,
-                 annee_debut: int | None = None):
+                 annee_debut: int | None = None, rampe: Dict | None = None):
 
         # Paramètres de base INSEE/Eurostat 2025 (from constants.py)
         self.base_params = {
@@ -571,6 +571,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # dès 2026 comme en v0.6.11). Validée et rendue effective par
         # simulate(), qui pose self._cadre.
         self.annee_debut = annee_debut
+        # Rampe générique (v0.7.0, lot D) : {annees, leviers}, mode cadre seul.
+        self.rampe = rampe
         self.mesures = mesures or {}
         self.debug_logs = []
         self._last_impacts = {}  # Initialisation par défaut pour éviter AttributeError
@@ -837,6 +839,13 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         (lectures croisées : l'ASU pour la fraude sociale, la réforme FP pour
         les effectifs) — jamais la constante globale."""
         return self._origines_courantes.get(levier, POLICY_START_YEAR)
+
+    def _mode_cadre(self) -> bool:
+        """Vrai pendant une simulation en mode cadre (v0.7.0, engine/cadre.py) :
+        les règles propres au cadre 2027-2032 (rampe de mandat des postes
+        d'enseignants) ne s'appliquent pas au mode historique."""
+        cadre_temporel = getattr(self, '_cadre', None)
+        return cadre_temporel is not None and cadre_temporel.actif
 
     def _ponctuel(self, cle: str, params_dict: Dict) -> Tuple[str, Dict | None]:
         """Déclencheur d'un effet PONCTUEL (v0.7.0, lot B) : ``('premier', None)``

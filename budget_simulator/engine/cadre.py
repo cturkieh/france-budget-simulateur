@@ -85,6 +85,94 @@ class AnneeDebutInvalide(EntreeInvalide, ValueError):
     """``annee_debut`` hors de [2026 ; 2032] ou non entière (mode BUDGETLAB_STRICT)."""
 
 
+class RampeInvalide(EntreeInvalide, ValueError):
+    """``rampe`` mal formée, hors domaine ou en mode historique (mode BUDGETLAB_STRICT)."""
+
+
+# === RAMPE GÉNÉRIQUE (lot D) ===
+# Montée en charge PARAMÉTRIQUE d'un levier, de la valeur du droit en vigueur à
+# celle du programme, sur ``annees`` budgets à partir de ``annee_debut`` (dossier
+# § 2.4 ; décision du 07/11/2026 : aucune rampe par défaut, la trajectoire
+# déclarée par le programme sinon). Paramétrique et non sur les montants : les
+# lecteurs latéraux (effet d'offre) lisent la valeur du paramètre.
+RAMPE_ANNEES_MIN = 1
+RAMPE_ANNEES_MAX = 6
+# Leviers en Md€ (budgets, dotations, investissements), et les cinq leviers
+# fiscaux des grandes entreprises, éligibles depuis que leurs effets ponctuels
+# sont émis en incrément (lot B : rampés, ils ne se redéclenchent plus au
+# niveau). Les leviers en taux ou en durée basculent sans rampe.
+# ``education.enseignants`` n'y est PAS : il suit la rampe de mandat des
+# effectifs FP (handlers/investissements.py), une seconde rampe la doublerait.
+RAMPE_LEVIERS_ELIGIBLES = frozenset({
+    'transition_ecologique.investissement', 'transition_ecologique.renovation',
+    'recherche_publique.budget', 'education.budget', 'defense.budget',
+    'collectivites.dotation', 'collectivites.investissement',
+    'immigration.ame', 'immigration.integration', 'sante.prevention_budget',
+    'niches_fiscales_tge.montant', 'niches_sociales_tge.montant',
+    'subventions_tge.montant', 'impots_production.montant', 'is_exceptionnel_tge.montant',
+})
+_RAMPE_CLES = frozenset({'annees', 'leviers'})
+
+
+@dataclass(frozen=True)
+class Rampe:
+    annees: int
+    leviers: tuple
+
+
+def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
+                     warned: Optional[set] = None,
+                     corrections: Optional[dict] = None) -> Optional['Rampe']:
+    """Rampe effective, ou ``None`` (aucune). Strict : ``RampeInvalide`` au
+    premier défaut. Tolérant : WARNING une fois et correction tracée —
+    ``annees`` ramenée au domaine, leviers inconnus ou non éligibles retirés,
+    clés inconnues ignorées, rampe ignorée en mode historique ou si illisible."""
+    if valeur is None:
+        return None
+    cle = ('cadre', 'rampe')
+
+    def defaut(message, rendu):
+        if strict:
+            raise RampeInvalide(f"rampe : {message} (mode BUDGETLAB_STRICT)")
+        _signaler(warned, corrections, f"rampe : {message}", cle=cle + (message,))
+        return rendu
+
+    if not mode_cadre:
+        return defaut("une rampe exige annee_debut dans [2027 ; "
+                      f"{ANNEE_DEBUT_MAX}] (mode historique : programme dès "
+                      f"{POLICY_START_YEAR}, sans rampe) — rampe ignorée", None)
+    if not isinstance(valeur, dict):
+        return defaut(f"objet {{annees, leviers}} attendu, reçu {type(valeur).__name__} — "
+                      "rampe ignorée", None)
+    inconnues = sorted(map(str, set(valeur) - _RAMPE_CLES))
+    if inconnues:
+        defaut(f"clé(s) inconnue(s) {', '.join(inconnues)} — ignorée(s)", None)
+    annees = valeur.get('annees')
+    if isinstance(annees, bool) or not isinstance(annees, numbers.Integral):
+        return defaut(f"annees = {annees!r} : entier attendu dans "
+                      f"[{RAMPE_ANNEES_MIN} ; {RAMPE_ANNEES_MAX}] — rampe ignorée", None)
+    if not RAMPE_ANNEES_MIN <= annees <= RAMPE_ANNEES_MAX:
+        borne = min(max(int(annees), RAMPE_ANNEES_MIN), RAMPE_ANNEES_MAX)
+        annees = defaut(f"annees = {annees} hors de [{RAMPE_ANNEES_MIN} ; "
+                        f"{RAMPE_ANNEES_MAX}] — ramenée à {borne}", borne)
+    leviers = valeur.get('leviers')
+    if not isinstance(leviers, list):
+        return defaut(f"leviers = {leviers!r} : liste de « levier.parametre » attendue — "
+                      "rampe ignorée", None)
+    retenus = []
+    for nom in leviers:
+        if nom == 'education.enseignants':
+            defaut("education.enseignants suit déjà la rampe de mandat des effectifs "
+                   "de la fonction publique — retiré de la rampe", None)
+        elif not isinstance(nom, str) or nom not in RAMPE_LEVIERS_ELIGIBLES:
+            defaut(f"levier {nom!r} inconnu ou non éligible (leviers en Md€ et leviers "
+                   f"fiscaux des grandes entreprises : {', '.join(sorted(RAMPE_LEVIERS_ELIGIBLES))})"
+                   " — retiré", None)
+        elif nom not in retenus:
+            retenus.append(nom)
+    return Rampe(annees=int(annees), leviers=tuple(retenus)) if retenus else None
+
+
 @dataclass(frozen=True)
 class DroitEnVigueur:
     """Jeu de paramètres appliqué avant ``annee_debut`` (donnée serveur validée)."""
@@ -268,16 +356,23 @@ class CadreTemporel:
     mesures_droit: Optional[Dict]
     programme: Dict
     leviers_modifies: FrozenSet[str]
+    rampe: Optional[Rampe] = None
+    leviers_rampes: tuple = ()
+    mesures_rampe: Optional[Dict[int, Dict]] = None
 
     @classmethod
     def preparer(cls, programme: Dict, annee_debut, *, droit: Optional[DroitEnVigueur] = None,
-                 strict: bool = False, warned: Optional[set] = None,
+                 rampe=None, strict: bool = False, warned: Optional[set] = None,
                  corrections: Optional[dict] = None) -> 'CadreTemporel':
         """``programme`` : mesures de l'appelant APRÈS la porte d'entrée
-        (``assainir_mesures``). ``droit`` : injecté en test, sinon le fichier."""
+        (``assainir_mesures``). ``droit`` : injecté en test, sinon le fichier.
+        ``rampe`` : demande de l'appelant (lot D), validée ici."""
         debut = normaliser_annee_debut(annee_debut, strict=strict, warned=warned,
                                        corrections=corrections)
-        if debut is None or debut == POLICY_START_YEAR:
+        historique = debut is None or debut == POLICY_START_YEAR
+        rampe_effective = normaliser_rampe(rampe, mode_cadre=not historique, strict=strict,
+                                           warned=warned, corrections=corrections)
+        if historique:
             return cls(mode=MODE_HISTORIQUE, annee_debut=POLICY_START_YEAR, droit=None,
                        mesures_droit=None, programme=programme,
                        leviers_modifies=frozenset())
@@ -288,9 +383,11 @@ class CadreTemporel:
         effectif = fusionner(mesures_droit, programme)
         modifies = frozenset(l for l in set(effectif) | set(mesures_droit)
                              if effectif.get(l) != mesures_droit.get(l))
+        rampes, par_annee = _mesures_rampees(effectif, mesures_droit, debut, rampe_effective)
         return cls(mode=MODE_CADRE, annee_debut=debut, droit=droit,
                    mesures_droit=mesures_droit, programme=effectif,
-                   leviers_modifies=modifies)
+                   leviers_modifies=modifies, rampe=rampe_effective,
+                   leviers_rampes=rampes, mesures_rampe=par_annee)
 
     @property
     def actif(self) -> bool:
@@ -301,6 +398,8 @@ class CadreTemporel:
         historique : le programme, toujours (le même objet : bit-identique)."""
         if self.actif and annee < self.annee_debut:
             return self.mesures_droit
+        if self.mesures_rampe and annee in self.mesures_rampe:
+            return self.mesures_rampe[annee]
         return self.programme
 
     def origines_de_l_annee(self, annee: int) -> Dict[str, int]:
@@ -326,7 +425,43 @@ class CadreTemporel:
                                         if self.actif else []),
             'droit_en_vigueur': self.droit.meta() if self.droit is not None else None,
             'leviers_modifies': sorted(self.leviers_modifies),
+            'rampe': (None if self.rampe is None else
+                      {'annees': self.rampe.annees, 'leviers': list(self.rampe.leviers),
+                       'leviers_rampes': list(self.leviers_rampes)}),
         }
+
+
+def _mesures_rampees(programme: Dict, droit: Dict, debut: int, rampe: Optional[Rampe]):
+    """(leviers effectivement rampés, {année: mesures}) pour les années de rampe
+    non pleines (début … début + n − 2) ; ensuite, le programme lui-même (valeur
+    EXACTE du programme, jamais p_droit + (p − p_droit) × 1). Référence d'un
+    levier absent du droit : le défaut du moteur."""
+    if rampe is None or rampe.annees == 1:
+        return (), None
+    from ..config import load_default_values
+    defauts = load_default_values()
+    a_ramper = []
+    for nom in rampe.leviers:
+        levier, param = nom.split('.')
+        bloc = programme.get(levier)
+        if not isinstance(bloc, dict) or param not in bloc:
+            continue
+        ref_bloc = droit.get(levier) if isinstance(droit.get(levier), dict) else {}
+        p_ref = ref_bloc.get(param, defauts.get(levier, {}).get(param))
+        p_prog = bloc[param]
+        if _nombre(p_ref) and _nombre(p_prog) and p_prog != p_ref:
+            a_ramper.append((nom, levier, param, p_ref, p_prog))
+    if not a_ramper:
+        return (), None
+    par_annee = {}
+    for k in range(1, rampe.annees):
+        m = dict(programme)
+        for _, levier, param, p_ref, p_prog in a_ramper:
+            bloc = dict(m[levier])
+            bloc[param] = p_ref + (p_prog - p_ref) * k / rampe.annees
+            m[levier] = bloc
+        par_annee[debut + k - 1] = m
+    return tuple(nom for nom, *_ in a_ramper), par_annee
 
 
 # ---------------------------------------------------------------------------

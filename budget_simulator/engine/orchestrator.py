@@ -633,7 +633,7 @@ class OrchestratorMixin:
         # en vigueur. Mode historique (annee_debut absent ou 2026) : le
         # programme s'applique dès 2026, au bit près comme en v0.6.11.
         self._cadre = CadreTemporel.preparer(
-            self.mesures, self.annee_debut, strict=_mode_strict(),
+            self.mesures, self.annee_debut, rampe=self.rampe, strict=_mode_strict(),
             warned=self._domain_clamp_warned, corrections=self._corrections)
         # Mondes de la composition des horloges (lot C) : mode cadre seulement.
         self._mondes = creer_mondes(self._cadre) if self._cadre.actif else None
