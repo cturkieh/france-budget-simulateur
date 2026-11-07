@@ -440,7 +440,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             return BudgetSimulatorV45.DECAY_PROFILE_TRANSFERS
         return BudgetSimulatorV45.DECAY_PROFILE_TAXES
 
-    def __init__(self, periods: int = 10, mesures: Dict = None):
+    def __init__(self, periods: int = 10, mesures: Dict = None, *,
+                 annee_debut: int | None = None):
 
         # Paramètres de base INSEE/Eurostat 2025 (from constants.py)
         self.base_params = {
@@ -564,6 +565,11 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         self.periods = periods
         self.annee_base = 2025
+        # Cadre temporel (v0.7.0, engine/cadre.py) : année de début du
+        # programme demandée par l'appelant (None = mode historique, programme
+        # dès 2026 comme en v0.6.11). Validée et rendue effective par
+        # simulate(), qui pose self._cadre.
+        self.annee_debut = annee_debut
         self.mesures = mesures or {}
         self.debug_logs = []
         self._last_impacts = {}  # Initialisation par défaut pour éviter AttributeError

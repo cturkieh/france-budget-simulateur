@@ -12,7 +12,7 @@ help:
 	@echo "                         (escalade les exceptions handler — bloque les"
 	@echo "                          régressions silencieuses, à utiliser avant PR)"
 	@echo ""
-	@echo "  make snapshot-baseline régénère les 2 golden masters (combiné + standalone)"
+	@echo "  make snapshot-baseline régénère les 3 golden masters (historique, cadre 2028, standalone)"
 	@echo "                         à utiliser après un changement intentionnel de calibration"
 	@echo "  make snapshot-diff     vérifie que la sim actuelle matche les golden masters"
 	@echo ""
@@ -46,6 +46,7 @@ snapshot-baseline:
 		exit 1; \
 	fi
 	python tests/snapshots/run_scenarios_full.py --out tests/snapshots/golden_master_v1.json
+	python tests/snapshots/run_scenarios_full.py --annee-debut 2028 --out tests/snapshots/golden_master_cadre_2028.json
 	python tests/snapshots/coverage_scenarios.py --out tests/snapshots/standalone_master_v1.json
 
 snapshot-diff:

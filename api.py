@@ -252,6 +252,12 @@ class SimulationRequest(BaseModel):
     """Requête de simulation avec validation stricte."""
     mesures: dict[str, Any] | None = Field(default_factory=dict)
     periods: int = Field(default=10, ge=1, le=PERIODS_MAX)
+    # Cadre temporel (v0.7.0, budget_simulator/engine/cadre.py) : première
+    # année d'application du programme. Absent (ou 2026) = mode historique,
+    # programme dès 2026 comme en v0.6.11. Entier STRICT (ni texte, ni
+    # booléen, ni flottant : 422) ; le domaine [2026 ; 2032] est validé par le
+    # moteur (422 en strict, correction tracée en tolérant).
+    annee_debut: int | None = Field(default=None, strict=True)
 
     @field_validator('mesures')
     @classmethod
@@ -347,13 +353,26 @@ async def simulate(request: SimulationRequest):
       processus, désactivées à 0 ; adresse = pair TCP, ou élément de fin de
       `X-Forwarded-For` si `BUDGETLAB_TRUST_PROXY` déclare des proxys de
       confiance (cf. en-tête du module).
+    - **Cadre temporel (v0.7.0)** : `annee_debut` (entier, facultatif) est la
+      première année d'application du programme. Absent ou 2026 = mode
+      historique (programme dès 2026, sortie de v0.6.11). De 2027 à 2032 =
+      mode cadre : avant `annee_debut`, le moteur applique le DROIT EN
+      VIGUEUR (budget 2026 voté, reconduit à droit constant en 2027 ;
+      `budget_simulator/data/droit_en_vigueur.json`), le programme ensuite,
+      levier par levier (un levier absent du programme garde la valeur du
+      droit en vigueur). Non entier (texte, booléen, flottant) : 422 dans les
+      deux modes ; hors [2026 ; 2032] : 422 en strict, ramené à la borne en
+      tolérant (`report.valid` à `false`). La réponse porte un bloc `cadre`
+      (mode, `annee_debut`, années de droit en vigueur, identifiant du droit
+      en vigueur, leviers modifiés).
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
     """
     mesures = request.mesures or {}
     # Instantiation moteur (chargement policy_measures.json + registre).
     # En cas d'échec systémique (fichier corrompu, schema cassé) → 500.
     try:
-        sim = BudgetSimulatorV45(periods=request.periods, mesures=mesures)
+        sim = BudgetSimulatorV45(periods=request.periods, mesures=mesures,
+                                 annee_debut=request.annee_debut)
     except Exception as e:
         logger.error("Échec instantiation moteur : %s", e, exc_info=True)
         raise HTTPException(
@@ -426,6 +445,9 @@ async def simulate(request: SimulationRequest):
             request.periods, len(mesures)
         )
     measure_impacts = report.pop('measure_impacts_by_year', [])
+    # Bloc `cadre` (v0.7.0) : mode, année de début, droit en vigueur appliqué
+    # avant elle, leviers modifiés par le programme.
+    cadre_temporel = report.pop('cadre', None)
 
     payload = {
         "success": True,
@@ -433,6 +455,7 @@ async def simulate(request: SimulationRequest):
         "details": details.to_dict(orient='records'),
         "report": report,
         "measure_impacts": measure_impacts,
+        "cadre": cadre_temporel,
         "logs": sim.debug_logs[:200] if DEBUG_MODE else []
     }
     # Sérialisation éprouvée ICI : FastAPI encode la réponse APRÈS le retour

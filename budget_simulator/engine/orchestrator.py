@@ -99,6 +99,7 @@ from ..constants import (
     PA_VARIATION_ANNUELLE_MAX,
     conjoncture_observee,
 )
+from .cadre import CadreTemporel
 from .growth import part_investissement_expansion
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
@@ -558,6 +559,12 @@ class OrchestratorMixin:
             warned=self._domain_clamp_warned,
             corrections=self._corrections, avis=self._avis,
         )
+        # Cadre temporel (v0.7.0, engine/cadre.py) : mode, année de début, droit
+        # en vigueur. Mode historique (annee_debut absent ou 2026) : le
+        # programme s'applique dès 2026, au bit près comme en v0.6.11.
+        self._cadre = CadreTemporel.preparer(
+            self.mesures, self.annee_debut, strict=_mode_strict(),
+            warned=self._domain_clamp_warned, corrections=self._corrections)
 
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
@@ -619,6 +626,14 @@ class OrchestratorMixin:
                 # jour d'offre n'a lieu en 2025 (v0.6.10, V2-02).
                 potentiel_annee = self.potentiel_de_l_annee()
             else:
+                # MESURES DE L'ANNÉE (v0.7.0, engine/cadre.py) — POINT UNIQUE, en
+                # TÊTE d'année : apply_measures ET les lecteurs latéraux de
+                # self.mesures (offre et chômage seniors, effet d'offre, ASU,
+                # point d'indice, réforme FP) lisent le droit en vigueur avant
+                # annee_debut, le programme ensuite. Mode historique : le même
+                # objet chaque année.
+                self.mesures = self._cadre.mesures_de_l_annee(year)
+
                 # Variables d'état
                 unemployment_gap = unemployment - self.base_params['chomage_nairu']
                 debt_ratio = debt / gdp_nominal
@@ -1150,5 +1165,8 @@ class OrchestratorMixin:
 
         # NOUVEAU: Ajouter les impacts détaillés au rapport
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year
+        # Cadre temporel (v0.7.0) : publié tel quel (l'API le remonte au niveau
+        # de la réponse, bloc `cadre`).
+        trajectory_report['cadre'] = self._cadre.rapport()
 
         return results_df, pd.DataFrame(results_detailed), trajectory_report

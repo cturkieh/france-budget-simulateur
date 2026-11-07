@@ -141,7 +141,8 @@ class _SimulateurNonFini:
     debug_logs = []
     measure_registry = {}
 
-    def __init__(self, periods, mesures):
+    def __init__(self, periods, mesures, **cadre_temporel):
+        # v0.7.0 : l'API transmet aussi les champs du cadre temporel (annee_debut).
         pass
 
     def simulate(self):

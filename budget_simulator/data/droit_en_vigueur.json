@@ -1,0 +1,133 @@
+{
+  "identifiant": "budget-2026-vote",
+  "libelle": "Budget 2026 voté (lois de finances et de financement de la sécurité sociale pour 2026), reconduit à droit constant en 2027",
+  "source": "Encodage du scénario « Budget 2026 (voté) » (identifiant plf_2026) : docs/SCENARIOS_POLITIQUES.md, bloc scenario:plf_2026 ; mesures votées non encodées : même document, tableau « Mesure votée (LF / LFSS 2026) »",
+  "date": "2026-11-07",
+  "remplacement": "Fichier de données, remplaçable sans code le jour où une loi de finances pour 2027 est promulguée. Le scénario « Budget voté » de l'application doit rester égal à ces mesures (garde : tests/test_cadre_v070_mesures_annee.py).",
+  "mesures": {
+    "retraites": {
+      "indexation": 1.0,
+      "duree_cotisation": 42.5
+    },
+    "fonction_publique_reforme": {
+      "fusion_agences": 0,
+      "digitalisation": 0
+    },
+    "fonction_publique": {
+      "effectifs": -3119,
+      "point_indice": 0
+    },
+    "sante": {
+      "effort_hopital": 15,
+      "effort_ambu": 20,
+      "effort_prev_org": 10,
+      "franchise_participation_taux": 100,
+      "prevention_budget": 7.5
+    },
+    "chomage_alloc": {
+      "taux_remplacement": 0.6,
+      "duree": 18,
+      "degressivite": false
+    },
+    "smic": {
+      "montant_brut": 1800
+    },
+    "isf_climatique": {
+      "intensite": 0
+    },
+    "tva_energie": {
+      "taux": 0.2
+    },
+    "taxe_superprofits": {
+      "intensite": 0
+    },
+    "exonerations_salaires": {
+      "intensite": 0
+    },
+    "abattement_retraites": {
+      "reforme_active": 0
+    },
+    "prestations_indexation": {
+      "taux_indexation": 1.0
+    },
+    "education": {
+      "budget": 65,
+      "enseignants": 0,
+      "salaires": 0
+    },
+    "transition_ecologique": {
+      "investissement": 0,
+      "renovation": 0,
+      "taxe_carbone": 44.6
+    },
+    "recherche_publique": {
+      "budget": 10
+    },
+    "tva_rate": {
+      "taux": 0.2
+    },
+    "impot_societes": {
+      "taux": 0.25,
+      "niches": 0
+    },
+    "fraude_fiscale": {
+      "effort": 0.14
+    },
+    "impot_revenu": {
+      "taux_superieur": 0.45,
+      "decote": 1.0
+    },
+    "csg": {
+      "taux": 0.098039,
+      "progressive": 0
+    },
+    "cotisations_salariales": {
+      "baisse_points": 0
+    },
+    "elargissement_ir": {
+      "taux_contribuables_cible": 0.45
+    },
+    "fiscalite_patrimoine": {
+      "intensite": 0
+    },
+    "collectivites": {
+      "dotation": 116.6,
+      "investissement": 0
+    },
+    "immigration": {
+      "ame": 1.2,
+      "integration": 0.8
+    },
+    "defense": {
+      "budget": 57
+    },
+    "fraude_sociale": {
+      "effort": 0.1
+    },
+    "optimisation_dette": {
+      "intensite": 0
+    },
+    "asu": {
+      "asu_activation": 0,
+      "asu_plafonnement": 0.65
+    },
+    "niches_fiscales_tge": {
+      "montant": 57
+    },
+    "niches_sociales_tge": {
+      "montant": 68
+    },
+    "subventions_tge": {
+      "montant": 33
+    },
+    "cotisations_patronales": {
+      "taux": 0.27
+    },
+    "impots_production": {
+      "montant": 97
+    },
+    "is_exceptionnel_tge": {
+      "montant": 7.3
+    }
+  }
+}

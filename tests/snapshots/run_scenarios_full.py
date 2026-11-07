@@ -96,6 +96,9 @@ def _fmt_metric(data: dict, key: str, idx: int, w: int = 8) -> str:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--out', default='tests/snapshots/golden_master_pa_before_fix.json')
+    # v0.7.0 : année de début des programmes (absente = mode historique, le
+    # golden master v1 ; 2028 = golden master du cadre 2027-2032).
+    parser.add_argument('--annee-debut', type=int, default=None)
     args = parser.parse_args()
 
     # En mode CLI (régénération de snapshot), un dict SCENARIOS vide produirait
@@ -116,7 +119,7 @@ def main():
     print(f"{'Scenario':<24} {'Dette':>8} {'Déficit':>9} {'Chômage':>9} {'Croiss':>9} {'PA':>8} {'Comp':>8} {'Gini':>8}")
     print("-" * 92)
     for name, mesures in SCENARIOS.items():
-        sim = BudgetSimulatorV45(periods=10, mesures=mesures)
+        sim = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=args.annee_debut)
         df_main, _, _ = sim.simulate()
         available = [c for c in TRACKED_COLUMNS if c in df_main.columns]
         snapshot[name] = {
