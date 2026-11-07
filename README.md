@@ -71,6 +71,11 @@ Contrat de `/simulate` (détail dans la docstring de `api.py`) :
   (généré ; détail des leviers à handler dans [`docs/MEASURE_REGISTRY.md`](docs/MEASURE_REGISTRY.md)).
 - `report.valid` dit si le résultat se lit tel quel (aucune entrée corrigée, aucun levier en échec,
   aucune borne de sortie atteinte) ; il ne juge pas la soutenabilité (voir `report.critical`).
+- **Cadre temporel (v0.7.0)** : `annee_debut` (facultatif) fixe la première année d'application du
+  programme. Absent ou 2026 : mode historique, programme dès 2026. De 2027 à 2032 : mode cadre, droit
+  en vigueur avant (budget 2026 voté, reconduit en 2027), atterrissage 2026 observé injecté, programme
+  ensuite ; `rampe` (facultative) étale un paramètre en Md€ sur 1 à 6 ans. La réponse porte un bloc
+  `cadre` et une colonne `Inflation IPC %`. Détail : `docs/METHODOLOGIE.md` § « Cadre temporel 2027-2032 ».
 - **429** : plus de `BUDGETLAB_RATE_LIMIT_PER_MIN` simulations par minute depuis la même adresse
   (défaut 120), ou plus de `BUDGETLAB_RATE_LIMIT_GLOBAL_PER_MIN` toutes adresses confondues (défaut
   3 000, délestage de dernier ressort : il protège l'instance, pas les utilisateurs — la protection par

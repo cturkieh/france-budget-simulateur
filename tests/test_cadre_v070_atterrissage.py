@@ -329,3 +329,58 @@ def test_refuteur_e_ecart_jamais_compte_comme_une_impulsion():
     ecart = _bloc(rapport)['annees']['2026']['decomposition']['solde']['ecart_md_eur']
     assert ecart / a.at[2026, 'PIB_Réel_Base2025'] * 100 > 0.3
     assert abs(a.at[2026, 'Effort_Budgétaire %'] - b.at[2026, 'Effort_Budgétaire %']) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# Plafond de 10 % du PIB : inchangé, l'avis exposé
+# ---------------------------------------------------------------------------
+
+def test_plafond_total_expose_sans_changer_le_calcul():
+    """Le plafond (écarts au DÉFAUT du moteur) n'est pas touché par la passe ; ses
+    années de morsure sont exposées pour la fiche d'un programme concerné. Le
+    texte d'avis existant reste dans report.warnings."""
+    programme = CAS.get('lfi_2027', PROGRAMME_MIXTE)
+    rapport = simuler(programme, annee_debut=DEBUT)[2]
+    p = rapport['cadre']['plafond_total']
+    assert p['seuil_pct_pib'] == 10 and p['reference'] == 'defauts_du_moteur'
+    assert p['annees'] == sorted(p['annees'])
+    assert all(an >= DEBUT for an in p['annees'])
+    if p['annees']:
+        assert any('plafonné à 10 % du PIB' in w and f"dès {p['annees'][0]}" in w
+                   for w in rapport['warnings'])
+    assert simuler(DROIT, annee_debut=DEBUT)[2]['cadre']['plafond_total']['annees'] == []
+
+
+# ---------------------------------------------------------------------------
+# Garde : les chiffres publiés dans METHODOLOGIE § Cadre temporel reproduisent
+# ---------------------------------------------------------------------------
+
+def test_methodologie_publie_la_decomposition_mesuree():
+    """Même règle que test_chiffres_publies_v061 : chaque grandeur mesurée citée
+    dans la section « Cadre temporel 2027-2032 » est recalculée ici et cherchée
+    telle quelle (format du document) — un chiffre qui cesse de reproduire fait
+    rougir la CI."""
+    texte = (Path(__file__).resolve().parent.parent / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
+    debut = texte.index('## Cadre temporel 2027-2032 (v0.7.0)')
+    section = texte[debut:texte.index('## Hypotheses Demographiques', debut)]
+    df, _, rapport, _ = simuler(DROIT, annee_debut=DEBUT)
+    d = _bloc(rapport)['annees']['2026']['decomposition']
+    a = df.set_index('Année')
+
+    def fr(x, n):
+        return f"{x:.{n}f}".replace('.', ',').replace('-', '−')
+
+    attendus = [
+        f"| Croissance | {fr(d['croissance']['modele_pct'], 2)} % | 0,4 % | choc de {fr(d['croissance']['choc_pt'], 2)} point |",
+        f"| Prix | déflateur {fr(d['ipc']['deflateur_pct'], 2)} % | IPC 2,1 % | coin de +{fr(d['ipc']['coin_pt'], 2)} point |",
+        f"| Chômage | {fr(d['chomage']['modele_pct'], 2)} % | 8,5 % | +{fr(d['chomage']['ecart_pt'], 2)} point |",
+        f"| Solde | {fr(d['solde']['modele_pct'], 2)} % du PIB | −5,4 % | +{fr(d['solde']['ecart_md_eur'], 1)} Md€ de recettes "
+        f"(réajustements {fr(d['solde']['reajustements_md_eur'], 0)}, résidu +{fr(d['solde']['residuel_md_eur'], 1)}) |",
+        f"| Dette | {fr(d['dette']['modele_pct'], 2)} % du PIB | 119,3 % | ajustement stock-flux de "
+        f"+{fr(d['dette']['ajustement_stock_flux_md_eur'], 1)} Md€ |",
+        f"**déficit de\n{fr(a.at[2027, 'Déficit/PIB %'], 2)} %**",
+        f"**dette de {fr(a.at[2027, 'Dette/PIB %'], 2)} %**",
+        f"La croissance 2027, {fr(a.at[2027, 'Croissance %'], 2)} %",
+    ]
+    for attendu in attendus:
+        assert attendu in section, attendu

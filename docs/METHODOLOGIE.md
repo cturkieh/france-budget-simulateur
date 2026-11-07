@@ -8,6 +8,7 @@
 
 ## Table des Matieres
 
+0. [Cadre temporel 2027-2032 (v0.7.0)](#cadre-temporel-2027-2032-v070)
 1. [Hypotheses Demographiques](#hypotheses-demographiques)
 2. [Retraites](#retraites)
 3. [Sante](#sante)
@@ -69,6 +70,136 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
   tendanciel du potentiel re-ancre a 1,228 %, cf. « Calibration Baseline Validee »).
 
   Toute grandeur mesuree publiee dans ce document nomme desormais son objet, et une garde de la suite moteur (`tests/test_chiffres_publies_v061.py`) la recalcule a chaque execution : un chiffre qui cesse de reproduire fait rougir la CI au lieu de rester en ligne.
+
+---
+
+## Cadre temporel 2027-2032 (v0.7.0)
+
+**Pourquoi.** Jusqu'en v0.6.11, un programme s'appliquait dès 2026, un an avant l'élection
+et deux ans avant le premier budget du nouvel élu. Depuis v0.7.0, chaque requête peut
+porter une **année de début** (`annee_debut`) : les programmes et le simulateur commencent
+en **2028**, le premier budget du mandat 2027-2032 (arbitrage du mainteneur du 07/11/2026).
+Aucune équation macro n'est modifiée ; seul le calendrier d'application change.
+
+### Deux modes
+
+| | Mode historique | Mode cadre |
+|---|---|---|
+| Déclenché par | `annee_debut` absent ou égal à 2026 | `annee_debut` de 2027 à 2032 |
+| 2026 | le programme | l'atterrissage observé ou prévu, identique pour tous |
+| Avant l'année de début | — | le **droit en vigueur** : budget 2026 voté, reconduit à droit constant en 2027 |
+| À partir de l'année de début | le programme | le programme, levier par levier, par-dessus le droit en vigueur |
+| Sortie | celle de v0.6.11, au bit près | — |
+
+Le droit en vigueur est un **fichier de données** (`budget_simulator/data/droit_en_vigueur.json`),
+égal au scénario « Budget 2026 (voté) ». Il se remplace sans code le jour où une loi de finances
+pour 2027 est promulguée. Un levier que le programme ne mentionne pas, ou laisse à `null`, garde
+la valeur du droit en vigueur : « le programme ne dit rien » veut dire « rien ne change ».
+
+### Les mesures de l'année : un point unique
+
+En tête de chaque année, le moteur pose les **mesures de l'année** : le droit en vigueur avant
+l'année de début, le programme ensuite. Les handlers les lisent, mais aussi les lecteurs
+latéraux : offre de travail et chômage des seniors, effet d'offre des dépenses productives,
+montée en charge de l'ASU, point d'indice, réforme de l'État. Un interrupteur posé dans la
+seule application des mesures aurait laissé ces canaux appliquer le programme dès 2026.
+
+### Les horloges : la part héritée garde la sienne, l'incrément démarre la sienne
+
+Beaucoup de leviers ont une montée en charge : rabot uniforme à 50 % puis 100 %, fraude sur
+cinq ans, santé, ASU sur quatre ans, retraites par cohortes. Compter ces phasages depuis 2026
+ferait entrer un programme de 2028 au milieu de sa montée. Pour chaque levier, à partir de
+l'année de début :
+
+    H(année) = H(droit, horloge 2026) + [H(programme, horloge début) − H(droit, horloge début)]
+
+Le moteur évalue les handlers dans **trois mondes** (le droit sur l'horloge de 2026, avec l'état
+du moteur ; le programme et le droit sur l'horloge du début, avec des états propres) et combine
+leurs sorties clé par clé. Conséquences :
+
+- un levier **égal au droit en vigueur**, qui ne lit aucun levier modifié, garde ses impacts au
+  bit près : son incrément est nul exactement ;
+- un levier qui lit un autre levier (la fraude sociale lit l'ASU, le SMIC le point d'indice, les
+  effectifs la réforme de l'État) reçoit l'incrément de sa lecture, sur l'horloge du levier lu ;
+- les **rampes de mandat** (effectifs de la fonction publique, cohortes de la réforme de l'État,
+  postes d'enseignants) courent de max(année de début, 2027) à 2032 : un cinquième par an de
+  2028 à 2032 ;
+- le **choc d'âge** des retraites est daté au plus tôt de l'année de début : ses montées en
+  charge (pensions, offre de travail, chômage seniors) partent avec le programme ;
+- restent **calendaires** : le calendrier légal de l'âge (62,75 ans gelés jusqu'en 2027, puis
+  +3 mois par an jusqu'à 64 ans en 2032), la revalorisation légale de 2026, et la croissance de
+  l'IFI que remplacerait un ISF climatique ;
+- le passage d'une hausse de TVA dans les prix a lieu l'année qui suit son entrée en vigueur,
+  sur l'horloge de la TVA ; le coefficient et le plafond sont inchangés.
+
+**Limite** : c'est une superposition linéaire. Un programme qui retire une mesure héritée dont le
+profil n'est pas monotone garde un petit résidu en fin de période (fraude fiscale ramenée à 0 :
+−0,3 Md€ en 2035). Les lecteurs latéraux hors handlers (âge de départ, effet d'offre, TVA) ne
+sont pas composés : c'est exact tant que le droit en vigueur reste au défaut du moteur sur ces
+canaux, ce que le chargement du fichier vérifie.
+
+### Les effets ponctuels en incrément
+
+Les effets « une fois » au changement d'un paramètre (compétitivité, emploi, Gini) étaient
+recalculés sur le niveau complet à chaque changement. La part du droit en vigueur comptée en
+2026 était recomptée en 2028, et une rampe sur cinq ans comptait trois fois l'effet. Depuis
+v0.7.0, un changement émet l'**incrément** : effet du niveau atteint moins effet du niveau au
+dernier déclenchement. Le cumul ne dépend plus que du niveau atteint.
+
+### La rampe
+
+Une requête peut demander une rampe : `{"annees": n, "leviers": ["levier.parametre", …]}`, de 1 à
+6 ans, sur les budgets et dotations en milliards d'euros et sur les cinq leviers fiscaux des
+grandes entreprises. Le paramètre passe linéairement de la valeur du droit en vigueur à celle du
+programme : p(t) = p_droit + (p_programme − p_droit) × min(max(t − début + 1, 0), n) / n. La
+rampe porte sur le paramètre, pas sur un montant, parce que l'effet d'offre lit la valeur du
+paramètre. **Aucune rampe n'est appliquée par défaut** : un programme qui publie une trajectoire
+la déclare levier par levier.
+
+### L'atterrissage 2026, en deux temps
+
+Le fichier `budget_simulator/data/atterrissage_observe.json` porte, par année jouée, des
+réajustements du droit en vigueur puis des cibles sourcées. Il est appliqué en mode cadre, à
+l'identique pour tous les scénarios, et se révise sans code.
+
+1. **Réajustements du droit en vigueur** : un levier réel qui a dérapé (crédits votés, rendement
+   d'une mesure) est corrigé dans le droit en vigueur et le suit ensuite. Aucun n'est retenu en
+   v0.7.0.
+2. **Cibles** : le moteur mesure l'écart entre son résultat et l'observé, après les
+   réajustements, et le force.
+
+| Grandeur 2026 | Valeur | Mécanisme |
+|---|---|---|
+| Croissance | 0,4 % | choc de demande = cible − croissance du modèle, au point d'application des chocs observés |
+| Prix | IPC 2,1 % | coin du prix de la consommation : il touche l'indice de pouvoir d'achat et la colonne IPC, jamais le déflateur |
+| Déflateur | non injecté | place prévue pour un déflateur sourcé ; sans lui, déflateur du modèle |
+| Chômage | 8,5 % | niveau imposé après la loi d'Okun ; valeur provisoire (taux de fin d'année retenu en moyenne annuelle) |
+| Déficit | 5,4 % du PIB | écart ajouté au niveau organique des recettes, donc **persistant** (rebasage) |
+| Dette | 119,3 % du PIB | ajustement stock-flux de l'année |
+
+Sources et dates de chaque valeur : dans le fichier. Décomposition publiée par le moteur pour
+2026 (bloc `cadre.atterrissage` de la réponse) :
+
+| Grandeur 2026 | Modèle | Observé | Écart forcé |
+|---|---|---|---|
+| Croissance | 1,24 % | 0,4 % | choc de −0,84 point |
+| Prix | déflateur 1,34 % | IPC 2,1 % | coin de +0,75 point |
+| Chômage | 7,82 % | 8,5 % | +0,68 point |
+| Solde | −5,82 % du PIB | −5,4 % | +12,9 Md€ de recettes (réajustements 0, résidu +12,9) |
+| Dette | 119,02 % du PIB | 119,3 % | ajustement stock-flux de +8,7 Md€ |
+
+Le modèle est plus pessimiste que le Gouvernement sur le solde : l'écart est porté en recettes et
+persiste. Sans rebasage, le déficit rebondirait de 5,4 % à environ 5,9 % en 2027 sans aucune
+mesure. Avec lui, le budget 2026 reconduit à droit constant donne en 2027 un **déficit de
+−5,51 %** du PIB et une **dette de 121,74 %**. La croissance 2027, 1,31 %, est le rebond du
+modèle : elle n'est jamais forcée. Une année injectée ne peut pas être l'année de début d'un
+programme : l'atterrissage écrase des niveaux (422 en mode strict).
+
+### Le plafond de 10 % du PIB
+
+Inchangé. Il porte sur la somme des écarts au **défaut du moteur**, pas au droit voté. Les années
+où il mord sont publiées dans le bloc `cadre.plafond_total`, avec l'avis existant dans
+`report.warnings`. Le résultat d'un programme concerné n'est donc pas la somme de ses mesures.
 
 ---
 

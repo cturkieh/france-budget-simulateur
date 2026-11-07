@@ -649,6 +649,11 @@ class OrchestratorMixin:
                 ('*', 'CLIP_10'),
                 f"impact total des mesures plafonné à 10 % du PIB (plafond du "
                 f"modèle, FMI 2010), dès {year}")
+            # Années où le plafond mord (v0.7.0) : l'avis existant, exposé sous
+            # forme structurée dans le bloc `cadre` (fiche d'un programme
+            # concerné). Rapport seulement : le plafond lui-même est inchangé.
+            if hasattr(self, '_annees_plafond_total') and year not in self._annees_plafond_total:
+                self._annees_plafond_total.append(year)
             delta_spending_total *= scaling_factor
             delta_revenue_total *= scaling_factor
             for measure_id in impacts:
@@ -695,6 +700,8 @@ class OrchestratorMixin:
             warned=self._domain_clamp_warned, corrections=self._corrections)
         # Mondes de la composition des horloges (lot C) : mode cadre seulement.
         self._mondes = creer_mondes(self._cadre) if self._cadre.actif else None
+        # Années où le plafond de 10 % du PIB mord (rapport, v0.7.0).
+        self._annees_plafond_total = []
         # Atterrissage (lot E) : années injectées, journal de la décomposition.
         self._journal_atterrissage = {}
         if self._cadre.actif and self._cadre.atterrissage is not None:
@@ -1411,5 +1418,11 @@ class OrchestratorMixin:
         # Cadre temporel (v0.7.0) : publié tel quel (l'API le remonte au niveau
         # de la réponse, bloc `cadre`).
         trajectory_report['cadre'] = self._cadre.rapport(self._journal_atterrissage)
+        # Plafond de 10 % du PIB sur l'impact total des mesures (inchangé) : il
+        # porte sur les écarts AU DÉFAUT DU MOTEUR, pas au droit voté ; avis
+        # existant exposé ici, années comprises (v0.7.0).
+        trajectory_report['cadre']['plafond_total'] = {
+            'seuil_pct_pib': 10, 'reference': 'defauts_du_moteur',
+            'annees': list(self._annees_plafond_total)}
 
         return results_df, pd.DataFrame(results_detailed), trajectory_report

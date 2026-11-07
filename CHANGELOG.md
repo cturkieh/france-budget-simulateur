@@ -4,6 +4,90 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [v0.7.0] — non publiée : cadre temporel 2027-2032
+
+**Ce qui change** : la SÉMANTIQUE TEMPORELLE du moteur. Jusqu'en v0.6.11, un programme
+s'appliquait dès 2026, un an avant l'élection et deux ans avant le premier budget du nouvel
+élu. La v0.7.0 applique chaque programme à partir de son `annee_debut` (2028 pour les
+programmes et le simulateur, arbitrage du mainteneur du 07/11/2026) et le DROIT EN VIGUEUR
+avant : le budget 2026 voté, reconduit à droit constant en 2027. L'année 2026 est
+l'atterrissage observé ou prévu, injecté identiquement pour tous les scénarios. **Aucune
+équation macro n'est touchée** (croissance, Phillips, Okun, recettes, dépenses, dette) et le
+plafond de 10 % du PIB est inchangé. Détail : `docs/METHODOLOGIE.md` § « Cadre temporel
+2027-2032 ».
+
+**Rétrocompatibilité** : sans `annee_debut` (ou avec 2026), le moteur est en MODE HISTORIQUE,
+la sortie de v0.6.11 au bit près — 44 cas comparés en pleine précision (10 scénarios publiés,
+33 mini-scénarios du registre, un programme mixte ; toutes colonnes de résultats et de détails,
+impacts par levier, rapport), golden masters `golden_master_v1.json` et
+`standalone_master_v1.json` inchangés. Le mode historique ne lit ni le droit en vigueur ni
+l'atterrissage.
+
+### Cinq lots, un commit chacun, mesurés séparément
+
+| Lot | Contenu | Effet sur la dette 2032 des dix scénarios (`annee_debut = 2028`) |
+|---|---|---|
+| A — mesures de l'année | point unique `mesures_de_l_annee` lu par `apply_measures` ET les lecteurs latéraux ; droit en vigueur (`data/droit_en_vigueur.json`) avant le début ; un levier absent du programme garde la valeur du droit | de −1,3 (LR) à +3,6 (Écologistes) contre v0.6.11 ; budget voté inchangé |
+| B — effets ponctuels en incrément | `effet(p) − effet(p au dernier déclenchement)` : la part héritée n'est plus recomptée à la bascule, une rampe ne compte plus trois fois l'effet | compétitivité seule, +0,01 à +0,07 point |
+| C — horloges | `H = H(droit, 2026) + [H(programme, début) − H(droit, début)]`, trois mondes d'évaluation des handlers ; 22 sites passés sur l'horloge du levier ; rampes de mandat (effectifs FP, réforme FP) de max(début, 2027) à 2032 ; choc d'âge, ASU, revalorisations, passage de la TVA dans les prix sur l'horloge du levier | de −1,74 (LFI) à +1,65 (IM compétitivité), dont l'horloge de l'âge de départ −1,9 à +1,0 |
+| D — rampe | rampe paramétrique sur demande (aucune par défaut) ; postes d'enseignants sur la rampe de mandat des effectifs FP (mode cadre) | ±0,1 par défaut (enseignants) |
+| E — atterrissage 2026 | `data/atterrissage_observe.json` : réajustements du droit en vigueur (vides), puis cibles ; écart de solde persistant, ajustement stock-flux, choc de croissance, coin IPC ; colonne IPC | +1,3 à +1,5 pour tous |
+
+Statu quo 2027 à droit constant : déficit −5,51 % du PIB, dette 121,74 %, croissance 1,31 %
+(rebond du modèle, jamais forcé), chômage 8,37 %. Atterrissage 2026 publié (`cadre.atterrissage`) :
+croissance du modèle 1,24 % → 0,4 % (choc −0,84 point), IPC 2,1 % par un coin de +0,75 point
+(déflateur du modèle 1,34 % inchangé), chômage 7,82 % → 8,5 %, solde −5,82 % → −5,4 % (écart
++12,9 Md€ de recettes, réajustements 0, résidu +12,9), dette 119,02 % → 119,3 % (ajustement
+stock-flux +8,7 Md€). Garde des valeurs publiées :
+`tests/test_cadre_v070_atterrissage.py`.
+
+### Contrat API `/simulate`
+
+- Requête : `annee_debut` (entier strict, facultatif ; absent ou 2026 = mode historique ;
+  2027-2032 = mode cadre) ; `rampe` (facultative, mode cadre) =
+  `{"annees": 1-6, "leviers": ["levier.parametre", …]}`, leviers éligibles
+  `engine/cadre.py::RAMPE_LEVIERS_ELIGIBLES`. `periods` reste limité à 10.
+- 422 : `annee_debut` non entier (texte, booléen, flottant) ou `rampe` mal formée (deux modes) ;
+  en strict, `annee_debut` hors [2026 ; 2032], `annee_debut` ≤ dernière année d'atterrissage
+  injectée (2026 est le mode historique, jamais en conflit), `annees` hors [1 ; 6], levier de
+  rampe inconnu ou non éligible, rampe en mode historique. En tolérant : correction tracée,
+  `report.valid = false`.
+- Réponse : bloc `cadre` (mode, `annee_debut`, années de droit en vigueur, identifiant et
+  source du droit en vigueur, leviers modifiés, rampe effective, atterrissage avec cibles
+  sourcées et décomposition, années où le plafond de 10 % mord) ; colonne
+  `Inflation IPC %` (prix de la consommation des ménages ; `Inflation %` reste le déflateur).
+
+### Décisions appliquées (arbitrages du mainteneur du 07/11/2026)
+
+Programmes de 2028 à 2032 ; 2027 à droit constant ; atterrissage 2026 en deux temps (leviers
+réels, puis résidu forcé et persistant) ; IPC par le coin de prix, jamais dans le déflateur ;
+chômage 2026 en moyenne annuelle, valeur provisoire sourcée ; aucune rampe par défaut ;
+effets ponctuels en incrément ; horloges recalées dès cette passe ; plafond de 10 % inchangé ;
+simulateur dès 2028 ; croissance 2027 jamais forcée.
+
+### Gardes nouvelles
+
+- Droit en vigueur et atterrissage : données serveur validées sans aucune correction ; un
+  défaut est une erreur 500 tracée, jamais un 422 ni une correction silencieuse.
+- Composition des lecteurs latéraux hors handlers (âge de départ, effet d'offre, TVA) non
+  implémentée : un droit en vigueur qui s'en écarte fait échouer le chargement.
+- Écart modèle → cible au-delà de ±0,03 (domaine des tables v0.6.9) : erreur, jamais un
+  écrêtage. Une année injectée ne peut pas figurer aussi dans les tables v0.6.9.
+- Le budget voté de l'application doit rester égal au droit en vigueur
+  (`tests/test_cadre_v070_mesures_annee.py`).
+- Golden master du cadre : `tests/snapshots/golden_master_cadre_2028.json`
+  (`tests/test_cadre_v070_golden.py`).
+
+### Limites connues
+
+- Superposition linéaire des horloges : un programme qui retire une mesure héritée à profil non
+  monotone (fraude fiscale) garde un petit résidu en fin de période (−0,3 Md€ en 2035).
+- L'émulation du 07/11 annonçait +0,2 à +0,9 point de dette 2032 pour les horloges ; elle ne
+  recalait ni les canaux seniors ni les horloges écrites en dur. Les chiffres de la passe sont
+  ceux des bancs.
+- L'effet des réajustements sur le solde est mesuré levier par levier, sans les plafonds de 5 %
+  et 10 % du PIB.
+
 ## v0.6.11 — re-encodage LR et Horizons sur leurs sources primaires (paramètres seuls, publiée le 07/11/2026)
 
 **Ce qui change** : les paramètres de deux scénarios publiés, `lr_2027` et
