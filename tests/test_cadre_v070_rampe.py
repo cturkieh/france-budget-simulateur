@@ -30,21 +30,10 @@ from fastapi.testclient import TestClient
 import budget_simulator.engine.cadre as cadre
 from budget_simulator import EntreeInvalide
 
-from cadre_harness import egalite_bit_a_bit, simuler
+from cadre_harness import DROIT, egalite_bit_a_bit, impacts_par_annee, programme_sur_droit, simuler
 
 DEBUT = 2028
-DROIT = cadre.charger_droit_en_vigueur().mesures
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
-
-
-def _programme(**leviers):
-    m = copy.deepcopy(DROIT)
-    m.update(copy.deepcopy(leviers))
-    return m
-
-
-def _impacts(rapport):
-    return {y['Année']: y for y in rapport['measure_impacts_by_year']}
 
 
 def _cadre(programme, rampe, debut=DEBUT):
@@ -62,7 +51,7 @@ DEF_REF = cadre.CadreTemporel.preparer({}, DEBUT).etat.mesures_droit['defense'][
 
 @pytest.mark.parametrize('n', [1, 3, 5, 6])
 def test_c_rampe_nulle_avant_egale_par_pas_monotone_pleine_a_la_fin(n):
-    prog = _programme(defense={'budget': 70}, collectivites={'dotation': 100.0, 'investissement': 10})
+    prog = programme_sur_droit(defense={'budget': 70}, collectivites={'dotation': 100.0, 'investissement': 10})
     c = _cadre(prog, {'annees': n, 'leviers': ['defense.budget', 'collectivites.investissement']})
     valeurs = {an: c.mesures_de_l_annee(an)['defense']['budget'] for an in range(2026, 2036)}
     assert all(valeurs[an] == DEF_REF for an in range(2026, DEBUT))
@@ -78,14 +67,14 @@ def test_c_rampe_nulle_avant_egale_par_pas_monotone_pleine_a_la_fin(n):
 
 
 def test_c_rampe_par_defaut_aucune():
-    c = _cadre(_programme(defense={'budget': 70}), None)
+    c = _cadre(programme_sur_droit(defense={'budget': 70}), None)
     assert c.mesures_de_l_annee(DEBUT)['defense']['budget'] == 70
     assert c.rapport()['rampe'] is None
 
 
 def test_c_rampe_dans_le_moteur_increments_egaux():
     """Défense (formule linéaire) : l'écart au budget voté monte par cinquièmes."""
-    imp = _impacts(simuler(_programme(defense={'budget': 70}), annee_debut=DEBUT,
+    imp = impacts_par_annee(simuler(programme_sur_droit(defense={'budget': 70}), annee_debut=DEBUT,
                            rampe={'annees': 5, 'leviers': ['defense.budget']})[2])
     for k, an in enumerate(range(DEBUT, DEBUT + 5), start=1):
         assert imp[an]['defense']['depenses'] == pytest.approx((DEF_REF - 50) + (70 - DEF_REF) * k / 5, rel=1e-12)
@@ -130,7 +119,7 @@ def test_d_rampe_tge_effet_ponctuel_compte_une_fois(levier, debut_val, fin_val, 
     """L'artefact de l'émulation (compétitivité LFI 2032 98,19 → 95,75 : l'effet
     redéclenché à chaque pas) est fermé : cumul rampé = cumul en bascule = effet du
     niveau atteint contre le défaut."""
-    prog = _programme(**{levier: {'montant': fin_val}})
+    prog = programme_sur_droit(**{levier: {'montant': fin_val}})
     rampe = simuler(prog, annee_debut=DEBUT, rampe={'annees': 5, 'leviers': [f'{levier}.montant']})[2]
     bascule = simuler(prog, annee_debut=DEBUT)[2]
     cumul = lambda r: sum(y.get(levier, {}).get('competitivite', 0.0) for y in r['measure_impacts_by_year'])
@@ -147,12 +136,12 @@ def test_enseignants_rampe_de_mandat_en_mode_cadre():
     handler (65 000 € par poste), en mode cadre ; en mode historique, stock
     entier dès 2026 (v0.6.11, golden master)."""
     education = dict(DROIT['education'], enseignants=30000)
-    imp = _impacts(simuler(_programme(education=education), annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler(programme_sur_droit(education=education), annee_debut=DEBUT)[2])
     for an in range(2026, 2036):
         k = min(max(an - DEBUT + 1, 0), 5)
         assert imp[an].get('education', {}).get('depenses', 0.0) == pytest.approx(
             30000 * k / 5 * 65000 / 1e9, rel=1e-12, abs=1e-12), an
-    hist = _impacts(simuler({'education': education})[2])
+    hist = impacts_par_annee(simuler({'education': education})[2])
     assert hist[2026]['education']['depenses'] == pytest.approx(30000 * 65000 / 1e9, rel=1e-12)
 
 
@@ -234,7 +223,7 @@ def test_api_rampe_bloc_cadre(client, monkeypatch, strict):
 
 
 def test_rampe_sans_levier_ignore_n_emet_aucun_avis():
-    rapport = simuler(_programme(defense={'budget': 70}), annee_debut=DEBUT,
+    rapport = simuler(programme_sur_droit(defense={'budget': 70}), annee_debut=DEBUT,
                       rampe={'annees': 3, 'leviers': ['defense.budget']})[2]
     assert rapport['cadre']['rampe']['leviers_ignores'] == []
     assert not any('rampe' in w for w in rapport['warnings'])
@@ -261,7 +250,7 @@ def test_api_rampe_hors_domaine_strict_422(client, monkeypatch, valeur):
 # ---------------------------------------------------------------------------
 
 def test_refuteur_d_rampe_d_un_an_egale_bascule_au_bit():
-    prog = _programme(defense={'budget': 70}, niches_fiscales_tge={'montant': 40})
+    prog = programme_sur_droit(defense={'budget': 70}, niches_fiscales_tge={'montant': 40})
     egalite_bit_a_bit(simuler(prog, annee_debut=DEBUT,
                               rampe={'annees': 1, 'leviers': ['defense.budget', 'niches_fiscales_tge.montant']}),
                       simuler(prog, annee_debut=DEBUT))
@@ -270,14 +259,14 @@ def test_refuteur_d_rampe_d_un_an_egale_bascule_au_bit():
 def test_refuteur_d_rampe_au_dela_de_l_horizon():
     """Début 2031, rampe sur 6 ans : la rampe n'est pas finie en 2035 (5/6), sans
     erreur ni extrapolation."""
-    c = _cadre(_programme(defense={'budget': 69}), {'annees': 6, 'leviers': ['defense.budget']}, debut=2031)
+    c = _cadre(programme_sur_droit(defense={'budget': 69}), {'annees': 6, 'leviers': ['defense.budget']}, debut=2031)
     assert c.mesures_de_l_annee(2035)['defense']['budget'] == pytest.approx(
         DEF_REF + (69 - DEF_REF) * 5 / 6, rel=1e-12)
 
 
 def test_refuteur_d_rampe_vers_le_bas():
     """Baisse (défense du droit → 45) : même règle, décroissante, jamais sous la cible."""
-    c = _cadre(_programme(defense={'budget': 45}), {'annees': 4, 'leviers': ['defense.budget']})
+    c = _cadre(programme_sur_droit(defense={'budget': 45}), {'annees': 4, 'leviers': ['defense.budget']})
     v = [c.mesures_de_l_annee(an)['defense']['budget'] for an in range(2027, 2034)]
     attendu = [DEF_REF] + [DEF_REF + (45 - DEF_REF) * k / 4 for k in (1, 2, 3)] + [45, 45, 45]
     assert v == pytest.approx(attendu, rel=1e-12)

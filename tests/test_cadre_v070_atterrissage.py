@@ -36,10 +36,9 @@ import budget_simulator.engine.cadre as cadre
 from budget_simulator import EntreeInvalide
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import CAS, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
+from cadre_harness import CAS, DROIT, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
 
 DEBUT = 2028
-DROIT = cadre.charger_droit_en_vigueur().mesures
 REFERENCE = 'droit_en_vigueur'
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
 # Valeurs arrêtées par le mainteneur le 07/11/2026 (sources dans le fichier de données).

@@ -23,10 +23,9 @@ import budget_simulator.engine.orchestrator as orch
 from budget_simulator.engine._noms_parametres import MODES_EXCLUSIFS
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import CAS, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
+from cadre_harness import CAS, DROIT, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
 
 DEBUT = 2028
-DROIT = cadre.charger_droit_en_vigueur().mesures          # budget VOTÉ
 RACINE = Path(__file__).resolve().parent.parent
 API_FILE = RACINE / 'api.py'
 

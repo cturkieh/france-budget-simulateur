@@ -46,20 +46,10 @@ from budget_simulator.constants import (
 )
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import CAS, NOMS_PROGRAMMES, PROGRAMME_MIXTE, egalite_bit_a_bit, simuler
+from cadre_harness import (CAS, DROIT, NOMS_PROGRAMMES, PROGRAMME_MIXTE, egalite_bit_a_bit,
+                           impacts_par_annee, programme_sur_droit, simuler)
 
 DEBUT = 2028
-DROIT = cadre.charger_droit_en_vigueur().mesures
-
-
-def _programme(**leviers):
-    m = copy.deepcopy(DROIT)
-    m.update(copy.deepcopy(leviers))
-    return m
-
-
-def _impacts(rapport):
-    return {y['Année']: y for y in rapport['measure_impacts_by_year']}
 
 
 def _progression_fraude(e):
@@ -83,7 +73,7 @@ class _SimOrigines(BudgetSimulatorV45):
 
 
 def test_c_origines_debut_pour_les_leviers_modifies_seulement():
-    sim = _SimOrigines(periods=10, mesures=_programme(fraude_fiscale={'effort': 0.6}),
+    sim = _SimOrigines(periods=10, mesures=programme_sur_droit(fraude_fiscale={'effort': 0.6}),
                        annee_debut=DEBUT)
     sim.simulate()
     for an, origines in sim.vues.items():
@@ -101,7 +91,7 @@ def test_c_mode_historique_aucune_horloge_ne_bouge():
 # ---------------------------------------------------------------------------
 
 def test_c_rabot_demarre_a_cinquante_pour_cent():
-    imp = _impacts(simuler({'rabot_uniforme': {'taux_reduction': 0.05}}, annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler({'rabot_uniforme': {'taux_reduction': 0.05}}, annee_debut=DEBUT)[2])
     assert 'rabot_uniforme' not in imp[2027]
     assert imp[DEBUT]['rabot_uniforme']['rabot_details']['phasing'] == 0.5
     assert imp[DEBUT + 1]['rabot_uniforme']['rabot_details']['phasing'] == 1.0
@@ -110,7 +100,7 @@ def test_c_rabot_demarre_a_cinquante_pour_cent():
 def test_c_fraude_fiscale_increment_sur_l_horloge_du_programme():
     """Droit 0,14, programme 0,60 : la part héritée continue sur 2026, l'incrément
     0,46 démarre à 20 % en 2028."""
-    imp = _impacts(simuler(_programme(fraude_fiscale={'effort': 0.6}), annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler(programme_sur_droit(fraude_fiscale={'effort': 0.6}), annee_debut=DEBUT)[2])
     for an in range(2026, 2036):
         attendu = 0.68 * 30 * (0.14 * _progression_fraude(an - 2026)
                                + (0.6 - 0.14) * _progression_fraude(an - DEBUT))
@@ -122,7 +112,7 @@ def test_c_sante_phasing_de_l_increment_redemarre():
     partir de 2028, la part héritée garde son phasage de 2026."""
     struct = {0: 0.2, 1: 0.4, 2: 0.6, 3: 0.8}
     sante = dict(DROIT['sante'], effort_hopital=30)
-    imp = _impacts(simuler(_programme(sante=sante), annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler(programme_sur_droit(sante=sante), annee_debut=DEBUT)[2])
     for an in range(DEBUT, 2036):
         ph = lambda e: struct.get(e, 1.0) if e >= 0 else 0.0
         attendu = -13.0 * 0.15 * ph(an - 2026) + (-13.0 * 0.30 * ph(an - DEBUT) - (-13.0 * 0.15 * ph(an - DEBUT)))
@@ -130,7 +120,7 @@ def test_c_sante_phasing_de_l_increment_redemarre():
 
 
 def test_c_superprofits_trois_ans_a_partir_du_debut():
-    imp = _impacts(simuler({'taxe_superprofits': {'intensite': 1.0}}, annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler({'taxe_superprofits': {'intensite': 1.0}}, annee_debut=DEBUT)[2])
     actives = [an for an in range(2026, 2036)
                if imp[an].get('taxe_superprofits', {}).get('recettes', 0) > 0]
     assert actives == [DEBUT, DEBUT + 1, DEBUT + 2]
@@ -141,8 +131,8 @@ def test_c_isf_phasage_du_programme_ifi_calendaire():
     croît depuis 2026 (calendrier, pas horloge du programme). Différence avec
     l'entrée en 2026 du mode historique : exactement l'IFI de deux ans de plus."""
     i = 0.5
-    cadre_2028 = _impacts(simuler({'isf_climatique': {'intensite': i}}, annee_debut=DEBUT)[2])
-    hist_2026 = _impacts(simuler({'isf_climatique': {'intensite': i}})[2])
+    cadre_2028 = impacts_par_annee(simuler({'isf_climatique': {'intensite': i}}, annee_debut=DEBUT)[2])
+    hist_2026 = impacts_par_annee(simuler({'isf_climatique': {'intensite': i}})[2])
     ecart = cadre_2028[DEBUT]['isf_climatique']['recettes'] - hist_2026[2026]['isf_climatique']['recettes']
     assert ecart == pytest.approx(i * (2.0 - 2.0 * 1.02 ** 2), rel=1e-9)
 
@@ -155,7 +145,7 @@ def test_c_seniors_horloge_du_choc_au_debut():
     gel = {'retraites': {'age_depart': 62.75}}
     assert _seniors.retraites_annee_debut_ecart_age(gel) == 2028
     assert _seniors.retraites_annee_debut_ecart_age(gel, origine=DEBUT) == 2028
-    det = simuler(_programme(retraites=dict(DROIT['retraites'], age_depart=65.0)),
+    det = simuler(programme_sur_droit(retraites=dict(DROIT['retraites'], age_depart=65.0)),
                   annee_debut=DEBUT)[1].set_index('Année')
     assert all(det.at[an, 'Bonus_Offre_Travail %'] == 0 for an in range(2026, DEBUT))
     ecart_2028 = 65.0 - 63.0
@@ -197,10 +187,10 @@ class _SimFP(BudgetSimulatorV45):
 def test_c_effectifs_fp_rampe_de_mandat_2028_2032():
     """Droit −3 119 postes (rampe 2027-2032, horloge 2026) ; programme −100 000 :
     l'incrément −96 881 se réalise par cinquièmes de 2028 à 2032."""
-    sim = _SimFP(periods=10, mesures=_programme(fonction_publique={'effectifs': -100000, 'point_indice': 0}),
+    sim = _SimFP(periods=10, mesures=programme_sur_droit(fonction_publique={'effectifs': -100000, 'point_indice': 0}),
                  annee_debut=DEBUT)
     _, _, rapport = sim.simulate()
-    imp = _impacts(rapport)
+    imp = impacts_par_annee(rapport)
     for an in range(2026, 2036):
         k_droit = min(max(an - 2027 + 1, 0), 6)
         k_prog = min(max(an - DEBUT + 1, 0), 5)
@@ -223,7 +213,7 @@ def test_c_reforme_fp_premiere_cohorte_au_debut():
             return r
 
     reforme = {'fusion_agences': 30, 'digitalisation': 30}
-    Sim(periods=10, mesures=_programme(fonction_publique_reforme=reforme), annee_debut=DEBUT).simulate()
+    Sim(periods=10, mesures=programme_sur_droit(fonction_publique_reforme=reforme), annee_debut=DEBUT).simulate()
     assert min(vu) == DEBUT and max(vu[DEBUT]) > 0
 
 
@@ -231,8 +221,8 @@ def test_c_asu_montee_en_charge_au_debut():
     """ASU activée par le programme : 25 % en 2028 comme en 2026 dans le mode
     historique (même transfert aux ménages, indépendant de l'état macro)."""
     asu = {'asu_activation': 1, 'asu_plafonnement': 0.6}
-    cadre_ = _impacts(simuler({'asu': asu}, annee_debut=DEBUT)[2])
-    hist = _impacts(simuler({'asu': asu})[2])
+    cadre_ = impacts_par_annee(simuler({'asu': asu}, annee_debut=DEBUT)[2])
+    hist = impacts_par_annee(simuler({'asu': asu})[2])
     assert cadre_[DEBUT]['asu']['menages']['prestations'] == hist[2026]['asu']['menages']['prestations']
     assert cadre_[DEBUT]['asu']['menages']['prestations'] == pytest.approx(
         asu_effort_perenne_md_eur(0.6) * 0.25 + ASU_COUT_RECOURS_MD_EUR * 0.25, rel=1e-12)
@@ -280,9 +270,9 @@ LECTEURS_CROISES = {'fraude_sociale', 'prestations_indexation', 'asu', 'smic', '
     ('sante', dict(DROIT['sante'], effort_hopital=30)),
 ])
 def test_b_levier_egal_au_droit_garde_ses_impacts_au_bit(levier, bloc):
-    sim = _SimMondes(periods=10, mesures=_programme(**{levier: bloc}), annee_debut=DEBUT)
+    sim = _SimMondes(periods=10, mesures=programme_sur_droit(**{levier: bloc}), annee_debut=DEBUT)
     _, _, rapport = sim.simulate()
-    imp = _impacts(rapport)
+    imp = impacts_par_annee(rapport)
     verifies = 0
     for (an, mid), sorties in sim.sorties.items():
         if an < DEBUT or mid == levier or mid in LECTEURS_CROISES:
@@ -355,7 +345,7 @@ def test_droit_non_composable_refuse_au_chargement(tmp_path, monkeypatch, bloc, 
 def test_refuteur_c_levier_herite_ne_redemarre_pas():
     """Le programme change un AUTRE levier : la fraude fiscale du droit (0,14)
     continue sur l'horloge 2026 (50 % en 2028), elle ne repart pas à 20 %."""
-    imp = _impacts(simuler(_programme(defense={'budget': 60}), annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler(programme_sur_droit(defense={'budget': 60}), annee_debut=DEBUT)[2])
     for an in range(2026, 2036):
         assert imp[an]['fraude_fiscale']['recettes'] == pytest.approx(
             0.68 * 30 * 0.14 * _progression_fraude(an - 2026), rel=1e-12), an
@@ -365,7 +355,7 @@ def test_refuteur_c_retrait_d_une_mesure_heritee():
     """Le programme ramène la fraude fiscale à 0 : l'effort hérité continue, le
     retrait (−0,14) entre sur l'horloge du programme — superposition linéaire,
     jamais une coupure sèche ni un recompte."""
-    imp = _impacts(simuler(_programme(fraude_fiscale={'effort': 0}), annee_debut=DEBUT)[2])
+    imp = impacts_par_annee(simuler(programme_sur_droit(fraude_fiscale={'effort': 0}), annee_debut=DEBUT)[2])
     for an in range(2026, 2036):
         attendu = 0.68 * 30 * 0.14 * (_progression_fraude(an - 2026) - _progression_fraude(an - DEBUT))
         assert imp[an].get('fraude_fiscale', {}).get('recettes', 0.0) == pytest.approx(
@@ -382,7 +372,7 @@ def test_refuteur_c_avant_le_debut_toujours_le_droit(nom):
 
 def test_refuteur_c_debut_2032_rampe_de_mandat_d_un_an():
     """Début 2032 : la rampe de mandat (effectifs) se réalise en une année."""
-    sim = _SimFP(periods=10, mesures=_programme(fonction_publique={'effectifs': -50000, 'point_indice': 0}),
+    sim = _SimFP(periods=10, mesures=programme_sur_droit(fonction_publique={'effectifs': -50000, 'point_indice': 0}),
                  annee_debut=2032)
     sim.simulate()
     r = sim.releve[2032]

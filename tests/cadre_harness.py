@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 
+import budget_simulator.engine.cadre as cadre
 import budget_simulator.engine.orchestrator as orch
 from budget_simulator.simulator import BudgetSimulatorV45
 
@@ -70,6 +71,22 @@ CAS = {'programme_mixte': PROGRAMME_MIXTE, **SCENARIOS}
 NOMS = sorted(CAS)
 NOMS_PROGRAMMES = [n for n in NOMS if n != 'plf_2026']
 
+# Droit en vigueur livré, tel que VOTÉ (réajustements de l'atterrissage non
+# compris) : référence de comparaison des tests du cadre.
+DROIT = cadre.charger_droit_en_vigueur().mesures
+
+
+def programme_sur_droit(**leviers):
+    """Le droit en vigueur, dont les leviers cités sont remplacés (copies)."""
+    m = copy.deepcopy(DROIT)
+    m.update(copy.deepcopy(leviers))
+    return m
+
+
+def impacts_par_annee(rapport):
+    """{année: impacts par levier} du rapport d'une simulation."""
+    return {y['Année']: y for y in rapport['measure_impacts_by_year']}
+
 
 @contextmanager
 def pleine_precision(monkeypatch=None):
@@ -89,7 +106,6 @@ def atterrissage(cibles_par_annee, reajustements=None):
     valeur}}}, chacun avec une source de test (aucun réajustement sans source)."""
     import json
     import tempfile
-    import budget_simulator.engine.cadre as cadre
     annees = {}
     for an in sorted(set(cibles_par_annee) | set(reajustements or {})):
         bloc = {g: None for g in cadre.GRANDEURS_ATTERRISSAGE}

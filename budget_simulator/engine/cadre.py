@@ -53,7 +53,7 @@ import numbers
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, FrozenSet, Literal, Optional, Tuple, get_args
+from typing import Callable, Dict, FrozenSet, Literal, Optional, Tuple, get_args
 
 from ..constants import (
     CHOMAGE_CLIP_MAX,
@@ -265,18 +265,25 @@ def vider_caches() -> None:
     _atterrissage_valide.cache_clear()
 
 
+def _lire_objet_json(chemin: Path, defaut: Callable[[str], RuntimeError]) -> Dict:
+    """Objet JSON d'un fichier de données serveur ; ``defaut(message)`` au
+    premier défaut (absent, illisible, JSON invalide, pas un objet)."""
+    try:
+        contenu = json.loads(chemin.read_text(encoding='utf-8'))
+    except FileNotFoundError as e:
+        raise defaut("fichier introuvable") from e
+    except OSError as e:
+        raise defaut(f"lecture impossible ({e})") from e
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise defaut(f"JSON illisible : {e}") from e
+    if not isinstance(contenu, dict):
+        raise defaut("objet JSON attendu")
+    return contenu
+
+
 @functools.lru_cache(maxsize=1)
 def _droit_en_vigueur_valide() -> DroitEnVigueur:
-    try:
-        contenu = json.loads(DROIT_EN_VIGUEUR_PATH.read_text(encoding='utf-8'))
-    except FileNotFoundError as e:
-        raise _defaut_serveur("fichier introuvable") from e
-    except OSError as e:
-        raise _defaut_serveur(f"lecture impossible ({e})") from e
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise _defaut_serveur(f"JSON illisible : {e}") from e
-    if not isinstance(contenu, dict):
-        raise _defaut_serveur("objet JSON attendu")
+    contenu = _lire_objet_json(DROIT_EN_VIGUEUR_PATH, _defaut_serveur)
     for champ in _CHAMPS_TEXTE_DROIT:
         valeur = contenu.get(champ)
         if not isinstance(valeur, str) or not valeur.strip():
@@ -587,8 +594,12 @@ class CadreTemporel:
         def pct(x):
             return None if x is None else round(x * 100, 4)
 
-        def ecart(entree):
-            return None if entree['observe'] is None else round((entree['observe'] - entree['modele']) * 100, 4)
+        def au_modele(entree, cle_ecart):
+            # Valeur du modèle, valeur observée et leur écart (``None`` sans cible).
+            ecart = (None if entree['observe'] is None
+                     else round((entree['observe'] - entree['modele']) * 100, 4))
+            return {'modele_pct': pct(entree['modele']), 'observe_pct': pct(entree['observe']),
+                    cle_ecart: ecart}
 
         def md(x):
             return None if x is None else round(x, 3)
@@ -606,17 +617,11 @@ class CadreTemporel:
                 deficit, dette, ipc = j['deficit'], j['dette'], j['ipc']
                 reaj, residuel = j['reajustements_md_eur'], deficit['residuel_md_eur']
                 decomposition = {
-                    'croissance': {'modele_pct': pct(j['croissance']['modele']),
-                                   'observe_pct': pct(j['croissance']['observe']),
-                                   'choc_pt': ecart(j['croissance'])},
-                    'deflateur': {'modele_pct': pct(j['deflateur']['modele']),
-                                  'observe_pct': pct(j['deflateur']['observe']),
-                                  'ecart_pt': ecart(j['deflateur'])},
+                    'croissance': au_modele(j['croissance'], 'choc_pt'),
+                    'deflateur': au_modele(j['deflateur'], 'ecart_pt'),
                     'ipc': {'deflateur_pct': pct(ipc['deflateur']), 'observe_pct': pct(ipc['observe']),
                             'coin_pt': pct(ipc['coin'])},
-                    'chomage': {'modele_pct': pct(j['chomage']['modele']),
-                                'observe_pct': pct(j['chomage']['observe']),
-                                'ecart_pt': ecart(j['chomage'])},
+                    'chomage': au_modele(j['chomage'], 'ecart_pt'),
                     'deficit': {'modele_pct': pct(deficit['modele']),
                                 'observe_pct': pct(deficit['observe']),
                                 'reajustements_md_eur': md(reaj),
@@ -815,16 +820,7 @@ def charger_atterrissage() -> Atterrissage:
 
 @functools.lru_cache(maxsize=1)
 def _atterrissage_valide() -> Atterrissage:
-    try:
-        contenu = json.loads(ATTERRISSAGE_PATH.read_text(encoding='utf-8'))
-    except FileNotFoundError as e:
-        raise _defaut_atterrissage("fichier introuvable") from e
-    except OSError as e:
-        raise _defaut_atterrissage(f"lecture impossible ({e})") from e
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise _defaut_atterrissage(f"JSON illisible : {e}") from e
-    if not isinstance(contenu, dict):
-        raise _defaut_atterrissage("objet JSON attendu")
+    contenu = _lire_objet_json(ATTERRISSAGE_PATH, _defaut_atterrissage)
     for champ in ('version', 'date', 'description'):
         if not isinstance(contenu.get(champ), str) or not contenu[champ].strip():
             raise _defaut_atterrissage(f"champ {champ!r} manquant ou vide")

@@ -368,6 +368,26 @@ class OrchestratorMixin:
                 f"(±{ECART_ATTERRISSAGE_MAX}) — données serveur à instruire")
         return cible
 
+    def _atterrir_niveau(self, annee, grandeur, niveau, pib, cle_ajustement, libelle):
+        """Atterrissage (lot E) d'un NIVEAU en Md€ (solde, dette) sur sa cible
+        en part du PIB : journalise le modèle, la cible et l'ajustement
+        (``cle_ajustement``, ``None`` sans cible : sans objet, jamais 0,0) et
+        rend l'ajustement ``cible × PIB − niveau``, ou ``None`` sans cible. Un
+        ajustement au-delà du domaine du mécanisme est un défaut des données
+        serveur : RuntimeError. L'appelant pose le niveau à ``cible × PIB``."""
+        cible = self._cadre.cible(annee, grandeur)
+        entree = {'modele': niveau / pib, 'observe': cible, cle_ajustement: None}
+        self._journal_atterrissage[annee][grandeur] = entree
+        if cible is None:
+            return None
+        ajustement = cible * pib - niveau
+        if abs(ajustement) > ECART_ATTERRISSAGE_MAX * pib:
+            raise RuntimeError(
+                f"Atterrissage {annee} : {libelle} {ajustement:+.1f} Md€ hors du "
+                f"domaine du mécanisme (±{ECART_ATTERRISSAGE_MAX:.0%} du PIB)")
+        entree[cle_ajustement] = ajustement
+        return ajustement
+
     def _evaluer_handler(self, measure, parameters, year, gdp, inflation, unemployment):
         """Handler d'un levier pour l'année (v0.7.0, lot C).
 
@@ -1046,21 +1066,12 @@ class OrchestratorMixin:
                 # prévisionnistes. Ni impulsion ni mesure : il ne passe pas par
                 # les multiplicateurs.
                 if year in self._journal_atterrissage:
-                    cible_solde = self._cadre.cible(year, 'deficit')
-                    j = self._journal_atterrissage[year]
-                    # Résidu ``None`` sans cible : sans objet, jamais 0,0.
-                    j['deficit'] = {'modele': deficit / gdp_nominal, 'observe': cible_solde,
-                                    'residuel_md_eur': None}
-                    if cible_solde is not None:
-                        ecart = cible_solde * gdp_nominal - deficit
-                        if abs(ecart) > ECART_ATTERRISSAGE_MAX * gdp_nominal:
-                            raise RuntimeError(
-                                f"Atterrissage {year} : écart de solde {ecart:+.1f} Md€ hors du "
-                                f"domaine du mécanisme (±{ECART_ATTERRISSAGE_MAX:.0%} du PIB)")
+                    ecart = self._atterrir_niveau(year, 'deficit', deficit, gdp_nominal,
+                                                  'residuel_md_eur', "écart de solde")
+                    if ecart is not None:
                         revenues = revenues + ecart
                         self.recettes_precedentes += ecart
-                        deficit = cible_solde * gdp_nominal
-                        j['deficit']['residuel_md_eur'] = ecart
+                        deficit = self._cadre.cible(year, 'deficit') * gdp_nominal
 
                 # (Chômage : calculé plus haut, étape 3 du bloc REFONTE — avant
                 # les flux, pour que la dépense chômage de l'année suive le taux
@@ -1085,18 +1096,9 @@ class OrchestratorMixin:
                 # Atterrissage (lot E) : dette observée, par un ajustement
                 # stock-flux de l'année (une fois ; le stock le porte ensuite).
                 if year in self._journal_atterrissage:
-                    cible_dette = self._cadre.cible(year, 'dette')
-                    j = self._journal_atterrissage[year]
-                    j['dette'] = {'modele': debt / gdp_nominal, 'observe': cible_dette,
-                                  'ajustement_md_eur': None}
-                    if cible_dette is not None:
-                        ajustement = cible_dette * gdp_nominal - debt
-                        if abs(ajustement) > ECART_ATTERRISSAGE_MAX * gdp_nominal:
-                            raise RuntimeError(
-                                f"Atterrissage {year} : ajustement stock-flux {ajustement:+.1f} Md€ "
-                                f"hors du domaine du mécanisme (±{ECART_ATTERRISSAGE_MAX:.0%} du PIB)")
-                        debt = cible_dette * gdp_nominal
-                        j['dette']['ajustement_md_eur'] = ajustement
+                    if self._atterrir_niveau(year, 'dette', debt, gdp_nominal,
+                                             'ajustement_md_eur', "ajustement stock-flux") is not None:
+                        debt = self._cadre.cible(year, 'dette') * gdp_nominal
 
                 # Analyse Domar complémentaire (pour logs uniquement)
                 if year_idx > 0:
