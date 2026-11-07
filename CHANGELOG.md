@@ -4,7 +4,7 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
-## v0.6.11 — re-encodage LR et Horizons sur leurs sources primaires (paramètres seuls, non publiée)
+## v0.6.11 — re-encodage LR et Horizons sur leurs sources primaires (paramètres seuls, publiée le 07/11/2026)
 
 **Ce qui change** : les paramètres de deux scénarios publiés, `lr_2027` et
 `horizons_2027`, et deux bornes de domaine élargies aux valeurs servies. **Aucune
@@ -95,11 +95,11 @@ en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne chang
   seules, déficit 2030 +0,11 pt, dette 2035 −0,87 pt, compétitivité −0,08).
 - **Horizons** : déficit −5,44 → −5,39 % ; dette 126,84 → 126,61 % (144,95 → 144,92) ;
   chômage 7,47 → 7,39 ; croissance moyenne 1,17 → 1,23 ; pouvoir d'achat 102,4 → 102,9 ;
-  compétitivité et Gini inchangés. Dette 2035 : effectifs −1,06, réforme des agences
+  compétitivité 100,38 → 100,39 en 2030, Gini inchangé. Dette 2035 : effectifs −1,06, réforme des agences
   retirée +0,52, enseignants +0,49. Solde 2030 : effectifs +8,2, réforme −3,9,
   enseignants −3,4 Md€.
 - Indice de pouvoir d'achat 2029 (garde `test_political_scenarios_2027`) : LR
-  104,7 → 104,1, Horizons 101,9 → 102,5, dans la tolérance ±1,5 ; valeurs figées
+  104,7 → 104,0, Horizons 101,9 → 102,5, dans la tolérance ±1,5 ; valeurs figées
   inchangées.
 - Tableau agrégé de METHODOLOGIE : neuvième colonne « Écart au 02/11/2026 » — LR +6,4
   → +0,4, Horizons −4,8 inchangé au dixième (−4,82 → −4,85), les sept autres
@@ -117,31 +117,35 @@ en 422 et le mode tolérant les clampe en silence). Aucune autre sortie ne chang
 - `tests/test_reencodage_v066.py` : écarts sourcés LR (14) et Horizons (9) mis à jour ;
   la propriété (a) « retiré = posé au droit voté, jamais omis » est paramétrée par
   scénario et couvre la réforme des agences d'Horizons ; (a3) vérifie que les deux
-  valeurs hors curseur sont dans le domaine moteur. 43 tests.
+  valeurs hors curseur sont dans le domaine moteur. 44 tests.
 - `tests/test_political_scenarios_2027.py` : note de recalage (valeurs attendues
   inchangées).
 
-### Décisions prises par la session, à valider par le mainteneur
+### Arbitrages du mainteneur du 02/11/2026
 
-1. Conversion de la fraude fiscale par le régime net (convention LF 2026) plutôt que
-   par la cible brute (0,14 + 5/30 ≈ 0,31) — l'écart entre les deux est de 2,3 Md€
-   nets en 2030.
-2. Fraude sociale au plafond 1,0 (règle RN) plutôt qu'au premier centième qui sature
-   (0,45) — écarts ≤ 0,02 pt de déficit sur 2026-2035 entre les deux conventions.
-3. Énergies intermittentes (4 Md€) portées par `subventions_tge` ; niches/politique de
-   la ville/zonages (4,9 Md€) portées par `niches_fiscales_tge` 57 → 52 (arbitrage du
-   mainteneur, symétrie avec les cinq autres programmes encodés sur ce levier) ;
-   familles/transmission (3 Md€) laissée non encodée (objet mixte IR + DMTG, aucun
-   levier propre, dit sur la fiche) — les fiches du livret non encodées sont nommées
-   dans la fiche LR du simulateur.
-4. Horizons : retrait de la réforme des agences (10/20 → 0/0) au motif du double
-   comptage avec les 250 000 postes (précédent RN).
-5. Horizons : fonds d'adaptation 2 Md€/an non encodé (effet d'offre hors de proportion,
-   ci-dessus).
-6. Recapture de l'ancre des deltas.
-7. Numéro de version : v0.6.11 (les numéros se suivent ; la release « valeurs INSEE +
-   part indexée 0,87 » annoncée sous ce numéro en v0.6.10 glisse à v0.6.12, le retrait
-   de l'éviction à v0.6.13 — à confirmer au tag).
+Tous les choix d'encodage ci-dessous ont été arbitrés par le mainteneur le 02/11/2026 ;
+les chiffrages servis en dépendent et sont validés.
+
+1. Arbitrage du mainteneur du 02/11/2026 : conversion de la fraude fiscale par le régime
+   net (convention LF 2026) plutôt que par la cible brute (0,14 + 5/30 ≈ 0,31) — l'écart
+   entre les deux est de 2,3 Md€ nets en 2030.
+2. Arbitrage du mainteneur du 02/11/2026 : fraude sociale au plafond 1,0 (règle RN)
+   plutôt qu'au premier centième qui sature (0,45) — écarts ≤ 0,02 pt de déficit sur
+   2026-2035 entre les deux conventions.
+3. Arbitrage du mainteneur du 02/11/2026 : énergies intermittentes (4 Md€) portées par
+   `subventions_tge` ; niches/politique de la ville/zonages (4,9 Md€) portées par
+   `niches_fiscales_tge` 57 → 52 (symétrie avec les cinq autres programmes encodés sur
+   ce levier) ; familles/transmission (3 Md€) laissée non encodée (objet mixte IR +
+   DMTG, aucun levier propre, dit sur la fiche) — les fiches du livret non encodées sont
+   nommées dans la fiche LR du simulateur.
+4. Arbitrage du mainteneur du 02/11/2026 : Horizons, retrait de la réforme des agences
+   (10/20 → 0/0) au motif du double comptage avec les 250 000 postes (précédent RN).
+5. Arbitrage du mainteneur du 02/11/2026 : Horizons, fonds d'adaptation 2 Md€/an non
+   encodé (effet d'offre hors de proportion, ci-dessus).
+6. Arbitrage du mainteneur du 02/11/2026 : recapture de l'ancre des deltas.
+7. Arbitrage du mainteneur du 02/11/2026 : numéro de version v0.6.11 (les numéros se
+   suivent ; la release « valeurs INSEE + part indexée 0,87 » annoncée sous ce numéro en
+   v0.6.10 glisse à v0.6.12, le retrait de l'éviction à v0.6.13).
 
 ## v0.6.10 — contre-audit externe V2 : six réserves fermées (non publiée)
 

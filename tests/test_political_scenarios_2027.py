@@ -222,7 +222,7 @@ def test_aucune_collision_id_lfi_2026():
 # RE-ENCODAGE LR / HORIZONS 2026-11-02 (v0.6.11, paramètres seuls, moteur
 # intact) : LR sur le livret « Comptes publics » du 12/10/2026 (effectifs
 # −400 000, chômage 15 mois, AME, fraude, collectivités, subventions) : PA 2029
-# 104,7 → 104,1 ; Horizons (effectifs −250 000, salaires enseignants +20 %,
+# 104,7 → 104,0 ; Horizons (effectifs −250 000, salaires enseignants +20 %,
 # réforme des agences retirée) : 101,9 → 102,5. Les deux restent dans la
 # tolérance ±1,5 des valeurs figées ci-dessous, qui ne sont pas re-figées (la
 # garde reste celle du gating one-time, pas de l'encodage) ; les 8 autres
