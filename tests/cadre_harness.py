@@ -78,6 +78,33 @@ def pleine_precision(monkeypatch=None):
         yield mp
 
 
+@contextmanager
+def atterrissage(cibles_par_annee, reajustements=None):
+    """Remplace le temps du bloc le fichier d'atterrissage par des données de
+    TEST, qui passent par la vraie validation du moteur. ``cibles_par_annee`` :
+    {année: {grandeur: valeur}} ; ``{}`` = aucune année injectée (« tables
+    vides »). ``reajustements`` : {année: {levier: {paramètre: valeur}}}."""
+    import json
+    import tempfile
+    import budget_simulator.engine.cadre as cadre
+    annees = {}
+    for an in sorted(set(cibles_par_annee) | set(reajustements or {})):
+        bloc = {g: {'valeur': v, 'source': 'donnée de test', 'date': '2026-11-07'}
+                for g, v in (cibles_par_annee.get(an) or {}).items()}
+        bloc['reajustements_droit_en_vigueur'] = (reajustements or {}).get(an, {})
+        annees[str(an)] = bloc
+    contenu = {'version': 'test', 'date': '2026-11-07', 'description': 'test', 'annees': annees}
+    with tempfile.TemporaryDirectory() as d, pytest.MonkeyPatch.context() as mp:
+        chemin = Path(d) / 'atterrissage.json'
+        chemin.write_text(json.dumps(contenu), encoding='utf-8')
+        mp.setattr(cadre, 'ATTERRISSAGE_PATH', chemin)
+        cadre.charger_atterrissage.cache_clear()
+        try:
+            yield
+        finally:
+            cadre.charger_atterrissage.cache_clear()
+
+
 def simuler(mesures, periods=10, strict=False, **kwargs):
     """(df, det, rapport, sim) pleine précision. ``kwargs`` : annee_debut, rampe."""
     with pleine_precision() as mp:

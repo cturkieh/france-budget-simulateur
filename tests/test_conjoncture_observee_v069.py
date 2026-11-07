@@ -12,8 +12,9 @@ Deux tables par année calendaire, vides en v0.6.9 (``constants.py``) :
 Les tables de test sont INJECTÉES (monkeypatch du module ``constants``), jamais
 écrites dans ``constants.py``. Toute comparaison « avec / sans » injecte les DEUX
 tables explicitement, et les tests sur les tables LIVRÉES sont écrits sous une
-forme vraie tables vides ou remplies : le fichier reste valide quand v0.6.10 les
-remplira (seul ``test_v069_tables_livrees_vides__a_retirer_en_v0610`` est daté).
+forme vraie tables vides ou remplies : le fichier reste valide quand une release les
+remplira (seul ``test_v070_l_atterrissage_porte_2026_les_tables_v069_restent_vides``
+est daté ; l'observé 2026 passe par l'atterrissage du cadre, v0.7.0).
 Plan : ``docs/plans/v069-recalage-macro-2026.md`` du dépôt parent, § 4.1
 (mécanisme) et § 7.1 (preuves).
 
@@ -159,12 +160,18 @@ def _lignes(df, annees):
 # 1. Les tables : source unique, vides en v0.6.9, garde d'import
 # ---------------------------------------------------------------------------
 
-def test_v069_tables_livrees_vides__a_retirer_en_v0610():
-    """DATÉ — à RETIRER par la release qui remplit les tables (v0.6.10, GO
-    séparé) : v0.6.9 livre la case, pas les valeurs. C'est le seul test du fichier
-    qui exige des tables vides ; tous les autres valent tables vides ou remplies."""
+def test_v070_l_atterrissage_porte_2026_les_tables_v069_restent_vides():
+    """v0.7.0 : l'observé 2026 (croissance, IPC) n'est PAS écrit dans ces tables,
+    qui s'appliqueraient à toutes les requêtes, mode historique compris ; il passe
+    par ``budget_simulator/data/atterrissage_observe.json``, en mode cadre, avec
+    choc et coin calculés pour reproduire la cible (test_cadre_v070_atterrissage.py).
+    Les tables restent la case des chocs d'années ULTÉRIEURES, vides en v0.7.0 ;
+    une année injectée ne peut pas y figurer aussi (garde de collision). DATÉ :
+    à réécrire par la release qui remplira une table."""
+    import budget_simulator.engine.cadre as cadre
     for nom in TABLES:
         assert getattr(C, nom) == {}, nom
+    assert 2026 in cadre.charger_atterrissage().annees
 
 
 def test_horizon_des_tables_egal_a_l_horizon_simule_et_servi():
@@ -449,11 +456,19 @@ def _facteur(annee):
 
 @pytest.mark.parametrize('nom', NOMS)
 def test_coin_ne_touche_que_le_pouvoir_d_achat(nom):
+    """Le coin ne touche que le prix de la consommation : l'indice de pouvoir
+    d'achat et, depuis v0.7.0, la colonne « Inflation IPC % », qui EST la
+    variation de ce prix (IPC avec = (1 + IPC sans) × (1 + coin de l'année) − 1).
+    Déflateur, flux, dette, Gini et compétitivité n'y voient rien."""
     sans, df_s, det_s, _, recus_s = _sans(nom)
     avec, df_a, det_a, _, recus_a = _avec_coins(nom)
-    autres = [c for c in df_s.columns if c != PA]
+    autres = [c for c in df_s.columns if c not in (PA, 'Inflation IPC %')]
     assert len(autres) >= 7
     assert df_a[autres].to_dict() == df_s[autres].to_dict()
+    coins = dict(COINS)
+    for an in range(2026, 2036):
+        attendu = (1 + df_s.loc[an, 'Inflation IPC %'] / 100) * (1 + coins.get(an, 0.0)) - 1
+        assert df_a.loc[an, 'Inflation IPC %'] / 100 == pytest.approx(attendu, rel=1e-12, abs=1e-15), an
     autres_det = [c for c in det_s.columns if c != 'Prix_Consommation']
     assert det_a[autres_det].to_dict() == det_s[autres_det].to_dict()
     for an in range(2025, 2036):

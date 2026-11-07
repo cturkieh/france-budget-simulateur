@@ -38,7 +38,8 @@ import budget_simulator.handlers.efficience as efficience_mod
 from budget_simulator import EntreeInvalide
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import CAS, NOMS, NOMS_PROGRAMMES, PROGRAMME_MIXTE, SCENARIOS, egalite_bit_a_bit, simuler
+from cadre_harness import (CAS, NOMS, NOMS_PROGRAMMES, PROGRAMME_MIXTE, SCENARIOS, atterrissage,
+                           egalite_bit_a_bit, simuler)
 
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
 FRONT_SCENARIOS = (Path(__file__).absolute().parent.parent / 'frontend-react' / 'src' / 'data'
@@ -186,10 +187,12 @@ def test_a_le_programme_s_applique_a_partir_du_debut(nom, statu_quo_cadre):
 
 def test_g_statu_quo_cadre_egal_statu_quo_historique_au_bit():
     """Le budget voté, rejoué en mode cadre (droit = programme), est au bit le
-    budget voté historique."""
+    budget voté historique, tables d'atterrissage vides (lot E : avec
+    l'atterrissage, 2026 est injecté — test_cadre_v070_atterrissage.py)."""
     historique = simuler(_droit())
-    for debut in (2027, DEBUT, 2032):
-        egalite_bit_a_bit(historique, simuler(_droit(), annee_debut=debut), libelle=str(debut))
+    with atterrissage({}):
+        for debut in (2027, DEBUT, 2032):
+            egalite_bit_a_bit(historique, simuler(_droit(), annee_debut=debut), libelle=str(debut))
 
 
 def test_g_programme_vide_en_cadre_est_le_droit_en_vigueur():

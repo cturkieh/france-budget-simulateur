@@ -100,7 +100,7 @@ from ..constants import (
     PA_VARIATION_ANNUELLE_MAX,
     conjoncture_observee,
 )
-from .cadre import CadreTemporel, combiner, creer_mondes
+from .cadre import ECART_ATTERRISSAGE_MAX, CadreTemporel, combiner, creer_mondes
 from .growth import part_investissement_expansion
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
@@ -247,6 +247,97 @@ class OrchestratorMixin:
                 else:
                     self._chomage_params_prev = chomage
             self.mesures, self._origines_courantes, self._monde_actif = sauve
+
+    def _evaluer_formule(self, measure, parameters, year, gdp, inflation, unemployment):
+        """(Δdép, Δrec, impacts) d'un levier à formule ASTEVAL
+        (``policy_measures.json``). Extraite d'``apply_measures`` en v0.7.0 pour
+        servir aussi l'évaluation isolée des réajustements de l'atterrissage ;
+        calcul inchangé."""
+        context = {
+            'p': parameters,
+            'annee': year,
+            'pib': gdp,
+            'consommation': 0.53 * gdp,
+            'masse_salariale': 0.52 * gdp,
+            'profits': 0.25 * gdp,
+            'inflation': inflation,
+            'chomage': unemployment
+        }
+        self.aeval.symtable = context
+        result = self.aeval(measure['formule'])
+        if self.aeval.error:
+            # v0.6.7 : l'échec d'une formule suit le chemin d'un
+            # handler qui lève (except d'apply_measures : ERROR,
+            # HANDLER_FAILED_KEY, escalade stricte). Avant : ERROR
+            # puis `result = 0`, levier compté nul SANS drapeau
+            # dans la réponse et sans escalade même en strict.
+            error_msgs = [str(e.get_error()) for e in self.aeval.error]
+            self.aeval.error = []
+            raise RuntimeError(
+                f"formule ASTEVAL en échec : {'; '.join(error_msgs)}")
+        elif result is None:
+            result = 0
+        delta_spending, delta_revenue = 0, 0
+        # Post-traitement pour ajustements spécifiques (ex. effet Laffer CSG)
+        if measure.get('cible') == 'depenses':
+            delta_spending = result
+            measure_impacts = {'depenses': delta_spending}
+        elif measure.get('cible') == 'recettes':
+            delta_revenue = result
+            measure_impacts = {'recettes': delta_revenue}
+        elif measure.get('cible') == 'mixte':
+            delta_spending = result * 0.6
+            delta_revenue = result * 0.4
+            measure_impacts = {'depenses': delta_spending, 'recettes': delta_revenue}
+        else:
+            raise RuntimeError(f"formule {measure.get('id')} : cible {measure.get('cible')!r} inconnue")
+        return delta_spending, delta_revenue, measure_impacts
+
+    def _solde_isole(self, measure_id, params, year, gdp, inflation, unemployment, mesures):
+        """Effet d'UN levier sur le solde (Δrec − Δdép, Md€), évalué hors de la
+        simulation : monde jetable (traqueurs vierges, horloge 2026, lectures
+        croisées sur ``mesures``), sans plafonds. Sert la décomposition des
+        réajustements de l'atterrissage (lot E)."""
+        measure = self.measure_registry[measure_id]
+        if measure_id in self.measure_handlers:
+            from .cadre import Monde
+            monde = Monde('isole', mesures, {}, traqueur={})
+            with self._dans_le_monde(monde):
+                dep, rec, _ = self._apply_complex_measure(measure, params, year, gdp,
+                                                          inflation, unemployment)
+        else:
+            dep, rec, _ = self._evaluer_formule(measure, params, year, gdp, inflation, unemployment)
+        return rec - dep
+
+    def _effet_reajustements(self, year, gdp, inflation, unemployment):
+        """Effet des réajustements du droit en vigueur sur le solde de ``year``
+        (Md€) : Σ levier réajusté [solde(réajusté) − solde(voté)], à l'état macro
+        de l'année. 0,0 sans réajustement."""
+        droit = self._cadre.droit_par_annee.get(year, self._cadre.mesures_droit)
+        vote = self._cadre.droit_vote
+        total = 0.0
+        for levier in sorted(l for l in droit if droit[l] != vote.get(l)):
+            total += (self._solde_isole(levier, droit[levier], year, gdp, inflation, unemployment, droit)
+                      - self._solde_isole(levier, vote[levier], year, gdp, inflation, unemployment, droit))
+        return total
+
+    def _atterrir(self, annee, grandeur, modele):
+        """Atterrissage (lot E) : valeur injectée de ``grandeur`` pour l'année, ou
+        ``modele``. Journalise les deux. Un écart au-delà du domaine du mécanisme
+        (``cadre.ECART_ATTERRISSAGE_MAX``) est un défaut des données serveur :
+        RuntimeError, jamais un écrêtage."""
+        if annee not in self._journal_atterrissage:
+            return modele
+        cible = self._cadre.cible(annee, grandeur)
+        self._journal_atterrissage[annee][grandeur] = {'modele': float(modele), 'observe': cible}
+        if cible is None:
+            return modele
+        if abs(cible - modele) > ECART_ATTERRISSAGE_MAX:
+            raise RuntimeError(
+                f"Atterrissage {annee} : {grandeur} observé {cible!r} contre {float(modele)!r} "
+                f"dans le modèle, écart hors du domaine du mécanisme "
+                f"(±{ECART_ATTERRISSAGE_MAX}) — données serveur à instruire")
+        return cible
 
     def _evaluer_handler(self, measure, parameters, year, gdp, inflation, unemployment):
         """Handler d'un levier pour l'année (v0.7.0, lot C).
@@ -399,42 +490,9 @@ class OrchestratorMixin:
                         raise RuntimeError(
                             f"handler {measure_id} sans canaux ménages (clé 'menages')")
                 elif measure.get('type') == 'formule':
-                    # Fall back to ASTEVAL formula
-                    context = {
-                        'p': parameters,
-                        'annee': year,
-                        'pib': gdp,
-                        'consommation': 0.53 * gdp,
-                        'masse_salariale': 0.52 * gdp,
-                        'profits': 0.25 * gdp,
-                        'inflation': inflation,
-                        'chomage': unemployment
-                    }
-                    self.aeval.symtable = context
-                    result = self.aeval(measure['formule'])
-                    if self.aeval.error:
-                        # v0.6.7 : l'échec d'une formule suit le chemin d'un
-                        # handler qui lève (except ci-dessous : ERROR,
-                        # HANDLER_FAILED_KEY, escalade stricte). Avant : ERROR
-                        # puis `result = 0`, levier compté nul SANS drapeau
-                        # dans la réponse et sans escalade même en strict.
-                        error_msgs = [str(e.get_error()) for e in self.aeval.error]
-                        self.aeval.error = []
-                        raise RuntimeError(
-                            f"formule ASTEVAL en échec : {'; '.join(error_msgs)}")
-                    elif result is None:
-                        result = 0
-                    # Post-traitement pour ajustements spécifiques (ex. effet Laffer CSG)
-                    if measure.get('cible') == 'depenses':
-                        delta_spending = result
-                        measure_impacts = {'depenses': delta_spending}
-                    elif measure.get('cible') == 'recettes':
-                        delta_revenue = result
-                        measure_impacts = {'recettes': delta_revenue}
-                    elif measure.get('cible') == 'mixte':
-                        delta_spending = result * 0.6
-                        delta_revenue = result * 0.4
-                        measure_impacts = {'depenses': delta_spending, 'recettes': delta_revenue}
+                    # Fall back to ASTEVAL formula (évaluation : _evaluer_formule)
+                    delta_spending, delta_revenue, measure_impacts = self._evaluer_formule(
+                        measure, parameters, year, gdp, inflation, unemployment)
                     # Contrat v0.6.8 (revue passe 1, L2) : une formule ne pose
                     # aucun canal ménages. Côté dépenses, zéro effet direct est
                     # l'arbitrage 2 ; côté recettes, l'indice compterait la taxe
@@ -637,6 +695,10 @@ class OrchestratorMixin:
             warned=self._domain_clamp_warned, corrections=self._corrections)
         # Mondes de la composition des horloges (lot C) : mode cadre seulement.
         self._mondes = creer_mondes(self._cadre) if self._cadre.actif else None
+        # Atterrissage (lot E) : années injectées, journal de la décomposition.
+        self._journal_atterrissage = {}
+        if self._cadre.actif and self._cadre.atterrissage is not None:
+            self._journal_atterrissage = {an: {} for an in self._cadre.atterrissage.annees}
 
         # Guard: PIB_BASE doit être > 0 pour éviter divisions par zéro
         if self.base_params['pib_base'] <= 0:
@@ -648,6 +710,18 @@ class OrchestratorMixin:
         # K_t = Π_{y ≤ t} (1 + coin_y) : prix de la consommation / prix du PIB,
         # en NIVEAU (engine/rdb.py). 1 en 2025 (année de base hors table).
         facteur_prix_conjoncture = 1.0
+        # Atterrissage (lot E) : une année injectée ne peut pas recevoir AUSSI un
+        # choc ou un coin des tables v0.6.9 — deux sources pour une même grandeur
+        # (défaut des données serveur).
+        for an in self._journal_atterrissage:
+            for grandeur, table in (('croissance', 'CHOCS_DEMANDE_OBSERVES'),
+                                    ('ipc', 'COIN_PRIX_CONSOMMATION')):
+                if self._cadre.cible(an, grandeur) is not None and an in getattr(conjoncture, table):
+                    raise RuntimeError(
+                        f"Atterrissage {an} : {grandeur} injecté ET table {table} renseignée "
+                        f"pour la même année (défaut des données serveur)")
+        # Prix de la consommation de l'année précédente (colonne IPC, v0.7.0).
+        prix_consommation_precedent = None
 
         results_list = []
         results_detailed = []
@@ -785,6 +859,10 @@ class OrchestratorMixin:
                     growth = growth + choc_demande
                     _log_debug(self.debug_logs,
                         f"Y{year_idx}: Choc de demande observé {choc_demande*100:+.2f} pt")
+                # Atterrissage (lot E) : croissance OBSERVÉE de l'année injectée, au
+                # même point d'application que le choc de demande v0.6.9 (choc =
+                # cible − croissance du modèle, publié ; jamais forcée en 2027+).
+                growth = self._atterrir(year, 'croissance', growth)
                 _log_debug(self.debug_logs, f"Y{year_idx}: Croissance = {growth:.3f}")
 
                 economic_state_inflation = {
@@ -802,6 +880,13 @@ class OrchestratorMixin:
                     'annee_pass_through_tva': self._origine('tva_rate') - self.annee_base + 1,
                 }
                 inflation = self.calculate_inflation(year_idx, economic_state_inflation)
+                # Atterrissage (lot E) : DÉFLATEUR du PIB sourcé, seulement s'il
+                # est donné (place prévue, null en v0.7.0). Jamais l'IPC : il passe
+                # par le coin de prix de la consommation (bloc pouvoir d'achat).
+                inflation_atterrie = self._atterrir(year, 'deflateur', inflation)
+                if inflation_atterrie != inflation:
+                    inflation = inflation_atterrie
+                    self.inflation_precedente = inflation
                 _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")
 
                 # [SUPPRIMÉ Phase 2 — 2026-05-16, option B] Un ajustement
@@ -826,6 +911,9 @@ class OrchestratorMixin:
                 #        t−1 via _last_impacts, cohérent avec l'impulsion macro
                 #        laguée d'un an) ---
                 unemployment = self.calculate_unemployment(growth, unemployment, year_idx, self._last_impacts)
+                # Atterrissage (lot E) : taux de chômage observé, après Okun et
+                # avant les flux (la dépense chômage de l'année le suit).
+                unemployment = self._atterrir(year, 'chomage', unemployment)
 
                 # --- 4. Flux budgétaires aux prix de l'année ---
                 revenues_base = self.calculate_revenues(gdp_nominal, growth, inflation, year_idx)
@@ -852,6 +940,11 @@ class OrchestratorMixin:
                 )
 
                 self._last_impacts = impacts
+                if year in self._journal_atterrissage:
+                    # Premier temps de l'atterrissage : effet des réajustements du
+                    # droit en vigueur sur le solde, mesuré à l'état de l'année.
+                    self._journal_atterrissage[year]['reajustements_md_eur'] = (
+                        self._effet_reajustements(year, gdp_nominal, inflation, unemployment))
 
                 # NOUVEAU: Stocker les impacts de cette année pour le frontend
                 year_impacts = {'Année': year}
@@ -906,6 +999,26 @@ class OrchestratorMixin:
                 marginal_rate = self.calculate_interest_rate(debt_ratio, year_idx, budget_effort)
                 interests, interest_rate = self.calculate_interest_payment(debt, marginal_rate)
                 deficit = revenues - spending - interests
+                # Atterrissage (lot E), second temps : l'écart RÉSIDUEL au solde
+                # observé (après les réajustements) entre dans le NIVEAU ORGANIQUE
+                # des recettes — rebasage persistant, la pratique des
+                # prévisionnistes. Ni impulsion ni mesure : il ne passe pas par
+                # les multiplicateurs.
+                if year in self._journal_atterrissage:
+                    cible_solde = self._cadre.cible(year, 'deficit')
+                    j = self._journal_atterrissage[year]
+                    j['solde'] = {'modele': deficit / gdp_nominal, 'observe': cible_solde,
+                                  'residuel_md_eur': 0.0}
+                    if cible_solde is not None:
+                        ecart = cible_solde * gdp_nominal - deficit
+                        if abs(ecart) > ECART_ATTERRISSAGE_MAX * gdp_nominal:
+                            raise RuntimeError(
+                                f"Atterrissage {year} : écart de solde {ecart:+.1f} Md€ hors du "
+                                f"domaine du mécanisme (±{ECART_ATTERRISSAGE_MAX:.0%} du PIB)")
+                        revenues = revenues + ecart
+                        self.recettes_precedentes += ecart
+                        deficit = cible_solde * gdp_nominal
+                        j['solde']['residuel_md_eur'] = ecart
 
                 # (Chômage : calculé plus haut, étape 3 du bloc REFONTE — avant
                 # les flux, pour que la dépense chômage de l'année suive le taux
@@ -927,6 +1040,21 @@ class OrchestratorMixin:
                         f"Dette brute bornée à 0 dès {year} : excédents "
                         f"accumulés, actifs nets non modélisés")
                     debt = 0.0
+                # Atterrissage (lot E) : dette observée, par un ajustement
+                # stock-flux de l'année (une fois ; le stock le porte ensuite).
+                if year in self._journal_atterrissage:
+                    cible_dette = self._cadre.cible(year, 'dette')
+                    j = self._journal_atterrissage[year]
+                    j['dette'] = {'modele': debt / gdp_nominal, 'observe': cible_dette,
+                                  'ajustement_md_eur': 0.0}
+                    if cible_dette is not None:
+                        ajustement = cible_dette * gdp_nominal - debt
+                        if abs(ajustement) > ECART_ATTERRISSAGE_MAX * gdp_nominal:
+                            raise RuntimeError(
+                                f"Atterrissage {year} : ajustement stock-flux {ajustement:+.1f} Md€ "
+                                f"hors du domaine du mécanisme (±{ECART_ATTERRISSAGE_MAX:.0%} du PIB)")
+                        debt = cible_dette * gdp_nominal
+                        j['dette']['ajustement_md_eur'] = ajustement
 
                 # Analyse Domar complémentaire (pour logs uniquement)
                 if year_idx > 0:
@@ -1077,12 +1205,40 @@ class OrchestratorMixin:
             coin_prix = conjoncture.COIN_PRIX_CONSOMMATION.get(year)
             if coin_prix is not None:
                 facteur_prix_conjoncture *= 1 + coin_prix
+            indice_masse_publique = ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx
+                                     * self.deflateur_cumule)
             rdb = rdb_annee(
                 impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
-                ((1 + self.spending_growth_rates['masse_salariale']) ** year_idx
-                 * self.deflateur_cumule),
+                indice_masse_publique,
                 year_idx, facteur_prix_conjoncture=facteur_prix_conjoncture)
+            # Atterrissage (lot E) : IPC observé par le COIN de prix de la
+            # consommation, calculé pour que la variation du prix de la
+            # consommation vaille la cible (coin fiscal compris). Il ne touche
+            # que l'indice de pouvoir d'achat et la colonne IPC — ni le
+            # déflateur, ni les flux, ni la dette.
+            if year in self._journal_atterrissage:
+                cible_ipc = self._cadre.cible(year, 'ipc')
+                j = self._journal_atterrissage[year]
+                j['ipc'] = {'deflateur': float(inflation), 'observe': cible_ipc, 'coin': None}
+                if cible_ipc is not None:
+                    coin_atterrissage = (1 + cible_ipc) * prix_consommation_precedent / rdb.prix - 1
+                    if abs(coin_atterrissage) > ECART_ATTERRISSAGE_MAX:
+                        raise RuntimeError(
+                            f"Atterrissage {year} : coin de prix {coin_atterrissage:+.4f} hors du "
+                            f"domaine du mécanisme (±{ECART_ATTERRISSAGE_MAX})")
+                    facteur_prix_conjoncture *= 1 + coin_atterrissage
+                    j['ipc']['coin'] = coin_atterrissage
+                    rdb = rdb_annee(
+                        impacts, gdp_nominal, pib_nominal_2025, self.deflateur_cumule,
+                        indice_masse_publique,
+                        year_idx, facteur_prix_conjoncture=facteur_prix_conjoncture)
             self._rdb_trace[year] = rdb
+            # Colonne IPC (v0.7.0) : variation du prix de la consommation des
+            # ménages de l'indice (déflateur × coin fiscal × coin observé) ;
+            # l'année de base, faute de 2024, reprend le déflateur.
+            inflation_ipc = (inflation if prix_consommation_precedent is None
+                             else rdb.prix / prix_consommation_precedent - 1)
+            prix_consommation_precedent = rdb.prix
             # Même garde de finitude que le Gini : un NaN/inf ressortirait de la
             # borne comme une valeur plausible.
             if not np.isfinite(rdb.indice):
@@ -1155,6 +1311,9 @@ class OrchestratorMixin:
                 'PIB': round(gdp_nominal, 1),
                 'Croissance %': round(growth * 100, 2),
                 'Inflation %': round(inflation * 100, 2),
+                # IPC (v0.7.0) : prix de la consommation des ménages (cf. bloc
+                # pouvoir d'achat) ; « Inflation % » reste le déflateur du PIB.
+                'Inflation IPC %': round(inflation_ipc * 100, 2),
                 'Déficit': round(deficit, 1),
                 'Déficit/PIB %': round(deficit / gdp_nominal * 100, 2),
                 'Dette': round(debt, 1),
@@ -1251,6 +1410,6 @@ class OrchestratorMixin:
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year
         # Cadre temporel (v0.7.0) : publié tel quel (l'API le remonte au niveau
         # de la réponse, bloc `cadre`).
-        trajectory_report['cadre'] = self._cadre.rapport()
+        trajectory_report['cadre'] = self._cadre.rapport(self._journal_atterrissage)
 
         return results_df, pd.DataFrame(results_detailed), trajectory_report
