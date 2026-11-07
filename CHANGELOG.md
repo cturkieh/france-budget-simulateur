@@ -4,7 +4,19 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
-## [v0.7.0] — non publiée : cadre temporel 2027-2032
+## [v0.7.1] — 2026-11-07 — doc/test : le tableau agrégé suit l'horizon de notation 2027-2032 de l'app
+
+**Ce qui change** : documentation et test seulement, aucune équation ni aucun paramètre ; sorties
+du moteur identiques au bit à la v0.7.0. Le tableau « Neutralite : ce que la version v0.6.1 du
+moteur deplace, EN AGREGE » de `docs/METHODOLOGIE.md` gagne une dixième colonne, l'écart de dette
+**2032** au scénario de référence en mode cadre (programmes appliqués de 2028 à 2032), avec sa
+mise à jour datée ; les neuf colonnes historiques (dette 2035) sont inchangées. Le test
+`test_le_sens_agrege_de_la_version_est_publie_et_a_jour` lit désormais l'année de notation de
+l'app (`ANNEE_NOTATION_APP = 2032`) dans le précalcul au lieu de sa dernière année : il rougissait
+contre le précalcul cadre de l'app, et restait skippé dans la CI publique (précalcul absent).
+Titres v0.6.8 à v0.7.0 : mention « non publiée » retirée, ces versions sont taguées.
+
+## [v0.7.0] — 2026-11-07 — cadre temporel 2027-2032
 
 **Ce qui change** : la SÉMANTIQUE TEMPORELLE du moteur. Jusqu'en v0.6.11, un programme
 s'appliquait dès 2026, un an avant l'élection et deux ans avant le premier budget du nouvel
@@ -241,7 +253,7 @@ les chiffrages servis en dépendent et sont validés.
    suivent ; la release « valeurs INSEE + part indexée 0,87 » annoncée sous ce numéro en
    v0.6.10 glisse à v0.6.12, le retrait de l'éviction à v0.6.13).
 
-## v0.6.10 — contre-audit externe V2 : six réserves fermées (non publiée)
+## v0.6.10 — contre-audit externe V2 : six réserves fermées (tag v0.6.10)
 
 **Ce qui change pour le lecteur** : des centièmes de point, sur cinq programmes.
 Mesure à deux sous-processus (v0.6.9 contre v0.6.10), dix scénarios publiés et
@@ -449,7 +461,7 @@ de Renaissance ; 1,4 × 10⁻⁴ Md€ sur sa dette nominale).
   `test_v069_tables_livrees_vides__a_retirer_en_v0610` (tables toujours vides
   en v0.6.10).
 
-## v0.6.9 — conjoncture observée : le mécanisme, sans valeur (non publiée)
+## v0.6.9 — conjoncture observée : le mécanisme, sans valeur (tag v0.6.9)
 
 **Ce qui change pour le lecteur** : rien. Toutes les sorties sont identiques au bit
 (golden masters inchangés, sans régénération ; empreinte pleine précision des dix
@@ -499,7 +511,7 @@ OBSERVÉE ; liste unique des noms : `ConjonctureObservee`) :
   `calculate_unemployment` inchangées ; un seul point d'application
   (l'orchestrateur). Dix mutations ciblées du mécanisme sont toutes détectées.
 
-## v0.6.8 — indice de pouvoir d'achat « RDB-moteur » (non publiée)
+## v0.6.8 — indice de pouvoir d'achat « RDB-moteur » (tag v0.6.8)
 
 **Ce qui change pour le lecteur** : l'indice de pouvoir d'achat suit désormais la
 définition de l'INSEE — revenu disponible brut (RDB) des ménages, déflaté par le prix

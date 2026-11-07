@@ -285,11 +285,26 @@ def test_lasymetrie_duree_vs_age_est_declaree_dans_la_methodologie():
 _PRECALCULS = _RACINE / '..' / '..' / 'frontend-react' / 'src' / 'data' / 'scenariosResults.json'
 
 
+# L'app note chaque programme sur la fin du mandat 2027-2032 (dette 2032), pas
+# sur la dernière année simulée (cf. METHODOLOGIE.md § « Cadre temporel
+# 2027-2032 (v0.7.0) »). Le tableau agrégé suit l'objet mesuré par l'app.
+ANNEE_NOTATION_APP = 2032
+# Les `years` du précalcul sont des INDICES, 0 = 2025 (ENGINE_BASE_YEAR de
+# l'app, frontend-react/src/data/simulationHorizon.js), jamais des millésimes.
+_ANNEE_INDICE_0_PRECALCUL = 2025
+
+
 def _ecarts_publies_au_referentiel():
-    """Écart de dette 2035 de chaque programme au scénario de référence, LU
-    dans les précalculs réellement servis aux visiteurs."""
+    """Écart de dette ANNEE_NOTATION_APP de chaque programme au scénario de
+    référence, LU dans les précalculs réellement servis aux visiteurs."""
     res = json.loads(_PRECALCULS.read_text(encoding='utf-8'))
-    dette = {k: v['data']['Dette/PIB %'][-1] for k, v in res.items()}
+    cible = ANNEE_NOTATION_APP - _ANNEE_INDICE_0_PRECALCUL
+    dette = {}
+    for k, v in res.items():
+        assert cible in v['years'], (
+            f"{k} : le précalcul ne porte pas l'année {ANNEE_NOTATION_APP} "
+            f"(indice {cible}) — horizon de notation de l'app introuvable")
+        dette[k] = v['data']['Dette/PIB %'][v['years'].index(cible)]
     ref = dette.pop('plf_2026')
     return {k: v - ref for k, v in dette.items()}
 
@@ -319,6 +334,13 @@ def test_le_sens_agrege_de_la_version_est_publie_et_a_jour():
        bouge de +0,57 pt DANS L'AUTRE SENS, par effet de dénominateur.
        Publier le tableau sans cette ventilation le rendrait trompeur : le
        lecteur y lirait que corriger le comparateur a pénalisé les programmes.
+
+    v0.7.0 : le tableau suit l'objet mesuré par l'app. L'app précalcule en
+    mode cadre (programmes appliqués de 2028 à 2032 par-dessus le droit en
+    vigueur) et note sur la dette 2032 ; comparer sa dernière colonne à la
+    dette 2035 mélangerait deux objets. Le helper lit donc l'indice de
+    ANNEE_NOTATION_APP dans `years`, et la dernière colonne du tableau est
+    l'écart de dette 2032 (colonne « Ecart moteur v0.7.0 »).
     """
     texte = _METHODO.read_text(encoding='utf-8')
     assert 'EN AGREGE' in texte, "la methodologie ne publie pas le sens agrege de la version"
@@ -331,7 +353,8 @@ def test_le_sens_agrege_de_la_version_est_publie_et_a_jour():
         # marge d'arrondi au pair de la mise en forme.
         assert float(publie) == pytest.approx(ecart, abs=0.06), (
             f"{scenario} : la methodologie publie {publie}, les precalculs "
-            f"donnent {ecart:+.1f} — tableau agrege perime")
+            f"donnent {ecart:+.1f} (ecart de dette {ANNEE_NOTATION_APP} au "
+            f"plf_2026) — tableau agrege perime")
     # Le tableau ci-dessus ne publie QUE la dette 2035 — la seule des quatre
     # mesures d'écart que le lot 9 déplace en faveur du scénario de référence.
     # Sans la ventilation par mesure ni son motif (un dénominateur, comme au

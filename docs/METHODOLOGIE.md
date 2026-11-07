@@ -2477,17 +2477,17 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) |
-|---|---|---|---|---|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) | Ecart moteur v0.7.0 (cadre 2027-2032, dette 2032) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 |
 
 **Mise à jour du 07/10/2026 — sixième colonne : re-encodage de trois scénarios,
 aucune ligne de moteur modifiée.** Les sept autres scénarios ont des trajectoires
@@ -2551,6 +2551,22 @@ les trois mouvements se compensent presque sur la dette 2035, pas sur le défici
 vers −5,39 %). Les deux domaines de paramètres élargis à ces valeurs servies (effectifs
 −400 000, salaires enseignants +20 %) ne changent aucune autre sortie. Chaque scénario porte ce
 que sa source chiffre, ni plus ni moins (section « Règle d'encodage des programmes politiques »).
+
+**Mise à jour du 07/11/2026 — dixième colonne : la mesure change d'objet, aucune équation ni
+aucun paramètre de scénario modifié.** Depuis la v0.7.0, l'application note chaque programme sur
+la **dette 2032**, fin du mandat 2027-2032, et non plus sur la dette 2035 ; chaque programme y
+est appliqué de 2028 à 2032 par-dessus le droit en vigueur (budget 2026 voté, reconduit en 2027),
+après un atterrissage 2026 injecté à l'identique pour tous les scénarios (section « Cadre
+temporel 2027-2032 (v0.7.0) »). La dixième colonne mesure donc l'écart de dette 2032 au scénario
+de référence, dans ce cadre. Les écarts y sont mécaniquement plus petits que dans les colonnes
+précédentes : cinq budgets de programme (2028 à 2032) au lieu de dix années (2026 à 2035), et une
+dette lue trois ans plus tôt, avant que les écarts de déficit ne se cumulent. Deux écarts changent de signe : LFI (+2,0
+vers −1,8) et LR (+0,4 vers −0,04, nul au dixième). Ce resserrement
+n'est PAS un changement d'équation : les équations macro (croissance, Phillips, Okun, recettes,
+dépenses, dette) et le plafond de 10 % du PIB sont ceux de la v0.6.11, seul le calendrier
+d'application change. Les neuf colonnes précédentes restent publiées telles quelles : elles
+mesurent un autre objet (dette 2035, programme appliqué dès 2026) et ne se comparent pas
+terme à terme avec la dixième.
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,
