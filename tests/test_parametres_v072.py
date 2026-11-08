@@ -10,7 +10,13 @@
 
 Aucun test ne lit ``scenarios.json`` : la suite publique tourne sans.
 """
+import importlib.util
+import json
+import math
+from pathlib import Path
+
 import pytest
+from fastapi.testclient import TestClient
 
 import budget_simulator._logging as journal
 from budget_simulator import BudgetSimulatorV45
@@ -18,6 +24,10 @@ from budget_simulator.constants import (
     DEPARTS_ANNUELS_FP,
     FP_TAUX_NON_REMPLACEMENT_MAX,
     PARAM_DOMAINS,
+)
+from budget_simulator.engine._param_domain import (
+    validate_intensite_domain,
+    validate_param_domains,
 )
 from budget_simulator.handlers.efficience import FP_EFFECTIFS_ANNEE_CIBLE
 
@@ -81,3 +91,117 @@ def test_la_borne_n_est_pas_ecretee(monkeypatch):
                                  mesures={'fonction_publique': {'effectifs': valeur}})
         _, _, rapport = sim.simulate()
         assert rapport['valid'] is True, rapport['warnings']
+
+
+# ---------------------------------------------------------------------------
+# 2. Écrêtage visible : report.leviers_ecretes
+# ---------------------------------------------------------------------------
+_API_FILE = Path(__file__).resolve().parent.parent / "api.py"
+
+
+def test_porte_des_parametres_consigne_l_ecretage():
+    """Unitaire : une valeur sous la borne basse est ramenée à la borne et
+    consignée {levier, demande, applique, borne}."""
+    ecretages = {}
+    out = validate_param_domains('fonction_publique', {'effectifs': -600_000},
+                                 strict=False, corrections={}, ecretages=ecretages)
+    assert out['effectifs'] == -500_000.0
+    assert list(ecretages.values()) == [{
+        'levier': 'fonction_publique.effectifs', 'demande': -600_000,
+        'applique': -500_000.0, 'borne': [-500_000.0, 60_000.0]}]
+
+
+def test_porte_des_parametres_ne_consigne_rien_dans_le_domaine():
+    """Unitaire : dans le domaine (bornes incluses), objet identique et rien
+    de consigné."""
+    ecretages = {}
+    params = {'effectifs': -500_000}
+    assert validate_param_domains('fonction_publique', params, strict=False,
+                                  corrections={}, ecretages=ecretages) is params
+    assert ecretages == {}
+
+
+def test_porte_d_intensite_consigne_l_ecretage_et_rend_nan_en_texte():
+    """Unitaire : l'intensité est écrêtée de même ; un NaN (ramené à la borne
+    basse) est rendu en texte, la réponse JSON refusant NaN."""
+    ecretages = {}
+    validate_intensite_domain('isf_climatique', {'intensite': 3.0}, strict=False,
+                              corrections={}, ecretages=ecretages)
+    validate_intensite_domain('optimisation_dette', {'intensite': math.nan},
+                              strict=False, corrections={}, ecretages=ecretages)
+    lignes = list(ecretages.values())
+    assert lignes[0] == {'levier': 'isf_climatique.intensite', 'demande': 3.0,
+                         'applique': 1.0, 'borne': [0.0, 1.0]}
+    assert lignes[1]['demande'] == 'nan' and lignes[1]['applique'] == 0.0
+    json.dumps(lignes, allow_nan=False)
+
+
+@pytest.mark.parametrize('annee_debut', [None, 2028])
+def test_simulation_expose_l_ecretage_une_fois(annee_debut, monkeypatch):
+    """Simulateur tolérant, mode historique et mode cadre : un écrêtage par
+    paramètre (pas un par année simulée), rapport invalide, correction en
+    phrase toujours présente."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    sim = BudgetSimulatorV45(periods=10, annee_debut=annee_debut, mesures={
+        'fonction_publique': {'effectifs': -900_000, 'point_indice': 50.0}})
+    _, _, rapport = sim.simulate()
+    assert [e['levier'] for e in rapport['leviers_ecretes']] == [
+        'fonction_publique.effectifs', 'fonction_publique.point_indice']
+    assert rapport['leviers_ecretes'][1]['applique'] == 10.0
+    assert rapport['valid'] is False
+    assert sum('hors du domaine' in w for w in rapport['warnings']) == 2
+
+
+def test_simulation_sans_ecretage_liste_vide():
+    """Rien d'écrêté : liste vide, rapport valide (statu quo)."""
+    _, _, rapport = BudgetSimulatorV45(periods=10, mesures={}).simulate()
+    assert rapport['leviers_ecretes'] == []
+    assert rapport['valid'] is True
+
+
+def test_un_second_simulate_repart_de_zero(monkeypatch):
+    """Portée = une simulation : le champ est ré-armé par simulate()."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    sim = BudgetSimulatorV45(periods=10, mesures={
+        'fonction_publique': {'effectifs': -900_000}})
+    _, _, premier = sim.simulate()
+    _, _, second = sim.simulate()
+    assert premier['leviers_ecretes'] == second['leviers_ecretes']
+    assert len(second['leviers_ecretes']) == 1
+
+
+@pytest.fixture(scope="module")
+def _client():
+    spec = importlib.util.spec_from_file_location("api_parametres_v072", _API_FILE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return TestClient(module.app, raise_server_exceptions=False)
+
+
+def test_api_tolerant_expose_leviers_ecretes(_client, monkeypatch):
+    """API, mode tolérant : 200, champ structuré dans `report`."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    r = _client.post('/simulate', json={'periods': 10, 'annee_debut': 2028,
+                                        'mesures': {'fonction_publique': {'effectifs': -600000}}})
+    assert r.status_code == 200
+    rapport = r.json()['report']
+    assert rapport['leviers_ecretes'] == [{
+        'levier': 'fonction_publique.effectifs', 'demande': -600000,
+        'applique': -500000.0, 'borne': [-500000.0, 60000.0]}]
+    assert rapport['valid'] is False
+
+
+def test_api_sans_ecretage_liste_vide(_client, monkeypatch):
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    r = _client.post('/simulate', json={'periods': 10, 'mesures': {
+        'fonction_publique': {'effectifs': -500000}}})
+    assert r.status_code == 200
+    assert r.json()['report']['leviers_ecretes'] == []
+
+
+def test_api_strict_refuse_sans_ecreter(_client, monkeypatch):
+    """API, mode strict : hors domaine = 422, inchangé (rien n'est écrêté)."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '1')
+    r = _client.post('/simulate', json={'periods': 10, 'mesures': {
+        'fonction_publique': {'effectifs': -600000}}})
+    assert r.status_code == 422

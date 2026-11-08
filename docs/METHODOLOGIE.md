@@ -951,7 +951,7 @@ année. Au-delà du vivier, la cible serait rabotée jusqu'en 2032 puis rattrap�
 2033 ; un test-propriété (`tests/test_parametres_v072.py`) interdit une borne qui le
 permettrait. La réforme de l'État puise dans le même vivier : combinée au curseur, elle peut
 toujours le saturer, comme avant. Une valeur hors domaine est ramenée à la borne et signalée
-dans la réponse (`report.leviers_ecretes`, ci-dessous section « Écrêtage visible »).
+dans la réponse (`report.leviers_ecretes`, section « Paramètres d'entrée : noms et valeurs »).
 
 **Ce que la règle corrige.** Jusqu'en v0.6.6, la cible était posée dès 2026 dans la seule
 limite de 100 % des départs cumulés depuis 2026 : RN et LR supprimaient 157 000 postes dès
@@ -2062,6 +2062,16 @@ Le modele applique des plafonds pour eviter resultats irrealistes :
 ### Paramètres d'entrée : noms et valeurs
 
 Un levier ne lit que les paramètres de son contrat (`budget_simulator/engine/_noms_parametres.py` et `docs/MEASURE_REGISTRY.md`, générés depuis le code des handlers et des formules). Trois leviers ont des modes exclusifs : avec `intensite`, les clés héritées de `taxe_superprofits` et d'`exonerations_salaires` ne sont pas lues ; avec `taux_remplacement`, `chomage_alloc.montant` non plus. Une valeur hors domaine est ramenée à la borne (rejetée en mode strict), une valeur non finie est retirée, et chaque correction invalide le résultat (`report.valid: false`).
+
+**Écrêtage visible (v0.7.2).** Une valeur ramenée à sa borne figure aussi, sous forme
+structurée, dans `report.leviers_ecretes` : une entrée par paramètre écrêté, avec le levier
+(`fonction_publique.effectifs`), la valeur demandée, la valeur appliquée et le domaine
+`[bas, haut]`. La liste est vide quand rien n'est écrêté. Elle couvre les domaines des
+paramètres nommés et de l'intensité, dans les deux modes temporels. Avant, l'écrêtage ne se
+lisait que dans une phrase de `report.warnings` et dans un journal serveur. Les trajectoires
+sont inchangées : le champ ne fait que décrire une correction déjà appliquée. Le plafond du
+vivier de départs de la fonction publique, qui rabote une cible à l'intérieur du handler,
+n'est pas un écrêtage de domaine et n'y figure pas.
 
 > **Corrigé en v0.6.10 (contre-audit externe, V2-04)** : un NOM de paramètre que le levier ne lit pas (faute de frappe : `{"tva_rate": {"tauxx": 0.25}}`) était ignoré en silence — le levier appliquait son défaut et le résultat restait déclaré valide. Il est désormais rejeté en mode strict (422, avec les noms admis) ; en mode tolérant, il est ignoré, signalé dans `report.warnings` et invalide le résultat, le levier restant appliqué avec ses autres paramètres. Même traitement pour une clé admise mais masquée par un mode exclusif (`{"taxe_superprofits": {"intensite": 0.5, "taux": 0.05}}` : `taux` n'était pas appliqué, sans signal). Les noms admis et les modes exclusifs sont dérivés du code (`budget_simulator/engine/_noms_parametres.py`, généré), jamais d'une liste tenue à la main. Les 10 scénarios publiés n'utilisent aucun nom inconnu : leurs trajectoires sont identiques au bit.
 

@@ -110,6 +110,26 @@ def _noter(corrections: dict | None, measure_id: str, key, texte: str) -> None:
         corrections.setdefault((measure_id, key), texte)
 
 
+def _noter_ecretage(ecretages: dict | None, measure_id: str, key: str,
+                    demande, applique, low, high) -> None:
+    """Consigne un ÉCRÊTAGE de domaine sous forme structurée (v0.7.2), pour le
+    champ ``report.leviers_ecretes`` de la réponse : la même correction que
+    ``_noter``, lisible par une machine au lieu d'une phrase. Dédupliqué par
+    (levier, paramètre), comme ``_noter``. Une demande non finie (NaN sur
+    ``intensite``, seul cas qui atteint le clamp) est rendue en texte : la
+    réponse JSON refuse NaN et ±inf."""
+    if ecretages is None:
+        return
+    if isinstance(demande, float) and not math.isfinite(demande):
+        demande = repr(demande)
+    ecretages.setdefault((measure_id, key), {
+        'levier': f"{measure_id}.{key}",
+        'demande': demande,
+        'applique': applique,
+        'borne': [low, high],
+    })
+
+
 def _avertir_agrege(warned: set | None, measure_id: str, jeton: str,
                     details: list, consequence: str) -> None:
     """UN ``logger.warning`` par (levier, catégorie) et par simulation, qui
@@ -418,7 +438,8 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
 
 def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
                            warned: set | None = None,
-                           corrections: dict | None = None) -> Dict:
+                           corrections: dict | None = None,
+                           ecretages: dict | None = None) -> Dict:
     """Valide/borne les paramètres NOMMÉS de ``measure_id`` selon
     ``PARAM_DOMAINS`` (revue 2026-08-04) — même contrat dual que
     ``validate_intensite_domain`` : no-op (objet identique) pour toute
@@ -447,11 +468,16 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
     l'``if not domains: return params`` ci-dessous en était la cause
     exacte : il rendait la fonction aveugle aux valeurs dès que la mesure
     n'était pas au registre.
+
+    ``ecretages`` (optionnel, v0.7.2) : reçoit chaque valeur ramenée à une
+    borne sous forme structurée (``_noter_ecretage``), versée avec les
+    corrections et à la même condition.
     """
     # Notes locales, versées au rapport seulement si la porte aboutit : un
     # levier qui échoue plus bas (valeur non numérique) est consigné par
     # l'orchestrateur comme « en échec », pas comme « clampé ».
     notes = {} if corrections is not None else None
+    notes_ecretage = {} if ecretages is not None else None
     out = _refuser_non_finis(measure_id, params, strict=strict, warned=warned,
                              corrections=notes)
     domains = PARAM_DOMAINS.get(measure_id)
@@ -488,18 +514,24 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
             _noter(notes, measure_id, key,
                    f"{measure_id}.{key}={_apercu(value)} hors du domaine "
                    f"[{low}, {high}] : ramené à {clamped}")
+            _noter_ecretage(notes_ecretage, measure_id, key, value, clamped,
+                            low, high)
             out = {**out, key: clamped}
     _avertir_agrege(warned, measure_id, 'PARAM_DOMAIN_CLAMP', clamps,
                     "mode tolérant : service préservé, calibration à vérifier")
     if notes:
         for cle, texte in notes.items():
             corrections.setdefault(cle, texte)
+    if notes_ecretage:
+        for cle, ligne in notes_ecretage.items():
+            ecretages.setdefault(cle, ligne)
     return out
 
 
 def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool,
                               warned: set | None = None,
-                              corrections: dict | None = None) -> Dict:
+                              corrections: dict | None = None,
+                              ecretages: dict | None = None) -> Dict:
     """Valide/borne ``params['intensite']`` selon le domaine du levier.
 
     No-op (objet ``params`` rendu tel quel, sans copie) si le levier
@@ -556,13 +588,16 @@ def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool,
         _noter(corrections, measure_id, 'intensite',
                f"{measure_id}.intensite={_apercu(value)} hors du domaine "
                f"[{low}, {high}] : ramené à {clamped}")
+        _noter_ecretage(ecretages, measure_id, 'intensite', value, clamped,
+                        low, high)
         return {**params, 'intensite': clamped}
     return params
 
 
 def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
                      corrections: dict | None,
-                     avis: dict | None = None) -> Dict:
+                     avis: dict | None = None,
+                     ecretages: dict | None = None) -> Dict:
     """Porte d'ENTRÉE, appliquée UNE fois par simulation à tout le dict de
     mesures (v0.6.7), en amont de la porte annuelle d'``apply_measures``.
 
@@ -624,10 +659,10 @@ def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
         try:
             nouveau = validate_intensite_domain(
                 measure_id, bloc, strict=False, warned=warned,
-                corrections=corrections)
+                corrections=corrections, ecretages=ecretages)
             nouveau = validate_param_domains(
                 measure_id, nouveau, strict=False, warned=warned,
-                corrections=corrections)
+                corrections=corrections, ecretages=ecretages)
         except TypeError:
             continue
         if nouveau is not bloc:

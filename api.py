@@ -335,6 +335,14 @@ async def simulate(request: SimulationRequest):
       correction figure dans `report.warnings` (préfixe « Entrée ou sortie
       corrigée ») et passe `report.valid` à `false` ; le serveur trace un
       WARNING par levier.
+    - `report.leviers_ecretes` (v0.7.2) : les valeurs ramenées à une borne,
+      sous forme structurée, une entrée par paramètre :
+      `{"levier": "fonction_publique.effectifs", "demande": -600000,
+      "applique": -500000.0, "borne": [-500000.0, 60000.0]}`. Liste vide si
+      rien n'est écrêté (toujours vide en mode strict, qui refuse). Domaines
+      couverts : paramètres nommés (`PARAM_DOMAINS`) et intensité
+      (`INTENSITE_DOMAINS`), `budget_simulator/constants.py`. Une demande non
+      finie est rendue en texte (`"nan"`).
     - Noms admis par levier = les paramètres que le levier peut lire (handler
       Python, ou formule de `policy_measures.json` à défaut), y compris les
       paramètres internes exposés (`intensite`, `degressivite`…) :

@@ -750,6 +750,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # faux) et avis (bloc vide, plafond 5 % PIB : lus tels quels).
         self._corrections = {}
         self._avis = {}
+        # Écrêtages de domaine structurés (v0.7.2), même portée :
+        # report['leviers_ecretes'].
+        self._ecretages = {}
         self._fiscal_impulses = {}  # Reset profils temporels multiplicateurs
         self._niveaux_impulsion = {}
         self._potential_growth_bonus = 0.0

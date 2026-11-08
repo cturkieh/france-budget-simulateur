@@ -471,6 +471,8 @@ class OrchestratorMixin:
             self._domain_clamp_warned = set()
         if not hasattr(self, '_corrections'):
             self._corrections, self._avis = {}, {}
+        if not hasattr(self, '_ecretages'):
+            self._ecretages = {}
         for measure_id, parameters in self.mesures.items():
             if measure_id not in self.measure_registry:
                 _log_debug(self.debug_logs, f"⚠ Mesure {measure_id} inconnue - ignorée")
@@ -502,6 +504,7 @@ class OrchestratorMixin:
                     measure_id, parameters, strict=strict_mode,
                     warned=self._domain_clamp_warned,
                     corrections=self._corrections,
+                    ecretages=self._ecretages,
                 )
                 # Même porte pour les paramètres NOMMÉS des handlers
                 # symétrisés (PARAM_DOMAINS, revue 2026-08-04) : ferme la
@@ -512,6 +515,7 @@ class OrchestratorMixin:
                     measure_id, parameters, strict=strict_mode,
                     warned=self._domain_clamp_warned,
                     corrections=self._corrections,
+                    ecretages=self._ecretages,
                 )
                 # Modes EXCLUSIFS (v0.6.10, réfutation de V2-04), sur le bloc
                 # que le handler reçoit (après retrait des null/non-finis) :
@@ -740,6 +744,7 @@ class OrchestratorMixin:
             self.mesures, strict=_mode_strict(),
             warned=self._domain_clamp_warned,
             corrections=self._corrections, avis=self._avis,
+            ecretages=self._ecretages,
         )
         # Cadre temporel (v0.7.0, engine/cadre.py) : mode, année de début, droit
         # en vigueur. Mode historique (annee_debut absent ou 2026) : le
@@ -1449,6 +1454,12 @@ class OrchestratorMixin:
             + [f"Avis — {texte}" for texte in self._avis.values()]
             + trajectory_report['warnings']
         )
+        # Écrêtages de domaine, structurés (v0.7.2) : chaque paramètre ramené à
+        # une borne de PARAM_DOMAINS ou INTENSITE_DOMAINS, {levier, demande,
+        # applique, borne}, dans l'ordre de l'entrée. Liste vide si rien n'est
+        # écrêté. Même information que les corrections « hors du domaine »
+        # ci-dessus (qui restent), lisible sans analyser une phrase.
+        trajectory_report['leviers_ecretes'] = list(self._ecretages.values())
 
         # NOUVEAU: Ajouter les impacts détaillés au rapport
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year
