@@ -113,6 +113,11 @@ Aucune équation n'est touchée. Un commit par point.
    entrée présente » ; 12 tests rouges sans le correctif. Le commentaire de `constants.py`
    (« rattrapée d'un coup en 2033 ») et METHODOLOGIE sont corrigés : le « sans rabot » ne vaut
    que pour un début en 2028 sans réforme.
+8. **Contrat : clé inconnue refusée** (`SimulationRequest`, `extra='forbid'`). Une clé hors
+   `mesures`, `periods`, `annee_debut`, `rampe` donne 422, dans les deux modes. Avant,
+   `annee_debu: 2030` était ignoré : 200 en mode historique, sans avertissement. Appelants du
+   dépôt parent vérifiés (`api.js`, `verify_render_live.py`, tests privés) : aucun n'envoie
+   d'autre clé ; les scripts de précalcul appellent le moteur en Python, sans l'API.
 
 **Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2881 passed, 186 skipped, sans
 `scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3231 passed, 50 skipped, dans les deux

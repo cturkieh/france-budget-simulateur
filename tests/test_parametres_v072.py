@@ -338,3 +338,31 @@ def test_rabot_du_vivier_api(_client, monkeypatch):
             'levier': 'fonction_publique.effectifs', 'demande': -500000,
             'applique': -420760.0, 'borne': [-420760.0, None], 'motif': 'vivier',
             'annee': 2032}]
+
+
+# ---------------------------------------------------------------------------
+# 6. Requête /simulate : clé inconnue refusée (E2)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('strict', ['', '1'])
+@pytest.mark.parametrize('corps', [
+    {'periods': 10, 'mesures': {}, 'annee_debu': 2030},
+    {'periods': 10, 'mesures': {}, 'annee_debut': 2028, 'rampe_annees': 3},
+])
+def test_api_cle_inconnue_422(corps, strict, _client, monkeypatch):
+    """Une clé inconnue au niveau de la requête est refusée (422) dans les deux
+    modes, au lieu d'être ignorée (mode historique sans avertissement)."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', strict)
+    r = _client.post('/simulate', json=corps)
+    assert r.status_code == 422, r.text
+    inconnue = next(k for k in corps if k not in ('periods', 'mesures', 'annee_debut'))
+    assert inconnue in r.text
+
+
+def test_api_cles_connues_acceptees(_client, monkeypatch):
+    """Témoin : le corps du site (`mesures`, `periods`, `annee_debut`) et
+    `rampe` passent."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    r = _client.post('/simulate', json={'periods': 10, 'mesures': {}, 'annee_debut': 2028,
+                                        'rampe': {'annees': 2, 'leviers': []}})
+    assert r.status_code == 200, r.text

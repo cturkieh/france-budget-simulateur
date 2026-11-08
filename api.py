@@ -266,7 +266,11 @@ class RampeRequete(BaseModel):
 
 
 class SimulationRequest(BaseModel):
-    """Requête de simulation avec validation stricte."""
+    """Requête de simulation avec validation stricte. Aucune clé hors
+    `mesures`, `periods`, `annee_debut` et `rampe` : 422 (v0.7.2, revue passe 1).
+    Avant, une faute de frappe (`annee_debu: 2030`) était ignorée en silence et
+    la simulation tournait en mode historique."""
+    model_config = ConfigDict(extra='forbid')
     mesures: dict[str, Any] | None = Field(default_factory=dict)
     periods: int = Field(default=10, ge=1, le=PERIODS_MAX)
     # Cadre temporel (v0.7.0, budget_simulator/engine/cadre.py) : première

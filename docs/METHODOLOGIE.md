@@ -2093,6 +2093,10 @@ capacité du vivier cette année-là. Il n'invalide pas le résultat (`report.va
 avis dans `report.warnings`). Hors du champ : une `annee_debut` ou une durée de rampe
 (`rampe.annees`) hors domaine, signalées dans `report.warnings` seulement.
 
+**Requête (v0.7.2).** Une clé inconnue au niveau de la requête `/simulate` (hors `mesures`,
+`periods`, `annee_debut`, `rampe`) est refusée (422). Avant, `annee_debu: 2030` était ignoré
+en silence et la simulation tournait en mode historique.
+
 > **Corrigé en v0.6.10 (contre-audit externe, V2-04)** : un NOM de paramètre que le levier ne lit pas (faute de frappe : `{"tva_rate": {"tauxx": 0.25}}`) était ignoré en silence — le levier appliquait son défaut et le résultat restait déclaré valide. Il est désormais rejeté en mode strict (422, avec les noms admis) ; en mode tolérant, il est ignoré, signalé dans `report.warnings` et invalide le résultat, le levier restant appliqué avec ses autres paramètres. Même traitement pour une clé admise mais masquée par un mode exclusif (`{"taxe_superprofits": {"intensite": 0.5, "taux": 0.05}}` : `taux` n'était pas appliqué, sans signal). Les noms admis et les modes exclusifs sont dérivés du code (`budget_simulator/engine/_noms_parametres.py`, généré), jamais d'une liste tenue à la main. Les 10 scénarios publiés n'utilisent aucun nom inconnu : leurs trajectoires sont identiques au bit.
 
 ### Indicateurs Macroeconomiques
