@@ -58,15 +58,39 @@ Aucune équation n'est touchée. Un commit par point.
 
 5. **Scénarios réencodés sur le droit effectif** (dépôt parent, décision du mainteneur du
    08/11/2026). Un paramètre non sourcé d'un programme vaut désormais le droit en vigueur
-   réajusté, plus le budget voté brut : franchises 100 → 120 (six scénarios), défense 57 → 58
-   (quatre), surtaxe d'IS 7,3 → 6,8 Md€ (RN, LR). `plf_2026` est inchangé. Le contrat de
-   `tests/test_reencodage_v066.py` suit cette règle, et le bloc généré de
-   `docs/SCENARIOS_POLITIQUES.md` aussi. Golden master historique régénéré : seuls les six
-   scénarios concernés changent, au plus +0,24 pt de dette 2035 (RN). Golden master cadre
-   2028 et standalone bit-identiques.
+   réajusté, et non plus le budget voté brut : franchises 100 → 120, défense 57 → 58, surtaxe
+   d'IS 7,3 → 6,8 Md€, selon les scénarios. `plf_2026` est réencodé de même, sous le libellé
+   « Budget 2026 (voté, réajusté) » : il est le statu quo, avec ou sans pont. Gardes mises à
+   jour : `test_cadre_v070_mesures_annee` vérifie que `plf_2026` égale le droit voté du moteur
+   plus les réajustements de l'atterrissage, et diffère du voté brut ; mutation prouvée.
+   `test_reencodage_v066` prend la même référence. La table générée de
+   `docs/SCENARIOS_POLITIQUES.md` suit. Golden master historique régénéré avec les deux effets,
+   dette 115,7 % et réencodage : sept scénarios changent, au plus +0,24 pt de dette 2035 (RN).
+   Golden master cadre 2028 et standalone bit-identiques. Scénario de référence, mode
+   historique : déficit 2026 −5,22 %, dette 2030 128,81 %, dette 2035 150,11 %.
 
-**Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2880 passed, 186 skipped, sans
-`scenarios.json` ; avec les scénarios du dépôt parent, 3230 passed, 50 skipped, dans les deux
+### Contrat : retrait du pont « égal au voté = non touché »
+
+6. **Présent = imposé, absent = hérité** (`heriter_du_droit`, `budget_simulator/engine/cadre.py`,
+   décision du mainteneur du 08/11/2026). Mode cadre seulement : le mode historique ne lit pas
+   le droit en vigueur. Jusqu'en v0.7.1, un levier ou un paramètre égal au budget VOTÉ était
+   traité comme non touché et remplacé par le droit en vigueur réajusté : des franchises
+   demandées à 100 étaient appliquées à 120, sans signal. Désormais, un paramètre présent est
+   appliqué tel quel ; un levier absent, ou un paramètre absent d'un bloc présent, reçoit le
+   droit en vigueur réajusté, comme avant. `cadre.mesures_effectives` et
+   `cadre.leviers_modifies` gardent leur sens : poser le voté brut y apparaît comme une
+   modification. Ce qui change pour un appelant : une requête qui recopiait le budget voté
+   n'est plus le statu quo ; `{}` ou le scénario « Budget 2026 (voté, réajusté) » le sont, au
+   bit. Preuve, en TDD : `test_present_impose_absent_herite`, rouge avant le retrait
+   (120 appliqué pour 100 demandé), vert après. Neuf tests du cadre réécrits sur le droit
+   réajusté, lu dans le moteur (`DROIT_REAJUSTE`, `tests/cadre_harness.py`).
+   `test_g_programme_vide_en_cadre_est_le_droit_en_vigueur` vérifie au bit, en mode cadre,
+   `{}` ≡ droit réajusté explicite ≡ `plf_2026`. Avec les scénarios réencodés du point 5, aucun
+   golden master ne bouge. Avec l'ancien `plf_2026` voté brut, le golden master cadre aurait
+   changé.
+
+**Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2881 passed, 186 skipped, sans
+`scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3231 passed, 50 skipped, dans les deux
 modes.
 
 ## [v0.7.1] — 2026-11-07 — doc/test : le tableau agrégé suit l'horizon de notation 2027-2032 de l'app

@@ -384,42 +384,36 @@ def _signaler(warned: Optional[set], corrections: Optional[dict], texte: str,
         corrections.setdefault(cle, texte)
 
 
-def heriter_du_droit(programme: Dict, droit_vote: Dict, droit_en_vigueur: Dict) -> Dict:
+def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
     """Mesures du programme par-dessus le droit en vigueur, réajustements de
     l'atterrissage compris (lot E).
 
-    Un levier absent ou ``null``, ou dont le programme reprend le bloc VOTÉ, est
-    celui du droit en vigueur. Un levier que le programme modifie est COMPLÉTÉ
-    paramètre par paramètre (revue passe 1) :
+    Règle « présent = imposé, absent = hérité » (v0.7.2, décision du mainteneur
+    du 08/11/2026) :
 
-    - un paramètre que le programme change garde la valeur du programme (son
-      niveau encodé) ;
-    - un paramètre que le programme reprend du budget voté reçoit le
-      réajustement (modifier la prévention ne remet pas les franchises à leur
-      valeur votée) ;
-    - un paramètre ABSENT du bloc reçoit la valeur du droit en vigueur
-      (réajustée ou votée), jamais le défaut du moteur : un bloc partiel vaut le
-      bloc complet qui reprend le droit en vigueur. Sauf pour un levier à modes
+    - un levier absent ou ``null`` est celui du droit en vigueur réajusté ;
+    - un paramètre PRÉSENT est appliqué tel quel, même égal au budget voté :
+      des franchises demandées à 100 sont appliquées à 100, pas au 120 réajusté ;
+    - un paramètre ABSENT d'un bloc présent reçoit la valeur du droit en vigueur
+      réajusté, jamais le défaut du moteur : un bloc partiel vaut le bloc
+      complet qui reprend le droit en vigueur. Sauf pour un levier à modes
       exclusifs : on n'y ajoute jamais une clé qui en masquerait une autre (le
       handler y lit alors ses défauts, comme en mode historique).
 
-    Un levier absent du droit en vigueur reste le bloc du programme."""
+    Jusqu'en v0.7.1, un « pont » traitait un bloc ou un paramètre égal au voté
+    comme non touché et lui substituait le réajusté : une demande explicite
+    était remplacée sans le dire. Un levier absent du droit en vigueur reste le
+    bloc du programme."""
     effectif = dict(droit_en_vigueur)
     for levier, bloc in programme.items():
         if bloc is None:
             continue
-        vote = droit_vote.get(levier)
-        if bloc == vote:
-            continue
         reference = droit_en_vigueur.get(levier)
-        if isinstance(bloc, dict) and isinstance(reference, dict):
-            vote = vote if isinstance(vote, dict) else {}
-            herites = ({} if levier in MODES_EXCLUSIFS else
-                       {p: v for p, v in reference.items() if p not in bloc})
-            reajustes = {p: reference[p] for p, v in bloc.items()
-                         if p in vote and v == vote[p] and p in reference and reference[p] != v}
-            if herites or reajustes:
-                bloc = {**herites, **bloc, **reajustes}
+        if (isinstance(bloc, dict) and isinstance(reference, dict)
+                and levier not in MODES_EXCLUSIFS):
+            herites = {p: v for p, v in reference.items() if p not in bloc}
+            if herites:
+                bloc = {**herites, **bloc}
         effectif[levier] = bloc
     return effectif
 
@@ -502,7 +496,7 @@ class CadreTemporel:
                            for an in range(POLICY_START_YEAR, debut)}
         # Droit en vigueur au début (et ensuite) : réajustements compris.
         mesures_droit = droit_reajuste(droit_vote, atterrissage, debut)
-        effectif = heriter_du_droit(programme, droit_vote, mesures_droit)
+        effectif = heriter_du_droit(programme, mesures_droit)
         modifies = frozenset(l for l in set(effectif) | set(mesures_droit)
                              if effectif.get(l) != mesures_droit.get(l))
         rampes, ignores, par_annee = _mesures_rampees(effectif, mesures_droit, debut,

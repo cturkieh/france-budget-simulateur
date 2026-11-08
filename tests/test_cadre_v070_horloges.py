@@ -46,7 +46,7 @@ from budget_simulator.constants import (
 )
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import (CAS, DROIT, NOMS_PROGRAMMES, PROGRAMME_MIXTE, egalite_bit_a_bit,
+from cadre_harness import (CAS, DROIT, DROIT_REAJUSTE, NOMS_PROGRAMMES, PROGRAMME_MIXTE, egalite_bit_a_bit,
                            impacts_par_annee, programme_sur_droit, simuler)
 
 DEBUT = 2028
@@ -267,7 +267,7 @@ LECTEURS_CROISES = {'fraude_sociale', 'prestations_indexation', 'asu', 'smic', '
     ('niches_fiscales_tge', {'montant': 40}),
     ('fraude_fiscale', {'effort': 0.6}),
     ('retraites', {'indexation': 1.0, 'duree_cotisation': 43.0, 'age_depart': 65.0}),
-    ('sante', dict(DROIT['sante'], effort_hopital=30)),
+    ('sante', dict(DROIT_REAJUSTE['sante'], effort_hopital=30)),
 ])
 def test_b_levier_egal_au_droit_garde_ses_impacts_au_bit(levier, bloc):
     sim = _SimMondes(periods=10, mesures=programme_sur_droit(**{levier: bloc}), annee_debut=DEBUT)
@@ -292,7 +292,7 @@ def test_b_levier_egal_au_droit_garde_ses_impacts_au_bit(levier, bloc):
 def test_b_programme_identique_au_droit_un_seul_monde():
     """Statu quo du cadre : aucun levier modifié, aucune composition (un seul
     appel par levier et par année)."""
-    sim = _SimMondes(periods=10, mesures=copy.deepcopy(DROIT), annee_debut=DEBUT)
+    sim = _SimMondes(periods=10, mesures=copy.deepcopy(DROIT_REAJUSTE), annee_debut=DEBUT)
     sim.simulate()
     # Hors évaluations isolées de la décomposition de l'atterrissage (2026, monde « isole »).
     annuels = {k: [x for x in v if x[0] != 'isole'] for k, v in sim.sorties.items()}

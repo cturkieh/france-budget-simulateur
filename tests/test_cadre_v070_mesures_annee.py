@@ -38,7 +38,7 @@ import budget_simulator.handlers.efficience as efficience_mod
 from budget_simulator import EntreeInvalide
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import (CAS, NOMS, NOMS_PROGRAMMES, PROGRAMME_MIXTE, SCENARIOS, atterrissage,
+from cadre_harness import (CAS, DROIT_REAJUSTE, NOMS, NOMS_PROGRAMMES, PROGRAMME_MIXTE, SCENARIOS, atterrissage,
                            egalite_bit_a_bit, simuler)
 
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
@@ -205,9 +205,19 @@ def test_g_statu_quo_cadre_egal_statu_quo_historique_au_bit():
 
 
 def test_g_programme_vide_en_cadre_est_le_droit_en_vigueur():
-    """``{}`` en mode cadre = « rien ne change » = le droit en vigueur (≠ défauts
-    du moteur, sens historique de ``{}``)."""
-    egalite_bit_a_bit(simuler({}, annee_debut=DEBUT), simuler(_droit(), annee_debut=DEBUT))
+    """``{}`` en mode cadre = « rien ne change » = le droit en vigueur RÉAJUSTÉ
+    (≠ défauts du moteur, sens historique de ``{}``). v0.7.2, présent = imposé :
+    le droit réajusté posé explicitement, et ``plf_2026`` (« Budget 2026 (voté,
+    réajusté) ») quand scenarios.json est là, sont le statu quo au bit ; le voté
+    BRUT posé explicitement n'est plus le statu quo (57 / 100 / 7,3 imposés)."""
+    vide = simuler({}, annee_debut=DEBUT)
+    egalite_bit_a_bit(vide, simuler(copy.deepcopy(DROIT_REAJUSTE), annee_debut=DEBUT))
+    if SCENARIOS:
+        egalite_bit_a_bit(vide, simuler(SCENARIOS['plf_2026'], annee_debut=DEBUT))
+    assert _droit() != DROIT_REAJUSTE
+    _, _, rapport_vote, _ = simuler(_droit(), annee_debut=DEBUT)
+    assert set(rapport_vote['cadre']['leviers_modifies']) == {
+        levier for levier in DROIT_REAJUSTE if DROIT_REAJUSTE[levier] != _droit().get(levier)}
 
 
 # ---------------------------------------------------------------------------

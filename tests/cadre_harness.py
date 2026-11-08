@@ -74,11 +74,22 @@ NOMS_PROGRAMMES = [n for n in NOMS if n != 'plf_2026']
 # Droit en vigueur livré, tel que VOTÉ (réajustements de l'atterrissage non
 # compris) : référence de comparaison des tests du cadre.
 DROIT = cadre.charger_droit_en_vigueur().mesures
+# Droit en vigueur RÉAJUSTÉ sur l'atterrissage livré, au premier budget du mandat
+# (2028) : le point de départ commun du mode cadre, lu dans le moteur. v0.7.2
+# (retrait du pont, « présent = imposé ») : un programme « égal au droit en
+# vigueur » est CELUI-CI ; poser le voté brut (DROIT) impose 57 / 100 / 7,3.
+def _droit_reajuste_livre() -> dict:
+    etat = cadre.CadreTemporel.preparer({}, 2028).etat
+    assert etat is not None, "mode cadre attendu pour annee_debut = 2028"
+    return etat.mesures_droit
+
+
+DROIT_REAJUSTE = _droit_reajuste_livre()
 
 
 def programme_sur_droit(**leviers):
-    """Le droit en vigueur, dont les leviers cités sont remplacés (copies)."""
-    m = copy.deepcopy(DROIT)
+    """Le droit en vigueur réajusté, dont les leviers cités sont remplacés (copies)."""
+    m = copy.deepcopy(DROIT_REAJUSTE)
     m.update(copy.deepcopy(leviers))
     return m
 

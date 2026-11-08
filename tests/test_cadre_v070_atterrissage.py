@@ -36,7 +36,7 @@ import budget_simulator.engine.cadre as cadre
 from budget_simulator import EntreeInvalide
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import CAS, DROIT, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
+from cadre_harness import CAS, DROIT, DROIT_REAJUSTE, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
 
 DEBUT = 2028
 REFERENCE = 'droit_en_vigueur'
@@ -223,7 +223,10 @@ def test_reajustements_du_droit_en_vigueur_deux_temps():
     programme qui ne touche pas au levier en hérite ; le RÉSIDU est mesuré après
     lui. Second temps : le résidu forcé. Les cibles restent exactes."""
     with atterrissage({2026: CIBLES_2026}, reajustements={2026: {'defense': {'budget': 58}}}):
-        df, _, rapport, sim = simuler(DROIT, annee_debut=DEBUT)
+        # v0.7.2 (présent = imposé) : « ne touche pas au levier » = le levier est
+        # ABSENT du programme ; poser défense 57 (le voté) l'imposerait.
+        sans_defense = {k: v for k, v in copy.deepcopy(DROIT).items() if k != 'defense'}
+        df, _, rapport, sim = simuler(sans_defense, annee_debut=DEBUT)
         _, _, rapport_def, _ = simuler(dict(copy.deepcopy(DROIT), defense={'budget': 45}),
                                        annee_debut=DEBUT)
     imp = {y['Année']: y for y in rapport['measure_impacts_by_year']}
@@ -310,7 +313,7 @@ def test_baseline_cadre_elasticite_unitaire_hors_annee_rebasee():
     """(c) de test_baseline_properties, en mode cadre : élasticité 1,00 ± 0,02
     chaque année SAUF 2026, l'année rebasée (l'écart de solde y entre dans le
     niveau des recettes)."""
-    df, det, _, _ = simuler(DROIT, annee_debut=DEBUT)
+    df, det, _, _ = simuler(DROIT_REAJUSTE, annee_debut=DEBUT)
     rec = [float(C.RECETTES_BASE_MD_EUR)] + [float(det.iloc[i]['Recettes_Totales']) for i in range(1, 11)]
     pib = [float(df.iloc[i]['PIB']) for i in range(0, 11)]
     for i in range(2, 11):
@@ -410,12 +413,14 @@ def test_methodologie_publie_la_decomposition_mesuree():
         assert attendu in section, attendu
 
 
-def test_reajustements_herites_parametre_par_parametre():
-    """Un programme qui modifie UN paramètre d'un levier réajusté garde le
-    réajustement sur les paramètres qu'il reprend du budget voté : modifier la
-    prévention ne remet pas les franchises à 100. Un paramètre que le programme
-    change garde sa valeur (niveau encodé du programme)."""
+def test_present_impose_absent_herite():
+    """v0.7.2, retrait du pont « égal au voté = non touché » (décision du
+    mainteneur du 08/11/2026) : un paramètre PRÉSENT dans la requête est IMPOSÉ
+    tel quel, même égal au voté ; un paramètre ou un levier ABSENT hérite du
+    droit en vigueur réajusté. Avant : des franchises demandées à 100 (le voté)
+    étaient appliquées à 120 (le réajusté), sans le dire."""
     sante_vote = dict(DROIT['sante'])
+    assert sante_vote['franchise_participation_taux'] == 100
     reaj = {2026: {'sante': {'franchise_participation_taux': 120}}}
     with atterrissage({2026: CIBLES_2026}, reajustements=reaj):
         autre_param = cadre.CadreTemporel.preparer(
@@ -423,13 +428,34 @@ def test_reajustements_herites_parametre_par_parametre():
         franchise_touchee = cadre.CadreTemporel.preparer(
             {'sante': dict(sante_vote, franchise_participation_taux=0)}, DEBUT)
         identique = cadre.CadreTemporel.preparer({'sante': dict(sante_vote)}, DEBUT)
+        partiel = cadre.CadreTemporel.preparer({'sante': {'effort_prev_org': 20}}, DEBUT)
+        absent = cadre.CadreTemporel.preparer({}, DEBUT)
+    # Présent = imposé, même égal au voté.
+    assert identique.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 100
+    assert 'sante' in identique.leviers_modifies
     m = autre_param.mesures_de_l_annee(DEBUT)['sante']
-    assert m['franchise_participation_taux'] == 120 and m['effort_prev_org'] == 20
+    assert m['franchise_participation_taux'] == 100 and m['effort_prev_org'] == 20
     assert franchise_touchee.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 0
-    assert identique.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 120
-    assert 'sante' not in identique.leviers_modifies
+    # Absent = droit en vigueur réajusté (paramètre absent d'un bloc présent, ou levier absent).
+    m = partiel.mesures_de_l_annee(DEBUT)['sante']
+    assert m['franchise_participation_taux'] == 120 and m['effort_prev_org'] == 20
+    assert absent.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 120
+    assert 'sante' not in absent.leviers_modifies
+    # Avant le début du programme : droit en vigueur réajusté pour tous.
     assert all(c.mesures_de_l_annee(2027)['sante']['franchise_participation_taux'] == 120
-               for c in (autre_param, franchise_touchee, identique))
+               for c in (autre_param, franchise_touchee, identique, partiel, absent))
+
+
+def test_le_reajuste_demande_explicitement_egale_le_statu_quo():
+    """Corollaire : un programme qui pose le droit RÉAJUSTÉ (le scénario
+    « Budget 2026 (voté, réajusté) ») n'est pas un programme : effectif égal au
+    droit en vigueur, aucun levier modifié."""
+    reaj = {2026: {'sante': {'franchise_participation_taux': 120}}}
+    with atterrissage({2026: CIBLES_2026}, reajustements=reaj):
+        sante_reajustee = dict(DROIT['sante'], franchise_participation_taux=120)
+        c = cadre.CadreTemporel.preparer({'sante': sante_reajustee}, DEBUT)
+    assert c.leviers_modifies == frozenset()
+    assert c.mesures_de_l_annee(DEBUT)['sante']['franchise_participation_taux'] == 120
 
 
 def test_chaque_reajustement_livre_porte_sa_source():

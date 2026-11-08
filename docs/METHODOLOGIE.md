@@ -172,10 +172,15 @@ l'identique pour tous les scénarios, et se révise sans code (valeurs arrêtée
 le 07/11/2026).
 
 1. **Réajustements du droit en vigueur** : un levier réel qui a dérapé est corrigé dans le droit en
-   vigueur et le suit ensuite : le budget réellement exécuté devient le droit constant de 2027. Un
-   programme hérite du réajustement sur chaque paramètre qu'il reprend du budget voté ; un
-   paramètre qu'il change garde la valeur du programme. Le fichier du droit en vigueur reste le
-   budget VOTÉ, égal au scénario « Budget 2026 (voté) » de l'application.
+   vigueur et le suit ensuite : le budget réellement exécuté devient le droit constant de 2027.
+   Règle d'assemblage (v0.7.2, décision du mainteneur du 08/11/2026) : **présent = imposé,
+   absent = hérité**. Un paramètre présent dans le programme est appliqué tel quel, même égal au
+   budget voté : des franchises demandées à 100 sont appliquées à 100, pas au 120 réajusté. Un
+   levier absent, ou un paramètre absent d'un bloc présent, reçoit le droit en vigueur réajusté.
+   Jusqu'en v0.7.1, un « pont » traitait une valeur égale au voté comme non touchée et lui
+   substituait le réajusté, sans le signaler. Le fichier du droit en vigueur reste le budget
+   VOTÉ ; le scénario « Budget 2026 (voté, réajusté) » de l'application est ce droit réajusté,
+   donc le statu quo du mode cadre au bit, comme une requête vide.
 
 | Levier | Voté → réajusté | Motif (source dans le fichier) |
 |---|---|---|

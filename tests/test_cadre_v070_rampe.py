@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient
 import budget_simulator.engine.cadre as cadre
 from budget_simulator import EntreeInvalide
 
-from cadre_harness import DROIT, egalite_bit_a_bit, impacts_par_annee, programme_sur_droit, simuler
+from cadre_harness import DROIT, DROIT_REAJUSTE, egalite_bit_a_bit, impacts_par_annee, programme_sur_droit, simuler
 
 DEBUT = 2028
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
@@ -83,9 +83,9 @@ def test_c_rampe_dans_le_moteur_increments_egaux():
 
 def test_c_rampe_sans_levier_modifie_est_neutre():
     """Statu quo + rampe : rien à ramper, sortie au bit du statu quo."""
-    egalite_bit_a_bit(simuler(DROIT, annee_debut=DEBUT,
+    egalite_bit_a_bit(simuler(DROIT_REAJUSTE, annee_debut=DEBUT,
                               rampe={'annees': 5, 'leviers': ['defense.budget', 'education.budget']}),
-                      simuler(DROIT, annee_debut=DEBUT))
+                      simuler(DROIT_REAJUSTE, annee_debut=DEBUT))
 
 
 def test_c_effet_d_offre_lit_le_parametre_rampe(monkeypatch):
