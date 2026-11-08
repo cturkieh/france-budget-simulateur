@@ -354,7 +354,7 @@ async def simulate(request: SimulationRequest):
         entrée par simulation, celle de la DERNIÈRE année rabotée :
         `{"levier": "fonction_publique.effectifs", "demande": -500000,
         "applique": -420760.0, "borne": [-420760.0, null], "motif": "vivier",
-        "annee": 2032}` (`applique` = postes retirés cette année-là, `borne`
+        "annee": 2032}` (`applique` = stock de postes retiré à cette date, `borne`
         = capacité du vivier, sans borne haute). Limite structurelle du
         modèle, pas une entrée invalide : `report.valid` inchangé, même en
         mode strict ; un « Avis » dans `report.warnings` donne la période.
