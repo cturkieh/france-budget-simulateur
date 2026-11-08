@@ -31,6 +31,18 @@ from budget_simulator.engine._param_domain import (
 )
 from budget_simulator.handlers.efficience import FP_EFFECTIFS_ANNEE_CIBLE
 
+def _simulateur(mesures, annee_debut=None) -> BudgetSimulatorV45:
+    """Point d'entrée de la simulation, le même que l'API (``api.py``,
+    ``/simulate``) : ``BudgetSimulatorV45(periods, mesures, annee_debut)``.
+    Pyright juge la classe abstraite à tort : le ``Protocol`` _SimulatorState
+    (``handlers/_types.py``) déclare ``masse_categorie_nominale`` et
+    ``indice_prix_depenses``, implémentés par ``engine/expenditures.py`` plus
+    loin dans l'ordre d'héritage. Faux positif préexistant, commun à tous les
+    tests qui simulent ; ignoré ici, en un seul endroit."""
+    return BudgetSimulatorV45(periods=10, mesures=mesures,  # pyright: ignore[reportAbstractUsage]
+                              annee_debut=annee_debut)
+
+
 # Premier budget du mandat en mode cadre : celui des programmes et du
 # simulateur (engine/cadre.py, en-tête), élection de 2027.
 _PREMIERE_ANNEE_MANDAT = 2028
@@ -61,8 +73,8 @@ def test_borne_effectifs_couvre_la_decision_du_08_11_2026():
 
 def _journal_plafond(effectifs: float, monkeypatch) -> list[str]:
     monkeypatch.setattr(journal, 'DEBUG_MODE', True)
-    sim = BudgetSimulatorV45(periods=10, annee_debut=_PREMIERE_ANNEE_MANDAT,
-                             mesures={'fonction_publique': {'effectifs': effectifs}})
+    sim = _simulateur({'fonction_publique': {'effectifs': effectifs}},
+                      annee_debut=_PREMIERE_ANNEE_MANDAT)
     sim.simulate()
     return [ligne for ligne in sim.debug_logs if _MARQUEUR_PLAFOND in ligne]
 
@@ -84,11 +96,11 @@ def test_au_dela_du_vivier_le_rabot_est_detecte(monkeypatch):
     assert _journal_plafond(-1.1 * capacite, monkeypatch)
 
 
-def test_la_borne_n_est_pas_ecretee(monkeypatch):
+def test_la_borne_n_est_pas_ecretee():
     """−480 000 et −500 000 passent la porte sans correction (rapport valide)."""
     for valeur in (-480_000, -500_000):
-        sim = BudgetSimulatorV45(periods=10, annee_debut=_PREMIERE_ANNEE_MANDAT,
-                                 mesures={'fonction_publique': {'effectifs': valeur}})
+        sim = _simulateur({'fonction_publique': {'effectifs': valeur}},
+                          annee_debut=_PREMIERE_ANNEE_MANDAT)
         _, _, rapport = sim.simulate()
         assert rapport['valid'] is True, rapport['warnings']
 
@@ -142,8 +154,8 @@ def test_simulation_expose_l_ecretage_une_fois(annee_debut, monkeypatch):
     paramètre (pas un par année simulée), rapport invalide, correction en
     phrase toujours présente."""
     monkeypatch.setenv('BUDGETLAB_STRICT', '')
-    sim = BudgetSimulatorV45(periods=10, annee_debut=annee_debut, mesures={
-        'fonction_publique': {'effectifs': -900_000, 'point_indice': 50.0}})
+    sim = _simulateur({'fonction_publique': {'effectifs': -900_000, 'point_indice': 50.0}},
+                      annee_debut=annee_debut)
     _, _, rapport = sim.simulate()
     assert [e['levier'] for e in rapport['leviers_ecretes']] == [
         'fonction_publique.effectifs', 'fonction_publique.point_indice']
@@ -154,7 +166,7 @@ def test_simulation_expose_l_ecretage_une_fois(annee_debut, monkeypatch):
 
 def test_simulation_sans_ecretage_liste_vide():
     """Rien d'écrêté : liste vide, rapport valide (statu quo)."""
-    _, _, rapport = BudgetSimulatorV45(periods=10, mesures={}).simulate()
+    _, _, rapport = _simulateur({}).simulate()
     assert rapport['leviers_ecretes'] == []
     assert rapport['valid'] is True
 
@@ -162,8 +174,7 @@ def test_simulation_sans_ecretage_liste_vide():
 def test_un_second_simulate_repart_de_zero(monkeypatch):
     """Portée = une simulation : le champ est ré-armé par simulate()."""
     monkeypatch.setenv('BUDGETLAB_STRICT', '')
-    sim = BudgetSimulatorV45(periods=10, mesures={
-        'fonction_publique': {'effectifs': -900_000}})
+    sim = _simulateur({'fonction_publique': {'effectifs': -900_000}})
     _, _, premier = sim.simulate()
     _, _, second = sim.simulate()
     assert premier['leviers_ecretes'] == second['leviers_ecretes']
@@ -173,6 +184,7 @@ def test_un_second_simulate_repart_de_zero(monkeypatch):
 @pytest.fixture(scope="module")
 def _client():
     spec = importlib.util.spec_from_file_location("api_parametres_v072", _API_FILE)
+    assert spec is not None and spec.loader is not None, _API_FILE
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return TestClient(module.app, raise_server_exceptions=False)
