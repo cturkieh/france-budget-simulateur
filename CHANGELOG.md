@@ -129,10 +129,15 @@ Aucune équation n'est touchée. Un commit par point.
    `defense` figurait parmi les leviers modifiés. Désormais strict ≡ tolérant ≡ statu quo au
    bit (trajectoire, détail, leviers modifiés), sur `defense.budget` et
    `sante.franchise_participation_taux`.
+11. **Doc** : docstring de `/simulate` et METHODOLOGIE § cadre. `leviers_ecretes` ne couvre pas
+   `annee_debut` ni `rampe.annees` ; un levier à modes exclusifs (`chomage_alloc`,
+   `taxe_superprofits`, `exonerations_salaires`) n'hérite de rien dans un bloc partiel, le
+   handler y lit ses défauts.
 
-**Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2881 passed, 186 skipped, sans
-`scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3231 passed, 50 skipped, dans les deux
-modes.
+**Preuves** (après la revue passe 1) : `make test` et `BUDGETLAB_STRICT=1`, 2906 passed,
+186 skipped, sans `scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3257 passed,
+49 skipped, dans les deux modes (mêmes tests sautés qu'avant la passe). Golden masters
+inchangés ; pyright sans erreur nouvelle sur les fichiers touchés.
 
 ## [v0.7.1] — 2026-11-07 — doc/test : le tableau agrégé suit l'horizon de notation 2027-2032 de l'app
 

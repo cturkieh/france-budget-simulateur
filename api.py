@@ -371,6 +371,16 @@ async def simulate(request: SimulationRequest):
       `seuil_hausse`) ne sont pas lues ; avec `taux_remplacement`,
       `chomage_alloc.montant` non plus — les fournir ensemble est traité
       comme un nom non lu.
+    - Mode cadre (`annee_debut` > 2026), règle « présent = imposé, absent =
+      hérité » : un paramètre présent est appliqué tel quel ; un levier absent,
+      ou un paramètre absent ou `null` d'un bloc présent, reçoit le droit en
+      vigueur réajusté (`cadre.mesures_effectives`). Exception, les leviers à
+      modes exclusifs (`chomage_alloc`, `taxe_superprofits`,
+      `exonerations_salaires`) : un bloc partiel n'hérite de rien, le handler
+      lit ses défauts pour les paramètres absents. Un paramètre posé au budget
+      voté mais différent du réajusté donne un « Avis » dans
+      `report.warnings` (le réajustement est annulé, `report.valid`
+      inchangé).
     - `report.valid` = le résultat se lit tel quel : aucune entrée corrigée,
       aucun levier en échec, aucune borne de sortie atteinte (variation
       annuelle du pouvoir d'achat ou de la compétitivité, Gini, dette ≥ 0). Il

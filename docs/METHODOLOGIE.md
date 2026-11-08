@@ -176,9 +176,16 @@ le 07/11/2026).
    Règle d'assemblage (v0.7.2, décision du mainteneur du 08/11/2026) : **présent = imposé,
    absent = hérité**. Un paramètre présent dans le programme est appliqué tel quel, même égal au
    budget voté : des franchises demandées à 100 sont appliquées à 100, pas au 120 réajusté. Un
-   levier absent, ou un paramètre absent d'un bloc présent, reçoit le droit en vigueur réajusté.
-   Jusqu'en v0.7.1, un « pont » traitait une valeur égale au voté comme non touchée et lui
-   substituait le réajusté, sans le signaler. Le fichier du droit en vigueur reste le budget
+   levier absent, ou un paramètre absent d'un bloc présent, reçoit le droit en vigueur réajusté ;
+   un paramètre à `null` compte comme absent, en mode strict comme en tolérant (v0.7.2, revue :
+   le strict appliquait auparavant le défaut du handler). Exception, les leviers à modes
+   exclusifs (`chomage_alloc`, `taxe_superprofits`, `exonerations_salaires`) : un bloc partiel n'y
+   hérite de rien, le handler lit ses défauts pour les paramètres absents, comme en mode
+   historique, car ajouter une clé du droit pourrait masquer le mode choisi. Quand un paramètre
+   posé vaut le budget voté mais diffère du réajusté, un avis le signale dans `report.warnings`
+   (« defense.budget : 57 imposé (budget voté), annule le réajustement 2026 (58) ») ; le
+   résultat reste valide. Jusqu'en v0.7.1, un « pont » traitait une valeur égale au voté comme
+   non touchée et lui substituait le réajusté, sans le signaler. Le fichier du droit en vigueur reste le budget
    VOTÉ ; le scénario « Budget 2026 voté, réajusté sur l'exécution 2026 » de l'application est ce droit réajusté,
    donc le statu quo du mode cadre au bit, comme une requête vide.
 
