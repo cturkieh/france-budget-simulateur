@@ -54,7 +54,9 @@ Aucune équation n'est touchée. Un commit par point.
    un écart réel de 7e-5 pt y valait 0,01 pt à une frontière d'arrondi.
 4. **Ligne Source LR** de `docs/SCENARIOS_POLITIQUES.md` : la formule « source faisant foi »
    est retirée, seul parti à la porter. Le sens est inchangé, les deux documents restent cités
-   avec leurs dates.
+   avec leurs dates. Cette ligne est GÉNÉRÉE depuis `scenariosSources.json` du dépôt parent
+   (`scripts/generate_scenario_sources.py`, garde `--check`) : la même correction y est requise
+   avant le bump, faute de quoi le générateur rétablit la formule.
 
 5. **Scénarios réencodés sur le droit effectif** (dépôt parent, décision du mainteneur du
    08/11/2026). Un paramètre non sourcé d'un programme vaut désormais le droit en vigueur
