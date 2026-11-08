@@ -196,7 +196,9 @@ def test_a3_les_valeurs_hors_curseur_sont_dans_le_domaine_moteur():
     (constants.PARAM_DOMAINS, élargi en v0.6.11 à la valeur servie, pas au-delà)
     doit les contenir, sinon le mode strict les refuse et le tolérant les clampe."""
     from budget_simulator.constants import PARAM_DOMAINS
-    assert PARAM_DOMAINS['fonction_publique']['effectifs'][0] == -400_000.0
+    # v0.7.2 : borne basse portée à −500 000 (tests/test_parametres_v072.py) ;
+    # la valeur servie de LR reste dans le domaine.
+    assert PARAM_DOMAINS['fonction_publique']['effectifs'][0] <= -400_000.0
     assert PARAM_DOMAINS['education']['salaires'][1] == 20.0
     assert SCENARIOS['lr_2027']['fonction_publique']['effectifs'] == -400000
     assert SCENARIOS['horizons_2027']['education']['salaires'] == 20

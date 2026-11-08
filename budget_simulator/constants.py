@@ -910,10 +910,18 @@ _PARAM_DOMAINS_MOTEUR = {
     # v0.6.11 (re-encodage LR du 02/11/2026) : −400 000 = cible d'effectifs du
     # livret LR « Comptes publics » du 12/10/2026 (400 000 départs non remplacés
     # sur le quinquennat), valeur de scénario servie → domaine élargi à cette
-    # valeur, même règle que ci-dessus. Le vivier (FP_TAUX_NON_REMPLACEMENT_MAX ×
-    # DEPARTS_ANNUELS_FP × 6 cohortes = 631 140) la contient sans plafonnement.
+    # valeur, même règle que ci-dessus.
+    # v0.7.2 (décision du mainteneur du 08/11/2026, banc effectifs −480 k/−500 k
+    # du 08/11/2026) : borne basse portée à −500 000. Elle couvre le −480 000
+    # d'un programme annoncé avec une marge, et reste sous la capacité du
+    # vivier d'un mandat 2028-2032 en mode cadre (FP_TAUX_NON_REMPLACEMENT_MAX ×
+    # DEPARTS_ANNUELS_FP × 5 cohortes = 525 950 ; 631 140 sur les 6 cohortes
+    # 2027-2032 du mode historique). Le banc montre un effet proportionnel, sans
+    # écrêtage, à −480 000 et −500 000. Au-delà du vivier, la cible serait rabotée
+    # jusqu'en 2032 puis rattrapée d'un coup en 2033 : garde
+    # test_borne_effectifs_sous_le_vivier_du_mandat (tests/test_parametres_v072.py).
     'fonction_publique': {
-        'effectifs': (-400_000.0, 60_000.0),
+        'effectifs': (-500_000.0, 60_000.0),
         'point_indice': (-2.0, 10.0),
     },
     'fonction_publique_reforme': {

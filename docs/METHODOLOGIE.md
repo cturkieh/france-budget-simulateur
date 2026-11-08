@@ -940,6 +940,19 @@ estimation sourcée (repère : la RGPP 2007-2012 visait un départ sur deux). Su
 programmes publiés, la rampe seule demande au plus 50 000 postes par an (LR, 32 % des
 départs) ; le plafond ne mord que si une réforme de l'État intense s'y ajoute.
 
+**Domaine du curseur (v0.7.2).** Le moteur accepte une cible de −500 000 à +60 000 postes
+(`PARAM_DOMAINS`, `budget_simulator/constants.py`) ; la borne basse était −400 000 depuis
+v0.6.11. Décision du mainteneur du 08/11/2026 : couvrir le −480 000 d'un programme annoncé,
+avec une marge. En mode cadre, un mandat 2028-2032 compte cinq cohortes de départs : le
+vivier peut retirer au plus 67 % × 157 000 × 5 = 525 950 postes, et la borne reste dessous.
+Un banc du 08/11/2026 l'a vérifié : à −480 000 et −500 000, l'effet sur le déficit et la
+dette vaut 1,20 et 1,25 fois celui de −400 000, et le stock retiré égale la cible chaque
+année. Au-delà du vivier, la cible serait rabotée jusqu'en 2032 puis rattrapée d'un coup en
+2033 ; un test-propriété (`tests/test_parametres_v072.py`) interdit une borne qui le
+permettrait. La réforme de l'État puise dans le même vivier : combinée au curseur, elle peut
+toujours le saturer, comme avant. Une valeur hors domaine est ramenée à la borne et signalée
+dans la réponse (`report.leviers_ecretes`, ci-dessous section « Écrêtage visible »).
+
 **Ce que la règle corrige.** Jusqu'en v0.6.6, la cible était posée dès 2026 dans la seule
 limite de 100 % des départs cumulés depuis 2026 : RN et LR supprimaient 157 000 postes dès
 2026 (aucun départ remplacé dans toute la fonction publique) et atteignaient leur cible
