@@ -4,6 +4,62 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [v0.7.2] — 2026-11-08 — paramètres : borne des effectifs, écrêtage visible, dette de départ
+
+**Ce qui change** : paramètres, bornes, un champ de réponse additif et de la documentation.
+Aucune équation n'est touchée. Quatre commits, un par point.
+
+1. **Borne basse du curseur `fonction_publique.effectifs` : −400 000 → −500 000**
+   (`PARAM_DOMAINS`, décision du mainteneur du 08/11/2026). Elle couvre le −480 000 d'un
+   programme annoncé, avec une marge. Elle reste sous la capacité du vivier de départs d'un
+   mandat 2028-2032 en mode cadre : 67 % × 157 000 × 5 = 525 950. Un banc du 08/11/2026 a
+   montré un effet proportionnel, sans écrêtage, à −480 000 et −500 000. Preuve :
+   `tests/test_parametres_v072.py`, test-propriété « borne < capacité du vivier », calculée
+   depuis les constantes, et témoin comportemental : aucun rabot à la borne, rabot détecté à
+   110 % du vivier. Sorties bit-identiques : la borne ne change aucune valeur déjà admise.
+2. **Écrêtage visible : `report.leviers_ecretes`**. En mode tolérant, chaque paramètre
+   ramené à une borne de `PARAM_DOMAINS` ou `INTENSITE_DOMAINS` y figure une fois par
+   simulation, sous la forme `{levier, demande, applique, borne}`. La liste est vide quand rien
+   n'est écrêté. Le mode strict refuse toujours en 422. Avant, l'écrêtage ne se lisait que
+   dans une phrase de `report.warnings` et dans un journal serveur. Preuve : tests unitaires,
+   simulateur en mode historique et cadre, API tolérante et stricte ; réponse bit-identique
+   hors ce champ sur cinq cas comparés avant et après, golden masters verts. Une demande non
+   finie est rendue en texte, pour que la réponse JSON reste valide. Doc : docstring de
+   `/simulate`, METHODOLOGIE § « Paramètres d'entrée : noms et valeurs ».
+3. **Dette publique de départ, fin 2025 : 115,6 → 115,7 % du PIB** (`DETTE_RATIO_2025`).
+   Source : Insee Première n° 2106, « Le compte des administrations publiques en 2025 »,
+   mai 2026, figure 5 : 3 460,5 Md€, 115,7 % du PIB. Elle révise les 115,6 % des
+   Informations rapides n° 78 du 27/03/2026. Au PIB 2025 du moteur, 2 991 Md€, 1,157 redonne
+   3 460,6 Md€ ; 1,156 en donnait 3 457,6. Le tendanciel dérivé du potentiel passe de 1,228 à
+   1,2285 %, le potentiel total du statu quo reste 1,1 %. Golden masters régénérés par
+   `make snapshot-baseline`, chiffres publiés re-mesurés dans METHODOLOGIE et
+   EXPLICATION_MODELE_ECONOMIQUE.
+
+   | Statu quo (aucune mesure) | 2026 | 2027 | 2032 |
+   |---|---|---|---|
+   | Mode historique, dette % PIB | 117,97 → 118,07 | 120,43 → 120,53 | 136,56 → 136,68 |
+   | Mode historique, déficit % PIB | −5,30 inchangé | −5,51 → −5,52 | −7,31 → −7,32 |
+   | Mode cadre 2028, dette % PIB | 119,4 inchangé | 121,87 → 121,86 | 138,06 → 138,04 |
+   | Mode cadre 2028, déficit % PIB | −5,5 inchangé | −5,63 inchangé | −7,17 inchangé |
+
+   En mode cadre, la dette 2026 est l'atterrissage observé : l'ajustement stock-flux 2026
+   passe de 14,1 à 11,1 Md€, car il absorbait la dette manquante. Seul le tendanciel dérivé
+   bouge ensuite, d'où un effet de signe opposé et minime. Écart maximal sur les golden
+   masters : dette +0,15 pt (mode historique, 2035), +0,1 pt (mode cadre), déficit 0,02 pt,
+   croissance 0,01 pt ; chômage et Gini inchangés. Scénario de référence `plf_2026`, mode
+   historique : dette 2030 128,64 → 128,75 %, 2035 149,77 → 149,91 %. **Rétrocompatibilité** :
+   le mode historique n'est plus la sortie de v0.6.11 au bit près, à cause de ce seul
+   paramètre. Les valeurs d'audit épinglées (V2-02, V2-03) sont re-déclarées. La garde de
+   continuité de `test_portes_activation_v067.py` mesure désormais la dette sans arrondi :
+   un écart réel de 7e-5 pt y valait 0,01 pt à une frontière d'arrondi.
+4. **Ligne Source LR** de `docs/SCENARIOS_POLITIQUES.md` : la formule « source faisant foi »
+   est retirée, seul parti à la porter. Le sens est inchangé, les deux documents restent cités
+   avec leurs dates.
+
+**Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2880 passed, 186 skipped, sans
+`scenarios.json` ; avec les scénarios du dépôt parent, 3230 passed, 50 skipped, dans les deux
+modes.
+
 ## [v0.7.1] — 2026-11-07 — doc/test : le tableau agrégé suit l'horizon de notation 2027-2032 de l'app
 
 **Ce qui change** : documentation et test seulement, aucune équation ni aucun paramètre ; sorties
