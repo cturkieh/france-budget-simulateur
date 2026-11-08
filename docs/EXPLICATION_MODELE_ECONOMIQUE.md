@@ -230,7 +230,7 @@ Deficit = Depenses - Recettes
 
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
-> simulateur est le scenario **« Budget 2026 (vote, reajuste) »**, qui encode la loi de
+> simulateur est le scenario **« Budget 2026 vote, reajuste sur l'execution 2026 »**, qui encode la loi de
 > finances reajustee sur l'execution 2026 et rend -5,22 % de deficit 2026, 128,81 % de
 > dette 2030 et 150,11 % en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
@@ -758,7 +758,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les trajectoires baseline sont coherentes :
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
-- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,22% pour le scenario de reference** « Budget 2026 (vote, reajuste) », qui est ce que le site sert (loi votee : -5,0%)
+- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,22% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
 - Dette 2030 : 129,23% PIB en statu quo NU ; 128,81% pour le scenario de reference (HCFP : >125% sans ajustement)
 - Dette 2035 : 151,32% PIB en statu quo NU ; 150,11% pour le scenario de reference. Deficit 2035 : -9,06% / -8,75%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu

@@ -54,7 +54,7 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 - **Recettes** : elasticite unitaire au PIB nominal contemporain (`ELASTICITE_PO_PIB = 1,0`, HCFP note 2023-01). Supprimes : elasticite differenciee par regime de croissance (1,00/1,06/1,08/1,12), erosion forfaitaire 0,2%/an, rustines de transition 2026
 - **Boucle annuelle reordonnee** : macro de l'annee (avec impulsion budgetaire de t-1) -> PIB (deflateur contemporain) -> chomage -> flux aux prix de l'annee -> mesures (impulsion stockee pour t+1)
 - **Phillips ANCREE** : formule `(1-rho) x (pi* + kappa x gap) + rho x pi(t-1)` — `INFLATION_STRUCTURELLE` (1,6%) est le point de convergence REEL et `PHILLIPS_PENTE_MT` (0,20) est DIRECTEMENT la pente de moyen terme ; rappel BCE a 2,0% en garde-fou de surchauffe, plancher a 0,8% desormais inerte en statu quo
-- **Baseline honnete** : l'« assainissement implicite gratuit » (~24 Md EUR/an) de l'ancien assemblage a disparu. **Chiffres recales le 26/08/2026** — ceux publies ici jusque-la (deficit 2026 -5,05 %, dette 2030 ~129,5 %, dette 2035 ~150 %) dataient d'AVANT les lots 8 et 9, qui les ont deplaces de 10 a 12 points. Et ils melangeaient deux objets : le **statu quo NU** (le moteur sans aucune mesure, objet de calibration, servi nulle part) et le **scenario de reference** `plf_2026` (« Budget 2026 (vote, reajuste) » depuis le 08/11/2026, ce que le site sert comme point de depart). Les deux, mesures sur l'etat livre :
+- **Baseline honnete** : l'« assainissement implicite gratuit » (~24 Md EUR/an) de l'ancien assemblage a disparu. **Chiffres recales le 26/08/2026** — ceux publies ici jusque-la (deficit 2026 -5,05 %, dette 2030 ~129,5 %, dette 2035 ~150 %) dataient d'AVANT les lots 8 et 9, qui les ont deplaces de 10 a 12 points. Et ils melangeaient deux objets : le **statu quo NU** (le moteur sans aucune mesure, objet de calibration, servi nulle part) et le **scenario de reference** `plf_2026` (« Budget 2026 vote, reajuste sur l'execution 2026 » depuis le 08/11/2026, ce que le site sert comme point de depart). Les deux, mesures sur l'etat livre :
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
@@ -70,7 +70,7 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
   tendanciel du potentiel re-ancre a 1,228 %, cf. « Calibration Baseline Validee »).
   Re-mesures le 08/11/2026 (v0.7.2 : dette de depart fin 2025 recalee de 115,6 a 115,7 %,
   Insee Premiere n° 2106, mai 2026 ; tendanciel derive 1,2285 %), et scenario de reference
-  reencode sur le droit reajuste (« Budget 2026 (vote, reajuste) » : defense 58, franchises 120 %,
+  reencode sur le droit reajuste (« Budget 2026 vote, reajuste sur l'execution 2026 » : defense 58, franchises 120 %,
   surtaxe IS 6,8).
 
   Toute grandeur mesuree publiee dans ce document nomme desormais son objet, et une garde de la suite moteur (`tests/test_chiffres_publies_v061.py`) la recalcule a chaque execution : un chiffre qui cesse de reproduire fait rougir la CI au lieu de rester en ligne.
@@ -179,7 +179,7 @@ le 07/11/2026).
    levier absent, ou un paramètre absent d'un bloc présent, reçoit le droit en vigueur réajusté.
    Jusqu'en v0.7.1, un « pont » traitait une valeur égale au voté comme non touchée et lui
    substituait le réajusté, sans le signaler. Le fichier du droit en vigueur reste le budget
-   VOTÉ ; le scénario « Budget 2026 (voté, réajusté) » de l'application est ce droit réajusté,
+   VOTÉ ; le scénario « Budget 2026 voté, réajusté sur l'exécution 2026 » de l'application est ce droit réajusté,
    donc le statu quo du mode cadre au bit, comme une requête vide.
 
 | Levier | Voté → réajusté | Motif (source dans le fichier) |
@@ -2333,7 +2333,7 @@ inchangee, Tableaux 3/4/5/6. Corridor verrouille en CI
 vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 78 -> 124 Md EUR, taux apparent 2,2 -> 3,1 % (2026-2030).
 
-**Valeurs réelles du scénario de référence face à la mission** (v0.6.7, lot 3b — TOL_DETTE portée de 1,6 à 2,0 pt ; HCFP : dette 2030 ≈ 129,5 % ; re-mesurées en v0.7.2 : dette de départ 115,7 %, tendanciel dérivé 1,2285 %, scénario « Budget 2026 (voté, réajusté) » réencodé le 08/11/2026, défense 58, franchises 120 %, surtaxe IS 6,8) :
+**Valeurs réelles du scénario de référence face à la mission** (v0.6.7, lot 3b — TOL_DETTE portée de 1,6 à 2,0 pt ; HCFP : dette 2030 ≈ 129,5 % ; re-mesurées en v0.7.2 : dette de départ 115,7 %, tendanciel dérivé 1,2285 %, scénario « Budget 2026 voté, réajusté sur l'exécution 2026 » réencodé le 08/11/2026, défense 58, franchises 120 %, surtaxe IS 6,8) :
 
 | Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
 |---|---|---|---|---|---|---|

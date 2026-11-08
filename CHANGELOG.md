@@ -60,7 +60,7 @@ Aucune équation n'est touchée. Un commit par point.
    08/11/2026). Un paramètre non sourcé d'un programme vaut désormais le droit en vigueur
    réajusté, et non plus le budget voté brut : franchises 100 → 120, défense 57 → 58, surtaxe
    d'IS 7,3 → 6,8 Md€, selon les scénarios. `plf_2026` est réencodé de même, sous le libellé
-   « Budget 2026 (voté, réajusté) » : il est le statu quo, avec ou sans pont. Gardes mises à
+   « Budget 2026 voté, réajusté sur l'exécution 2026 » : il est le statu quo, avec ou sans pont. Gardes mises à
    jour : `test_cadre_v070_mesures_annee` vérifie que `plf_2026` égale le droit voté du moteur
    plus les réajustements de l'atterrissage, et diffère du voté brut ; mutation prouvée.
    `test_reencodage_v066` prend la même référence. La table générée de
@@ -80,7 +80,7 @@ Aucune équation n'est touchée. Un commit par point.
    droit en vigueur réajusté, comme avant. `cadre.mesures_effectives` et
    `cadre.leviers_modifies` gardent leur sens : poser le voté brut y apparaît comme une
    modification. Ce qui change pour un appelant : une requête qui recopiait le budget voté
-   n'est plus le statu quo ; `{}` ou le scénario « Budget 2026 (voté, réajusté) » le sont, au
+   n'est plus le statu quo ; `{}` ou le scénario « Budget 2026 voté, réajusté sur l'exécution 2026 » le sont, au
    bit. Preuve, en TDD : `test_present_impose_absent_herite`, rouge avant le retrait
    (120 appliqué pour 100 demandé), vert après. Neuf tests du cadre réécrits sur le droit
    réajusté, lu dans le moteur (`DROIT_REAJUSTE`, `tests/cadre_harness.py`).

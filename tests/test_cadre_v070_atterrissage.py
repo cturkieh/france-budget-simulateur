@@ -448,7 +448,7 @@ def test_present_impose_absent_herite():
 
 def test_le_reajuste_demande_explicitement_egale_le_statu_quo():
     """Corollaire : un programme qui pose le droit RÉAJUSTÉ (le scénario
-    « Budget 2026 (voté, réajusté) ») n'est pas un programme : effectif égal au
+    « Budget 2026 voté, réajusté sur l'exécution 2026 ») n'est pas un programme : effectif égal au
     droit en vigueur, aucun levier modifié."""
     reaj = {2026: {'sante': {'franchise_participation_taux': 120}}}
     with atterrissage({2026: CIBLES_2026}, reajustements=reaj):

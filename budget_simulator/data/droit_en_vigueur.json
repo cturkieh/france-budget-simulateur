@@ -3,7 +3,7 @@
   "libelle": "Budget 2026 voté (lois de finances et de financement de la sécurité sociale pour 2026), reconduit à droit constant en 2027",
   "source": "Encodage du scénario « Budget 2026 (voté) » (identifiant plf_2026) : docs/SCENARIOS_POLITIQUES.md, bloc scenario:plf_2026 ; mesures votées non encodées : même document, tableau « Mesure votée (LF / LFSS 2026) »",
   "date": "2026-11-07",
-  "remplacement": "Fichier de données, remplaçable sans code le jour où une loi de finances pour 2027 est promulguée. Le scénario « Budget 2026 (voté, réajusté) » de l'application doit rester égal à ces mesures réajustées par l'atterrissage observé (atterrissage_observe.json) ; garde : tests/test_cadre_v070_mesures_annee.py.",
+  "remplacement": "Fichier de données, remplaçable sans code le jour où une loi de finances pour 2027 est promulguée. Le scénario « Budget 2026 voté, réajusté sur l'exécution 2026 » de l'application doit rester égal à ces mesures réajustées par l'atterrissage observé (atterrissage_observe.json) ; garde : tests/test_cadre_v070_mesures_annee.py.",
   "mesures": {
     "retraites": {
       "indexation": 1.0,

@@ -69,7 +69,7 @@ def test_droit_en_vigueur_charge_et_valide():
 
 @pytest.mark.skipif(not FRONT_SCENARIOS.exists(), reason='frontend-react/ hors périmètre fork moteur seul')
 def test_garde_le_budget_vote_de_l_app_egal_au_droit_en_vigueur():
-    """Garde de synchronisation : le scénario « Budget 2026 (voté, réajusté) » de
+    """Garde de synchronisation : le scénario « Budget 2026 voté, réajusté sur l'exécution 2026 » de
     l'app EST le droit en vigueur du moteur RÉAJUSTÉ sur l'atterrissage observé
     (voté ⊕ ``reajustements_droit_en_vigueur`` de toutes les années observées),
     c'est-à-dire le point de départ commun du mode cadre (décision du mainteneur du
@@ -207,8 +207,9 @@ def test_g_statu_quo_cadre_egal_statu_quo_historique_au_bit():
 def test_g_programme_vide_en_cadre_est_le_droit_en_vigueur():
     """``{}`` en mode cadre = « rien ne change » = le droit en vigueur RÉAJUSTÉ
     (≠ défauts du moteur, sens historique de ``{}``). v0.7.2, présent = imposé :
-    le droit réajusté posé explicitement, et ``plf_2026`` (« Budget 2026 (voté,
-    réajusté) ») quand scenarios.json est là, sont le statu quo au bit ; le voté
+    le droit réajusté posé explicitement, et ``plf_2026`` (« Budget 2026 voté,
+    réajusté sur l'exécution 2026 ») quand scenarios.json est là, sont le statu
+    quo au bit ; le voté
     BRUT posé explicitement n'est plus le statu quo (57 / 100 / 7,3 imposés)."""
     vide = simuler({}, annee_debut=DEBUT)
     egalite_bit_a_bit(vide, simuler(copy.deepcopy(DROIT_REAJUSTE), annee_debut=DEBUT))

@@ -17,7 +17,7 @@ Cet outil est un simulateur citoyen indépendant, sans affiliation gouvernementa
 
 Le simulateur propose **10 scénarios** : **8 programmes politiques** (gouvernement et principales formations) et **2 scénarios de think tank** produits par l'Institut Montaigne. Chaque scénario fixe l'ensemble des paramètres d'entrée du moteur ; le détail chiffré exact figure dans la section générée « Paramètres injectés ».
 
-### Budget 2026 (voté, réajusté)
+### Budget 2026 voté, réajusté sur l'exécution 2026
 <!-- scenario:plf_2026 -->
 
 - **Source** : LF 2026 (loi 2026-103 du 19 fév 2026)
@@ -150,8 +150,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 > Tableau produit automatiquement par `scripts/generate_scenario_params.py` depuis `frontend-react/src/data/scenarios.json`. Toute modification manuelle entre les marqueurs sera écrasée. Ce tableau fait foi : en cas de doute, c'est lui qui décrit ce que simule l'outil.
 
 <!-- SCENARIO_PARAMS:START -->
-| Mesure | Paramètre | Budget 2026 (voté, réajusté) | Programme RN Le Pen 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance Attal 2027 | Programme Horizons Philippe 2027 | Programme LR Retailleau 2027 | Programme PS 2027 | Programme Les Écologistes Tondelier 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
-|--------|-----------|------------------------------|--------------------------|------------------------------|----------------------------------|----------------------------------|------------------------------|-------------------|------------------------------------------|--------------------------------|------------------------------------|
+| Mesure | Paramètre | Budget 2026 voté, réajusté sur l'exécution 2026 | Programme RN Le Pen 2027 | Programme LFI Mélenchon 2027 | Programme Renaissance Attal 2027 | Programme Horizons Philippe 2027 | Programme LR Retailleau 2027 | Programme PS 2027 | Programme Les Écologistes Tondelier 2027 | Institut Montaigne — Rabot -8% | Institut Montaigne — Compétitivité |
+|--------|-----------|-------------------------------------------------|--------------------------|------------------------------|----------------------------------|----------------------------------|------------------------------|-------------------|------------------------------------------|--------------------------------|------------------------------------|
 | abattement_retraites | reforme_active | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
 | asu | asu_activation | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 1 | 0 | 1 |
 | asu | asu_plafonnement | 0.65 | 0.65 | 0.65 | 0.65 | 0.65 | 0.7 | 0.65 | 0.5 | 0.65 | 0.7 |
