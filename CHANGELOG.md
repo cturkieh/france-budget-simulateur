@@ -7,7 +7,7 @@ l'historique antérieur est décrit dans les messages de tags et dans
 ## [v0.7.2] — 2026-11-08 — paramètres : borne des effectifs, écrêtage visible, dette de départ
 
 **Ce qui change** : paramètres, bornes, un champ de réponse additif et de la documentation.
-Aucune équation n'est touchée. Quatre commits, un par point.
+Aucune équation n'est touchée. Un commit par point.
 
 1. **Borne basse du curseur `fonction_publique.effectifs` : −400 000 → −500 000**
    (`PARAM_DOMAINS`, décision du mainteneur du 08/11/2026). Elle couvre le −480 000 d'un
@@ -55,6 +55,15 @@ Aucune équation n'est touchée. Quatre commits, un par point.
 4. **Ligne Source LR** de `docs/SCENARIOS_POLITIQUES.md` : la formule « source faisant foi »
    est retirée, seul parti à la porter. Le sens est inchangé, les deux documents restent cités
    avec leurs dates.
+
+5. **Scénarios réencodés sur le droit effectif** (dépôt parent, décision du mainteneur du
+   08/11/2026). Un paramètre non sourcé d'un programme vaut désormais le droit en vigueur
+   réajusté, plus le budget voté brut : franchises 100 → 120 (six scénarios), défense 57 → 58
+   (quatre), surtaxe d'IS 7,3 → 6,8 Md€ (RN, LR). `plf_2026` est inchangé. Le contrat de
+   `tests/test_reencodage_v066.py` suit cette règle, et le bloc généré de
+   `docs/SCENARIOS_POLITIQUES.md` aussi. Golden master historique régénéré : seuls les six
+   scénarios concernés changent, au plus +0,24 pt de dette 2035 (RN). Golden master cadre
+   2028 et standalone bit-identiques.
 
 **Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2880 passed, 186 skipped, sans
 `scenarios.json` ; avec les scénarios du dépôt parent, 3230 passed, 50 skipped, dans les deux

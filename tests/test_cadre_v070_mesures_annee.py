@@ -69,11 +69,19 @@ def test_droit_en_vigueur_charge_et_valide():
 
 @pytest.mark.skipif(not FRONT_SCENARIOS.exists(), reason='frontend-react/ hors périmètre fork moteur seul')
 def test_garde_le_budget_vote_de_l_app_egal_au_droit_en_vigueur():
-    """Garde de synchronisation : le scénario « Budget voté » de l'app EST le droit
-    en vigueur du moteur. Le jour où un budget 2027 est voté, on remplace le
-    fichier de données ET le scénario, ensemble."""
+    """Garde de synchronisation : le scénario « Budget 2026 (voté, réajusté) » de
+    l'app EST le droit en vigueur du moteur RÉAJUSTÉ sur l'atterrissage observé
+    (voté ⊕ ``reajustements_droit_en_vigueur`` de toutes les années observées),
+    c'est-à-dire le point de départ commun du mode cadre (décision du mainteneur du
+    08/11/2026 : le scénario reste égal au statu quo, avec ou sans pont). Le jour
+    où un budget 2027 est voté, on remplace le fichier de données ET le scénario,
+    ensemble ; un nouveau réajustement de l'atterrissage se reporte au scénario."""
     app = json.loads(FRONT_SCENARIOS.read_text(encoding='utf-8'))['plf_2026']['apiMeasures']
-    assert app == _droit()
+    att = cadre.charger_atterrissage()
+    attendu = cadre.droit_reajuste(_droit(), att, max(att.annees))
+    assert app == attendu
+    # Le réajustement est réel : le scénario n'est plus le voté brut.
+    assert app != _droit()
 
 
 @pytest.mark.parametrize('defaut, motif', [

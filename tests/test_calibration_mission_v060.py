@@ -165,7 +165,7 @@ TOL_DEFICIT = 0.9   # pt de PIB (mesuré 0,72 ; lot 8 : 1,10 pour 1,00 mesuré)
 # plus haut, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert
 # v0.6.8 (bloc dépenses). La tolérance est élargie parce que la COMPENSATION a
 # disparu, pas pour absorber une erreur nouvelle.
-TOL_DETTE = 2.0     # pt de PIB (mesuré 1,75 en 2030 en v0.7.2, 1,86 avant ; lot 9 : 1,27 ; lot 8 : 2,20 pour 1,68)
+TOL_DETTE = 2.0     # pt de PIB (mesuré 1,69 en 2030 en v0.7.2, 1,86 avant ; lot 9 : 1,27 ; lot 8 : 2,20 pour 1,68)
 TOL_CHARGE = 3.5    # Md€ (mesuré 3,00 ; lot 8 : 5,0 pour 4,4)
 TOL_TAUX = 0.22     # pt (mesuré 0,18 ; lot 8 : 0,25 pour 0,22)
 # Le déflateur est la SEULE borne non resserrée : mesuré 0,18 contre 0,17 au
@@ -247,7 +247,7 @@ def test_corridor_deficit(trajectoire):
 def test_corridor_dette(trajectoire):
     # v0.6.7 : l'écart 2029 (125,0 vs 127,3) venait du bruit tiré, devenu choc
     # persistant avec le gap en niveau. Après ré-ancrage du potentiel (lot 3b) :
-    # écart max −1,75 pt (2030 : 128,75 vs 130,5, v0.7.2 ; −1,86 avant), sous TOL_DETTE = 2,0 (raison
+    # écart max −1,69 pt (2030 : 128,81 vs 130,5, v0.7.2 ; −1,86 avant), sous TOL_DETTE = 2,0 (raison
     # ci-dessus : résidu (b) révélé).
     df, _ = trajectoire
     for i in range(1, 6):

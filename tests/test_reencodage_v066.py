@@ -50,6 +50,14 @@ Re-encodage du 02/11/2026 (v0.6.11, paramètres seuls, arbitrage du mainteneur d
                 → education.salaires 20 (coût brut ; le financement « par la baisse
                 démographique » n'est pas crédité, règle 3).
 
+Réencodage du 08/11/2026 (v0.7.2, décision du mainteneur) : la référence n'est plus le
+droit VOTÉ brut (`plf_2026`) mais le droit en vigueur RÉAJUSTÉ sur l'exécution 2026
+(voté + `reajustements_droit_en_vigueur` de `atterrissage_observe.json` : défense 58,
+franchises 120, surtaxe IS 6,8), point de départ commun du mode cadre. Un paramètre
+non sourcé vaut ce droit réajusté, auquel `plf_2026` est lui-même égal (garde
+`test_cadre_v070_mesures_annee`). Ci-dessous, « droit voté » se lit « droit en vigueur
+réajusté » partout où le test compare via `DROIT_REAJUSTE`.
+
 Propriétés verrouillées :
   (a) RN et Horizons : les mesures retirées sont posées au droit voté (pas omises) —
       RN : superprofits et cotisations salariales (07/10/2026) ; Horizons : réforme
@@ -79,6 +87,21 @@ from budget_simulator.simulator import BudgetSimulatorV45
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 sys.path.insert(0, str(SNAPSHOTS_DIR))
 from run_scenarios_full import SCENARIOS  # noqa: E402
+
+
+def _droit_reajuste():
+    """Droit en vigueur réajusté (08/11/2026) : droit voté du moteur
+    (`droit_en_vigueur.json`) + réajustements de toutes les années observées de
+    l'atterrissage, reconduits ensuite à droit constant. Lu dans le moteur, jamais
+    recopié : un futur réajustement suit sans retoucher ce test. `plf_2026` lui est
+    égal (garde test_cadre_v070_mesures_annee)."""
+    from budget_simulator.engine.cadre import (charger_atterrissage, charger_droit_en_vigueur,
+                                               droit_reajuste)
+    atterrissage = charger_atterrissage()
+    return droit_reajuste(charger_droit_en_vigueur().mesures, atterrissage, max(atterrissage.annees))
+
+
+DROIT_REAJUSTE = _droit_reajuste()
 
 _SCENARIOS = pytest.mark.skipif(not SCENARIOS, reason="scenarios.json absent (fork moteur seul)")
 
@@ -154,10 +177,11 @@ def _params(scenario):
 
 
 def _ecarts_au_droit_en_vigueur(sid, ecarts_sources):
-    """Écarts de `sid` à plf_2026 hors liste sourcée : (1) leviers en trop ou
-    manquants, (2) paramètres différents. Itère sur l'UNION des clés : un paramètre
-    présent dans plf_2026 et absent du scénario (= défaut moteur) est un écart."""
-    scn, ref = SCENARIOS[sid], SCENARIOS['plf_2026']
+    """Écarts de `sid` au droit en vigueur réajusté hors liste sourcée : (1) leviers
+    en trop ou manquants, (2) paramètres différents. Itère sur l'UNION des clés : un
+    paramètre présent dans la référence et absent du scénario (= défaut moteur) est un
+    écart."""
+    scn, ref = SCENARIOS[sid], DROIT_REAJUSTE
     leviers = {'en_trop': set(scn) - set(ref), 'manquants': set(ref) - set(scn)}
     p_scn, p_ref = _params(scn), _params(ref)
     params = {
@@ -175,7 +199,7 @@ def _ecarts_au_droit_en_vigueur(sid, ecarts_sources):
     ids=str,
 )
 def test_a_mesures_retirees_au_droit_vote(sid, cle):
-    scn, ref = SCENARIOS[sid], SCENARIOS['plf_2026']
+    scn, ref = SCENARIOS[sid], DROIT_REAJUSTE
     assert scn.get(cle) == ref[cle], (
         f"{cle} : {scn.get(cle)!r} dans {sid}, droit voté {ref[cle]!r} — "
         "une mesure retirée se pose au droit voté, elle ne s'omet pas (cf. (d))"
@@ -253,11 +277,14 @@ def test_d1_omission_des_cles_retirees_desormais_neutre(pleine_precision):
 
 @_SCENARIOS
 def test_d2_omettre_une_cle_n_est_pas_poser_le_droit_vote(pleine_precision):
-    """La règle « retirer = poser au droit voté » reste nécessaire : `sante` du RN
-    vaut le droit voté (efforts 15 / 20 / 10), le défaut moteur vaut 0 / 0 / 0 —
-    omettre la clé changerait la trajectoire."""
+    """La règle « retirer = poser au droit en vigueur » reste nécessaire : `sante` du
+    RN vaut le droit réajusté (efforts 15 / 20 / 10, franchises 120 depuis le
+    08/11/2026), le défaut moteur vaut 0 / 0 / 0 — omettre la clé changerait la
+    trajectoire."""
     from budget_simulator.config import load_default_values
     rn = SCENARIOS['rn_2027']
-    assert rn['sante'] == SCENARIOS['plf_2026']['sante'] != load_default_values()['sante']
+    assert rn['sante'] == DROIT_REAJUSTE['sante'] != load_default_values()['sante']
+    from budget_simulator.engine.cadre import charger_droit_en_vigueur
+    assert DROIT_REAJUSTE['sante'] != charger_droit_en_vigueur().mesures['sante']  # réajustement réel
     omis = {k: v for k, v in rn.items() if k != 'sante'}
     assert not _trajectoires_identiques(rn, omis)

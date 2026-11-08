@@ -378,7 +378,9 @@ def test_le_perimetre_non_representable_est_declare():
 _CAVEATS_I37 = {
     'fonction_publique.effectifs': ['-3 119', '6 724', 'caisses de sécurité sociale',
                                     'périmètre État'],
-    'sante': ['4,65', 'annuelle', '10,4', '4,1'],
+    # 4,65 → 4,98 au réencodage du 08/11/2026 (franchises réajustées à 120 %, +0,33 Md€/an) ;
+    # la valeur exacte est lue au moteur par test_le_caveat_sante_dit_le_bon_chiffre.
+    'sante': ['4,98', 'annuelle', '10,4', '4,1'],
     'niches_sociales_tge': ['3 SMIC', 'tous employeurs', '3,9', '3,1'],
     'defense': ['5,3', 'structurel', 'LPM'],
     'is_exceptionnel_tge': ['reconduction', '7,3'],
