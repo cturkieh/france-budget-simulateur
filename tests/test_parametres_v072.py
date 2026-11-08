@@ -400,6 +400,34 @@ def test_pas_d_avis_au_reajuste_ni_en_mode_historique(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# 5. Paramètre null = absent, en strict comme en tolérant (E4)
+# ---------------------------------------------------------------------------
+
+def test_heriter_du_droit_parametre_null_herite():
+    """Unitaire : un paramètre null hérite du droit, les autres sont imposés."""
+    droit = {'defense': {'budget': 58}, 'sante': {'a': 1, 'b': 2}}
+    assert _cadre.heriter_du_droit({'defense': {'budget': None}}, droit) == droit
+    assert _cadre.heriter_du_droit({'sante': {'a': None, 'b': 5}}, droit)['sante'] == {
+        'a': 1, 'b': 5}
+
+
+@pytest.mark.parametrize('mesures', [
+    {'defense': {'budget': None}},
+    {'sante': {'franchise_participation_taux': None}},
+])
+def test_parametre_null_strict_egal_tolerant_egal_statu_quo(mesures, monkeypatch):
+    """Au bit : un levier dont le paramètre réajusté est null donne le statu
+    quo en mode cadre, en strict comme en tolérant (trajectoire, détail, leviers
+    modifiés). Avant v0.7.2-passe 1, le strict appliquait le défaut du handler."""
+    ref, ref_det, ref_rap = _simuler_cadre({}, False, monkeypatch)
+    for strict in (False, True):
+        res, det, rapport = _simuler_cadre(mesures, strict, monkeypatch)
+        pd.testing.assert_frame_equal(res, ref, check_exact=True)
+        pd.testing.assert_frame_equal(det, ref_det, check_exact=True)
+        assert rapport['cadre']['leviers_modifies'] == ref_rap['cadre']['leviers_modifies']
+
+
+# ---------------------------------------------------------------------------
 # 6. Requête /simulate : clé inconnue refusée (E2)
 # ---------------------------------------------------------------------------
 

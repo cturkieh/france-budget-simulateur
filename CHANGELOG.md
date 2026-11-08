@@ -123,6 +123,12 @@ Aucune équation n'est touchée. Un commit par point.
    un avis le dit (« defense.budget : 57 imposé (budget voté), annule le réajustement 2026
    (58) »). `report.valid` inchangé ; réponse bit-identique hors ce texte (test avec l'avis
    neutralisé).
+10. **Paramètre `null` = absent, en strict comme en tolérant** (`heriter_du_droit`). En strict,
+   `{"defense": {"budget": null}}` gardait le `null` jusqu'à la porte annuelle, qui le retirait
+   après l'héritage : le handler appliquait son défaut (57 au lieu de 58), sans signal, et
+   `defense` figurait parmi les leviers modifiés. Désormais strict ≡ tolérant ≡ statu quo au
+   bit (trajectoire, détail, leviers modifiés), sur `defense.budget` et
+   `sante.franchise_participation_taux`.
 
 **Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2881 passed, 186 skipped, sans
 `scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3231 passed, 50 skipped, dans les deux

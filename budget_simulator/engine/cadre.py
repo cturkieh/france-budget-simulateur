@@ -394,7 +394,7 @@ def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
     - un levier absent ou ``null`` est celui du droit en vigueur réajusté ;
     - un paramètre PRÉSENT est appliqué tel quel, même égal au budget voté :
       des franchises demandées à 100 sont appliquées à 100, pas au 120 réajusté ;
-    - un paramètre ABSENT d'un bloc présent reçoit la valeur du droit en vigueur
+    - un paramètre ABSENT (ou ``null``) d'un bloc présent reçoit la valeur du droit en vigueur
       réajusté, jamais le défaut du moteur : un bloc partiel vaut le bloc
       complet qui reprend le droit en vigueur. Sauf pour un levier à modes
       exclusifs : on n'y ajoute jamais une clé qui en masquerait une autre (le
@@ -411,9 +411,16 @@ def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
         reference = droit_en_vigueur.get(levier)
         if (isinstance(bloc, dict) and isinstance(reference, dict)
                 and levier not in MODES_EXCLUSIFS):
-            herites = {p: v for p, v in reference.items() if p not in bloc}
+            # Un paramètre à ``null`` est ABSENT (v0.7.2, revue passe 1) : il
+            # hérite, en strict comme en tolérant. Avant, le tolérant le
+            # retirait à l'entrée (donc héritait) mais le strict le gardait
+            # jusqu'à la porte annuelle, qui le retirait APRÈS l'héritage : le
+            # handler appliquait son défaut (défense 57 au lieu du réajusté),
+            # sans signal.
+            herites = {p: v for p, v in reference.items() if bloc.get(p) is None}
             if herites:
-                bloc = {**herites, **bloc}
+                bloc = {**herites,
+                        **{p: v for p, v in bloc.items() if not (v is None and p in herites)}}
         effectif[levier] = bloc
     return effectif
 
