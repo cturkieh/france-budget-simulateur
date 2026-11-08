@@ -15,6 +15,7 @@ import json
 import math
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -338,6 +339,64 @@ def test_rabot_du_vivier_api(_client, monkeypatch):
             'levier': 'fonction_publique.effectifs', 'demande': -500000,
             'applique': -420760.0, 'borne': [-420760.0, None], 'motif': 'vivier',
             'annee': 2032}]
+
+
+# ---------------------------------------------------------------------------
+# 4. Présent = imposé : avis quand le voté annule un réajustement (E3)
+# ---------------------------------------------------------------------------
+from budget_simulator.engine import cadre as _cadre  # noqa: E402
+
+_DEBUT_CADRE = 2028
+
+
+def _simuler_cadre(mesures, strict: bool, monkeypatch):
+    monkeypatch.setenv('BUDGETLAB_STRICT', '1' if strict else '')
+    return _simulateur(mesures, annee_debut=_DEBUT_CADRE).simulate()
+
+
+def _voté_différent_du_réajusté() -> list[tuple[str, str, float, float]]:
+    """(levier, paramètre, voté, réajusté) lus dans le moteur, jamais recopiés."""
+    vote = _cadre.charger_droit_en_vigueur().mesures
+    reajuste = _cadre.droit_reajuste(vote, _cadre.charger_atterrissage(), _DEBUT_CADRE)
+    return [(l, p, v, reajuste[l][p]) for l, bloc in vote.items() for p, v in bloc.items()
+            if reajuste[l].get(p) != v]
+
+
+def test_le_vote_differe_du_reajuste_pour_au_moins_un_parametre():
+    """Témoin : sans réajustement, les tests de l'avis seraient vides."""
+    assert _voté_différent_du_réajusté()
+
+
+@pytest.mark.parametrize('strict', [False, True])
+def test_avis_present_impose_annule_le_reajustement(strict, monkeypatch):
+    """Un paramètre posé au budget voté, différent du réajusté : un avis par
+    paramètre, rapport valide, résultat bit-identique hors ce texte (avis
+    neutralisé en comparaison)."""
+    cas = _voté_différent_du_réajusté()
+    mesures: dict = {}
+    for levier, param, vote, _ in cas:
+        mesures.setdefault(levier, {})[param] = vote
+    res, det, rapport = _simuler_cadre(mesures, strict, monkeypatch)
+    avis = [w for w in rapport['warnings'] if 'imposé (budget voté)' in w]
+    assert rapport['valid'] is True
+    assert len(avis) == len(cas)
+    for (levier, param, vote, reajuste), texte in zip(cas, avis):
+        assert texte.startswith(f"Avis — {levier}.{param} : {vote:g} imposé")
+        assert f"({reajuste:g})" in texte
+    monkeypatch.setattr(_cadre, '_aviser_reajustements_annules', lambda *a, **k: None)
+    res2, det2, rapport2 = _simuler_cadre(mesures, strict, monkeypatch)
+    pd.testing.assert_frame_equal(res, res2, check_exact=True)
+    pd.testing.assert_frame_equal(det, det2, check_exact=True)
+    assert [w for w in rapport['warnings'] if w not in avis] == rapport2['warnings']
+
+
+def test_pas_d_avis_au_reajuste_ni_en_mode_historique(monkeypatch):
+    """Au réajusté, ou hors mode cadre (le droit n'y est pas lu) : aucun avis."""
+    levier, param, vote, reajuste = _voté_différent_du_réajusté()[0]
+    _, _, rapport = _simuler_cadre({levier: {param: reajuste}}, False, monkeypatch)
+    assert not [w for w in rapport['warnings'] if 'imposé (budget voté)' in w]
+    _, _, rapport = _simulateur({levier: {param: vote}}).simulate()
+    assert not [w for w in rapport['warnings'] if 'imposé (budget voté)' in w]
 
 
 # ---------------------------------------------------------------------------

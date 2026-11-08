@@ -418,6 +418,36 @@ def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
     return effectif
 
 
+def _aviser_reajustements_annules(programme: Dict, droit_vote: Dict, mesures_droit: Dict,
+                                  atterrissage: Optional['Atterrissage'], debut: int,
+                                  avis: Dict) -> None:
+    """Avis « présent = imposé » (v0.7.2, revue passe 1) : un paramètre PRÉSENT
+    qui vaut exactement le budget voté mais diffère du droit en vigueur réajusté
+    est appliqué tel quel (``heriter_du_droit``) et annule donc le réajustement
+    de l'atterrissage. Ce n'est pas une correction (l'entrée est lue telle
+    quelle, ``report.valid`` inchangé) : un avis le dit, pour l'appelant qui
+    recopiait le voté en croyant poser le statu quo. Une ligne par paramètre."""
+    def texte(x) -> str:
+        return f"{x:g}" if isinstance(x, (int, float)) and not isinstance(x, bool) else repr(x)
+
+    for levier, bloc in programme.items():
+        vote, reajuste = droit_vote.get(levier), mesures_droit.get(levier)
+        if not (isinstance(bloc, dict) and isinstance(vote, dict) and isinstance(reajuste, dict)):
+            continue
+        for param, valeur in bloc.items():
+            if (valeur is None or param not in vote or valeur != vote[param]
+                    or reajuste.get(param) == valeur):
+                continue
+            annees = [an for an in sorted(atterrissage.annees) if an <= debut
+                      and param in atterrissage.annees[an].reajustements.get(levier, {})
+                      ] if atterrissage is not None else []
+            origine = f"le réajustement {annees[-1]}" if annees else "le réajustement"
+            avis.setdefault(
+                ('cadre', 'impose', levier, param),
+                f"{levier}.{param} : {texte(valeur)} imposé (budget voté), annule "
+                f"{origine} ({texte(reajuste.get(param))})")
+
+
 def fusionner(droit: Dict, programme: Dict) -> Dict:
     """Mesures d'une année de programme : le droit en vigueur, dont chaque levier
     présent (non ``null``) dans le programme est REMPLACÉ en bloc par celui du
@@ -497,6 +527,9 @@ class CadreTemporel:
         # Droit en vigueur au début (et ensuite) : réajustements compris.
         mesures_droit = droit_reajuste(droit_vote, atterrissage, debut)
         effectif = heriter_du_droit(programme, mesures_droit)
+        if avis is not None:
+            _aviser_reajustements_annules(programme, droit_vote, mesures_droit,
+                                          atterrissage, debut, avis)
         modifies = frozenset(l for l in set(effectif) | set(mesures_droit)
                              if effectif.get(l) != mesures_droit.get(l))
         rampes, ignores, par_annee = _mesures_rampees(effectif, mesures_droit, debut,

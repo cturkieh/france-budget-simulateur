@@ -118,6 +118,11 @@ Aucune équation n'est touchée. Un commit par point.
    `annee_debu: 2030` était ignoré : 200 en mode historique, sans avertissement. Appelants du
    dépôt parent vérifiés (`api.js`, `verify_render_live.py`, tests privés) : aucun n'envoie
    d'autre clé ; les scripts de précalcul appellent le moteur en Python, sans l'API.
+9. **Avis « présent = imposé »** (`engine/cadre.py`, mode cadre). Un paramètre posé qui vaut
+   exactement le budget voté mais diffère du réajusté annule le réajustement de l'atterrissage :
+   un avis le dit (« defense.budget : 57 imposé (budget voté), annule le réajustement 2026
+   (58) »). `report.valid` inchangé ; réponse bit-identique hors ce texte (test avec l'avis
+   neutralisé).
 
 **Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2881 passed, 186 skipped, sans
 `scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3231 passed, 50 skipped, dans les deux
