@@ -335,14 +335,27 @@ async def simulate(request: SimulationRequest):
       correction figure dans `report.warnings` (préfixe « Entrée ou sortie
       corrigée ») et passe `report.valid` à `false` ; le serveur trace un
       WARNING par levier.
-    - `report.leviers_ecretes` (v0.7.2) : les valeurs ramenées à une borne,
-      sous forme structurée, une entrée par paramètre :
-      `{"levier": "fonction_publique.effectifs", "demande": -600000,
-      "applique": -500000.0, "borne": [-500000.0, 60000.0]}`. Liste vide si
-      rien n'est écrêté (toujours vide en mode strict, qui refuse). Domaines
-      couverts : paramètres nommés (`PARAM_DOMAINS`) et intensité
-      (`INTENSITE_DOMAINS`), `budget_simulator/constants.py`. Une demande non
-      finie est rendue en texte (`"nan"`).
+    - `report.leviers_ecretes` (v0.7.2) : les valeurs que le moteur n'a pas
+      appliquées telles quelles, sous forme structurée. Champ `motif` :
+      - `"domaine"` : valeur ramenée à une borne de domaine, une entrée par
+        paramètre : `{"levier": "fonction_publique.effectifs", "demande":
+        -600000, "applique": -500000.0, "borne": [-500000.0, 60000.0],
+        "motif": "domaine"}`. Toujours absente en mode strict, qui refuse
+        (422). Domaines : paramètres nommés (`PARAM_DOMAINS`) et intensité
+        (`INTENSITE_DOMAINS`), `budget_simulator/constants.py`. Une demande
+        non finie est rendue en texte (`"nan"`). Invalide le résultat.
+      - `"vivier"` : cible du curseur `fonction_publique.effectifs` rabotée
+        par le vivier de départs (67 % des départs cumulés, réforme de l'État
+        comprise : début tardif du programme, ou curseur + réforme). Une
+        entrée par simulation, celle de la DERNIÈRE année rabotée :
+        `{"levier": "fonction_publique.effectifs", "demande": -500000,
+        "applique": -420760.0, "borne": [-420760.0, null], "motif": "vivier",
+        "annee": 2032}` (`applique` = postes retirés cette année-là, `borne`
+        = capacité du vivier, sans borne haute). Limite structurelle du
+        modèle, pas une entrée invalide : `report.valid` inchangé, même en
+        mode strict ; un « Avis » dans `report.warnings` donne la période.
+      Liste vide si rien n'est écrêté. Hors champ : `annee_debut` et
+      `rampe.annees` hors domaine, signalés dans `report.warnings` seulement.
     - Noms admis par levier = les paramètres que le levier peut lire (handler
       Python, ou formule de `policy_measures.json` à défaut), y compris les
       paramètres internes exposés (`intensite`, `degressivite`…) :

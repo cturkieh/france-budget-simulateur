@@ -753,6 +753,9 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # Écrêtages de domaine structurés (v0.7.2), même portée :
         # report['leviers_ecretes'].
         self._ecretages = {}
+        # Rabots du curseur effectifs par le vivier de départs (v0.7.2, revue
+        # passe 1), par année : report['leviers_ecretes'] (motif « vivier »).
+        self._rabots_vivier = {}
         self._fiscal_impulses = {}  # Reset profils temporels multiplicateurs
         self._niveaux_impulsion = {}
         self._potential_growth_bonus = 0.0

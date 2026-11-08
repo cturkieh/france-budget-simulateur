@@ -236,8 +236,9 @@ _MUTATEURS = frozenset({'update', 'setdefault', 'append', 'add', 'pop', 'clear',
                         'remove', 'discard', 'popitem', 'insert'})
 # Écrit pendant un handler, commun aux mondes PAR CONSTRUCTION et sans effet sur
 # le calcul : le journal de débogage (``_log_debug(self.debug_logs, …)``, jamais
-# relu par le moteur).
-_PARTAGES_SANS_EFFET = frozenset({'debug_logs'})
+# relu par le moteur), et le journal des rabots du vivier (v0.7.2, revue passe 1 :
+# ``_noter_rabot_vivier``, rapport seulement, écrit pour le seul monde du programme).
+_PARTAGES_SANS_EFFET = frozenset({'debug_logs', '_rabots_vivier'})
 
 
 def _attribut_de_self(noeud):

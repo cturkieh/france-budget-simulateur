@@ -922,9 +922,15 @@ _PARAM_DOMAINS_MOTEUR = {
     # vivier d'un mandat 2028-2032 en mode cadre (FP_TAUX_NON_REMPLACEMENT_MAX ×
     # DEPARTS_ANNUELS_FP × 5 cohortes = 525 950 ; 631 140 sur les 6 cohortes
     # 2027-2032 du mode historique). Le banc montre un effet proportionnel, sans
-    # écrêtage, à −480 000 et −500 000. Au-delà du vivier, la cible serait rabotée
-    # jusqu'en 2032 puis rattrapée d'un coup en 2033 : garde
-    # test_borne_effectifs_sous_le_vivier_du_mandat (tests/test_parametres_v072.py).
+    # écrêtage, à −480 000 et −500 000, pour un début en 2028 sans réforme de
+    # l'État (garde test_borne_effectifs_sous_le_vivier_du_mandat,
+    # tests/test_parametres_v072.py). Ailleurs, le vivier peut raboter la cible :
+    # début en 2029 ou après (moins de cohortes pour la même cible en 2032), ou
+    # curseur + réforme de l'État (même vivier). Le stock retiré prend alors du
+    # retard et rattrape la cible quand le vivier a assez grandi : en 2033 pour
+    # un début en 2029, un an plus tard par année de début (jamais dans
+    # l'horizon 2035 pour un début en 2032 à −500 000). Ce rabot est signalé
+    # dans report.leviers_ecretes (motif « vivier ») et par un avis.
     'fonction_publique': {
         'effectifs': (-500_000.0, 60_000.0),
         'point_indice': (-2.0, 10.0),

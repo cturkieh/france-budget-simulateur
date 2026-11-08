@@ -142,6 +142,21 @@ def _fp_effectifs_annees_de_rampe(year: int, premiere: int = FP_EFFECTIFS_PREMIE
     return min(max(year - premiere + 1, 0), FP_EFFECTIFS_ANNEE_CIBLE - premiere + 1)
 
 
+def _noter_rabot_vivier(journal: Dict | None, monde: str | None, annee: int,
+                        cible: float, realise: float, capacite: float) -> None:
+    """Consigne un RABOT du curseur effectifs par le vivier de départs (v0.7.2,
+    revue passe 1) pour ``report.leviers_ecretes`` (motif ``vivier``) et
+    l'avis de ``report.warnings`` : une entrée par année rabotée, la dernière
+    étant publiée. Rapport seulement, aucun effet sur le calcul (comme
+    ``debug_logs``). Seuls le monde du programme (mode cadre) et le monde
+    unique (mode historique, ``monde`` None) sont consignés : les mondes du
+    droit en vigueur et l'évaluation isolée des réajustements ne décrivent pas
+    la demande de l'appelant."""
+    if journal is None or monde not in (None, 'programme'):
+        return
+    journal[annee] = {'cible': cible, 'realise': realise, 'capacite': capacite}
+
+
 class EfficienceMixin(_MixinBase):
     """Handlers Section 1 — Efficience et organisation."""
 
@@ -531,6 +546,9 @@ class EfficienceMixin(_MixinBase):
                         f"plafonnée par le vivier ({FP_TAUX_NON_REMPLACEMENT_MAX:.0%} des "
                         f"départs cumulés {vivier_cumule:,.0f}, réforme {deja_reforme:,.0f}) "
                         f"→ réalisé {variation_residuelle:,.0f}")
+                    _noter_rabot_vivier(getattr(self, '_rabots_vivier', None),
+                                        getattr(self, '_monde_actif', None), year,
+                                        variation_effectifs, variation_residuelle, capacite)
             else:
                 variation_residuelle = cible_annee
             impact_effectifs = variation_residuelle * cout_moyen_agent / 1e9  # en Md€

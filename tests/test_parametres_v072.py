@@ -120,7 +120,7 @@ def test_porte_des_parametres_consigne_l_ecretage():
     assert out['effectifs'] == -500_000.0
     assert list(ecretages.values()) == [{
         'levier': 'fonction_publique.effectifs', 'demande': -600_000,
-        'applique': -500_000.0, 'borne': [-500_000.0, 60_000.0]}]
+        'applique': -500_000.0, 'borne': [-500_000.0, 60_000.0], 'motif': 'domaine'}]
 
 
 def test_porte_des_parametres_ne_consigne_rien_dans_le_domaine():
@@ -143,7 +143,7 @@ def test_porte_d_intensite_consigne_l_ecretage_et_rend_nan_en_texte():
                               strict=False, corrections={}, ecretages=ecretages)
     lignes = list(ecretages.values())
     assert lignes[0] == {'levier': 'isf_climatique.intensite', 'demande': 3.0,
-                         'applique': 1.0, 'borne': [0.0, 1.0]}
+                         'applique': 1.0, 'borne': [0.0, 1.0], 'motif': 'domaine'}
     assert lignes[1]['demande'] == 'nan' and lignes[1]['applique'] == 0.0
     json.dumps(lignes, allow_nan=False)
 
@@ -199,7 +199,7 @@ def test_api_tolerant_expose_leviers_ecretes(_client, monkeypatch):
     rapport = r.json()['report']
     assert rapport['leviers_ecretes'] == [{
         'levier': 'fonction_publique.effectifs', 'demande': -600000,
-        'applique': -500000.0, 'borne': [-500000.0, 60000.0]}]
+        'applique': -500000.0, 'borne': [-500000.0, 60000.0], 'motif': 'domaine'}]
     assert rapport['valid'] is False
 
 
@@ -217,3 +217,124 @@ def test_api_strict_refuse_sans_ecreter(_client, monkeypatch):
     r = _client.post('/simulate', json={'periods': 10, 'mesures': {
         'fonction_publique': {'effectifs': -600000}}})
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# 3. Rabot du vivier visible (revue passe 1, E1) : motif « vivier »
+# ---------------------------------------------------------------------------
+_REFORME_50 = {'fusion_agences': 50, 'digitalisation': 50}
+_FIN_HORIZON = 2035
+
+
+def _cible_et_capacite_sans_reforme(cible: float, debut: int) -> list[tuple[int, float, float]]:
+    """Oracle arithmétique indépendant du handler, curseur seul : (année, cible
+    de l'année, capacité du vivier), rampe linéaire début-2032, une cohorte de
+    départs par an depuis le début."""
+    duree = FP_EFFECTIFS_ANNEE_CIBLE - debut + 1
+    lignes = []
+    for an in range(debut, _FIN_HORIZON + 1):
+        ecoule = min(an - debut + 1, duree)
+        lignes.append((an, cible * ecoule / duree,
+                       FP_TAUX_NON_REMPLACEMENT_MAX * DEPARTS_ANNUELS_FP * (an - debut + 1)))
+    return lignes
+
+
+def _entree_vivier(rapport: dict) -> list[dict]:
+    return [e for e in rapport['leviers_ecretes'] if e.get('motif') == 'vivier']
+
+
+@pytest.mark.parametrize('annee_debut', [2028, 2029, 2030, 2031, 2032])
+def test_rabot_du_vivier_signale_si_et_seulement_si_la_cible_est_rabotee(annee_debut, monkeypatch):
+    """Garde comportemental, curseur à la borne basse : l'entrée « vivier » est
+    présente si et seulement si le réalisé est inférieur à la cible une année
+    (oracle arithmétique), avec le réalisé de la dernière année rabotée ;
+    rapport valide (limite du modèle, pas entrée invalide) et un avis."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    cible = PARAM_DOMAINS['fonction_publique']['effectifs'][0]
+    _, _, rapport = _simulateur({'fonction_publique': {'effectifs': cible}},
+                                annee_debut=annee_debut).simulate()
+    rabotees = [(an, -cap) for an, c, cap in _cible_et_capacite_sans_reforme(cible, annee_debut)
+                if -c > cap]
+    entrees = _entree_vivier(rapport)
+    avis = [w for w in rapport['warnings'] if 'rabotée par le vivier' in w]
+    assert rapport['valid'] is True, rapport['warnings']
+    if not rabotees:
+        assert entrees == [] and avis == []
+        return
+    derniere, realise = rabotees[-1]
+    assert entrees == [{'levier': 'fonction_publique.effectifs', 'demande': cible,
+                        'applique': pytest.approx(realise), 'borne': [pytest.approx(realise), None],
+                        'motif': 'vivier', 'annee': derniere}]
+    assert len(avis) == 1 and avis[0].startswith('Avis — ') and str(derniere) in avis[0]
+    json.dumps(rapport['leviers_ecretes'], allow_nan=False)
+
+
+def test_rabot_du_vivier_attendu_de_2029_a_2032():
+    """Témoin de l'oracle : à −500 000, le mandat 2028 n'est pas raboté, tous
+    les débuts suivants le sont (cinq cohortes = 525 950 postes au plus)."""
+    cible = PARAM_DOMAINS['fonction_publique']['effectifs'][0]
+    rabote = {d: any(-c > cap for _, c, cap in _cible_et_capacite_sans_reforme(cible, d))
+              for d in range(2028, 2033)}
+    assert rabote == {2028: False, 2029: True, 2030: True, 2031: True, 2032: True}
+
+
+@pytest.mark.parametrize('annee_debut', [None, 2028])
+@pytest.mark.parametrize('effectifs', [-100_000, -500_000])
+def test_rabot_du_vivier_avec_la_reforme(annee_debut, effectifs, monkeypatch):
+    """Curseur + réforme de l'État 50/50 (même vivier) : oracle = le journal du
+    handler (« plafonnée par le vivier »), monde du programme. Entrée présente
+    si et seulement si le handler a raboté, réalisé de la dernière année."""
+    monkeypatch.setenv('BUDGETLAB_STRICT', '')
+    monkeypatch.setattr(journal, 'DEBUG_MODE', True)
+    sim = _simulateur({'fonction_publique': {'effectifs': effectifs},
+                       'fonction_publique_reforme': _REFORME_50}, annee_debut=annee_debut)
+    _, _, rapport = sim.simulate()
+    lignes = [l for l in sim.debug_logs if _MARQUEUR_PLAFOND in l]
+    entrees = _entree_vivier(rapport)
+    assert rapport['valid'] is True, rapport['warnings']
+    if not lignes:
+        assert entrees == []
+        return
+    assert len(entrees) == 1
+    entree = entrees[0]
+    assert entree['demande'] == effectifs and entree['applique'] > effectifs
+    assert entree['borne'] == [entree['applique'], None]
+    assert f"réalisé {entree['applique']:,.0f}" in lignes[-1]
+    assert f"Y{entree['annee']}:" in lignes[-1]
+
+
+def test_rabot_du_vivier_cas_de_la_revue():
+    """Valeurs de la revue passe 1 : effectifs + réforme 50/50, mandat 2028 :
+    −311 645 en 2035 pour −500 000 demandés, cible non atteinte à l'horizon."""
+    _, _, rapport = _simulateur({'fonction_publique': {'effectifs': -500_000},
+                                 'fonction_publique_reforme': _REFORME_50},
+                                annee_debut=2028).simulate()
+    (entree,) = _entree_vivier(rapport)
+    assert (entree['applique'], entree['annee']) == (pytest.approx(-311_645), 2035)
+    assert any("non atteinte à l'horizon 2035" in w for w in rapport['warnings'])
+
+
+def test_rabot_du_vivier_une_entree_par_simulation():
+    """Dédoublonné (une entrée quel que soit le nombre d'années rabotées) et
+    ré-armé par simulate()."""
+    sim = _simulateur({'fonction_publique': {'effectifs': -500_000}}, annee_debut=2032)
+    _, _, premier = sim.simulate()
+    _, _, second = sim.simulate()
+    assert len(_entree_vivier(premier)) == 1
+    assert premier['leviers_ecretes'] == second['leviers_ecretes']
+
+
+def test_rabot_du_vivier_api(_client, monkeypatch):
+    """API : l'entrée « vivier » sort dans `report.leviers_ecretes`, 200,
+    rapport valide, même en mode strict (rien n'est refusé)."""
+    for strict in ('', '1'):
+        monkeypatch.setenv('BUDGETLAB_STRICT', strict)
+        r = _client.post('/simulate', json={'periods': 10, 'annee_debut': 2029, 'mesures': {
+            'fonction_publique': {'effectifs': -500000}}})
+        assert r.status_code == 200, r.text
+        rapport = r.json()['report']
+        assert rapport['valid'] is True
+        assert rapport['leviers_ecretes'] == [{
+            'levier': 'fonction_publique.effectifs', 'demande': -500000,
+            'applique': -420760.0, 'borne': [-420760.0, None], 'motif': 'vivier',
+            'annee': 2032}]

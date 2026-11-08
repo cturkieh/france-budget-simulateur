@@ -956,11 +956,18 @@ avec une marge. En mode cadre, un mandat 2028-2032 compte cinq cohortes de dépa
 vivier peut retirer au plus 67 % × 157 000 × 5 = 525 950 postes, et la borne reste dessous.
 Un banc du 08/11/2026 l'a vérifié : à −480 000 et −500 000, l'effet sur le déficit et la
 dette vaut 1,20 et 1,25 fois celui de −400 000, et le stock retiré égale la cible chaque
-année. Au-delà du vivier, la cible serait rabotée jusqu'en 2032 puis rattrapée d'un coup en
-2033 ; un test-propriété (`tests/test_parametres_v072.py`) interdit une borne qui le
-permettrait. La réforme de l'État puise dans le même vivier : combinée au curseur, elle peut
-toujours le saturer, comme avant. Une valeur hors domaine est ramenée à la borne et signalée
-dans la réponse (`report.leviers_ecretes`, section « Paramètres d'entrée : noms et valeurs »).
+année. Ce « sans rabot » vaut pour un début en 2028 sans réforme de l'État ; un
+test-propriété (`tests/test_parametres_v072.py`) interdit une borne qui le briserait. Ailleurs,
+le vivier peut raboter la cible. Un programme qui commence en 2029 ou après dispose de moins
+de cohortes pour la même cible en 2032 : à −500 000, il retire 420 760 postes en 2032 pour
+un début en 2029, puis rattrape la cible en 2033. Le rattrapage glisse d'un an par année de
+début, et n'a pas lieu dans l'horizon 2035 pour un début en 2032. La réforme de l'État puise
+dans le même vivier : combinée au curseur, elle peut le saturer, comme avant (réforme 50/50 et
+−500 000 en 2028 : 311 645 postes retirés en 2035). **Tout rabot du vivier est signalé** dans
+`report.leviers_ecretes`, avec le motif `vivier`, le réalisé et l'année de la dernière année
+rabotée, et par un avis dans `report.warnings` ; le résultat reste valide, car c'est une
+limite du modèle et non une entrée invalide. Une valeur hors domaine est ramenée à la borne et
+signalée de même, motif `domaine` (section « Paramètres d'entrée : noms et valeurs »).
 
 **Ce que la règle corrige.** Jusqu'en v0.6.6, la cible était posée dès 2026 dans la seule
 limite de 100 % des départs cumulés depuis 2026 : RN et LR supprimaient 157 000 postes dès
@@ -2074,13 +2081,17 @@ Un levier ne lit que les paramètres de son contrat (`budget_simulator/engine/_n
 
 **Écrêtage visible (v0.7.2).** Une valeur ramenée à sa borne figure aussi, sous forme
 structurée, dans `report.leviers_ecretes` : une entrée par paramètre écrêté, avec le levier
-(`fonction_publique.effectifs`), la valeur demandée, la valeur appliquée et le domaine
-`[bas, haut]`. La liste est vide quand rien n'est écrêté. Elle couvre les domaines des
-paramètres nommés et de l'intensité, dans les deux modes temporels. Avant, l'écrêtage ne se
-lisait que dans une phrase de `report.warnings` et dans un journal serveur. Les trajectoires
-sont inchangées : le champ ne fait que décrire une correction déjà appliquée. Le plafond du
-vivier de départs de la fonction publique, qui rabote une cible à l'intérieur du handler,
-n'est pas un écrêtage de domaine et n'y figure pas.
+(`fonction_publique.effectifs`), la valeur demandée, la valeur appliquée, le domaine
+`[bas, haut]` et le motif `domaine`. La liste est vide quand rien n'est écrêté. Elle couvre
+les domaines des paramètres nommés et de l'intensité, dans les deux modes temporels. Avant,
+l'écrêtage ne se lisait que dans une phrase de `report.warnings` et dans un journal serveur.
+Les trajectoires sont inchangées : le champ ne fait que décrire une correction déjà
+appliquée. Le rabot du curseur effectifs par le vivier de départs, à l'intérieur du handler,
+y figure aussi, une fois par simulation, avec le motif `vivier` : la valeur appliquée est le
+stock retiré la dernière année rabotée (champ `annee`), la borne `[−capacité, null]` est la
+capacité du vivier cette année-là. Il n'invalide pas le résultat (`report.valid` inchangé,
+avis dans `report.warnings`). Hors du champ : une `annee_debut` ou une durée de rampe
+(`rampe.annees`) hors domaine, signalées dans `report.warnings` seulement.
 
 > **Corrigé en v0.6.10 (contre-audit externe, V2-04)** : un NOM de paramètre que le levier ne lit pas (faute de frappe : `{"tva_rate": {"tauxx": 0.25}}`) était ignoré en silence — le levier appliquait son défaut et le résultat restait déclaré valide. Il est désormais rejeté en mode strict (422, avec les noms admis) ; en mode tolérant, il est ignoré, signalé dans `report.warnings` et invalide le résultat, le levier restant appliqué avec ses autres paramètres. Même traitement pour une clé admise mais masquée par un mode exclusif (`{"taxe_superprofits": {"intensite": 0.5, "taux": 0.05}}` : `taux` n'était pas appliqué, sans signal). Les noms admis et les modes exclusifs sont dérivés du code (`budget_simulator/engine/_noms_parametres.py`, généré), jamais d'une liste tenue à la main. Les 10 scénarios publiés n'utilisent aucun nom inconnu : leurs trajectoires sont identiques au bit.
 

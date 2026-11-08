@@ -13,14 +13,18 @@ Aucune équation n'est touchée. Un commit par point.
    (`PARAM_DOMAINS`, décision du mainteneur du 08/11/2026). Elle couvre le −480 000 d'un
    programme annoncé, avec une marge. Elle reste sous la capacité du vivier de départs d'un
    mandat 2028-2032 en mode cadre : 67 % × 157 000 × 5 = 525 950. Un banc du 08/11/2026 a
-   montré un effet proportionnel, sans écrêtage, à −480 000 et −500 000. Preuve :
+   montré un effet proportionnel, sans écrêtage, à −480 000 et −500 000, pour un début en 2028
+   sans réforme de l'État. Un début plus tardif, ou le curseur combiné à la réforme de l'État,
+   peut être raboté par le vivier : ce rabot est signalé (point 7). Preuve :
    `tests/test_parametres_v072.py`, test-propriété « borne < capacité du vivier », calculée
    depuis les constantes, et témoin comportemental : aucun rabot à la borne, rabot détecté à
    110 % du vivier. Sorties bit-identiques : la borne ne change aucune valeur déjà admise.
 2. **Écrêtage visible : `report.leviers_ecretes`**. En mode tolérant, chaque paramètre
    ramené à une borne de `PARAM_DOMAINS` ou `INTENSITE_DOMAINS` y figure une fois par
-   simulation, sous la forme `{levier, demande, applique, borne}`. La liste est vide quand rien
-   n'est écrêté. Le mode strict refuse toujours en 422. Avant, l'écrêtage ne se lisait que
+   simulation, sous la forme `{levier, demande, applique, borne, motif}`, `motif` valant
+   `"domaine"` (le motif `"vivier"` est ajouté au point 7). La liste est vide quand rien
+   n'est écrêté. Le mode strict refuse toujours en 422. Hors champ : une `annee_debut` ou une
+   durée de rampe (`rampe.annees`) hors domaine, signalées dans `report.warnings` seulement. Avant, l'écrêtage ne se lisait que
    dans une phrase de `report.warnings` et dans un journal serveur. Preuve : tests unitaires,
    simulateur en mode historique et cadre, API tolérante et stricte ; réponse bit-identique
    hors ce champ sur cinq cas comparés avant et après, golden masters verts. Une demande non
@@ -90,6 +94,25 @@ Aucune équation n'est touchée. Un commit par point.
    `{}` ≡ droit réajusté explicite ≡ `plf_2026`. Avec les scénarios réencodés du point 5, aucun
    golden master ne bouge. Avec l'ancien `plf_2026` voté brut, le golden master cadre aurait
    changé.
+
+### Revue passe 1 (08/11/2026)
+
+7. **Rabot du vivier visible** (`handlers/efficience.py`, `engine/orchestrator.py`). Le plafond
+   du vivier de départs (67 % des départs cumulés, réforme de l'État comprise) rabotait la cible
+   du curseur `fonction_publique.effectifs` sans signal, hors du journal de débogage. Cas
+   mesurés à −500 000 : début en 2029, 420 760 postes retirés en 2032 puis la cible en 2033 ;
+   le rattrapage glisse d'un an par année de début, et n'a pas lieu dans l'horizon pour un début
+   en 2032 ; curseur + réforme 50/50 en 2028, 311 645 postes en 2035. Désormais, une entrée
+   par simulation dans `report.leviers_ecretes` : `{levier: "fonction_publique.effectifs",
+   demande, applique, borne: [−capacité, null], motif: "vivier", annee}`, valeurs de la
+   DERNIÈRE année rabotée, et un avis dans `report.warnings` qui donne la période. Le résultat
+   reste valide (limite du modèle, pas une entrée invalide), y compris en mode strict. Seul le
+   monde du programme est consigné en mode cadre. Trajectoires inchangées au bit. Preuve :
+   garde comportemental paramétré sur les débuts 2028 à 2032 (oracle arithmétique depuis les
+   constantes) et sur curseur + réforme (oracle : journal du handler), « réalisé < cible ⇔
+   entrée présente » ; 12 tests rouges sans le correctif. Le commentaire de `constants.py`
+   (« rattrapée d'un coup en 2033 ») et METHODOLOGIE sont corrigés : le « sans rabot » ne vaut
+   que pour un début en 2028 sans réforme.
 
 **Preuves** : `make test` et `BUDGETLAB_STRICT=1`, 2881 passed, 186 skipped, sans
 `scenarios.json` ; avec les scénarios réencodés du dépôt parent, 3231 passed, 50 skipped, dans les deux

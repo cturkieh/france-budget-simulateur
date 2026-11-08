@@ -83,7 +83,7 @@ import functools
 import logging
 import os
 from contextlib import contextmanager
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -96,6 +96,7 @@ from ..constants import (
     GINI_IMPACT_SCALE,
     GINI_SOFT_FLOOR,
     COMPETITIVITE_VARIATION_ANNUELLE_MAX,
+    FP_TAUX_NON_REMPLACEMENT_MAX,
     HANDLER_FAILED_KEY,
     PA_VARIATION_ANNUELLE_MAX,
     PLAFOND_IMPACT_TOTAL_PIB,
@@ -729,6 +730,45 @@ class OrchestratorMixin:
             _log_debug(self.debug_logs, f"  Ratio/PIB: {revenues/gdp*100:.1f}%")
 
         return spending, revenues, impacts
+
+    def _rabot_vivier_au_rapport(self, fin: int) -> Optional[Dict]:
+        """Rabot du curseur ``fonction_publique.effectifs`` par le vivier de
+        départs (v0.7.2, revue passe 1 : écrêtage visible). Le handler
+        (``handlers/efficience.py``) consigne chaque année où la cible de
+        l'année dépasse la capacité du vivier (67 % des départs cumulés, moins
+        la réforme de l'État) ; une seule entrée par simulation en sort, celle
+        de la DERNIÈRE année rabotée : ``applique`` = postes réellement retirés
+        cette année-là, ``borne`` = ``[-capacité, None]`` (pas de borne haute :
+        une création ne puise pas dans le vivier), ``annee`` = cette année.
+        Pose aussi un AVIS (``report.warnings``) : limite structurelle du
+        modèle, pas une entrée invalide, ``report.valid`` est inchangé. None si
+        rien n'est raboté. ``fin`` : dernière année simulée."""
+        rabots = getattr(self, '_rabots_vivier', None)
+        if not rabots:
+            return None
+        premiere, derniere = min(rabots), max(rabots)
+        dernier = rabots[derniere]
+
+        def postes(x: float) -> str:
+            return f"{x:+,.0f}".replace(',', ' ')
+
+        suite = (f"cible non atteinte à l'horizon {fin}" if derniere >= fin
+                 else f"cible atteinte à partir de {derniere + 1}")
+        periode = str(derniere) if premiere == derniere else f"{premiere} à {derniere}"
+        self._avis.setdefault(
+            ('fonction_publique', 'VIVIER'),
+            f"fonction_publique.effectifs : cible {postes(dernier['cible'])} postes rabotée par "
+            f"le vivier de départs ({FP_TAUX_NON_REMPLACEMENT_MAX * 100:g} % des départs cumulés, "
+            f"réforme de l'État comprise) de {periode} ; {postes(dernier['realise'])} réalisés "
+            f"en {derniere}, {suite}")
+        return {
+            'levier': 'fonction_publique.effectifs',
+            'demande': dernier['cible'],
+            'applique': dernier['realise'],
+            'borne': [-dernier['capacite'], None],
+            'motif': 'vivier',
+            'annee': derniere,
+        }
 
     @_entree_retablie
     def simulate(self) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
@@ -1447,6 +1487,7 @@ class OrchestratorMixin:
         # `critical`) — le statu quo sortait `false`, une TVA à 2 000 % `true`.
         # Les avis (bloc vide, plafond 5 % PIB du modèle) informent sans
         # invalider : l'entrée a été lue telle quelle.
+        rabot_vivier = self._rabot_vivier_au_rapport(int(results_df['Année'].iloc[-1]))
         corrections = list(self._corrections.values())
         trajectory_report['valid'] = not corrections
         trajectory_report['warnings'] = (
@@ -1460,6 +1501,8 @@ class OrchestratorMixin:
         # écrêté. Même information que les corrections « hors du domaine »
         # ci-dessus (qui restent), lisible sans analyser une phrase.
         trajectory_report['leviers_ecretes'] = list(self._ecretages.values())
+        if rabot_vivier is not None:
+            trajectory_report['leviers_ecretes'].append(rabot_vivier)
 
         # NOUVEAU: Ajouter les impacts détaillés au rapport
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year

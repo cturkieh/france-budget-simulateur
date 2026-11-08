@@ -114,7 +114,9 @@ def _noter_ecretage(ecretages: dict | None, measure_id: str, key: str,
                     demande, applique, low, high) -> None:
     """Consigne un ÉCRÊTAGE de domaine sous forme structurée (v0.7.2), pour le
     champ ``report.leviers_ecretes`` de la réponse : la même correction que
-    ``_noter``, lisible par une machine au lieu d'une phrase. Dédupliqué par
+    ``_noter``, lisible par une machine au lieu d'une phrase, ``motif``
+    ``domaine`` (l'autre motif, ``vivier``, est le rabot du curseur effectifs
+    par le vivier de départs : orchestrateur). Dédupliqué par
     (levier, paramètre), comme ``_noter``. Une demande non finie (NaN sur
     ``intensite``, seul cas qui atteint le clamp) est rendue en texte : la
     réponse JSON refuse NaN et ±inf."""
@@ -127,6 +129,7 @@ def _noter_ecretage(ecretages: dict | None, measure_id: str, key: str,
         'demande': demande,
         'applique': applique,
         'borne': [low, high],
+        'motif': 'domaine',
     })
 
 
