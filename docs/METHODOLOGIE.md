@@ -59,15 +59,17 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
 | Deficit 2026 | -5,30 % | **-5,18 %** (loi votee : -5,0 %) |
-| Dette 2030 | 129,12 % | **128,64 %** (mission IGF : 130,5) |
-| Dette 2035 | 151,17 % | **149,77 %** |
-| Deficit 2035 | -9,05 % | **-8,69 %** |
+| Dette 2030 | 129,23 % | **128,75 %** (mission IGF : 130,5) |
+| Dette 2035 | 151,32 % | **149,91 %** |
+| Deficit 2035 | -9,06 % | **-8,70 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
   aux comptes definitifs INSEE et inertie d'inflation ramenee au milieu de sa fourchette).
   Re-mesures le 07/10/2026 (v0.6.7 : moteur sans tirage aleatoire, cf. « Stochasticite », et
   tendanciel du potentiel re-ancre a 1,228 %, cf. « Calibration Baseline Validee »).
+  Re-mesures le 08/11/2026 (v0.7.2 : dette de depart fin 2025 recalee de 115,6 a 115,7 %,
+  Insee Premiere n° 2106, mai 2026 ; tendanciel derive 1,2285 %).
 
   Toute grandeur mesuree publiee dans ce document nomme desormais son objet, et une garde de la suite moteur (`tests/test_chiffres_publies_v061.py`) la recalcule a chaque execution : un chiffre qui cesse de reproduire fait rougir la CI au lieu de rester en ligne.
 
@@ -200,15 +202,15 @@ Sources et dates de chaque valeur : dans le fichier. Décomposition publiée par
 | Déflateur du PIB | 1,34 % | 1,5 % | +0,16 point |
 | IPC | déflateur injecté 1,5 % | 2,3 % | coin de +0,79 point |
 | Chômage | 7,82 % | 8,3 % | +0,48 point |
-| Solde | −5,78 % du PIB | −5,5 % | réajustements −1,2 Md€, puis résidu +8,5 Md€ de recettes |
-| Dette | 118,94 % du PIB | 119,4 % | ajustement stock-flux de +14,1 Md€ |
+| Solde | −5,78 % du PIB | −5,5 % | réajustements −1,2 Md€, puis résidu +8,6 Md€ de recettes |
+| Dette | 119,04 % du PIB | 119,4 % | ajustement stock-flux de +11,1 Md€ |
 
 Le solde « modèle » est celui du moteur avec les réajustements et le déflateur injecté. Même
 après eux, le moteur reste plus pessimiste que la dernière prévision officielle : le résidu est
 porté en recettes et persiste. Sans ce rebasage, l'écart disparaîtrait en 2027 et le déficit y
 rebondirait sans aucune mesure. Avec lui, le budget 2026 exécuté, reconduit à droit constant,
 donne en 2027 un **déficit de
-−5,63 %** du PIB et une **dette de 121,87 %**. La croissance 2027, 1,33 %, est le rebond du
+−5,63 %** du PIB et une **dette de 121,86 %**. La croissance 2027, 1,33 %, est le rebond du
 modèle : elle n'est jamais forcée. Une année injectée ne peut pas être l'année de début d'un
 programme : l'atterrissage écrase des niveaux (422 en mode strict).
 
@@ -1629,10 +1631,10 @@ synthétique PERMANENTE de 1 % du PIB sur le levier éducation, à partir du sta
 (1) autofinancement budgétaire — le solde public ne récupère que 13 % du coût brut (395 Md EUR sur
 2026-2036) : les recettes induites (+458 Md EUR, portées pour près des deux tiers par la hausse des prix)
 sont presque entièrement absorbées par les dépenses induites hors impulsion (+405 Md EUR : dépenses
-indexées sur les prix +262, intérêts +143) ; mesure distincte, en volume, sans prix ni intérêts :
+indexées sur les prix +262, intérêts +144) ; mesure distincte, en volume, sans prix ni intérêts :
 multiplicateur cumulé 10 ans × 0,51 = 0,47 < 1 ; (2) dette nominale — +101 Md EUR en 2030, +342 Md EUR
 en 2036 ; (3) ratio dette/PIB — le PIB nominal plus haut (volume et prix : +2,33 % en 2030 pour +1,41 % en
-volume) gonfle le dénominateur : le ratio passe légèrement SOUS le statu quo en 2030 (−0,05 pt) et 2031
+volume) gonfle le dénominateur : le ratio passe légèrement SOUS le statu quo en 2030 (−0,06 pt) et 2031
 (−0,01 pt) sans que le coût soit remboursé, puis le dépasse (+2,3 pt en 2035). C'est un garde-fou sur un choc, pas une démonstration pour
 tous les investissements, intensités, combinaisons et états macroéconomiques ; il est complété par le
 balayage du curseur éducation (`tests/test_symetrie_v060.py` : dette 2035 croissante de 45 à 85, en euros
@@ -2324,28 +2326,28 @@ inchangee, Tableaux 3/4/5/6. Corridor verrouille en CI
 vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 78 -> 124 Md EUR, taux apparent 2,2 -> 3,1 % (2026-2030).
 
-**Valeurs réelles du scénario de référence face à la mission** (v0.6.7, lot 3b — tendanciel dérivé 1,228 %, TOL_DETTE portée de 1,6 à 2,0 pt ; HCFP : dette 2030 ≈ 129,5 %) :
+**Valeurs réelles du scénario de référence face à la mission** (v0.6.7, lot 3b — TOL_DETTE portée de 1,6 à 2,0 pt ; HCFP : dette 2030 ≈ 129,5 % ; re-mesurées en v0.7.2, dette de départ 115,7 %, tendanciel dérivé 1,2285 %) :
 
 | Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
 |---|---|---|---|---|---|---|
-| 2026 | 117,85 | 118,4 | −0,55 | −5,18 | −5,00 | 0,37 % |
-| 2027 | 120,22 | 121,4 | −1,18 | −5,35 | −5,88 | 0,24 % |
-| 2028 | 122,77 | 124,2 | −1,43 | −5,58 | −6,21 | 0,01 % |
-| 2029 | 125,56 | 127,3 | −1,74 | −5,85 | −6,57 | −0,05 % |
-| 2030 | 128,64 | 130,5 | −1,86 | −6,20 | −6,76 | −0,12 % |
+| 2026 | 117,95 | 118,4 | −0,45 | −5,18 | −5,00 | 0,37 % |
+| 2027 | 120,32 | 121,4 | −1,08 | −5,36 | −5,88 | 0,24 % |
+| 2028 | 122,88 | 124,2 | −1,32 | −5,58 | −6,21 | 0,01 % |
+| 2029 | 125,67 | 127,3 | −1,63 | −5,86 | −6,57 | −0,05 % |
+| 2030 | 128,75 | 130,5 | −1,75 | −6,20 | −6,76 | −0,12 % |
 
-Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,12 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,86 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
+Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,12 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,75 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
 | Deficit | **-5,18 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30) |
-| Dette | **128,64 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,86 pt depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
-| Dette | **129,12 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **151,17 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,77) |
-| Deficit | **-9,05 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,69) |
-| Croissance potentielle | tendanciel 1,228 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,128 pt (-0,005 x (115,6 - 90) %) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
+| Dette | **128,75 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,75 pt (v0.7.2 ; -1,86 avant le recalage de la dette de depart) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
+| Dette | **129,23 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
+| Dette | **151,32 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 149,91) |
+| Deficit | **-9,06 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,70) |
+| Croissance potentielle | tendanciel 1,2285 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,1285 pt (-0,005 x (115,7 - 90) %, dette fin 2025 de l'Insee Premiere n° 2106, mai 2026 ; 0,128 pt sur 115,6 avant v0.7.2) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
 | Cible BCE | 2,0% (`BCE_CIBLE_INFLATION`) | Garde-fou de surchauffe, inactif en statu quo |

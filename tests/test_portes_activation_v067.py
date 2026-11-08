@@ -23,9 +23,11 @@ est mis à zéro : l'effet vaut déjà 0 en 0, la porte ne fait que créer une m
 import json
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
+from budget_simulator.engine import orchestrator as orchestrator_module
 from budget_simulator.simulator import BudgetSimulatorV45
 
 D = 1e-9
@@ -60,8 +62,14 @@ def _scenarios():
 
 
 def _dette_2035(mesures, levier, param, x):
+    """Dette 2035 NON arrondie. v0.7.2 : mesurée à travers l'arrondi de sortie
+    (2 décimales), un écart réel de 7e-5 pt valait 0,01 pt dès que la valeur
+    tombait sur une frontière d'arrondi (Horizons, 144,325 après le recalage de
+    la dette 2025) — un faux saut, plus grand qu'EPSILON_PT. Les sauts que la
+    garde vise (0,006 à 0,82 pt) restent visibles sans arrondi."""
     m = {**mesures, levier: {**(mesures.get(levier) or {}), param: x}}
-    df, _, _ = BudgetSimulatorV45(periods=10, mesures=m).simulate()
+    with patch.object(orchestrator_module, 'round', lambda v, n=None: float(v), create=True):
+        df, _, _ = BudgetSimulatorV45(periods=10, mesures=m).simulate()
     return float(df['Dette/PIB %'].iloc[-1])
 
 

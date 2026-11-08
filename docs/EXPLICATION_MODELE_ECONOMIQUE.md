@@ -222,16 +222,16 @@ La recurrence s'applique des l'annee 1 : plus de regime special 2026 (« bridgin
 Deficit = Depenses - Recettes
 ```
 
-**Calibration baseline — statu quo NU, mesure sur l'etat livre (07/10/2026, v0.6.7) :**
+**Calibration baseline — statu quo NU, mesure sur l'etat livre (07/10/2026, v0.6.7 ; dette re-mesuree le 08/11/2026, v0.7.2) :**
 - Deficit 2026 : -5,30% du PIB
-- Dette 2030 : 129,12% du PIB (HCFP : >125% sans ajustement)
-- Deficit 2035 : -9,05% du PIB
-- Dette 2035 : 151,17% du PIB
+- Dette 2030 : 129,23% du PIB (HCFP : >125% sans ajustement)
+- Deficit 2035 : -9,06% du PIB
+- Dette 2035 : 151,32% du PIB
 
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 (vote) »**, qui encode la loi de
-> finances et rend -5,18 % de deficit 2026, 128,64 % de dette 2030 et 149,77 %
+> finances et rend -5,18 % de deficit 2026, 128,75 % de dette 2030 et 149,91 %
 > en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -249,7 +249,7 @@ Dette (t) = Dette (t-1) + Deficit (t)
 ```
 
 **Exemple :**
-- Dette 2025 : ~3 460 Md EUR (115,6% du PIB de 2 991 Md EUR)
+- Dette 2025 : ~3 460 Md EUR (115,7% du PIB de 2 991 Md EUR)
 - Deficit 2026 : ~-150 Md EUR
 - **Dette 2026 : ~3 610 Md EUR**
 
@@ -586,7 +586,7 @@ La part est celle de l'expansion brute (hausses de dépenses et baisses de recet
 
 **Situation France 2025 :**
 - Deficit : ~5% PIB -> **NON CONFORME**
-- Dette : 115,60% PIB -> **NON CONFORME**
+- Dette : 115,70% PIB -> **NON CONFORME**
 
 **Sanctions possibles :**
 - Procedure pour deficit excessif (PDE)
@@ -638,7 +638,7 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 
 **Parametres initiaux (2025) :**
 - PIB nominal : 2 991 Md EUR
-- Dette : 3 461 Md EUR (115,6% PIB)
+- Dette : 3 461 Md EUR (115,7% PIB)
 - Deficit : ~-150 Md EUR (-5%)
 - Chomage : 7,6%
 - Pouvoir d'achat : 100
@@ -650,17 +650,18 @@ Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en b
 | Croissance | 0,80% | 1,11% | 0,97% |
 | Inflation | 1,10% | 1,53% | 1,58% |
 | Chomage | 7,60% | 7,44% | 7,41% |
-| Dette/PIB | 115,60% | 129,12% | 151,17% |
-| Deficit/PIB | -5,08% | -6,44% | -9,05% |
+| Dette/PIB | 115,70% | 129,23% | 151,32% |
+| Deficit/PIB | -5,08% | -6,45% | -9,06% |
 
 Les lignes Inflation de ce tableau affichaient ~1,1% en 2030 comme en 2035
 jusqu'au 26/08/2026 — c'est-a-dire precisement la variable que le recalage de
 la courbe de Phillips existe pour corriger, laissee a sa valeur d'avant. Tableau
 re-mesure en entier le 07/10/2026 (v0.6.7) : ses lignes croissance, inflation,
-chomage et deficit 2030 etaient encore celles d'etats anterieurs.
+chomage et deficit 2030 etaient encore celles d'etats anterieurs. Dette et deficit
+re-mesures le 08/11/2026 (v0.7.2 : dette de depart recalee a 115,7 %).
 
 **Analyse :**
-- La dette monte a 151,17% d'ici 2035 sans aucune mesure (129,12% des 2030 — HCFP : >125% sans ajustement)
+- La dette monte a 151,32% d'ici 2035 sans aucune mesure (129,23% des 2030 — HCFP : >125% sans ajustement)
 - Le deficit se creuse sous l'effet des depenses (vieillissement, defense, sante) et de la boule de neige des interets
 - La croissance s'erode lentement via le debt drag
 - L'inflation effective reste sous le point fixe 1,6% (output gap negatif)
@@ -681,7 +682,7 @@ chomage et deficit 2030 etaient encore celles d'etats anterieurs.
 - Deficit/PIB passe de 5% a ~3,5%
 
 **Impact sur trajectoire :**
-- Debt drag reduit (trajectoire de dette tres en-dessous du statu quo NU, 151,17% en 2035)
+- Debt drag reduit (trajectoire de dette tres en-dessous du statu quo NU, 151,32% en 2035)
 - Croissance maintenue a ~1,0%
 - PA legerement inferieur au statu quo a court terme (effort budgetaire), ecart resorbe ensuite
 
@@ -728,7 +729,7 @@ chomage et deficit 2030 etaient encore celles d'etats anterieurs.
 
 ### Le Trilemme Fondamental
 
-Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
+Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 
 1. **Maintenir le pouvoir d'achat** (croissance > inflation)
 2. **Stabiliser la dette** (deficit < ~3% PIB au regime nominal v4.0)
@@ -737,7 +738,7 @@ Avec une dette a 115,6% du PIB, la France fait face a un trilemme impossible :
 **IL FAUT CHOISIR :**
 - Accepter un PA qui stagne (~+0,3 pt/an en statu quo : croissance faible, gains quasi nuls en fin d'horizon)
 - OU reformer (fiscal, structurel)
-- OU laisser filer la dette (insoutenable : 129,12% des 2030, 151,17% en 2035 sans aucune mesure)
+- OU laisser filer la dette (insoutenable : 129,23% des 2030, 151,32% en 2035 sans aucune mesure)
 
 ### Points Cles du Modele v4.0
 
@@ -758,9 +759,9 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,18% pour le scenario de reference** « Budget 2026 (vote) », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,12% PIB en statu quo NU ; 128,64% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,17% PIB en statu quo NU ; 149,77% pour le scenario de reference. Deficit 2035 : -9,05% / -8,69%
-- Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,228 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
+- Dette 2030 : 129,23% PIB en statu quo NU ; 128,75% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 149,91% pour le scenario de reference. Deficit 2035 : -9,06% / -8,70%
+- Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe
 

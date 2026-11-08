@@ -78,10 +78,12 @@ def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
     """Rouge sur v0.6.9 : colonne 1,248206 % contre 1,048206 % consommé."""
     df, detail, consomme = _simuler_brut(CAS_AUDIT)
 
-    # Les chiffres du contre-audit se reproduisent (6 décimales publiées).
-    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.093783, abs=5e-7)
+    # Les chiffres du contre-audit se reproduisent (6 décimales publiées), re-déclarés
+    # en v0.7.2 (dette de départ 115,7 %, tendanciel dérivé +0,0005 pt) : croissance
+    # 1,093783 → 1,093757, potentiel consommé 1,048206 → 1,048180, gap inchangé.
+    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.093757, abs=5e-7)
     assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.200243, abs=5e-7)
-    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.048206, abs=5e-7)
+    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.048180, abs=5e-7)
 
     # La colonne publiée est le potentiel consommé, pas celui préparé pour 2031.
     assert detail.loc[ANNEE_AUDIT, 'Croissance_Potentielle_Totale %'] == pytest.approx(

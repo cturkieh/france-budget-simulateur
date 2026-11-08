@@ -15,10 +15,14 @@ POLICY_MEASURES_PATH = Path(__file__).resolve().parent.parent / 'policy_measures
 # === BASELINE ECONOMIC PARAMETERS (réalisé INSEE 2025, comptes provisoires) ===
 # Ancrage sur l'atterrissage RÉALISÉ INSEE 2025 (IR n°78 du 27/03/2026, reconfirmé Comptes de
 # la Nation 29/05/2026 ; statut provisoire, révisable 03/2027), et non plus la prévision PLF.
+# v0.7.2 : la dette, elle, a été RÉVISÉE par le compte de mai (Insee Première n° 2106,
+# « Le compte des administrations publiques en 2025 », mai 2026, figure 5) : 3 460,5 Md€,
+# 115,7 % du PIB, contre 115,6 % à l'IR n° 78. 1,157 × 2 991 = 3 460,6 Md€ (1,156 en
+# donnait 3 457,6, 2,9 Md€ que l'atterrissage 2026 absorbait en ajustement stock-flux).
 # Déficit et dette étaient déjà conformes ; on corrige les NIVEAUX (ratios honnêtes 57,2/52,1)
 # et surtout la charge d'intérêts. Identité année 0 (orchestrator.py:348) : dépenses = depenses_base − intérêts.
 PIB_BASE_2025_MD_EUR = 2991  # PIB nominal réalisé 2025 (INSEE)
-DETTE_RATIO_2025 = 1.156  # 115.6% du PIB (dette Maastricht ~3460 Md€, inchangé, conforme au réalisé)
+DETTE_RATIO_2025 = 1.157  # 115,7 % du PIB fin 2025 (dette Maastricht 3 460,5 Md€, Insee Première n° 2106, mai 2026)
 RECETTES_BASE_MD_EUR = 1562  # Recettes totales APU réalisées 2025 (INSEE) — ex-1545 (prévision PLF)
 DEPENSES_BASE_MD_EUR = 1714  # Dépenses APU réalisées 2025 (INSEE) — ex-1698 (prévision PLF)
 CHARGES_INTERET_MD_EUR = 64.7  # Charge d'intérêts APU réalisée 2025 (INSEE, +11,2%) — ex-56 (sous-évalué)
@@ -474,13 +478,14 @@ EVICTION_SURCROIT_NON_PRODUCTIF = 0.006    # surcroît d'intensité d'une expans
 # traînée au niveau de dette de 2025 — un NIVEAU (la dette héritée), pas une
 # pente : la traînée supplémentaire due à la dette qui monte ENSUITE reste un
 # effet du modèle, appliqué comme avant.
-#   tendanciel = 1,1 % − (−0,005) × (1,156 − 0,9) = 1,1 + 0,128 = 1,228 %
+#   tendanciel = 1,1 % − (−0,005) × (1,157 − 0,9) = 1,1 + 0,1285 = 1,2285 %
+#   (v0.7.2 : dette 2025 recalée de 1,156 à 1,157, tendanciel 1,228 → 1,2285 %)
 # Jusqu'en v0.6.6 : 1,1 % (v0.5.1 : 1,0), la traînée frappant la croissance
 # EFFECTIVE. Calée sur rien d'autre : le corridor de la mission qui en résulte
 # (tests/test_calibration_mission_v060.py) est publié tel quel (METHODOLOGIE).
 CROISSANCE_POTENTIELLE_MISSION = 0.011  # potentiel TOTAL officiel, moyenne 2027-2030
 CROISSANCE_POTENTIELLE = (CROISSANCE_POTENTIELLE_MISSION
-                          - DEBT_DRAG_COEFF * (DETTE_RATIO_2025 - DEBT_DRAG_SEUIL))  # 1,228 %
+                          - DEBT_DRAG_COEFF * (DETTE_RATIO_2025 - DEBT_DRAG_SEUIL))  # 1,2285 %
 # Bornes de l'hystérèse du tendanciel, RELATIVES à sa valeur de départ (v0.6.7,
 # lot 3b) : jusqu'ici absolues [0,7 ; 1,2 %], soit −0,4 / +0,1 pt autour de
 # l'ancien 1,1 %. Gardées absolues avec un tendanciel à 1,228 %, elles auraient
