@@ -372,9 +372,11 @@ async def simulate(request: SimulationRequest):
       `chomage_alloc.montant` non plus — les fournir ensemble est traité
       comme un nom non lu.
     - Mode cadre (`annee_debut` > 2026), règle « présent = imposé, absent =
-      hérité » : un paramètre présent est appliqué tel quel ; un levier absent,
-      ou un paramètre absent ou `null` d'un bloc présent, reçoit le droit en
-      vigueur réajusté (`cadre.mesures_effectives`). Exception, les leviers à
+      hérité » (v0.7.2) : un paramètre présent est appliqué tel quel, même égal
+      au budget voté ; un levier absent, ou un paramètre absent ou `null` d'un
+      bloc présent, reçoit le droit en vigueur RÉAJUSTÉ sur l'atterrissage 2026
+      (`cadre.mesures_effectives`) ; jusqu'en v0.7.1, une valeur égale au voté
+      était remplacée par le réajusté. Exception, les leviers à
       modes exclusifs (`chomage_alloc`, `taxe_superprofits`,
       `exonerations_salaires`) : un bloc partiel n'hérite de rien, le handler
       lit ses défauts pour les paramètres absents. Un paramètre posé au budget
@@ -413,12 +415,9 @@ async def simulate(request: SimulationRequest):
       mode cadre : avant `annee_debut`, le moteur applique le DROIT EN
       VIGUEUR (budget 2026 voté, reconduit à droit constant en 2027 ;
       `budget_simulator/data/droit_en_vigueur.json`), le programme ensuite,
-      levier par levier. Règle « présent = imposé, absent = hérité »
-      (v0.7.2) : un paramètre présent est appliqué tel quel, même égal au
-      budget voté ; un levier ou un paramètre absent reçoit le droit en
-      vigueur RÉAJUSTÉ sur l'atterrissage 2026 (jusqu'en v0.7.1, une valeur
-      égale au voté était remplacée par le réajusté). `{}` est donc le statu
-      quo du mode cadre. Non entier (texte, booléen, flottant) : 422 dans les
+      levier par levier, selon la règle « présent = imposé, absent = hérité »
+      ci-dessus : `{}` est donc le statu quo du mode cadre. Non entier
+      (texte, booléen, flottant) : 422 dans les
       deux modes ; hors [2026 ; 2032] : 422 en strict, ramené à la borne en
       tolérant (`report.valid` à `false`). `rampe` (facultative, mode cadre) :
       `{"annees": 1-6, "leviers": ["levier.parametre", …]}`, montée en charge

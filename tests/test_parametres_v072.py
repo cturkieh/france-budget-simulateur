@@ -26,6 +26,7 @@ from budget_simulator.constants import (
     FP_TAUX_NON_REMPLACEMENT_MAX,
     PARAM_DOMAINS,
 )
+from budget_simulator.engine import cadre as _cadre
 from budget_simulator.engine._param_domain import (
     validate_intensite_domain,
     validate_param_domains,
@@ -47,7 +48,10 @@ def _simulateur(mesures, annee_debut=None) -> BudgetSimulatorV45:
 # Premier budget du mandat en mode cadre : celui des programmes et du
 # simulateur (engine/cadre.py, en-tête), élection de 2027.
 _PREMIERE_ANNEE_MANDAT = 2028
+# Marqueurs des textes (contrat) : journal du handler, avis du rapport.
 _MARQUEUR_PLAFOND = "plafonnée par le vivier"
+_MARQUEUR_AVIS_VIVIER = "rabotée par le vivier"
+_MARQUEUR_AVIS_IMPOSE = "imposé (budget voté)"
 
 
 def _capacite_vivier_mandat() -> float:
@@ -257,7 +261,7 @@ def test_rabot_du_vivier_signale_si_et_seulement_si_la_cible_est_rabotee(annee_d
     rabotees = [(an, -cap) for an, c, cap in _cible_et_capacite_sans_reforme(cible, annee_debut)
                 if -c > cap]
     entrees = _entree_vivier(rapport)
-    avis = [w for w in rapport['warnings'] if 'rabotée par le vivier' in w]
+    avis = [w for w in rapport['warnings'] if _MARQUEUR_AVIS_VIVIER in w]
     assert rapport['valid'] is True, rapport['warnings']
     if not rabotees:
         assert entrees == [] and avis == []
@@ -309,10 +313,10 @@ def test_rabot_du_vivier_cas_de_la_revue():
     −311 645 en 2035 pour −500 000 demandés, cible non atteinte à l'horizon."""
     _, _, rapport = _simulateur({'fonction_publique': {'effectifs': -500_000},
                                  'fonction_publique_reforme': _REFORME_50},
-                                annee_debut=2028).simulate()
+                                annee_debut=_PREMIERE_ANNEE_MANDAT).simulate()
     (entree,) = _entree_vivier(rapport)
-    assert (entree['applique'], entree['annee']) == (pytest.approx(-311_645), 2035)
-    assert any("non atteinte à l'horizon 2035" in w for w in rapport['warnings'])
+    assert (entree['applique'], entree['annee']) == (pytest.approx(-311_645), _FIN_HORIZON)
+    assert any(f"non atteinte à l'horizon {_FIN_HORIZON}" in w for w in rapport['warnings'])
 
 
 def test_rabot_du_vivier_une_entree_par_simulation():
@@ -344,27 +348,22 @@ def test_rabot_du_vivier_api(_client, monkeypatch):
 # ---------------------------------------------------------------------------
 # 4. Présent = imposé : avis quand le voté annule un réajustement (E3)
 # ---------------------------------------------------------------------------
-from budget_simulator.engine import cadre as _cadre  # noqa: E402
-
-_DEBUT_CADRE = 2028
-
-
 def _simuler_cadre(mesures, strict: bool, monkeypatch):
     monkeypatch.setenv('BUDGETLAB_STRICT', '1' if strict else '')
-    return _simulateur(mesures, annee_debut=_DEBUT_CADRE).simulate()
+    return _simulateur(mesures, annee_debut=_PREMIERE_ANNEE_MANDAT).simulate()
 
 
-def _voté_différent_du_réajusté() -> list[tuple[str, str, float, float]]:
+def _vote_different_du_reajuste() -> list[tuple[str, str, float, float]]:
     """(levier, paramètre, voté, réajusté) lus dans le moteur, jamais recopiés."""
     vote = _cadre.charger_droit_en_vigueur().mesures
-    reajuste = _cadre.droit_reajuste(vote, _cadre.charger_atterrissage(), _DEBUT_CADRE)
+    reajuste = _cadre.droit_reajuste(vote, _cadre.charger_atterrissage(), _PREMIERE_ANNEE_MANDAT)
     return [(l, p, v, reajuste[l][p]) for l, bloc in vote.items() for p, v in bloc.items()
             if reajuste[l].get(p) != v]
 
 
 def test_le_vote_differe_du_reajuste_pour_au_moins_un_parametre():
     """Témoin : sans réajustement, les tests de l'avis seraient vides."""
-    assert _voté_différent_du_réajusté()
+    assert _vote_different_du_reajuste()
 
 
 @pytest.mark.parametrize('strict', [False, True])
@@ -372,12 +371,12 @@ def test_avis_present_impose_annule_le_reajustement(strict, monkeypatch):
     """Un paramètre posé au budget voté, différent du réajusté : un avis par
     paramètre, rapport valide, résultat bit-identique hors ce texte (avis
     neutralisé en comparaison)."""
-    cas = _voté_différent_du_réajusté()
+    cas = _vote_different_du_reajuste()
     mesures: dict = {}
     for levier, param, vote, _ in cas:
         mesures.setdefault(levier, {})[param] = vote
     res, det, rapport = _simuler_cadre(mesures, strict, monkeypatch)
-    avis = [w for w in rapport['warnings'] if 'imposé (budget voté)' in w]
+    avis = [w for w in rapport['warnings'] if _MARQUEUR_AVIS_IMPOSE in w]
     assert rapport['valid'] is True
     assert len(avis) == len(cas)
     for (levier, param, vote, reajuste), texte in zip(cas, avis):
@@ -392,11 +391,11 @@ def test_avis_present_impose_annule_le_reajustement(strict, monkeypatch):
 
 def test_pas_d_avis_au_reajuste_ni_en_mode_historique(monkeypatch):
     """Au réajusté, ou hors mode cadre (le droit n'y est pas lu) : aucun avis."""
-    levier, param, vote, reajuste = _voté_différent_du_réajusté()[0]
+    levier, param, vote, reajuste = _vote_different_du_reajuste()[0]
     _, _, rapport = _simuler_cadre({levier: {param: reajuste}}, False, monkeypatch)
-    assert not [w for w in rapport['warnings'] if 'imposé (budget voté)' in w]
+    assert not [w for w in rapport['warnings'] if _MARQUEUR_AVIS_IMPOSE in w]
     _, _, rapport = _simulateur({levier: {param: vote}}).simulate()
-    assert not [w for w in rapport['warnings'] if 'imposé (budget voté)' in w]
+    assert not [w for w in rapport['warnings'] if _MARQUEUR_AVIS_IMPOSE in w]
 
 
 # ---------------------------------------------------------------------------

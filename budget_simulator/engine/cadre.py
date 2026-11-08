@@ -394,16 +394,17 @@ def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
     - un levier absent ou ``null`` est celui du droit en vigueur réajusté ;
     - un paramètre PRÉSENT est appliqué tel quel, même égal au budget voté :
       des franchises demandées à 100 sont appliquées à 100, pas au 120 réajusté ;
-    - un paramètre ABSENT (ou ``null``) d'un bloc présent reçoit la valeur du droit en vigueur
-      réajusté, jamais le défaut du moteur : un bloc partiel vaut le bloc
-      complet qui reprend le droit en vigueur. Sauf pour un levier à modes
-      exclusifs : on n'y ajoute jamais une clé qui en masquerait une autre (le
-      handler y lit alors ses défauts, comme en mode historique).
+    - un paramètre ABSENT (ou ``null``) d'un bloc présent reçoit la valeur du
+      droit en vigueur réajusté, jamais le défaut du moteur : un bloc partiel
+      vaut le bloc complet qui reprend le droit en vigueur ;
+    - exception, un levier à modes exclusifs : on n'y ajoute jamais une clé
+      qui en masquerait une autre (le handler y lit alors ses défauts, comme
+      en mode historique) ;
+    - un levier absent du droit en vigueur reste le bloc du programme.
 
     Jusqu'en v0.7.1, un « pont » traitait un bloc ou un paramètre égal au voté
     comme non touché et lui substituait le réajusté : une demande explicite
-    était remplacée sans le dire. Un levier absent du droit en vigueur reste le
-    bloc du programme."""
+    était remplacée sans le dire."""
     effectif = dict(droit_en_vigueur)
     for levier, bloc in programme.items():
         if bloc is None:
@@ -419,8 +420,9 @@ def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
             # sans signal.
             herites = {p: v for p, v in reference.items() if bloc.get(p) is None}
             if herites:
-                bloc = {**herites,
-                        **{p: v for p, v in bloc.items() if not (v is None and p in herites)}}
+                # Un paramètre hérité est absent ou ``null`` dans ``bloc`` : on
+                # n'y garde que les paramètres imposés.
+                bloc = {**herites, **{p: v for p, v in bloc.items() if p not in herites}}
         effectif[levier] = bloc
     return effectif
 

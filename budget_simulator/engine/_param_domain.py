@@ -110,27 +110,29 @@ def _noter(corrections: dict | None, measure_id: str, key, texte: str) -> None:
         corrections.setdefault((measure_id, key), texte)
 
 
+def entree_levier_ecrete(levier: str, demande, applique, borne: list,
+                         motif: str) -> dict:
+    """Une entrée de ``report.leviers_ecretes`` (v0.7.2), forme commune aux deux
+    motifs : ``domaine`` (``_noter_ecretage`` ci-dessous) et ``vivier`` (rabot
+    du curseur effectifs, orchestrateur, qui y ajoute ``annee``)."""
+    return {'levier': levier, 'demande': demande, 'applique': applique,
+            'borne': borne, 'motif': motif}
+
+
 def _noter_ecretage(ecretages: dict | None, measure_id: str, key: str,
                     demande, applique, low, high) -> None:
     """Consigne un ÉCRÊTAGE de domaine sous forme structurée (v0.7.2), pour le
     champ ``report.leviers_ecretes`` de la réponse : la même correction que
     ``_noter``, lisible par une machine au lieu d'une phrase, ``motif``
-    ``domaine`` (l'autre motif, ``vivier``, est le rabot du curseur effectifs
-    par le vivier de départs : orchestrateur). Dédupliqué par
-    (levier, paramètre), comme ``_noter``. Une demande non finie (NaN sur
-    ``intensite``, seul cas qui atteint le clamp) est rendue en texte : la
-    réponse JSON refuse NaN et ±inf."""
+    ``domaine``. Dédupliqué par (levier, paramètre), comme ``_noter``. Une
+    demande non finie (NaN sur ``intensite``, seul cas qui atteint le clamp)
+    est rendue en texte : la réponse JSON refuse NaN et ±inf."""
     if ecretages is None:
         return
     if isinstance(demande, float) and not math.isfinite(demande):
         demande = repr(demande)
-    ecretages.setdefault((measure_id, key), {
-        'levier': f"{measure_id}.{key}",
-        'demande': demande,
-        'applique': applique,
-        'borne': [low, high],
-        'motif': 'domaine',
-    })
+    ecretages.setdefault((measure_id, key), entree_levier_ecrete(
+        f"{measure_id}.{key}", demande, applique, [low, high], 'domaine'))
 
 
 def _avertir_agrege(warned: set | None, measure_id: str, jeton: str,

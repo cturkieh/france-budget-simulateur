@@ -114,6 +114,7 @@ from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
     EntreeInvalide,
     assainir_mesures,
+    entree_levier_ecrete,
     leviers_presents,
     tracer_si_levier_null,
     validate_intensite_domain,
@@ -761,14 +762,10 @@ class OrchestratorMixin:
             f"le vivier de départs ({FP_TAUX_NON_REMPLACEMENT_MAX * 100:g} % des départs cumulés, "
             f"réforme de l'État comprise) de {periode} ; {postes(dernier['realise'])} réalisés "
             f"en {derniere}, {suite}")
-        return {
-            'levier': 'fonction_publique.effectifs',
-            'demande': dernier['cible'],
-            'applique': dernier['realise'],
-            'borne': [-dernier['capacite'], None],
-            'motif': 'vivier',
-            'annee': derniere,
-        }
+        return {**entree_levier_ecrete('fonction_publique.effectifs', dernier['cible'],
+                                       dernier['realise'], [-dernier['capacite'], None],
+                                       'vivier'),
+                'annee': derniere}
 
     @_entree_retablie
     def simulate(self) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
@@ -1495,14 +1492,15 @@ class OrchestratorMixin:
             + [f"Avis — {texte}" for texte in self._avis.values()]
             + trajectory_report['warnings']
         )
-        # Écrêtages de domaine, structurés (v0.7.2) : chaque paramètre ramené à
-        # une borne de PARAM_DOMAINS ou INTENSITE_DOMAINS, {levier, demande,
-        # applique, borne}, dans l'ordre de l'entrée. Liste vide si rien n'est
-        # écrêté. Même information que les corrections « hors du domaine »
-        # ci-dessus (qui restent), lisible sans analyser une phrase.
-        trajectory_report['leviers_ecretes'] = list(self._ecretages.values())
-        if rabot_vivier is not None:
-            trajectory_report['leviers_ecretes'].append(rabot_vivier)
+        # Écrêtages structurés (v0.7.2) : motif « domaine », chaque paramètre
+        # ramené à une borne de PARAM_DOMAINS ou INTENSITE_DOMAINS, dans l'ordre
+        # de l'entrée (même information que les corrections « hors du domaine »
+        # ci-dessus, qui restent, lisible sans analyser une phrase) ; puis motif
+        # « vivier », le rabot du curseur effectifs. Liste vide si rien n'est
+        # écrêté.
+        trajectory_report['leviers_ecretes'] = (
+            list(self._ecretages.values())
+            + ([rabot_vivier] if rabot_vivier is not None else []))
 
         # NOUVEAU: Ajouter les impacts détaillés au rapport
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year
