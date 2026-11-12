@@ -42,7 +42,7 @@ api.py                   API FastAPI (4 endpoints, voir ci-dessous)
 |-------|--------|-------------|
 | `POST` | `/simulate` | Lance une simulation budgétaire (mesures + horizon de 1 à 10 ans) |
 | `GET` | `/scenarios` | Retourne les scénarios prédéfinis (status_quo, austerite, scandinave, relance_verte) |
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Health check ; `moteur_version` = version du moteur servi (`budget_simulator.__version__`) |
 | `GET` | `/` | Info API + liste endpoints |
 | `HEAD` | `/` | Variante sans body pour health checks plateforme |
 

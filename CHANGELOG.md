@@ -6,7 +6,8 @@ l'historique antérieur est décrit dans les messages de tags et dans
 
 ## [v0.8.1] — non publiée (proposée) — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics
 
-**Ce qui change** : des données et des textes, aucune équation ni constante du moteur. (1) Le droit en
+**Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, et un
+champ de `GET /health` (point 4). (1) Le droit en
 vigueur (`budget_simulator/data/droit_en_vigueur.json`) porte sa première valeur datée : la surtaxe
 d'IS des grandes entreprises (`is_exceptionnel_tge.montant`), 7,3 Md€ votés pour 2026 (réajustée à
 6,8 Md€ en 2026 par l'atterrissage, inchangé), **0 dès 2027** : contribution due au titre des deux
@@ -19,6 +20,11 @@ sont inscrits au droit (contrat § 0.9) : `fiscalite_capital` 0,128 et 0,186, `m
 paramètres de comportement restent hors du droit. Aucune autre valeur. (3) Les scénarios publiés,
 lus dans le `scenarios.json` du dépôt parent, sont ré-encodés sur leurs sources (release P du site :
 10 scénarios, un retiré, un ajouté, une source par paramètre dans `scenariosSources.json`).
+(4) **Version publiée** : `GET /health` publie `moteur_version` (« v0.8.1 »), lu dans
+`budget_simulator.__version__`, source unique du numéro ; la première entrée de ce CHANGELOG doit porter
+le même (`tests/test_version_publiee.py`). Deux versions peuvent servir le même contrat `/simulate` (une
+release de paramètres n'en change pas la forme) : un déploiement qui attend une version précise la lit
+ici. Avant v0.8.1, le champ est absent.
 
 **Ce que cela déplace, prouvé** (instantanés régénérés une seule fois, `BUDGETLAB_REGEN=1 make
 snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :

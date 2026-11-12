@@ -55,6 +55,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from budget_simulator import BudgetSimulatorV45, EntreeInvalide, load_default_values
+from budget_simulator import __version__ as VERSION_MOTEUR
 from budget_simulator.engine.cadre import PROFILS_ELIGIBLES, RAMPE_LEVIERS_ELIGIBLES
 
 load_dotenv()
@@ -702,10 +703,12 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """Health check."""
+    """Health check. ``moteur_version`` (« vX.Y.Z ») : la version du moteur servi, lue dans
+    ``budget_simulator.__version__`` ; deux versions peuvent servir le même contrat /simulate."""
     return {
         "status": "healthy",
         "version": "4.5",
+        "moteur_version": f"v{VERSION_MOTEUR}",
         "service": "budget-simulator-api",
         "debug_mode": DEBUG_MODE
     }
