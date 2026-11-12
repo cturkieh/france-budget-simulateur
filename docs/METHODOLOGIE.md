@@ -305,7 +305,16 @@ Champ de requête `profils`, à côté de `mesures`, en mode cadre seulement :
   Défaut (année manquante ou en trop, montant non fini ou hors domaine, plus d'entrées que d'années
   du mandat) : 422 en strict, entrée ignorée et correction tracée en tolérant (le programme
   s'applique alors chaque année). Un premier montant égal à la référence retarde l'origine d'horloge
-  du levier, comme « une seule année ».
+  du levier, comme « une seule année ». Précisions (revue du moteur, v0.8.1) : une année s'écrit en
+  quatre chiffres ASCII 0-9 (« ٢٠٢٨ » est illisible) ; aucune règle de monotonie, les montants
+  s'appliquent tels qu'écrits ; un objet JSON qui répète une année garde la DERNIÈRE valeur
+  (comportement standard du JSON, avant toute validation : le moteur ne voit qu'une année) ; si le
+  programme laisse le paramètre à sa référence (valeur égale ou absente de `mesures`), un montant
+  qui s'en écarte serait sans effet : 422 en strict, entrée ignorée et correction tracée en tolérant
+  (tous les montants à la référence : simple avis « calendrier sans effet ») ; un début ramené après
+  l'atterrissage en tolérant ne décale jamais les montants : écrits dès le début demandé, ils ne
+  commencent plus au début retenu, l'entrée est ignorée et tracée. Un nombre non fini dans le corps de
+  `/simulate` (`NaN`, `Infinity`, `1e400`), quel que soit le champ : 422, jamais 500.
 
 Référence : la valeur du droit en vigueur de l'année (celle du début, sauf valeur datée qui change
 ensuite) ; pour un levier absent du droit, son neutre ;

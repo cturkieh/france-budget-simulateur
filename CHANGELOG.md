@@ -138,6 +138,33 @@ onzième colonne du tableau du sens agrégé (écart de dette 2032 à la référ
 doit la reproduire, garde `tests/test_revue_adverse_v061.py` dans le dépôt parent) ;
 `docs/EXPLICATION_MODELE_ECONOMIQUE.md` : chiffres de la référence.
 
+**Corrections de la revue du moteur, avant publication** (un test rouge par point ; aucune équation ne
+change ; golden masters, deltas de référence et standalone identiques au bit, sans régénération) :
+- **Nombre non fini dans `/simulate` : 422, plus jamais 500.** Un `NaN`, un `Infinity` ou un littéral
+  hors des flottants (`1e400`) dans un montant de calendrier `valeurs`, `profils.*.annee`,
+  `profils.*.annees`, `annee_debut`, `periods` ou `rampe.annees` rendait un 500 : la réponse 422
+  standard de FastAPI recopie l'entrée fautive (`input`), et un flottant non fini n'est pas sérialisable
+  en JSON standard. La classe de route du `router` (`_RouteEntreesNonFinies`, `api.py`) relance l'erreur
+  avec ses nombres non finis écrits en texte (`"NaN"`, `"Infinity"`, `"-Infinity"`) ; toute autre réponse
+  422 est inchangée au bit. Dans la classe de route, et non dans un gestionnaire de l'application : le
+  correctif suit le routeur dans toute application qui l'inclut. Chaque refus de schéma est tracé
+  (WARNING : emplacement et type, jamais la valeur reçue). `tests/test_api_nombres_non_finis_v081.py`.
+- **Calendrier `valeurs` sans effet qui s'écarte de la référence : plus d'échec silencieux.** Quand le
+  programme laisse le paramètre à sa référence (valeur égale ou absente de `mesures`), des montants
+  datés différents de la référence étaient ignorés avec un simple avis, `report.valid` restant `true`.
+  Désormais : 422 en strict (message qui nomme le paramètre et les années) ; en tolérant, l'entrée est
+  ignorée et tracée comme correction (`report.valid = false`), comme toute entrée invalide. Un
+  calendrier dont tous les montants égalent la référence reste accepté avec l'avis « calendrier sans
+  effet ». Aucun scénario publié n'est concerné (chaque calendrier `valeurs` publié accompagne une
+  valeur de programme différente de la référence).
+- **Année d'un montant daté en chiffres ASCII seulement** (`[0-9]{4}`) : `\d{4}` admettait tout
+  chiffre Unicode (« ٢٠٢٨ », que Python lit 2028).
+- **Documenté, inchangé** : une année répétée dans l'objet JSON garde la dernière valeur (comportement
+  standard du JSON, avant toute validation) ; aucune règle de monotonie ; un début ramené après
+  l'atterrissage en tolérant ne décale jamais les montants (l'entrée est ignorée et tracée). Tests
+  ajoutés pour les trois cas. Non traité (conception, noté) : en tolérant, un seul montant fautif fait
+  ignorer tout le calendrier.
+
 ## [v0.8.0] — non publiée (proposée) — release « E » : onze curseurs, déplafonnement des cotisations salariales, garde-fous, effet d'offre « échelle »
 
 **Ce qui change** : une équation (l'effet d'offre structurel, point 5) ; onze curseurs nouveaux et

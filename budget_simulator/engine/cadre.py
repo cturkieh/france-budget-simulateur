@@ -336,10 +336,12 @@ def _entier(v) -> bool:
 
 def _annee_de_cle(c) -> Optional[int]:
     """Année d'une clé de ``valeurs`` : entier, ou texte de quatre chiffres
-    (clé d'un objet JSON) ; ``None`` sinon."""
+    ASCII 0-9 (clé d'un objet JSON) ; ``None`` sinon. ``\\d`` admettrait tout
+    chiffre Unicode (« ٢٠٢٨ », que ``int`` lit 2028) : hors contrat (revue du
+    moteur, v0.8.1)."""
     if _entier(c):
         return int(c)
-    if isinstance(c, str) and re.fullmatch(r'\d{4}', c):
+    if isinstance(c, str) and re.fullmatch(r'[0-9]{4}', c):
         return int(c)
     return None
 
@@ -1089,6 +1091,23 @@ class CadreTemporel:
                           cle=('cadre', 'rampe', 'ignores'))
         else:
             rampes = ()
+            # Calendrier « valeurs » sans effet dont un montant s'écarte de la
+            # référence : ces montants seraient ignorés en silence (revue du
+            # moteur, v0.8.1). Strict : refus ; tolérant : entrée ignorée et
+            # correction tracée (``report.valid = false``), comme toute entrée
+            # invalide. Tous les montants à la référence : avis, comme avant.
+            fautifs = _valeurs_sans_effet_fautives(sans_effet, demandes, mesures_droit,
+                                                   droit_apres_debut)
+            if fautifs:
+                if strict:
+                    raise ProfilInvalide(f"profils : {next(iter(fautifs.values()))} "
+                                         f"(mode BUDGETLAB_STRICT)")
+                _signaler(warned, corrections,
+                          f"profils : entrée(s) ignorée(s) — {_resume(list(fautifs.values()))}",
+                          cle=('cadre', 'profils', 'valeurs_sans_effet'))
+                demandes = {nom: p for nom, p in demandes.items() if nom not in fautifs}
+                en_vigueur = {nom: p for nom, p in en_vigueur.items() if nom not in fautifs}
+                sans_effet = tuple(nom for nom in sans_effet if nom not in fautifs)
             if sans_effet:
                 _signaler(warned, avis,
                           f"profils : {_resume(list(sans_effet))} égal(s) à la référence (droit en "
@@ -1340,6 +1359,35 @@ class Calendrier:
     par_annee: Optional[Dict[int, Dict]]
     references: Dict[str, float]
     origines: Dict[str, int]
+
+
+def _valeurs_sans_effet_fautives(sans_effet, demandes: Dict[str, Profil], droit: Dict,
+                                 droit_apres_debut: Dict[int, Dict]) -> Dict[str, str]:
+    """Calendriers « valeurs » SANS EFFET (la valeur du programme égale la
+    référence, ou le paramètre est absent du programme) dont au moins un
+    montant daté s'écarte de la référence de son année (droit en vigueur de
+    l'année, à défaut neutre ou défaut du moteur, ``reference_du_profil``) :
+    ``{nom: texte du défaut}`` (borné). Ces montants seraient ignorés ; tous à
+    la référence, le calendrier est seulement sans effet (avis)."""
+    fautifs = {}
+    for nom in sans_effet:
+        profil = demandes[nom]
+        if profil.forme != 'valeurs':
+            continue
+        levier, param = nom.split('.')
+        ecarts = []
+        for an, montant in profil.valeurs:
+            ruptures = [r for r in droit_apres_debut if r <= an]
+            droit_an = droit_apres_debut[max(ruptures)] if ruptures else droit
+            reference = reference_du_profil(levier, param, droit_an)
+            if reference is None or montant != reference:
+                ecarts.append(str(an))
+        if ecarts:
+            fautifs[nom] = (f"{nom} : valeurs, montant(s) de {_resume(ecarts)} différent(s) de la "
+                            f"référence (droit en vigueur de l'année ou neutre) alors que le programme "
+                            f"laisse ce paramètre à sa référence (valeur égale ou absente de mesures) "
+                            f"— ces montants seraient sans effet ; posez la valeur du programme")
+    return fautifs
 
 
 def reference_du_profil(levier: str, param: str, droit: Dict):

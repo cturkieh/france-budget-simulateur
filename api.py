@@ -49,7 +49,9 @@ from typing import Any, Literal
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
@@ -277,10 +279,15 @@ class ProfilRequete(BaseModel):
     pour un gel d'une année : l'écart de niveau reste ensuite) ou, depuis la
     v0.8.1, `valeurs` (montants seulement : `valeurs` = {"année": montant} de
     chaque année, du début à une année ≤ 2032, sans lacune ; ensuite la valeur
-    du programme). Forme validée ici (littéral, entiers stricts, nombres
-    finis, aucune autre clé : 422) ; éligibilité de la clé, années, domaine des
-    montants et cohérence par le moteur (422 en strict, correction tracée en
-    tolérant)."""
+    du programme ; année en quatre chiffres ASCII ; une année répétée dans
+    l'objet JSON garde la DERNIÈRE valeur, comportement standard du JSON,
+    avant toute validation). Forme validée ici (littéral, entiers stricts,
+    nombres finis, aucune autre clé : 422 ; un nombre non fini, `NaN`,
+    `Infinity` ou `1e400`, aussi : 422, jamais 500, `_RouteEntreesNonFinies`) ;
+    éligibilité de la clé, années, domaine des montants et cohérence par le
+    moteur (422 en strict, correction tracée en tolérant ; montants qui
+    s'écartent de la référence alors que le programme la laisse inchangée
+    compris)."""
     model_config = ConfigDict(extra='forbid')
     forme: Literal['plein', 'rampe', 'annee', 'valeurs']
     annee: int | None = Field(default=None, strict=True)
@@ -328,7 +335,62 @@ class SimulationRequest(BaseModel):
         return v
 
 
-router = APIRouter()
+def _texte_si_non_fini(objet):
+    """``objet`` où chaque flottant non fini devient son texte JSON (``"NaN"``,
+    ``"Infinity"``, ``"-Infinity"``) ; tout le reste à l'identique (récursif
+    sur les dictionnaires, listes et tuples)."""
+    if isinstance(objet, float) and not math.isfinite(objet):
+        return 'NaN' if objet != objet else ('Infinity' if objet > 0 else '-Infinity')
+    if isinstance(objet, dict):
+        return {k: _texte_si_non_fini(v) for k, v in objet.items()}
+    if isinstance(objet, (list, tuple)):
+        return type(objet)(_texte_si_non_fini(v) for v in objet)
+    return objet
+
+
+class _RouteEntreesNonFinies(APIRoute):
+    """Classe des routes du ``router`` (revue du moteur, v0.8.1). Un nombre non
+    fini dans le corps (``NaN``, ``Infinity``, ou ``1e400`` que l'analyseur JSON
+    lit comme l'infini) est une faute du client : 422. La réponse 422 standard
+    de FastAPI recopie l'entrée fautive (``input``) ; un flottant non fini n'est
+    pas sérialisable en JSON standard et la réponse échouait elle-même (500).
+    Ici, l'erreur de validation est relancée avec ses nombres non finis écrits
+    en texte, et rien d'autre ne change : le gestionnaire de l'application (par
+    défaut, celui de FastAPI) rend la même réponse qu'avant pour toute autre
+    entrée. Dans la classe de route, et non dans un gestionnaire de ``app`` :
+    ``include_router`` garde la classe de chaque route, le correctif suit donc
+    le routeur dans toute application qui l'inclut (SOURCE unique du contrat).
+    Chaque refus de schéma est tracé (WARNING : emplacement et type de chaque
+    erreur, jamais la valeur reçue), comme les refus d'entrée du moteur."""
+
+    def get_route_handler(self):
+        traiter = super().get_route_handler()
+
+        async def route(request: Request):
+            try:
+                return await traiter(request)
+            except RequestValidationError as exc:
+                erreurs = exc.errors()
+                # Emplacements bornés (clés écrites par le client : 64 caractères,
+                # 10 erreurs au plus), jamais la valeur reçue.
+                logger.warning("Requête %s rejetée (422, schéma) : %s", self.path,
+                               [(tuple(str(x)[:64] for x in e.get('loc', ())), e.get('type'))
+                                for e in erreurs[:10]])
+                lisibles = _texte_si_non_fini(list(erreurs))
+                if lisibles == list(erreurs):
+                    raise   # aucun nombre non fini : l'erreur d'origine, intacte
+                nouvelle = RequestValidationError(lisibles, body=_texte_si_non_fini(exc.body))
+                # Contexte de l'endpoint (FastAPI récent, absent des anciennes versions).
+                for attribut in ('endpoint_ctx', 'endpoint_function', 'endpoint_path',
+                                 'endpoint_file', 'endpoint_line'):
+                    if hasattr(exc, attribut):
+                        setattr(nouvelle, attribut, getattr(exc, attribut))
+                raise nouvelle from exc
+
+        return route
+
+
+router = APIRouter(route_class=_RouteEntreesNonFinies)
 
 
 def _erreurs_d_entree(groupe: BaseExceptionGroup) -> list[str] | None:
@@ -484,7 +546,13 @@ async def simulate(request: SimulationRequest):
       strict, durée ramenée à la borne en tolérant, comme `rampe`), `valeurs`
       (v0.8.1, montants seulement : `"valeurs": {"2028": 12.8, …}`, le montant de
       chaque année du début à une année ≤ 2032, sans lacune, chacun dans le domaine
-      du paramètre ; la valeur du programme ensuite), `annee` (la valeur
+      du paramètre ; la valeur du programme ensuite ; année en quatre chiffres
+      ASCII ; montants appliqués tels qu'écrits, sans règle de monotonie ; une
+      année répétée dans l'objet JSON garde la DERNIÈRE valeur, comportement
+      standard du JSON ; un montant qui s'écarte de la référence alors que le
+      programme laisse le paramètre à sa référence, valeur égale ou absente,
+      serait sans effet : 422 en strict, entrée ignorée et `report.valid` à
+      `false` en tolérant ; tous à la référence : avis seulement), `annee` (la valeur
       du programme cette année-là seulement, la référence avant et après).
       Paramètres éligibles : `engine/cadre.py`, `PROFILS_ELIGIBLES`. La
       recette exceptionnelle n'admet que `annee` (défaut : `annee_debut`) et
