@@ -404,7 +404,9 @@ _CAVEATS_I37 = {
     'defense': ['5,3', 'structurel', 'LPM'],
     # Release P (v0.8.1) : le caveat change d'objet — la surtaxe votée pour deux exercices
     # n'est plus reconduite (valeur datée du droit en vigueur), elle s'arrête dès 2027.
-    'is_exceptionnel_tge': ['7,3', 'deux premiers exercices', "n'est pas reconduite", '4 novembre 2026'],
+    # m8 (étape 9) : le montant affiché est celui que le moteur compte en 2026 (6,8), avec la révision
+    # du HCFP ; le montant « voté » n'est plus écrit faute de source téléchargée qui le porte.
+    'is_exceptionnel_tge': ['6,8', 'HCFP-2026-6', 'deux premiers exercices', "n'est pas reconduite", '4 novembre 2026'],
 }
 
 

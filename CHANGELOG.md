@@ -9,7 +9,7 @@ l'historique antérieur est décrit dans les messages de tags et dans
 **Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, et un
 champ de `GET /health` (point 4). (1) Le droit en
 vigueur (`budget_simulator/data/droit_en_vigueur.json`) porte sa première valeur datée : la surtaxe
-d'IS des grandes entreprises (`is_exceptionnel_tge.montant`), 7,3 Md€ votés pour 2026 (réajustée à
+d'IS des grandes entreprises (`is_exceptionnel_tge.montant`), 7,3 Md€ en 2026 dans le fichier (réajustée à
 6,8 Md€ en 2026 par l'atterrissage, inchangé), **0 dès 2027** : contribution due au titre des deux
 premiers exercices clos à compter du 31 décembre 2025 (loi n° 2026-103, art. 12 ; BOFiP
 ACTU-2026-00097) ; le projet de loi de finances pour 2027 (n° 3210), qui la prorogeait, a été
@@ -32,15 +32,23 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   historique et le delta de référence de v0.8.0 à l'identique ; en mode cadre, les scénarios d'avant P
   sur le droit SANS valeur datée redonnent le golden master du cadre 2028 et le standalone de v0.8.0 à
   l'identique. Tout écart vient donc des données de P (scénarios) et de la seule valeur datée (droit) ;
-- **mode cadre, scénarios de P** : huit des dix scénarios, en 2032, égalent cellule par cellule
+- **mode cadre, scénarios de P** : cinq des dix scénarios, en 2032, égalent cellule par cellule
   (déficit, dette, croissance moyenne 2028-2032, chômage, pouvoir d'achat, Gini) le banc de la release P
-  (colonne C) ; les deux autres ont été ré-encodés après la relecture du même jour (sept paramètres :
-  six d'un programme, `education.salaires` 0 → 4,4 et `education.budget` 65 → 62 en rampe,
+  (colonne C) ; les cinq autres ont été ré-encodés après les relectures du même jour. Relecture (sept
+  paramètres de deux programmes : six d'un programme, `education.salaires` 0 → 4,4 et `education.budget` 65 → 62 en rampe,
   `cotisations_salariales.baisse_points` 1,4108 → 1,2965, `impots_production.montant` 80,6742 → 82,
   `immigration.ame` 0,4381 → 0,4597, `cotisations_patronales.taux` 0,2525 → 0,2526 ; un d'un autre,
   `prestations_menages.solidarite` 6,06 → 8,89). Leur écart au banc C, attribué paramètre par
   paramètre (chaque changement seul sur l'ancien encodage ; reste d'interaction de l'ordre de
   l'arrondi des sorties) : déficit 2032 +0,09 et −0,06 point, dette 2032 −0,21 et +0,10 point ;
+  contre-relecture (sept paramètres de quatre programmes : `cotisations_patronales.taux` 0,2526 → 0,2538,
+  `education.budget` 62 → 62,8, `fraude_fiscale.effort` 0,385 → 0,4068 et `fraude_sociale.effort`
+  0,318 → 0,3369 pour un programme ; `impot_societes.taux` 0,264 → 0,2639 ; `recherche_publique.budget`
+  19,15 → 19,65 ; `collectivites.dotation` 116,6 → 109,1, chacun pour un programme). Écarts 2032 attribués
+  de même : déficit +0,04, 0,00, −0,01 et +0,17 point, dette −0,12, 0,00, +0,01 et −0,38 point (le
+  premier chiffre cumule les quatre paramètres du même programme, reste d'interaction ≤ 0,02) ; seul
+  instantané hors golden masters déplacé : le delta de référence d'un des trois scénarios qu'il suit
+  (0,01 à 0,02 point), et celui d'un deuxième sur une cellule (0,01) ; standalone identique au bit ;
   l'ancien encodage rejoué sur cet arbre redonne les instantanés précédents au bit ; la référence passe de −7,17 à −7,34 % de déficit 2032 et de 138,04 à 138,52 %
   de dette ; en 2027, statu quo à −5,86 % de déficit (−5,63 avant) ;
 - **valeur datée seule** (scénarios d'avant P, mode cadre) : de −0,01 à −0,03 point de déficit 2032 et
@@ -49,7 +57,8 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   bouge ;
 - **garde-fou du pouvoir d'achat 2029** : valeurs re-figées après audit dans
   `tests/snapshots/pa_2029_figes.json` (données figées, jamais régénérées par un script ; elles
-  quittent le code du test), y compris les deux encodages mis à jour (−0,1 et +0,2 point).
+  quittent le code du test), y compris les encodages mis à jour par la relecture (−0,1 et +0,2 point)
+  puis par la contre-relecture (−0,1 et −0,2 point).
 
 **Conséquences à connaître** :
 - **Mode historique** (sans `annee_debut`) : la référence porte le droit de 2028 dès 2026 (surtaxe à
@@ -75,7 +84,9 @@ identifiant de programme dans le code ; G1 du déplafonnement : un programme pub
 5 points, dans le domaine. Outil `scripts/scan_discontinuites.py` : balayer une clé dominante d'un
 mode exclusif retire les paramètres qu'elle masque (la référence inscrit désormais ces taux).
 
-**Textes publics mis à jour** (relus dans leurs sources) : infobulles du rabot uniforme et docstrings
+**Textes publics mis à jour** (relus dans leurs sources ; un montant qu'aucune source téléchargée ne
+porte n'est plus écrit comme voté : la surtaxe d'IS est décrite par le montant que le moteur compte en
+2026, 6,8 Md€, et la révision du HCFP) : infobulles du rabot uniforme et docstrings
 de `handlers/montaigne.py`, alignées sur la seule note (une citation et une base de 1 726 Md€ qui n'y
 figurent pas sont retirées ; la cible de défense est celle de la note, 2,7 % du PIB, pensions
 comprises) ; `docs/SCENARIOS_POLITIQUES.md` : ligne de la surtaxe et paragraphe du réajustement, nombre

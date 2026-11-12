@@ -74,11 +74,11 @@ convention. Aucune des cinq lignes ci-dessous ne change une valeur : elles la qu
 | `sante` (15 / 20 / 10) | Calé sur l'**année 1** (+1,28 Md€, prudent face aux 4,1 Md€ d'économies Sécurité sociale votées). Mais le moteur en fait un effort **structurel permanent de 4,98 Md€/an** à partir de 2030 (dont 0,33 Md€ des franchises réajustées à 120 % depuis le 08/11/2026). **La persistance est une hypothèse**, et une hypothèse discutable : une LFSS est **annuelle**, et son paquet d'économies est passé de **10,4** à **4,1** Md€ au cours du débat parlementaire. C'est le deuxième contributeur de l'effort résiduel du scénario de référence. |
 | `niches_sociales_tge = 68` | Proxy de la réforme des **allègements généraux de cotisations** (Sénat, rapport général n° 139 t. II : **3,9** Md€ bruts / **3,1** Md€ nets en 2026). **L'assiette réelle est celle des rémunérations inférieures à 3 SMIC, tous employeurs** — et non les grandes entreprises que le nom du levier désigne. Les 2 Md€ encodés restent en deçà du chiffrage : conservateur, mais sur une assiette qui n'est pas celle du libellé. |
 | `defense = 58` (57 votés) | 57,15 Md€ hors CAS Pensions est un montant **nominal**, et **nominal ≠ structurel** : l'OFCE (*Policy brief* n° 154) chiffre la dépense structurelle supplémentaire à **5,3** Md€ et non 6,7. Par ailleurs le +7 **constant** sur tout l'horizon **sous-représente les marches de la LPM** (+3,2 Md€/an) au-delà de 2027 : les deux écarts jouent en sens opposé et ne sont pas compensés l'un par l'autre. |
-| `is_exceptionnel_tge = 0` (7,3 votés pour 2026) | 7,3 Md€ est le rendement **2026** de la contribution exceptionnelle sur les bénéfices des grandes entreprises (6,8 Md€ réajustés sur l'exécution 2026). Votée pour les deux premiers exercices clos à compter du 31 décembre 2025 (loi 2026-103, art. 12), elle n'est pas reconduite : 0 à partir de 2027, tant qu'aucune loi de finances pour 2027 n'est votée. Le projet de loi de finances pour 2027, qui la prorogeait, a été considéré comme rejeté par l'Assemblée nationale le 4 novembre 2026 (T.A. n° 362). Dans le moteur, c'est une valeur datée du droit en vigueur ; le scénario porte la valeur de 2028, premier budget du mandat. |
+| `is_exceptionnel_tge = 0` (contribution due pour 2026) | Contribution exceptionnelle sur les bénéfices des grandes entreprises : le moteur la compte pour **6,8 Md€ en 2026** (réajustement sur l'exécution 2026, après la révision de −0,5 Md€ relevée par le HCFP, avis HCFP-2026-6 § 33c). Votée pour les deux premiers exercices clos à compter du 31 décembre 2025 (loi 2026-103, art. 12), elle n'est pas reconduite : 0 à partir de 2027, tant qu'aucune loi de finances pour 2027 n'est votée. Le projet de loi de finances pour 2027, qui la prorogeait, a été considéré comme rejeté par l'Assemblée nationale le 4 novembre 2026 (T.A. n° 362). Dans le moteur, c'est une valeur datée du droit en vigueur ; le scénario porte la valeur de 2028, premier budget du mandat. |
 
 **Réajustement sur l'exécution 2026 (08/11/2026, v0.7.2).** Le scénario porte le budget voté
 RÉAJUSTÉ, égal au point de départ du mode cadre : défense 58 Md€ (57 votés), franchises médicales
-120 % (100 % votés) ; la surtaxe d'impôt sur les sociétés, réajustée à 6,8 Md€ en 2026 (7,3 votés),
+120 % (100 % votés) ; la surtaxe d'impôt sur les sociétés, comptée pour 6,8 Md€ en 2026,
 s'arrête dès 2027 (valeur datée du droit en vigueur, moteur v0.8.1). Sources et montants :
 `budget_simulator/data/atterrissage_observe.json` (bloc `reajustements_droit_en_vigueur`) ; garde :
 `tests/test_cadre_v070_mesures_annee.py`. Les lignes ci-dessus décrivent les montants votés.
@@ -135,7 +135,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 ### Programme Nouvelle Énergie Lisnard 2027
 <!-- scenario:nouvelle_energie_2027 -->
 
-- **Source** : Programme D. Lisnard (Nouvelle Énergie) — pages « Notre programme » et « Questions » de unenouvelleenergie.fr, entretien du 27/10/2026 publié le 28/10/2026 et « Livre noir de la bureaucratie » (avril 2026), consultés le 11/11/2026
+- **Source** : Programme D. Lisnard (Nouvelle Énergie) — pages « Notre programme » et « Questions » de unenouvelleenergie.fr, entretien du 27/10/2026 publié le 28/10/2026 et « Livre noir de la bureaucratie », consultés le 11/11/2026
 - **Orientation** : réduction de la dépense publique présentée comme préalable à la baisse des prélèvements, avec une répartition annoncée entre salaire net des actifs, impôts de production (en commençant par la suppression de la C3S) et désendettement ; suppressions de postes publics et redéploiement d'agents vers le terrain ; condition de résidence pour les allocations non contributives ; remplacement de l'aide médicale d'État par une aide d'urgence ; revalorisation des rémunérations des enseignants, conditionnée à une réorganisation. Le paramétrage encode les mesures chiffrées qui ont un levier dans le simulateur ; l'enveloppe globale d'économies, non ventilée, est affichée dans la fiche du programme, non comptée.
 
 ### Institut Montaigne — Rabot -8%
@@ -160,9 +160,9 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | chomage_alloc | duree | 18 | 18 | 18 | 18 | 12 | 15 | 18 | 18 | 18 | 18 |
 | chomage_alloc | montant | — | — | 39.6 | 31.6 | — | 24.85 | — | — | — | — |
 | chomage_alloc | taux_remplacement | 0.6 | 0.6 | — | — | 0.6 | — | 0.6 | 0.6 | 0.6 | 0.6 |
-| collectivites | dotation | 116.6 | 116.6 | 116.6 | 109.6 | 116.6 | 104.6277 | 116.6 | 116.6 | 116.6 | 116.6 |
+| collectivites | dotation | 116.6 | 116.6 | 116.6 | 109.6 | 116.6 | 104.6277 | 109.1 | 116.6 | 116.6 | 116.6 |
 | collectivites | investissement | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| cotisations_patronales | taux | 0.27 | 0.27 | 0.27 | 0.27 | 0.27 | 0.2526 | 0.27 | 0.28 | 0.27 | 0.27 |
+| cotisations_patronales | taux | 0.27 | 0.27 | 0.27 | 0.27 | 0.27 | 0.2538 | 0.27 | 0.28 | 0.27 | 0.27 |
 | cotisations_salariales | baisse_points | 0 | 0 | 0 | 0.4321 | 0 | 1.2965 | 0 | 0 | 0 | 10.3702 |
 | csg | progressive | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | csg | taux | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.108039 | 0.098039 | 0.098039 |
@@ -171,7 +171,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | depenses_publiques | ondam | — | — | 2.4 | — | — | -5.9861 | 9.6 | — | — | 0.75 |
 | depenses_publiques | transferts_capital | — | — | — | 0.66 | — | — | — | — | — | — |
 | droits_succession | variation | — | — | 20 | — | — | — | 25 | — | — | — |
-| education | budget | 65 | 65 | 72.1 | 65 | 65 | 62 | 65 | 65 | 65 | 65 |
+| education | budget | 65 | 65 | 72.1 | 65 | 65 | 62.8 | 65 | 65 | 65 | 65 |
 | education | enseignants | 0 | 0 | 10000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | education | salaires | 0 | 0 | 0 | 6.5 | 20 | 4.4 | 16 | 5 | 0 | 20 |
 | elargissement_ir | taux_contribuables_cible | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 |
@@ -184,8 +184,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | fonction_publique | point_indice | 0 | 0 | 10 | 0 | 0 | 0 | 0 | 10 | 0 | 0 |
 | fonction_publique_reforme | digitalisation | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | fonction_publique_reforme | fusion_agences | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| fraude_fiscale | effort | 0.14 | 0.14 | 0.24 | 0.14 | 0.14 | 0.385 | 0.14 | 0.14 | 0.14 | 0.14 |
-| fraude_sociale | effort | 0.1 | 0.1 | 0.1 | 0.1 | 0.1 | 0.318 | 0.1 | 0.1 | 0.1 | 0.1 |
+| fraude_fiscale | effort | 0.14 | 0.14 | 0.24 | 0.14 | 0.14 | 0.4068 | 0.14 | 0.14 | 0.14 | 0.14 |
+| fraude_sociale | effort | 0.1 | 0.1 | 0.1 | 0.1 | 0.1 | 0.3369 | 0.1 | 0.1 | 0.1 | 0.1 |
 | immigration | ame | 1.2 | 1.2 | 1.2 | 1.2 | 1.2 | 0.4597 | 1.2 | 1.2 | 1.2 | 0.45 |
 | immigration | integration | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 |
 | impot_plancher_patrimoine | taux | — | — | 0.02 | — | — | — | 0.02 | 0.02 | — | — |
@@ -193,7 +193,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | impot_revenu | taux_superieur | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.6 | 0.45 | 0.45 |
 | impot_revenu_cible | montant | — | — | — | — | -3 | — | — | — | — | — |
 | impot_societes | niches | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| impot_societes | taux | 0.25 | 0.25 | 0.264 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 |
+| impot_societes | taux | 0.25 | 0.25 | 0.2639 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 |
 | impots_production | montant | 97 | 80 | 100 | 92.89 | 47 | 82 | 97 | 97 | 97 | 57 |
 | is_exceptionnel_tge | montant | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | isf_climatique | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
@@ -215,7 +215,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | — | 1 | — |
 | rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | — | 0.08 | — |
 | recette_exceptionnelle | montant | — | — | 5 | — | — | — | 50 | — | — | — |
-| recherche_publique | budget | 10 | 19.15 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| recherche_publique | budget | 10 | 19.65 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
 | retraites | age_depart | — | — | 60 | — | 65 | 65 | 62 | 62 | — | — |
 | retraites | duree_cotisation | 42.5 | 42.5 | 40 | 42.5 | 45 | 42.5 | 43 | 42.5 | 42.5 | 42.5 |
 | retraites | indexation | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 |

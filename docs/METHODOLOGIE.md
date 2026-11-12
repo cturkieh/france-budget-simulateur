@@ -383,7 +383,7 @@ contigus depuis 2026, dernier segment ouvert, source non vide : sinon le fichier
 v0.8.0 est livrée sans aucune valeur datée.
 
 **v0.8.1 (release de paramètres P)** : une seule valeur datée, la surtaxe d'IS des grandes entreprises
-(`is_exceptionnel_tge.montant`) : 7,3 Md€ votés en 2026 (base votée ; l'atterrissage la réajuste à
+(`is_exceptionnel_tge.montant`) : 7,3 Md€ en 2026 dans le fichier (l'atterrissage la réajuste à
 6,8 Md€ en 2026 seulement), 0 dès 2027. Sources du fichier : loi n° 2026-103 de finances pour 2026,
 art. 12 (contribution due au titre des deux premiers exercices clos à compter du 31 décembre 2025) et
 BOFiP ACTU-2026-00097 ; projet de loi de finances pour 2027 (n° 3210), qui la prorogeait, considéré
@@ -3226,8 +3226,8 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 | `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +4,5 |
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,4 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +0,8 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,6 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +0,4 |
 | `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +1,6 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 |
 | `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — |
@@ -3321,8 +3321,9 @@ par paramètre ; une référence qui ne reconduit plus la surtaxe d'IS votée po
 programme ajouté. Cinq des huit scénarios déjà publiés changent de signe : les mouvements viennent de
 leurs encodages, pas d'une équation commune ; le paramétrage de chacun est dans
 `docs/SCENARIOS_POLITIQUES.md`. Valeurs du moteur v0.8.1 sur les scénarios de la release P, après la
-relecture du 12/11/2026 qui a mis à jour sept paramètres de deux programmes (leurs deux écarts
-bougent d'un dixième ou deux ; les huit autres scénarios sont identiques au bit) ; le précalcul servi par
+relecture du 12/11/2026 qui a mis à jour sept paramètres de deux programmes, puis de la
+contre-relecture qui a mis à jour sept paramètres de quatre programmes (les écarts concernés bougent
+de zéro à quatre dixièmes ; les scénarios dont l'encodage est inchangé sont identiques au bit) ; le précalcul servi par
 le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
