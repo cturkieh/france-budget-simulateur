@@ -3260,7 +3260,7 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 |
 | `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,6 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +1,7 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +1,5 |
 | `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +2,6 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 |
 | `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — |
@@ -3360,7 +3360,8 @@ de zéro à quatre dixièmes), puis de la dernière passe du même jour : les ob
 en part du PIB ou du RNB comptés pour tous par une seule convention (§ « Bornes hautes relevées
 (v0.8.1) » ; sept paramètres de quatre programmes, calendrier « valeurs ») et deux montants sans
 calendrier écrit passés en rampe (un programme) ; l'écart de dette 2032 à la référence de ces quatre
-programmes bouge de −0,03 à 1,74 point. Les scénarios dont l'encodage est inchangé sont identiques au
+programmes bouge de −0,03 à 1,74 point. Pour ce même programme, un salaire sans calendrier écrit
+s'applique ensuite dès 2028, règle commune des taux et salaires (dette 2032 −0,14 point). Les scénarios dont l'encodage est inchangé sont identiques au
 bit ; le précalcul servi par le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,

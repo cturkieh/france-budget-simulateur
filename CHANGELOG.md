@@ -81,7 +81,11 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   deux objectifs et deux rampes (aide au développement −0,36 et +0,99, recherche −0,08 et +0,01, rampes
   −0,01 et +0,14, −0,07 et +0,13) ; reste d'interaction ≤ 0,05 point. Delta de référence : deux des trois
   scénarios suivis bougent (jusqu'à +7,61 points de dette 2035 en mode historique pour l'un, ≤ 0,04 pour
-  l'autre) ; standalone identique au bit ;
+  l'autre) ; standalone identique au bit ; enfin, pour ce même programme, `education.salaires` s'applique
+  dès 2028 (règle commune : un taux ou un salaire sans calendrier écrit s'applique dès 2028 ; calendrier
+  « rampe » retiré) : déficit 2032 +0,06 point, dette 2032 −0,14 point en mode cadre ; golden master
+  historique, delta de référence, standalone et pouvoir d'achat 2029 identiques au bit (un calendrier ne
+  s'applique qu'en mode cadre) ;
   l'ancien encodage rejoué sur cet arbre redonne les instantanés précédents au bit ; la référence passe de −7,17 à −7,34 % de déficit 2032 et de 138,04 à 138,52 %
   de dette ; en 2027, statu quo à −5,86 % de déficit (−5,63 avant) ;
 - **valeur datée seule** (scénarios d'avant P, mode cadre) : de −0,01 à −0,03 point de déficit 2032 et

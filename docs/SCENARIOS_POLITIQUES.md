@@ -259,7 +259,6 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 - Calendrier, Programme LR Retailleau 2027, `transferts_etranger.montant` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme PS 2027, `collectivites.dotation` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme PS 2027, `depenses_publiques.ondam` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme PS 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme PS 2027, `recette_exceptionnelle.montant` : une seule année, 2028 (annee)
 - Calendrier, Programme PS 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 12.82, 2029 : 15.65, 2030 : 18.47, 2031 : 18.69, 2032 : 18.91 (valeurs)
 - Calendrier, Programme PS 2027, `sante.prevention_budget` : montée progressive jusqu'à la fin du mandat (rampe)
