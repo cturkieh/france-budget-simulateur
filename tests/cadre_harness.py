@@ -26,7 +26,7 @@ from budget_simulator.simulator import BudgetSimulatorV45
 
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 sys.path.insert(0, str(SNAPSHOTS_DIR))
-from run_scenarios_full import SCENARIOS  # noqa: E402
+from run_scenarios_full import SCENARIOS, pour_le_mode  # noqa: E402,F401
 
 PA = "Pouvoir d'Achat"
 COLONNES_8 = ['Dette/PIB %', 'Déficit/PIB %', 'Chômage %', 'Croissance %',
@@ -137,6 +137,94 @@ def atterrissage(cibles_par_annee, reajustements=None):
             yield
         finally:
             cadre.vider_caches()
+
+
+@contextmanager
+def droit_sans_valeurs_datees():
+    """Remplace le temps du bloc le droit en vigueur livré par le MÊME droit
+    sans ses valeurs datées : le droit « constant » de v0.7.0 à v0.8.0, où
+    chaque mesure votée se reconduit d'année en année.
+
+    Release de paramètres P (v0.8.1) : le droit livré porte des valeurs datées
+    (une mesure votée pour une durée limitée s'arrête, contrat de la release E
+    § 5.3). Les tests d'un MÉCANISME qui suppose un droit constant (tables
+    d'atterrissage vides, élasticité unitaire des recettes, lecteurs latéraux,
+    rampe, éviction nulle de la référence…) s'exécutent dans ce bloc ; la règle
+    des valeurs datées a ses propres tests (``test_release_e_w1.py``, W1-7) et
+    les sorties publiées passent par le droit livré. Même mécanisme que
+    ``atterrissage`` : fichier temporaire, validé par le moteur."""
+    import json
+    import tempfile
+    contenu = json.loads(cadre.DROIT_EN_VIGUEUR_PATH.read_text(encoding='utf-8'))
+    assert contenu.pop('valeurs_datees', None), "droit livré sans valeur datée : bloc sans objet"
+    with tempfile.TemporaryDirectory() as d, pytest.MonkeyPatch.context() as mp:
+        chemin = Path(d) / 'droit_en_vigueur.json'
+        chemin.write_text(json.dumps(contenu, ensure_ascii=False), encoding='utf-8')
+        mp.setattr(cadre, 'DROIT_EN_VIGUEUR_PATH', chemin)
+        cadre.vider_caches()
+        try:
+            yield
+        finally:
+            cadre.vider_caches()
+
+
+def droit_reajuste_courant(debut=2028) -> dict:
+    """Droit en vigueur réajusté au début ``debut``, lu dans le droit ACTIF
+    (le fichier livré, ou celui d'un bloc ``droit_sans_valeurs_datees``)."""
+    return copy.deepcopy(cadre.CadreTemporel.preparer({}, debut).etat.mesures_droit)
+
+
+def _bloc_neutre(levier, bloc) -> bool:
+    """Bloc d'un levier de la release E dont chaque valeur est ``null`` ou égale
+    au neutre du paramètre (un taux inscrit au droit vaut son neutre). Une clé
+    de mode exclusif (``rendement_*``, neutre = clé absente) n'est jamais
+    neutre."""
+    import budget_simulator.constants as C
+    neutres = C.NEUTRES_RELEASE_E[levier]
+    return isinstance(bloc, dict) and all(
+        v is None or (p in neutres and v == neutres[p]) for p, v in bloc.items())
+
+
+def bases_g1(bases: dict, levier: str, annee_debut=None) -> dict:
+    """Bases du test G1 (neutralité au bit) d'un levier de la release E : celles
+    qui ne l'encodent PAS. Release de paramètres P : des scénarios publiés
+    encodent désormais ces leviers ; y poser le bloc neutre retirerait leur
+    mesure (remplacement en bloc) : ce n'est plus « ajouter un neutre ». Une
+    base où le levier est absent, ``null`` ou au neutre reste une base de G1 ;
+    le statu quo l'est toujours. Chaque base est prise telle que le mode
+    ``annee_debut`` l'accepte (``pour_le_mode`` : en mode historique, sans la
+    recette d'une seule année)."""
+    retenues = {nom: pour_le_mode(base, annee_debut) for nom, base in bases.items()
+                if base.get(levier) is None or _bloc_neutre(levier, base[levier])}
+    assert 'statu_quo' in retenues, "G1 sans le statu quo"
+    return retenues
+
+
+def rapport_g1(rapport: dict, levier: str) -> dict:
+    """Rapport comparé par G1, dont est retirée la SEULE différence attendue d'un
+    bloc neutre complet sur un levier à taux INSCRIT au droit en vigueur
+    (release de paramètres P, contrat de la release E § 0.9) : le droit n'inscrit
+    que les taux votés ; les paramètres de comportement du bloc (élasticité,
+    érosion, à leur défaut) n'y sont pas, donc, en mode cadre, le levier entre
+    dans ``cadre.leviers_modifies`` et ``cadre.mesures_effectives`` (règle
+    v0.7.2 « présent = imposé ») sans qu'aucune sortie ne bouge. Toute autre
+    différence reste comparée. Copie ; rapport rendu tel quel hors mode cadre
+    et pour un levier absent du droit."""
+    import budget_simulator.constants as C
+    droit = cadre.charger_droit_en_vigueur().mesures
+    if levier not in droit or not (rapport.get('cadre') or {}).get('mesures_effectives'):
+        return rapport
+    out = copy.deepcopy(rapport)
+    c = out['cadre']
+    effectif = c['mesures_effectives'].get(levier)
+    if isinstance(effectif, dict):
+        neutres = C.NEUTRES_RELEASE_E[levier]
+        c['mesures_effectives'][levier] = {
+            p: v for p, v in effectif.items()
+            if p in droit[levier] or not (p in neutres and v == neutres[p])}
+        if c['mesures_effectives'][levier] == droit[levier]:
+            c['leviers_modifies'] = [l for l in c['leviers_modifies'] if l != levier]
+    return out
 
 
 def simuler(mesures, periods=10, strict=False, **kwargs):

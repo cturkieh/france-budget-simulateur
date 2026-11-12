@@ -25,7 +25,7 @@ REGEN_CMD = ('python tests/snapshots/run_scenarios_full.py --annee-debut 2028 '
 
 sys.path.insert(0, str(SNAPSHOTS_DIR))
 from _compare import assert_no_silent_handler_failure, compare_against_snapshot  # noqa: E402
-from run_scenarios_full import SCENARIOS, TRACKED_COLUMNS  # noqa: E402
+from run_scenarios_full import PROFILS, SCENARIOS, TRACKED_COLUMNS  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     not SCENARIOS,
@@ -35,7 +35,11 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope='module')
 def resultats():
-    return {name: BudgetSimulatorV45(periods=10, mesures=m, annee_debut=ANNEE_DEBUT).simulate()
+    # Calendriers de chaque scénario (release E, contrat § 2.3), comme le runner
+    # qui écrit l'instantané et comme le site : fiche = simulateur = précalcul =
+    # golden master. Release P : des scénarios publiés en portent.
+    return {name: BudgetSimulatorV45(periods=10, mesures=m, annee_debut=ANNEE_DEBUT,
+                                     profils=PROFILS.get(name) or None).simulate()
             for name, m in SCENARIOS.items()}
 
 

@@ -450,8 +450,11 @@ def test_curseur_ne_finance_aucun_scenario_publie():
     scenarios = json.loads(_SCENARIOS_JSON.read_text(encoding="utf-8"))
     en_hausse, pire = 0, 0.0
     details = {}
+    # Mode historique : mesures telles que le mode les accepte (release P :
+    # sans la recette d'une seule année, cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
     for sid, scenario in scenarios.items():
-        mesures = scenario['apiMeasures']
+        mesures = pour_le_mode(scenario['apiMeasures'])
         bas = {**mesures, 'sante': {**mesures['sante'],
                                     'prevention_budget': PREVENTION_BASE_MD_EUR}}
         haut = {**mesures, 'sante': {**mesures['sante'],

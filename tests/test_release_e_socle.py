@@ -688,6 +688,7 @@ def _canon(x):
 
 sys.path.insert(0, str(RACINE / 'tests' / 'snapshots'))
 from run_scenarios_full import SCENARIOS as _SCENARIOS_PUBLIES  # noqa: E402
+from cadre_harness import bases_g1, rapport_g1  # noqa: E402
 
 _DROIT = json.loads((RACINE / 'budget_simulator' / 'data' / 'droit_en_vigueur.json')
                     .read_text(encoding='utf-8'))['mesures']
@@ -714,13 +715,16 @@ def test_g1_neutralite_au_bit(levier, annee_debut, strict):
     if len(BASES_G1) < 12:
         assert len(BASES_G1) == 2  # dépôt public seul : statu quo et droit en vigueur
     neutre = {levier: dict(C.NEUTRES_RELEASE_E[levier])}
-    for nom, base in BASES_G1.items():
+    # Release de paramètres P : les bases qui ENCODENT le levier en sont exclues
+    # (y poser le neutre retirerait leur mesure) ; rapport comparé hors la seule
+    # différence d'un levier à taux inscrit au droit (cadre_harness.rapport_g1).
+    for nom, base in bases_g1(BASES_G1, levier, annee_debut).items():
         ref_df, ref_detail, ref_rapport = _simuler_g1(base, annee_debut, strict)
         df, detail, rapport = _simuler_g1({**base, **neutre}, annee_debut, strict)
         assert df.equals(ref_df), (nom, levier, 'trajectoire')
         assert detail.equals(ref_detail), (nom, levier, 'détail')
         assert _canon(rapport['measure_impacts_by_year']) == _canon(ref_rapport['measure_impacts_by_year']), (nom, levier)
-        assert _canon(rapport) == _canon(ref_rapport), (nom, levier, 'rapport')
+        assert _canon(rapport_g1(rapport, levier)) == _canon(ref_rapport), (nom, levier, 'rapport')
 
 
 # --- Squelettes : toute valeur non neutre échoue BRUYAMMENT ------------------
@@ -911,7 +915,22 @@ def _cadre_2028(mesures):
     return _simuler_g1(mesures, 2028, False)[2]['cadre']
 
 
-@pytest.mark.parametrize('levier', list(DOMAINES_E))
+_LEVIERS_ABSENTS_DU_DROIT = [l for l in DOMAINES_E if l not in _DROIT]
+_LEVIERS_INSCRITS_AU_DROIT = [l for l in DOMAINES_E if l in _DROIT]
+
+
+def test_leviers_inscrits_au_droit_release_p():
+    """Release de paramètres P (contrat de la release E § 0.9) : seuls les
+    leviers dont le neutre est du droit voté sont inscrits au droit en vigueur,
+    à leurs taux votés (paramètres de comportement absents)."""
+    assert set(_LEVIERS_INSCRITS_AU_DROIT) == {'fiscalite_capital', 'multinationales',
+                                               'operations_financieres'}
+    for levier in _LEVIERS_INSCRITS_AU_DROIT:
+        neutres = C.NEUTRES_RELEASE_E[levier]
+        assert _DROIT[levier] and all(neutres[p] == v for p, v in _DROIT[levier].items()), levier
+
+
+@pytest.mark.parametrize('levier', _LEVIERS_ABSENTS_DU_DROIT)
 def test_bloc_neutre_retire_du_programme_en_mode_cadre(levier):
     """Un bloc dont toutes les valeurs sont neutres (complet, partiel, vide ou à
     ``null``) d'un levier absent du droit en vigueur est lu comme un ``null`` :
@@ -925,6 +944,25 @@ def test_bloc_neutre_retire_du_programme_en_mode_cadre(levier):
         assert levier not in cadre['mesures_effectives'], (levier, bloc)
         assert cadre['leviers_modifies'] == reference['leviers_modifies'], (levier, bloc)
         assert _canon(cadre['mesures_effectives']) == _canon(reference['mesures_effectives'])
+
+
+@pytest.mark.parametrize('levier', _LEVIERS_INSCRITS_AU_DROIT)
+def test_bloc_neutre_d_un_levier_inscrit_au_droit(levier):
+    """Levier à taux INSCRIT au droit en vigueur (release P) : la règle du
+    bloc neutre ne s'applique pas (contrat § 2.1 : levier absent du droit).
+    Un bloc qui recopie les taux du droit n'est pas un levier modifié ; un bloc
+    neutre COMPLET, qui porte aussi les paramètres de comportement à leur
+    défaut, entre dans ``leviers_modifies`` (règle v0.7.2 « présent =
+    imposé ») sans changer aucune sortie (G1, ``rapport_g1``). État constaté et
+    documenté au CHANGELOG (v0.8.1), non corrigé dans une release de
+    paramètres."""
+    reference = _cadre_2028({})
+    assert _cadre_2028({levier: dict(_DROIT[levier])})['leviers_modifies'] == reference['leviers_modifies']
+    complet = dict(C.NEUTRES_RELEASE_E[levier])
+    cadre = _cadre_2028({levier: complet})
+    assert levier in cadre['leviers_modifies']
+    assert cadre['mesures_effectives'][levier] == complet
+    assert _simuler_g1({levier: complet}, 2028, False)[0].equals(_simuler_g1({}, 2028, False)[0])
 
 
 def test_bloc_non_neutre_garde_au_programme_en_mode_cadre():

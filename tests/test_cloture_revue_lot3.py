@@ -371,8 +371,11 @@ def test_le_clip_du_chomage_reste_inatteignable_sur_les_scenarios_publies():
     bornes. Une bascule ne pourrait donc pas venir d'un arrondi : elle
     signalerait un vrai changement de calibration, et c'est ce qu'on veut voir."""
     marges = {}
+    from cadre_harness import pour_le_mode
+    # Mode historique : mesures telles que le mode les accepte (release P :
+    # sans la recette d'une seule année, cadre_harness.pour_le_mode).
     for nom, mesures in SCENARIOS.items():
-        df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+        df, _, _ = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(mesures)).simulate()
         taux = df['Chômage %'] / 100.0
         marges[nom] = (taux.min() - CHOMAGE_CLIP_MIN, CHOMAGE_CLIP_MAX - taux.max())
     for nom, (marge_bas, marge_haut) in marges.items():

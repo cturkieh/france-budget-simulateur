@@ -251,8 +251,9 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 vote, reajuste sur l'execution 2026 »**, qui encode la loi de
-> finances reajustee sur l'execution 2026 et rend -5,22 % de deficit 2026, 128,81 % de
-> dette 2030 et 150,11 % en 2035. Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
+> finances reajustee sur l'execution 2026 et rend -5,45 % de deficit 2026, 129,22 % de
+> dette 2030 et 151,40 % en 2035 (depuis la v0.8.1, la surtaxe d'IS votee pour 2026 seulement
+> n'y est plus comptee, et ce mode l'applique des 2026 ; le site part de l'atterrissage 2026, -5,5 %). Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
 > ces chiffres a chaque execution.
@@ -802,9 +803,9 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les trajectoires baseline sont coherentes :
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
-- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,22% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 128,81% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,32% PIB en statu quo NU ; 150,11% pour le scenario de reference. Deficit 2035 : -9,06% / -8,75%
+- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,45% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,22% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 151,40% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

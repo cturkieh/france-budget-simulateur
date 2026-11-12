@@ -79,7 +79,17 @@ def parametre_masque(mesures, levier, param):
 
 
 def _avec(mesures, levier, param, x):
-    return {**mesures, levier: {**(mesures.get(levier) or {}), param: x}}
+    """``mesures`` où ``levier.param`` vaut ``x``. Balayer la clé dominante d'un
+    mode exclusif (``rendement_*``) retire les paramètres qu'elle masque, comme
+    le fait l'appelant (un seul des deux modes est envoyé) : depuis la release
+    de paramètres P, la référence inscrit les taux de ces leviers, et les garder
+    à côté du rendement ferait refuser la requête en strict."""
+    from budget_simulator.engine._noms_parametres import MODES_EXCLUSIFS
+    bloc = dict(mesures.get(levier) or {})
+    for masque in MODES_EXCLUSIFS.get(levier, {}).get(param, ()):
+        bloc.pop(masque, None)
+    bloc[param] = x
+    return {**mesures, levier: bloc}
 
 
 def _dette(mesures, colonne='Dette/PIB %', annee_debut=None):

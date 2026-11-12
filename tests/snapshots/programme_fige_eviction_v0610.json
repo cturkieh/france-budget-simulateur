@@ -1,0 +1,136 @@
+{
+ "_lisezmoi": "Mesures (apiMeasures) d'un programme publié jusqu'à v0.8.0, retiré du site par la release de paramètres P (v0.8.1), figées le 12/11/2026 depuis scenarios.json du dépôt parent : cas de régression V2-01 (part d'investissement 2,605 au maximum avant v0.6.10). Fichier figé, à ne pas régénérer.",
+ "mesures": {
+  "rabot_uniforme": {
+   "taux_reduction": 0,
+   "exclure_dette": 1,
+   "exclure_defense": 1,
+   "exclure_ue": 1
+  },
+  "retraites": {
+   "age_depart": 65.0,
+   "indexation": 0.8,
+   "duree_cotisation": 44.0
+  },
+  "fonction_publique_reforme": {
+   "fusion_agences": 60,
+   "digitalisation": 50
+  },
+  "fonction_publique": {
+   "effectifs": -120000,
+   "point_indice": 0
+  },
+  "sante": {
+   "effort_hopital": 30,
+   "effort_ambu": 25,
+   "effort_prev_org": 15,
+   "franchise_participation_taux": 110,
+   "prevention_budget": 8.5
+  },
+  "chomage_alloc": {
+   "taux_remplacement": 0.55,
+   "duree": 18,
+   "degressivite": false
+  },
+  "smic": {
+   "montant_brut": 1800
+  },
+  "isf_climatique": {
+   "intensite": 0
+  },
+  "tva_energie": {
+   "taux": 0.2
+  },
+  "taxe_superprofits": {
+   "intensite": 0
+  },
+  "exonerations_salaires": {
+   "intensite": 0
+  },
+  "abattement_retraites": {
+   "reforme_active": 0
+  },
+  "prestations_indexation": {
+   "taux_indexation": 1.0
+  },
+  "education": {
+   "budget": 80,
+   "enseignants": 10000,
+   "salaires": 8
+  },
+  "transition_ecologique": {
+   "investissement": 20,
+   "renovation": 15,
+   "taxe_carbone": 110
+  },
+  "recherche_publique": {
+   "budget": 15
+  },
+  "tva_rate": {
+   "taux": 0.2
+  },
+  "impot_societes": {
+   "taux": 0.25,
+   "niches": 0
+  },
+  "fraude_fiscale": {
+   "effort": 0.8
+  },
+  "impot_revenu": {
+   "taux_superieur": 0.45,
+   "decote": 1.0
+  },
+  "csg": {
+   "taux": 0.098039,
+   "progressive": 0
+  },
+  "cotisations_salariales": {
+   "baisse_points": 0
+  },
+  "elargissement_ir": {
+   "taux_contribuables_cible": 0.45
+  },
+  "fiscalite_patrimoine": {
+   "intensite": 0
+  },
+  "defense": {
+   "budget": 50
+  },
+  "collectivites": {
+   "dotation": 95,
+   "investissement": 0
+  },
+  "immigration": {
+   "ame": 0.8,
+   "integration": 0.6
+  },
+  "fraude_sociale": {
+   "effort": 0.8
+  },
+  "optimisation_dette": {
+   "intensite": 0.5
+  },
+  "asu": {
+   "asu_activation": 1,
+   "asu_plafonnement": 0.7
+  },
+  "niches_fiscales_tge": {
+   "montant": 40
+  },
+  "niches_sociales_tge": {
+   "montant": 55
+  },
+  "subventions_tge": {
+   "montant": 25
+  },
+  "cotisations_patronales": {
+   "taux": 0.26
+  },
+  "impots_production": {
+   "montant": 90
+  },
+  "is_exceptionnel_tge": {
+   "montant": 8
+  }
+ }
+}

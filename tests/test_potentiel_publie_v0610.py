@@ -100,7 +100,10 @@ def _programmes_publies():
     chemin = (os.environ.get('BUDGETLAB_SCENARIOS_JSON') or '').strip()
     if not chemin or not Path(chemin).exists():
         return {}
-    return {k: v['apiMeasures']
+    # Mode historique : mesures telles que le mode les accepte (release P :
+    # sans la recette d'une seule année, cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
+    return {k: pour_le_mode(v['apiMeasures'])
             for k, v in json.loads(Path(chemin).read_text(encoding='utf-8')).items()}
 
 

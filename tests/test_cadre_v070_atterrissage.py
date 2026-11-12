@@ -36,7 +36,8 @@ import budget_simulator.engine.cadre as cadre
 from budget_simulator import EntreeInvalide
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import CAS, DROIT, DROIT_REAJUSTE, NOMS, PROGRAMME_MIXTE, atterrissage, egalite_bit_a_bit, simuler
+from cadre_harness import (CAS, DROIT, DROIT_REAJUSTE, NOMS, PROGRAMME_MIXTE, atterrissage, droit_reajuste_courant,
+                           droit_sans_valeurs_datees, egalite_bit_a_bit, simuler)
 
 DEBUT = 2028
 REFERENCE = 'droit_en_vigueur'
@@ -152,8 +153,12 @@ def test_e_reajustements_premier_temps_mesures_levier_par_levier(sorties):
 def test_e_ecart_de_solde_persistant():
     """L'écart est rebasé dans le niveau organique des recettes : en 2027 (droit
     constant), le déficit n'y rebondit pas. Contre-épreuve : sans le rebasage
-    persistant (écart ponctuel), 2027 serait plus dégradé d'environ 0,4 pt."""
-    df = simuler(DROIT, annee_debut=DEBUT)[0].set_index('Année')
+    persistant (écart ponctuel), 2027 serait plus dégradé d'environ 0,4 pt.
+    Mécanisme mesuré sur le droit CONSTANT (release P : le droit livré arrête
+    en 2027 la surtaxe votée pour 2026, une baisse de recettes qui n'est pas un
+    rebond ; règle testée par W1-7)."""
+    with droit_sans_valeurs_datees():
+        df = simuler(DROIT, annee_debut=DEBUT)[0].set_index('Année')
     assert df.at[2027, 'Déficit/PIB %'] > -5.75
     d = _bloc(simuler(DROIT, annee_debut=DEBUT)[2])['annees']['2026']['decomposition']
     assert d['deficit']['ecart_md_eur'] > 0
@@ -198,7 +203,9 @@ def test_e_historique_sans_atterrissage():
 # ---------------------------------------------------------------------------
 
 def test_g_tables_vides_statu_quo_au_bit():
-    with atterrissage({}):
+    """Droit constant (release P : avec des valeurs datées, le droit d'une année
+    diffère du voté, que le mode historique applique dès 2026)."""
+    with atterrissage({}), droit_sans_valeurs_datees():
         egalite_bit_a_bit(simuler(DROIT), simuler(DROIT, annee_debut=DEBUT))
 
 
@@ -312,8 +319,10 @@ def test_api_annee_debut_2026_reste_le_mode_historique(client, monkeypatch):
 def test_baseline_cadre_elasticite_unitaire_hors_annee_rebasee():
     """(c) de test_baseline_properties, en mode cadre : élasticité 1,00 ± 0,02
     chaque année SAUF 2026, l'année rebasée (l'écart de solde y entre dans le
-    niveau des recettes)."""
-    df, det, _, _ = simuler(DROIT_REAJUSTE, annee_debut=DEBUT)
+    niveau des recettes). Droit constant (release P : l'arrêt de la surtaxe
+    votée pour 2026 est une mesure de 2027, pas une élasticité)."""
+    with droit_sans_valeurs_datees():
+        df, det, _, _ = simuler(droit_reajuste_courant(DEBUT), annee_debut=DEBUT)
     rec = [float(C.RECETTES_BASE_MD_EUR)] + [float(det.iloc[i]['Recettes_Totales']) for i in range(1, 11)]
     pib = [float(df.iloc[i]['PIB']) for i in range(0, 11)]
     for i in range(2, 11):

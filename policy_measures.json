@@ -815,7 +815,7 @@
           "step": 0.01,
           "label": "Taux de réduction (%)",
           "type": "number",
-          "tooltip": "Réduction uniforme appliquée à toutes les catégories de dépenses. 8% = Scénario Institut Montaigne (-138 Md€). Critique IM: 'Cumule les résistances sans réallocation stratégique'. Impacts: Gini +0.10×taux, PA -0.15×taux, multiplicateur fiscal -0.6. Sources: Institut Montaigne 'Budget Base Zéro' Nov 2025."
+          "tooltip": "Réduction uniforme appliquée à toutes les catégories de dépenses. 8 % = scénario illustratif n° 1 de la note « Budget base zéro » (novembre 2025), qui vise 138 à 140 Md€ en 2029. Impacts: Gini +0.10×taux, PA -0.15×taux, multiplicateur fiscal -0.6. Sources: Institut Montaigne, « Budget base zéro : décider sous la contrainte », novembre 2025."
         },
         "exclure_dette": {
           "valeur_defaut": 1,
@@ -833,7 +833,7 @@
           "step": 1,
           "label": "Exclure défense (OTAN)",
           "type": "toggle",
-          "tooltip": "1 = Sanctuariser la défense (engagement OTAN 2% PIB = 91 Md€ en 2029). Institut Montaigne considère la défense comme incompressible."
+          "tooltip": "1 = Sanctuariser la défense (91 Md€ en 2029 selon la note, soit 2,7 % du PIB pensions comprises ; le simulateur n'exclut que les équipements, 25 Md€). Institut Montaigne considère la défense comme incompressible."
         },
         "exclure_ue": {
           "valeur_defaut": 1,

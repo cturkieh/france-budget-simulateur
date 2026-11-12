@@ -95,6 +95,24 @@ SCENARIOS = _load_scenarios()
 PROFILS = {sid: dict(d.get("profils") or {}) for sid, d in _RAW.items()}
 
 
+def pour_le_mode(mesures: dict, annee_debut=None) -> dict:
+    """Mesures d'un scénario telles que le MODE les accepte.
+
+    Mode historique (``annee_debut`` absent ou égal à 2026) : sans la recette
+    d'une seule année, que le moteur y refuse faute de calendrier (contrat de
+    la release E, § 2.1 : 422 en strict, levier retiré et correction tracée en
+    tolérant). Depuis la release de paramètres P (v0.8.1), des scénarios
+    publiés en portent une : le mode historique les évalue sans elle, comme le
+    fait le moteur en tolérant, sans la correction. Mode cadre : mesures
+    inchangées (même objet)."""
+    from budget_simulator.engine.cadre import LEVIERS_REFUSES_EN_MODE_HISTORIQUE
+    if annee_debut is not None and annee_debut > POLICY_START_YEAR:
+        return mesures
+    if not LEVIERS_REFUSES_EN_MODE_HISTORIQUE & set(mesures):
+        return mesures
+    return {k: v for k, v in mesures.items() if k not in LEVIERS_REFUSES_EN_MODE_HISTORIQUE}
+
+
 YEAR_IDX_2029 = 4
 PA_KEY = "Pouvoir d'Achat"
 # 'Gini' = nom RÉEL de la colonne d'inégalités émise par le moteur (orchestrator.py). L'ancien
@@ -139,7 +157,8 @@ def main():
         # Calendriers en mode cadre seulement : le mode historique n'en a pas
         # (le moteur les refuserait, correction tracée).
         mode_cadre = args.annee_debut is not None and args.annee_debut > POLICY_START_YEAR
-        sim = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=args.annee_debut,
+        sim = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(mesures, args.annee_debut),
+                                 annee_debut=args.annee_debut,
                                  profils=(PROFILS.get(name) or None) if mode_cadre else None)
         df_main, _, _ = sim.simulate()
         available = [c for c in TRACKED_COLUMNS if c in df_main.columns]

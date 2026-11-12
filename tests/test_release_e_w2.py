@@ -60,7 +60,7 @@ from budget_simulator.constants import HANDLER_FAILED_KEY
 from budget_simulator.handlers._types import CANAUX_MENAGES, canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45, FiscalMultipliers
 
-from cadre_harness import DROIT, DROIT_REAJUSTE, PROGRAMME_MIXTE, pleine_precision
+from cadre_harness import DROIT, DROIT_REAJUSTE, PROGRAMME_MIXTE, bases_g1, droit_sans_valeurs_datees, pleine_precision
 
 RACINE = Path(__file__).absolute().parent.parent
 sys.path.insert(0, str(RACINE / 'tests' / 'snapshots'))
@@ -318,7 +318,9 @@ def test_w2_1_g1_neutralite_au_bit(levier, forme, annee_debut, strict):
     if not SCENARIOS:
         assert len(BASES_G1) == 3  # dépôt public seul
     bloc = _formes_neutres(levier)[forme]
-    for nom, base in BASES_G1.items():
+    # Release de paramètres P : une base qui ENCODE le levier n'est pas une base
+    # de G1 (y poser le neutre retirerait sa mesure, cadre_harness.bases_g1).
+    for nom, base in bases_g1(BASES_G1, levier, annee_debut).items():
         ref_df, ref_det, ref_rap, _ = _sim(base, annee_debut, strict)
         df, det, rap, _ = _sim({**base, levier: bloc}, annee_debut, strict)
         assert df.equals(ref_df), (nom, levier, forme, 'trajectoire')
@@ -1259,10 +1261,14 @@ def _residu_t_plus_1(annee_debut, x):
     = x`` et le scénario sans le levier, MOINS le seul canal autre que la
     demande : la TRAÎNÉE DE DETTE (effet d'offre, ``DEBT_DRAG_COEFF`` × écart de
     dette/PIB de fin d'année t, au-delà de ``DEBT_DRAG_SEUIL``). Rend aussi
-    l'écart de PIB réel de t+1 et sa valeur attendue par ce canal."""
+    l'écart de PIB réel de t+1 et sa valeur attendue par ce canal. Droit
+    constant (release P : l'arrêt en 2027 de la surtaxe votée pour 2026 rend
+    l'effort de la référence légèrement négatif en 2028, donc une éviction
+    dans la référence ; le canal testé ici est celui du levier)."""
     t = _debut(annee_debut)
-    ref = _simuler_brut({}, annee_debut)
-    avec = _simuler_brut({'transferts_etranger': {'montant': x}}, annee_debut)
+    with droit_sans_valeurs_datees():
+        ref = _simuler_brut({}, annee_debut)
+        avec = _simuler_brut({'transferts_etranger': {'montant': x}}, annee_debut)
     r_ref, r_avec = ref[0].set_index('Année'), avec[0].set_index('Année')
     d_ref, d_avec = ref[1].set_index('Année'), avec[1].set_index('Année')
     ratio_ref, ratio_avec = r_ref.at[t, 'Dette/PIB %'] / 100, r_avec.at[t, 'Dette/PIB %'] / 100
@@ -1309,8 +1315,9 @@ def test_w2_15_t1_d_hausse_effort_et_eviction_conserves(annee_debut):
     reste une consolidation, éviction nulle dans les deux scénarios."""
     from budget_simulator.engine.growth import effet_eviction
     x, t = 5.0, _debut(annee_debut)
-    ref = _simuler_brut({}, annee_debut)
-    avec = _simuler_brut({'transferts_etranger': {'montant': x}}, annee_debut)
+    with droit_sans_valeurs_datees():          # droit constant : voir _residu_t_plus_1
+        ref = _simuler_brut({}, annee_debut)
+        avec = _simuler_brut({'transferts_etranger': {'montant': x}}, annee_debut)
     r_ref, r_avec = ref[0].set_index('Année'), avec[0].set_index('Année')
     d_ref, d_avec = ref[1].set_index('Année'), avec[1].set_index('Année')
     eff_ref = d_ref.at[t, 'Effort_Budgétaire %'] / 100

@@ -13,6 +13,7 @@ legacy tout en étant intégralement couvert par FULL_SCENARIOS + golden master.
 Ne valide PAS la calibration économique des scénarios — seulement leur exécutabilité.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -144,110 +145,20 @@ def test_aucune_collision_id_lfi_2026():
             "alors que LFI = le parti")
 
 
-# Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes (tous les scénarios × 35 leviers ; MAJ 30/08/2026 : 10 scénarios).
+# Valeurs PA 2029 figées par revue humaine sur les apiMeasures complètes de chaque scénario publié.
 # Tolérance ±1.5 pt = absorbe les recalibrages mineurs tout en détectant la perte d'un gate
 # one-time PA (tva_rate, impot_revenu, impots_production, elargissement_ir, fiscalite_patrimoine,
 # transition_ecologique taxe_carbone) ou de l'asymétrie fonction_publique.
 #
-# Ne PAS dériver depuis un snapshot existant (ex: snapshot_pa_after_sprint7fixes.json) : ce serait
-# une auto-référence (régénérer le snapshot puis comparer à lui-même = test qui passe toujours).
-# Les valeurs ci-dessous sont figées par revue humaine lors du sprint de calibration final.
-#
-# Mise à jour : si recalibrage volontaire, régénérer via
-#   python3 tests/snapshots/run_scenarios_full.py --out tests/snapshots/snapshot_pa_<date>.json
-# et reporter les nouvelles valeurs ici (commit séparé pour traçabilité).
-#
-# Recalibrage 2026-05-18 (décision PO, commit inflation) : terme structurel
-# de la courbe de Phillips porté de 1,2 % à 1,5 % (INFLATION_STRUCTURELLE).
-# Effet ATTENDU et AUDITÉ : inflation simulée +0,1 à +0,2 pt sur l'horizon,
-# qui érode le pouvoir d'achat RÉEL (revenus indexés à ~54 % seulement, cf.
-# INDEXATION_BASELINE_RATIO) → PA 2029 baisse de ~0,4 à ~1,8 pt sur tous les
-# scénarios, dans le bon sens (plus d'inflation ⇒ moins de PA réel). Le seul
-# dépassement de tolérance était im_competitivite_2029 (105,2 → 103,4, Δ -1,8).
-# Valeurs ci-dessous = nouvelles valeurs figées par revue, cohérentes avec le
-# golden master régénéré. Les gates one-time PA restent inchangés (seul
-# l'intercept Phillips a bougé, aucune logique de gating touchée).
-# Recalibrage 2026-06-02 (décision PO) : ré-encodage fidèle du scénario plf_2026
-# sur la LOI DE FINANCES 2026 VOTÉE (loi 2026-103, 19/02/2026) au lieu d'un PLF mal
-# encodé. 5 leviers corrigés (chômage durée 24→18 = réforme avril 2025 tient ;
-# retraites 64→suspendue ; transition verte +16→0 ; CVAE gel ; défense +6,7 Md€).
-# Effet AUDITÉ : PA 2029 plf_2026 103,4 → 100,9 (Δ -2,5, hors tolérance ±1,5).
-# Source : OFCE pbrief n°154 « Budget 2026 : un déficit de compromis ». Golden
-# master régénéré dans le même commit. Aucune logique moteur modifiée.
-# RECALIBRAGE refonte « assemblage temporel » 2026-06-10 : le PA statu quo 2029
-# passe de ~100,3 à ~102,9 (+2,6) — l'inflation effective corrigée (~1,2 % vs
-# 2,33 % artificiel) libère du PA réel (+0,37 %/an, fourchette historique INSEE
-# du RDB réel/tête). Les ÉCARTS entre scénarios avaient été préservés à ±0,9 pt
-# (gating one-time intact ; les écarts vs statu quo ~102,9 mesurés alors ont été
-# recalés depuis pour lr/renaissance — cf. note RE-ENCODAGE ci-dessous) ; le léger
-# resserrement venait de l'impulsion macro laguée d'un an (pleine ampleur à 2030).
-# RE-ENCODAGE PROGRAMMES 2026-07-07 : renaissance_2027 recadré sur le programme
-# chiffré Attal (2/07/2026, ex-proxy PSMT), lr_2027 sur le triptyque Retailleau
-# (65 ans, −200k postes, choc fiscal 40 Md€), ajout horizons_2027 (deal fiscal
-# Horizons à somme nulle). Valeurs attendues recalées sur ces encodages
-# intentionnels — golden master régénéré dans le même commit, les 6 autres
-# scénarios sont bit-identiques. Aucune logique moteur modifiée.
-# RECALAGE v0.6.1 lot 8 (Phillips ancrée) : `pa_macro = growth - inflation`,
-# et le déflateur réalisé monte de ~0,6 pt/an. Les NEUF scénarios baissent, de
-# -0,3 à -2,0 pt, sans changer un seul rang du classement : c'est un effet
-# d'indice commun, pas un déplacement relatif entre programmes. Détail
-# mesuré (avant → après) : plf_2026 103,0→101,9 ; rn_2027 107,7→106,0 ;
-# lfi_2027 112,8→110,8 ; renaissance_2027 104,9→103,7 ; horizons_2027
-# 107,7→107,3 ; lr_2027 105,3→104,8 ; ps_2027 109,7→108,3 ; im_rabot_2029
-# 100,3→99,1 ; im_competitivite_2029 104,8→104,5. Rappel de lecture (I17) :
-# la variable est le DÉFLATEUR, l'indexation légale suit l'IPC — l'écart
-# déclaré de -0,15 pt/an minore encore la perte affichée ici.
-# RECALAGE v0.6.7 lot 3A (impulsions budgétaires levier par levier, audit
-# Codex 10/2026 constats A1-A2) : la croissance de chaque scénario bouge parce
-# que toute la trajectoire d'effort est désormais multipliée, flux par flux —
-# et non plus le seul niveau de première année. `pa_macro = growth − …` suit.
-# Avant → après : plf_2026 101,9→101,6 ; rn_2027 105,9→105,8 ; lfi_2027
-# 110,8→113,2 ; renaissance_2027 102,9→103,3 ; horizons_2027 106,7→106,4 ;
-# lr_2027 104,8→105,3 ; ps_2027 108,3→109,3 ; ecologistes_2027 107,1→108,0 ;
-# im_rabot_2029 99,0→95,1 (sa coupe de 5,2 % du PIB enfin multipliée en
-# entier) ; im_competitivite_2029 104,4→105,4. Aucune logique PA modifiée.
-# RECALAGE v0.6.7 lot 3E (indice de pouvoir d'achat : fin du double
-# retranchement de l'inflation, audit Codex bloc C constat 4). `pa_macro` passe
-# de g − 0,46 π à g : les dix scénarios montent de +2,0 à +3,4 pt en 2029 (effet
-# d'indice quasi commun ; un peu plus pour les programmes à inflation plus haute,
-# que l'ancien terme pénalisait deux fois). Avant → après : plf_2026 101,6→104,4 ;
-# rn_2027 105,8→108,7 ; lfi_2027 113,2→116,6 ; renaissance_2027 103,3→106,3 ;
-# horizons_2027 106,4→109,2 ; lr_2027 105,3→108,4 ; ps_2027 109,3→112,3 ;
-# ecologistes_2027 108,0→110,8 ; im_rabot_2029 95,1→97,1 ;
-# im_competitivite_2029 105,4→108,1. Aucune logique de gating modifiée.
-# RECALAGE v0.6.8 (indice de pouvoir d'achat RDB-moteur, engine/rdb.py : RDB des
-# ménages / prix de la consommation / unités de consommation, à la place de
-# « croissance + coefficients forfaitaires »). Mesuré le 07/10/2026, avant →
-# après : plf_2026 104,6→102,7 ; rn_2027 109,3→104,4 ; lfi_2027 115,9→107,2 ;
-# renaissance_2027 106,7→104,5 ; horizons_2027 109,8→101,9 ; lr_2027
-# 109,3→104,7 ; ps_2027 112,0→105,6 ; ecologistes_2027 110,6→103,8 ;
-# im_rabot_2029 96,8→94,3 ; im_competitivite_2029 107,9→103,6. Toutes les
-# autres colonnes sont bit-identiques.
-# RE-ENCODAGE LR / HORIZONS 2026-11-02 (v0.6.11, paramètres seuls, moteur
-# intact) : LR sur le livret « Comptes publics » du 12/10/2026 (effectifs
-# −400 000, chômage 15 mois, AME, fraude, collectivités, subventions) : PA 2029
-# 104,7 → 104,0 ; Horizons (effectifs −250 000, salaires enseignants +20 %,
-# réforme des agences retirée) : 101,9 → 102,5. Les deux restent dans la
-# tolérance ±1,5 des valeurs figées ci-dessous, qui ne sont pas re-figées (la
-# garde reste celle du gating one-time, pas de l'encodage) ; les 8 autres
-# scénarios sont identiques au bit.
-EXPECTED_PA_2029_FULL = {
-    "plf_2026": 102.7,
-    # 30/08/2026 : retrait de la baisse de CSG furtive (0,097 → 0,098039 voté)
-    # chez RN et les deux scénarios Montaigne → PA −0,1 pt chacun.
-    "rn_2027": 104.4,
-    "lfi_2027": 107.2,
-    # 30/08/2026 : re-encodage Attal (droit au brut +15 Md€ mais année blanche
-    # inchangée, retrait rénovation non sourcée) 103.7 → 102.9 ; Philippe
-    # (retrait abattement retraités + chômage 16 mois) 107.3 → 106.7.
-    "renaissance_2027": 104.5,
-    "horizons_2027": 101.9,
-    "lr_2027": 104.7,
-    "ps_2027": 105.6,
-    "ecologistes_2027": 103.8,
-    "im_rabot_2029": 94.3,
-    "im_competitivite_2029": 103.6,
-}
+# Ne PAS dériver depuis le golden master : ce serait une auto-référence (régénérer le snapshot
+# puis comparer à lui-même = test qui passe toujours). Les valeurs vivent dans
+# ``tests/snapshots/pa_2029_figes.json`` (données figées, jamais régénérées par un script) :
+# après un recalibrage ou un ré-encodage volontaire, y reporter les valeurs auditées, dans un
+# commit identifiable. L'historique des recalages (v0.6.1 à v0.6.11) est dans le git de ce
+# fichier et au CHANGELOG ; release de paramètres P (v0.8.1) : les dix encodages suivent leurs
+# sources, valeurs re-figées après audit (CHANGELOG, v0.8.1).
+EXPECTED_PA_2029_FULL = json.loads(
+    (Path(__file__).resolve().parent / 'snapshots' / 'pa_2029_figes.json').read_text(encoding='utf-8'))['valeurs']
 
 
 @_FULL_SCENARIOS_AVAILABLE
@@ -269,7 +180,9 @@ def test_expected_pa_keyset_couvre_tous_les_scenarios():
 def test_pa_2029_garde_fou_gating_one_time(name, measures):
     """Garde-fou anti-régression de l'indice de pouvoir d'achat (v0.6.8 : RDB-moteur).
     Une dérive ≥1.5 pt sur un scénario signale un changement de comportement à investiguer."""
-    sim = BudgetSimulatorV45(periods=10, mesures=measures)
+    # Mode historique : mesures telles que le mode les accepte (release P).
+    from tests.snapshots.run_scenarios_full import pour_le_mode
+    sim = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(measures))
     df_main, _, _ = sim.simulate()
     pa_2029 = df_main.iloc[4]["Pouvoir d'Achat"]
     expected = EXPECTED_PA_2029_FULL[name]

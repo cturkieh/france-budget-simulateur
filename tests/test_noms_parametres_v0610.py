@@ -120,8 +120,11 @@ def test_scenarios_publies_sans_nom_inconnu():
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])
 def test_scenarios_publies_valides_dans_les_deux_modes(strict):
+    # Mode historique : chaque scénario tel que le mode l'accepte (release P,
+    # sans la recette d'une seule année : cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
     for sid, mesures in _scenarios_publies().items():
-        _, _, rapport = _simuler(mesures, periods=2, strict=strict)
+        _, _, rapport = _simuler(pour_le_mode(mesures), periods=2, strict=strict)
         assert not [w for w in rapport['warnings'] if 'inconnu' in w], sid
 
 

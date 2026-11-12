@@ -13,8 +13,9 @@ négatif, l'« éviction » SOUTENAIT l'expansion.
   d'investissement de transition, dotation des collectivités 120 → 110
   (−10 Md€). Part 2027 = 20 / 10 = 2,000 ; effet 2027 = +0,001303 pt de
   croissance.
-- Programme publié IM Compétitivité : part 2,280 en 2027 (effort négatif,
-  effet +0,001454 pt), 2,605 au maximum.
+- Programme publié jusqu'à v0.8.0 (retiré du site par la release de paramètres P,
+  mesures figées dans ``tests/snapshots/programme_fige_eviction_v0610.json``) :
+  part 2,280 en 2027 (effort négatif, effet +0,001454 pt), 2,605 au maximum.
 
 Contrat verrouillé ici : la part est une part (dans [0 ; 1]) et l'éviction ne
 soutient jamais une expansion.
@@ -38,7 +39,11 @@ def _scenarios():
     chemin = (os.environ.get('BUDGETLAB_SCENARIOS_JSON') or '').strip()
     if not chemin or not Path(chemin).exists():
         pytest.skip("scenarios.json introuvable (fork moteur public seul)")
-    return {k: v['apiMeasures'] for k, v in json.loads(Path(chemin).read_text(encoding='utf-8')).items()}
+    # Mode historique : mesures telles que le mode les accepte (release P :
+    # sans la recette d'une seule année, cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
+    return {k: pour_le_mode(v['apiMeasures'])
+            for k, v in json.loads(Path(chemin).read_text(encoding='utf-8')).items()}
 
 
 def _simuler(mesures, annee_debut=None):
@@ -108,15 +113,23 @@ def test_contre_exemple_eviction_ne_soutient_pas_l_expansion():
         f"effort {etat['effort_budgetaire']:+.5f}) : elle SOUTIENT l'expansion")
 
 
-def test_im_competitivite_part_est_une_part_chaque_annee():
-    etats, _ = _simuler(_scenarios()['im_competitivite_2029'])
+PROGRAMME_FIGE = Path(__file__).parent / 'snapshots' / 'programme_fige_eviction_v0610.json'
+
+
+def _programme_fige():
+    """Cas de régression V2-01, figé (release P : le programme n'est plus publié)."""
+    return json.loads(PROGRAMME_FIGE.read_text(encoding='utf-8'))['mesures']
+
+
+def test_programme_fige_part_est_une_part_chaque_annee():
+    etats, _ = _simuler(_programme_fige())
     parts = {2025 + i: float(e['part_investissement']) for i, e in etats.items()}
     hors = {a: round(p, 3) for a, p in parts.items() if not 0.0 <= p <= 1.0}
     assert not hors, f"parts hors [0 ; 1] : {hors} (max {max(parts.values()):.3f})"
 
 
-def test_im_competitivite_eviction_ne_soutient_pas_l_expansion_2027():
-    etats, _ = _simuler(_scenarios()['im_competitivite_2029'])
+def test_programme_fige_eviction_ne_soutient_pas_l_expansion_2027():
+    etats, _ = _simuler(_programme_fige())
     etat = etats[IDX_2027]
     assert etat['effort_budgetaire'] < 0 and etat['debt_ratio'] > 1.0  # éviction active
     effet = _effet_eviction(etat)

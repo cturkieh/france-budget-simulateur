@@ -89,8 +89,9 @@ from budget_simulator.config import load_default_values
 from budget_simulator.engine._noms_parametres import NOMS_PARAMETRES_ADMIS
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import (CAS, DROIT, DROIT_REAJUSTE, PROGRAMME_MIXTE, egalite_bit_a_bit,
-                           impacts_par_annee, programme_sur_droit, simuler)
+from cadre_harness import (CAS, DROIT, DROIT_REAJUSTE, PROGRAMME_MIXTE, droit_reajuste_courant,
+                           droit_sans_valeurs_datees, egalite_bit_a_bit, impacts_par_annee, pour_le_mode, programme_sur_droit,
+                           simuler)
 from sous_processus import lancer_python
 
 # `.absolute()` et PAS `.resolve()` : tests/ est monté en lien symbolique par le
@@ -541,9 +542,10 @@ def test_exclusion_seulement_si_les_deux_conditions(regle, programme, annee_debu
 def test_aucune_correction_sur_les_scenarios_publies(annee_debut):
     """Neutralité des garde-fous W1 sur les 10 scénarios (et les deux bases) :
     aucune exclusion ni levier inconnu, ``report.corrections`` vide, résultat
-    valide."""
+    valide. Mode historique : chaque base telle que le mode l'accepte
+    (``pour_le_mode`` : sans la recette d'une seule année, release P)."""
     for nom, base in BASES.items():
-        rapport = _sim(base, annee_debut)[2]
+        rapport = _sim(pour_le_mode(base, annee_debut), annee_debut)[2]
         assert _corrections(rapport) == [], nom
         assert rapport['valid'] is True, nom
 
@@ -599,8 +601,10 @@ def test_profil_exception():
 @pytest.mark.parametrize('annee_debut', [None, DEBUT], ids=['historique', 'cadre2028'])
 def test_profils_vides_neutres_au_bit_sur_les_scenarios(annee_debut, strict):
     """``profils`` absent, ``{}`` ou ``None`` : sorties ET rapport identiques au
-    bit, sur les 10 scénarios et les deux bases, deux modes, deux portes."""
+    bit, sur les 10 scénarios et les deux bases, deux modes, deux portes
+    (chaque base telle que le mode l'accepte, ``pour_le_mode``)."""
     for nom, base in BASES.items():
+        base = pour_le_mode(base, annee_debut)
         ref = _sim(base, annee_debut, strict)
         for vide in ({}, None):
             out = _sim(base, annee_debut, strict, profils=vide)
@@ -640,18 +644,21 @@ def test_w1_9_rampe_jusqu_a_la_fin_du_mandat_et_valeur_exacte_en_2032():
     p_ref + (p − p_ref) × (a − début + 1) / n (même arithmétique que la rampe
     v0.7.0) ; à partir de FIN, la valeur EXACTE du programme (``==``). Référence
     d'un levier du droit : le droit réajusté ; d'un levier absent du droit : son
-    neutre (``NEUTRES_RELEASE_E``)."""
-    p_ref = DROIT_REAJUSTE['is_exceptionnel_tge']['montant']
-    p = 13.4
-    # Garde du test : ici la formule « p_ref + (p − p_ref) × n / n » N'EST PAS
-    # exacte ; un code qui l'appliquerait aussi en 2032 serait pris.
-    assert p_ref + (p - p_ref) * N_RAMPE / N_RAMPE != p
-    credits = 10.0
-    neutre = C.NEUTRES_RELEASE_E['depenses_publiques']['credits_etat']
-    c = _cadre(programme_sur_droit(is_exceptionnel_tge={'montant': p},
-                                   depenses_publiques={'credits_etat': credits}),
-               {'is_exceptionnel_tge.montant': {'forme': 'rampe'},
-                'depenses_publiques.credits_etat': {'forme': 'rampe'}})
+    neutre (``NEUTRES_RELEASE_E``). Droit constant (release P : la surtaxe
+    datée vaut 0 dès 2027, la formule y deviendrait exacte et la garde du test
+    sans objet ; les valeurs datées ont leurs tests W1-7)."""
+    with droit_sans_valeurs_datees():
+        p_ref = droit_reajuste_courant(DEBUT)['is_exceptionnel_tge']['montant']
+        p = 13.4
+        # Garde du test : ici la formule « p_ref + (p − p_ref) × n / n » N'EST PAS
+        # exacte ; un code qui l'appliquerait aussi en 2032 serait pris.
+        assert p_ref + (p - p_ref) * N_RAMPE / N_RAMPE != p
+        credits = 10.0
+        neutre = C.NEUTRES_RELEASE_E['depenses_publiques']['credits_etat']
+        c = _cadre(programme_sur_droit(is_exceptionnel_tge={'montant': p},
+                                       depenses_publiques={'credits_etat': credits}),
+                   {'is_exceptionnel_tge.montant': {'forme': 'rampe'},
+                    'depenses_publiques.credits_etat': {'forme': 'rampe'}})
     for a in range(2026, DEBUT):
         assert _valeur(c, a, 'is_exceptionnel_tge', 'montant') == p_ref
         assert _valeur(c, a, 'depenses_publiques', 'credits_etat', neutre) == neutre
@@ -1070,7 +1077,9 @@ def test_generateur_des_parametres_publie_les_calendriers():
 # ===========================================================================
 
 VOTE_SURTAXE = DROIT['is_exceptionnel_tge']['montant']            # 7,3 votés (budget 2026)
-REAJUSTE_SURTAXE = DROIT_REAJUSTE['is_exceptionnel_tge']['montant']  # 6,8 (atterrissage 2026)
+# 6,8 : réajustement de l'atterrissage 2026 (lu dans le fichier livré ; depuis la
+# release P, le droit réajusté de 2028 porte 0, la surtaxe s'arrêtant dès 2027).
+REAJUSTE_SURTAXE = cadre.charger_atterrissage().annees[2026].reajustements['is_exceptionnel_tge']['montant']
 
 
 def _segment(de, valeur, a=None, source='donnée de test (release E, W1)'):
@@ -1107,11 +1116,18 @@ def droit_de_test(valeurs_datees=None, mesures_en_plus=None):
             cadre.vider_caches()
 
 
-def test_w1_7_v1_fichier_livre_sans_valeur_datee():
-    """E est livré SANS valeur datée (sorties identiques au bit : golden
-    masters) ; P les écrit."""
+def test_w1_7_v1_fichier_livre_avec_la_surtaxe_datee():
+    """E était livré SANS valeur datée ; la release de paramètres P écrit la
+    seule valeur datée décidée : surtaxe d'IS votée pour 2026 (base votée),
+    0 dès 2027 (aucune loi de finances pour 2027 votée), chaque segment avec sa
+    source. Le réajustement 2026 reste dans l'atterrissage."""
     contenu = json.loads(cadre.DROIT_EN_VIGUEUR_PATH.read_text(encoding='utf-8'))
-    assert not contenu.get('valeurs_datees')
+    datees = contenu['valeurs_datees']
+    assert list(datees) == ['is_exceptionnel_tge'] and list(datees['is_exceptionnel_tge']) == ['montant']
+    segments = datees['is_exceptionnel_tge']['montant']
+    assert [{k: v for k, v in s.items() if k != 'source'} for s in segments] == [
+        {'de': 2026, 'a': 2026, 'valeur': VOTE_SURTAXE}, {'de': 2027, 'valeur': 0}]
+    assert all(s['source'].strip() for s in segments)
     assert REAJUSTE_SURTAXE != VOTE_SURTAXE      # prémisse : l'atterrissage 2026 réajuste la surtaxe
 
 
@@ -1176,7 +1192,10 @@ def test_w1_7_v4_ecart_de_solde_2027_egal_a_l_effet_isole():
     """Statu quo en mode cadre : l'écart de solde primaire 2027 entre le droit
     à surtaxe d'un an et le droit livré (surtaxe reconduite) est l'effet isolé
     du handler (``_solde_isole``), à 1e-9 ; 2026 inchangé."""
-    ref = simuler({}, annee_debut=DEBUT)
+    # Release P : le droit livré EST le droit à surtaxe d'un an ; la référence
+    # « surtaxe reconduite » est le même droit sans valeur datée.
+    with droit_sans_valeurs_datees():
+        ref = simuler({}, annee_debut=DEBUT)
     with droit_de_test(SURTAXE_UN_AN):
         out = simuler({}, annee_debut=DEBUT)
     assert _primaire(out, 2026) == _primaire(ref, 2026)
@@ -1212,7 +1231,9 @@ def test_mutation_valeurs_datees_ignorees_la_surtaxe_est_comptee_chaque_annee():
     de trop ; la propriété le refuse."""
     with droit_de_test(SURTAXE_UN_AN):
         assert _surtaxe_non_reconduite(cadre.CadreTemporel.preparer({}, DEBUT))
-    assert not _surtaxe_non_reconduite(cadre.CadreTemporel.preparer({}, DEBUT))
+    assert _surtaxe_non_reconduite(cadre.CadreTemporel.preparer({}, DEBUT))   # droit livré (P)
+    with droit_sans_valeurs_datees():
+        assert not _surtaxe_non_reconduite(cadre.CadreTemporel.preparer({}, DEBUT))
 
 
 # ===========================================================================
@@ -1328,8 +1349,10 @@ def test_plafond_mode_reduction_comportement_v072(nom, seuil, annee_debut):
 def test_w1_8_scenarios_sous_le_seuil_identiques_dans_les_deux_modes(annee_debut, strict):
     """Les scénarios (et bases) qui ne dépassent jamais le seuil : sorties
     identiques au bit dans les deux modes ; ``annees`` vide, ``impact_max_pct_pib``
-    et ``annee_impact_max`` à ``None``."""
+    et ``annee_impact_max`` à ``None`` (chaque base telle que le mode
+    l'accepte, ``pour_le_mode``)."""
     for nom, base in BASES.items():
+        base = pour_le_mode(base, annee_debut)
         with _mode_plafond('reduction'):
             reduit = simuler(copy.deepcopy(base), annee_debut=annee_debut, strict=strict)
         if reduit[2]['cadre']['plafond_total']['annees']:

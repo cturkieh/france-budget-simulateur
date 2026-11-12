@@ -4,6 +4,78 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [v0.8.1] — non publiée (proposée) — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics
+
+**Ce qui change** : des données et des textes, aucune équation ni constante du moteur. (1) Le droit en
+vigueur (`budget_simulator/data/droit_en_vigueur.json`) porte sa première valeur datée : la surtaxe
+d'IS des grandes entreprises (`is_exceptionnel_tge.montant`), 7,3 Md€ votés pour 2026 (réajustée à
+6,8 Md€ en 2026 par l'atterrissage, inchangé), **0 dès 2027** : contribution due au titre des deux
+premiers exercices clos à compter du 31 décembre 2025 (loi n° 2026-103, art. 12 ; BOFiP
+ACTU-2026-00097) ; le projet de loi de finances pour 2027 (n° 3210), qui la prorogeait, a été
+considéré comme rejeté par l'Assemblée nationale le 4 novembre 2026 (T.A. n° 362). Une loi de
+finances pour 2027 votée remplacera ce segment. (2) Les taux votés des leviers à taux de la release E
+sont inscrits au droit (contrat § 0.9) : `fiscalite_capital` 0,128 et 0,186, `multinationales.taux_tsn`
+0,03, `operations_financieres.taux_ttf` 0,004 et `rachats_actions` 0 (la taxe de 8 % en vigueur) ; leurs
+paramètres de comportement restent hors du droit. Aucune autre valeur. (3) Les scénarios publiés,
+lus dans le `scenarios.json` du dépôt parent, sont ré-encodés sur leurs sources (release P du site :
+10 scénarios, un retiré, un ajouté, une source par paramètre dans `scenariosSources.json`).
+
+**Ce que cela déplace, prouvé** (instantanés régénérés une seule fois, `BUDGETLAB_REGEN=1 make
+snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
+- **attribution au bit** : l'arbre v0.8.1 rejoué sur les scénarios d'avant P redonne le golden master
+  historique et le delta de référence de v0.8.0 à l'identique ; en mode cadre, les scénarios d'avant P
+  sur le droit SANS valeur datée redonnent le golden master du cadre 2028 et le standalone de v0.8.0 à
+  l'identique. Tout écart vient donc des données de P (scénarios) et de la seule valeur datée (droit) ;
+- **mode cadre, scénarios de P** : les dix scénarios, en 2032, égalent cellule par cellule (déficit,
+  dette, croissance moyenne 2028-2032, chômage, pouvoir d'achat, Gini : 60 sur 60) le banc de la
+  release P (colonne C) ; la référence passe de −7,17 à −7,34 % de déficit 2032 et de 138,04 à 138,52 %
+  de dette ; en 2027, statu quo à −5,86 % de déficit (−5,63 avant) ;
+- **valeur datée seule** (scénarios d'avant P, mode cadre) : de −0,01 à −0,03 point de déficit 2032 et
+  de +0,05 à +0,15 point de dette 2032 par scénario (2027 seule : un scénario qui écrit la surtaxe
+  l'impose dès 2028) ; standalone : seul le mini-scénario simulé en mode cadre (recette exceptionnelle)
+  bouge ;
+- **garde-fou du pouvoir d'achat 2029** : valeurs re-figées après audit dans
+  `tests/snapshots/pa_2029_figes.json` (données figées, jamais régénérées par un script ; elles
+  quittent le code du test).
+
+**Conséquences à connaître** :
+- **Mode historique** (sans `annee_debut`) : la référence porte le droit de 2028 dès 2026 (surtaxe à
+  0), et une recette d'une seule année y reste refusée (422 en strict, levier retiré en tolérant). Les
+  tests et le golden master historique évaluent chaque scénario publié tel que ce mode l'accepte
+  (`run_scenarios_full.pour_le_mode`). Le site sert le mode cadre.
+- **Rapport** : sur un levier à taux inscrit au droit, un bloc neutre COMPLET (taux et paramètres de
+  comportement à leur défaut, ce qu'envoie le simulateur du site) laisse toutes les sorties identiques
+  au bit mais fait figurer le levier dans `cadre.leviers_modifies` et `cadre.mesures_effectives` (règle
+  v0.7.2 « présent = imposé ») et déclenche la composition à trois mondes. Constaté, documenté
+  (METHODOLOGIE, test `test_bloc_neutre_d_un_levier_inscrit_au_droit`), non corrigé dans une release de
+  paramètres.
+
+**Tests adaptés** (aucune tolérance élargie) : harnais `droit_sans_valeurs_datees` pour les tests d'un
+mécanisme qui suppose un droit constant (atterrissage, mesures de l'année, élasticité des recettes,
+rampe, éviction de référence nulle) ; tests W1-7 réécrits sur le droit livré daté ; attentes « surtaxe
+6,8 » remplacées par le droit de 2028 lu dans le moteur ; G1 (neutralité au bit) sur les seules bases
+qui n'encodent pas le levier (`bases_g1`), rapport comparé hors la seule différence ci-dessus
+(`rapport_g1`) ; garde des écarts sourcés (v0.6.6) branchée sur le registre des sources du dépôt
+parent ; ancrage empirique du Gini et cas de régression de l'éviction (V2-01) sur des programmes figés
+(`tests/snapshots/programmes_figes_gini_v040.json`, `programme_fige_eviction_v0610.json`), sans
+identifiant de programme dans le code ; G1 du déplafonnement : un programme publié peut dépasser
+5 points, dans le domaine. Outil `scripts/scan_discontinuites.py` : balayer une clé dominante d'un
+mode exclusif retire les paramètres qu'elle masque (la référence inscrit désormais ces taux).
+
+**Textes publics corrigés** (relus dans leurs sources) : infobulles du rabot uniforme et docstrings
+de `handlers/montaigne.py` (une citation attribuée à la note n'y figure pas, une base de 1 726 Md€
+introuvable, un « engagement OTAN 2 % » remplacé par les 2,7 % du PIB, pensions comprises, de la
+note) ; `docs/SCENARIOS_POLITIQUES.md` : ligne de la surtaxe et paragraphe du réajustement, nombre de
+scénarios, bloc du scénario retiré, bloc du scénario ajouté, phrases d'encodage devenues inexactes
+avec P, orientation du scénario de think tank citée dans la note, lignes « Source » régénérées par
+`generate_scenario_sources.py` (dépôt parent) et tableau par `generate_scenario_params.py` ;
+`docs/METHODOLOGIE.md` : règle d'encodage 5 remplacée (aucun chiffrage de tiers n'encode un
+programme ; une mesure sans chiffre ni paramètre est affichée, non modélisée), référence commune,
+valeurs datées de v0.8.1, chiffres re-mesurés (référence, sentier de déflateur, mission IGF, 2027),
+onzième colonne du tableau du sens agrégé (écart de dette 2032 à la référence ; le précalcul du site
+doit la reproduire, garde `tests/test_revue_adverse_v061.py` dans le dépôt parent) ;
+`docs/EXPLICATION_MODELE_ECONOMIQUE.md` : chiffres de la référence.
+
 ## [v0.8.0] — non publiée (proposée) — release « E » : onze curseurs, déplafonnement des cotisations salariales, garde-fous, effet d'offre « échelle »
 
 **Ce qui change** : une équation (l'effet d'offre structurel, point 5) ; onze curseurs nouveaux et

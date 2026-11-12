@@ -52,7 +52,12 @@ COINS = ((2026, 0.005), (2028, 0.003))  # deux années : le cumul en niveau est 
 # seul) : un programme mixte (TVA → coin fiscal non nul, retraites, IR, SMIC).
 PROGRAMME_MIXTE = {'tva_rate': {'taux': 0.22}, 'retraites': {'indexation': 0.8},
                    'impot_revenu': {'taux_superieur': 0.50}, 'smic': {'montant_brut': 1900}}
-CAS = {'statu_quo': {}, 'programme_mixte': PROGRAMME_MIXTE, **SCENARIOS}
+# Mode historique : chaque scénario tel que le mode l'accepte (release P : sans la
+# recette d'une seule année, run_scenarios_full.pour_le_mode).
+from run_scenarios_full import pour_le_mode  # noqa: E402
+
+CAS = {'statu_quo': {}, 'programme_mixte': PROGRAMME_MIXTE,
+       **{k: pour_le_mode(v) for k, v in SCENARIOS.items()}}
 NOMS = sorted(CAS)
 ABSENT = object()
 

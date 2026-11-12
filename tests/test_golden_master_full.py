@@ -34,6 +34,7 @@ REGEN_CMD = 'python tests/snapshots/run_scenarios_full.py --out tests/snapshots/
 sys.path.insert(0, str(SNAPSHOTS_DIR))
 from _compare import assert_no_silent_handler_failure, compare_against_snapshot
 from run_scenarios_full import SCENARIOS as _SCENARIOS_AT_IMPORT
+from run_scenarios_full import pour_le_mode
 
 # Le golden master compare bit-à-bit les 8 scénarios politiques. Source unique
 # = `frontend-react/src/data/scenarios.json` (lue par run_scenarios_full). Pour
@@ -64,7 +65,8 @@ def scenario_results(scenarios_data):
     scenarios, _ = scenarios_data
     out = {}
     for name, mesures in scenarios.items():
-        df, _, report = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+        # Mode historique : mesures telles que le mode les accepte (run_scenarios_full.pour_le_mode).
+        df, _, report = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(mesures)).simulate()
         out[name] = (df, report)
     return out
 

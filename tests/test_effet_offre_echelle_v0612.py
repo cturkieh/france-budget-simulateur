@@ -71,6 +71,7 @@ CONSTANTS_PY = RACINE / 'budget_simulator' / 'constants.py'
 
 sys.path.insert(0, str(RACINE / 'tests' / 'snapshots'))
 from run_scenarios_full import SCENARIOS  # noqa: E402
+from cadre_harness import pour_le_mode, rapport_g1  # noqa: E402
 
 DROIT = json.loads((RACINE / 'budget_simulator' / 'data' / 'droit_en_vigueur.json')
                    .read_text(encoding='utf-8'))['mesures']
@@ -463,6 +464,9 @@ def test_w6_2_g1_neutralite_au_bit_avec_effet_d_offre_actif(levier, annee_debut,
         ref = _simuler_base(nom, annee_debut, strict)
         assert (ref[1]['Bonus_Potentiel_Supply %'] != 0).any(), (nom, 'base sans effet d\'offre')
         avec = _simuler({**base, levier: dict(C.NEUTRES_RELEASE_E[levier])}, annee_debut, strict=strict)
+        # Release P : rapport comparé hors la seule différence d'un levier à
+        # taux inscrit au droit (cadre_harness.rapport_g1).
+        avec = (avec[0], avec[1], rapport_g1(avec[2], levier))
         _identiques_au_bit(avec, ref, (nom, levier, annee_debut, strict))
 
 
@@ -675,7 +679,7 @@ def test_w6_9_neutre_sorties_identiques_au_bit(annee_debut, strict):
     if len(BASES_NEUTRE) < 12:
         assert len(BASES_NEUTRE) == 2  # dépôt public seul : statu quo et droit en vigueur
     for nom, base in BASES_NEUTRE.items():
-        neutre = _au_defaut_sur_l_offre(base)
+        neutre = _au_defaut_sur_l_offre(pour_le_mode(base, annee_debut))
         assert all(d == 0 for d in _deltas(neutre).values()), nom
         avec = _simuler(neutre, annee_debut, strict=strict)
         with _sans_effet_d_offre():

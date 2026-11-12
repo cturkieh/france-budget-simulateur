@@ -311,9 +311,10 @@ def test_masse_publique_de_base_identique_entre_scenarios(statu_quo):
     import pathlib
     import sys
     sys.path.insert(0, str(pathlib.Path(__file__).parent / 'snapshots'))
-    from run_scenarios_full import SCENARIOS
+    from run_scenarios_full import SCENARIOS, pour_le_mode
     for nom, mesures in SCENARIOS.items():
-        trace = _run(mesures)[0]._rdb_trace
+        # Mode historique : mesures telles que le mode les accepte (release P).
+        trace = _run(pour_le_mode(mesures))[0]._rdb_trace
         for an, t in trace.items():
             assert _base_publique_reelle(t) == pytest.approx(
                 _base_publique_reelle(statu_quo[an]), rel=1e-12), (nom, an)

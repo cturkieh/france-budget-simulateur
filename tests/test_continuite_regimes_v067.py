@@ -236,7 +236,11 @@ def _scenarios():
     chemin = (os.environ.get('BUDGETLAB_SCENARIOS_JSON') or '').strip()
     if not chemin or not Path(chemin).exists():
         pytest.skip("scenarios.json introuvable (fork moteur public seul)")
-    return {k: v['apiMeasures'] for k, v in json.loads(Path(chemin).read_text(encoding='utf-8')).items()}
+    # Mode historique : mesures telles que le mode les accepte (release P :
+    # sans la recette d'une seule année, cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
+    return {k: pour_le_mode(v['apiMeasures'])
+            for k, v in json.loads(Path(chemin).read_text(encoding='utf-8')).items()}
 
 
 def _dette_2035(mesures, levier, param, x):

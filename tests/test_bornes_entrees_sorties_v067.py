@@ -261,8 +261,11 @@ def test_bornes_de_sortie_ne_mordent_sur_aucun_scenario_publie(tolerant):
     chemin = pathlib.Path(env) if env else RACINE / '..' / '..' / 'frontend-react' / 'src' / 'data' / 'scenarios.json'
     if not chemin.exists():
         pytest.skip("scenarios.json introuvable (fork moteur public seul)")
+    # Mode historique : chaque scénario tel que le mode l'accepte (release P,
+    # sans la recette d'une seule année : cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
     for nom, contenu in json.loads(chemin.read_text(encoding='utf-8')).items():
-        _, _, report = _simuler(contenu.get('apiMeasures') or {})
+        _, _, report = _simuler(pour_le_mode(contenu.get('apiMeasures') or {}))
         assert report['valid'] is True, (nom, _corrections(report))
 
 

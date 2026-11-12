@@ -62,7 +62,7 @@ from budget_simulator.engine._param_domain import EntreeInvalide, ParametreIgnor
 from budget_simulator.handlers._types import canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45
 
-from cadre_harness import PROGRAMME_MIXTE, SCENARIOS as _SCENARIOS_PUBLIES, simuler
+from cadre_harness import PROGRAMME_MIXTE, SCENARIOS as _SCENARIOS_PUBLIES, bases_g1, simuler
 
 RACINE = Path(__file__).absolute().parent.parent
 REGISTRE = {m['id']: m for m in json.loads(
@@ -1547,8 +1547,9 @@ def test_w4_1_g1_neutralite_au_bit_en_calcul(levier, bloc, annee_debut, strict):
     trajectoire, détails, impacts par levier, validité et avis, sur le statu
     quo, le droit en vigueur et les 10 scénarios publiés, dans les deux modes et
     les deux portes. (Le bloc entièrement neutre est couvert par le G1 du
-    socle.)"""
-    _verifier_g1(levier, bloc, annee_debut, strict, BASES)
+    socle.) Release de paramètres P : les bases qui ENCODENT le levier en sont
+    exclues (cadre_harness.bases_g1)."""
+    _verifier_g1(levier, bloc, annee_debut, strict, bases_g1(BASES, levier, annee_debut))
 
 
 @pytest.mark.parametrize('strict', [False, True], ids=['tolerant', 'strict'])

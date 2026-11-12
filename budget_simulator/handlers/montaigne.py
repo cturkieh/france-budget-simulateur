@@ -2,9 +2,10 @@
 
 Mesures couvertes :
 - ``rabot_uniforme`` : réduction uniforme (%) sur toutes les catégories de
-  dépenses, avec exclusions optionnelles (dette, défense, UE). À 8 % =
-  -138 Md€ selon l'IM (sur base 1 726 Md€) ; sur notre base simulateur
-  (1 635 Md€), -130,8 Md€ à 8 %.
+  dépenses, avec exclusions optionnelles (dette, défense, UE). À 8 %, la
+  note vise 138 Md€ (graphique, p. 84) ou 140 Md€ (texte, p. 83) en 2029 ;
+  le moteur calcule le rendement du taux sur ses propres catégories de
+  dépenses.
 
 Convention d'application :
 - Phasing progressif sur 2 ans (50 % la première année, 100 % ensuite)
@@ -16,8 +17,9 @@ Convention d'application :
 
 Sources principales :
 - Institut Montaigne, *Budget Base Zéro*, novembre 2025.
-- Critique IM elle-même : « cumule les résistances sans réallocation
-  stratégique ».
+- Selon ses auteurs, cette approche, « en plus de cristalliser les
+  résistances, traduirait une logique d’austérité sans cap plutôt qu’une
+  stratégie cohérente de redressement ».
 
 Le mixin accède à ``self.spending_categories_base``, ``self._spending_factors``
 et ``self.debug_logs`` — tous attributs d'instance de ``BudgetSimulatorV45``.
@@ -59,10 +61,8 @@ class MontaigneMixin(_MixinBase):
         Applique une réduction uniforme (%) sur toutes les catégories de dépenses,
         avec possibilité d'exclure certains postes (dette, défense, UE).
 
-        À 8% = -138 Md€ selon IM (sur base 1 726 Md€).
-        Notre base simulateur = 1 635 Md€ → -130,8 Md€ à 8%.
-
-        Critique IM: "Cumule les résistances sans réallocation stratégique"
+        À 8 %, la note vise 138 Md€ (graphique, p. 84) ou 140 Md€ (texte,
+        p. 83) en 2029 ; le moteur calcule le rendement du taux.
 
         Sources: Institut Montaigne "Budget Base Zéro" Nov 2025.
         """
@@ -90,7 +90,8 @@ class MontaigneMixin(_MixinBase):
 
         # Postes incompressibles Institut Montaigne (242 Md€)
         # - Service dette: 107 Md€ (pas dans categories_base, géré séparément)
-        # - Défense OTAN: 91 Md€ (defense_equipement 25 + partie masse_salariale défense)
+        # - Défense : 91 Md€ en 2029 selon la note (2,7 % du PIB, pensions comprises) ;
+        #   le moteur n'exclut que defense_equipement (25 Md€ en 2025)
         # - Contribution UE: 44 Md€ (pas dans categories_base)
 
         total_coupe = 0

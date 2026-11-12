@@ -39,7 +39,7 @@ from budget_simulator import EntreeInvalide
 from budget_simulator.simulator import BudgetSimulatorV45
 
 from cadre_harness import (CAS, DROIT_REAJUSTE, NOMS, NOMS_PROGRAMMES, PROGRAMME_MIXTE, SCENARIOS, atterrissage,
-                           egalite_bit_a_bit, simuler)
+                           droit_sans_valeurs_datees, egalite_bit_a_bit, simuler)
 
 API_FILE = Path(__file__).resolve().parent.parent / 'api.py'
 FRONT_SCENARIOS = (Path(__file__).absolute().parent.parent / 'frontend-react' / 'src' / 'data'
@@ -77,8 +77,10 @@ def test_garde_le_budget_vote_de_l_app_egal_au_droit_en_vigueur():
     où un budget 2027 est voté, on remplace le fichier de données ET le scénario,
     ensemble ; un nouveau réajustement de l'atterrissage se reporte au scénario."""
     app = json.loads(FRONT_SCENARIOS.read_text(encoding='utf-8'))['plf_2026']['apiMeasures']
-    att = cadre.charger_atterrissage()
-    attendu = cadre.droit_reajuste(_droit(), att, max(att.annees))
+    # Release P : valeurs datées comprises, au premier budget du mandat (une
+    # mesure votée pour une durée limitée n'est plus dans le droit de 2028).
+    att, droit = cadre.charger_atterrissage(), cadre.charger_droit_en_vigueur()
+    attendu = cadre.droit_de_l_annee(droit.mesures, att, DEBUT, droit.valeurs_datees)
     assert app == attendu
     # Le réajustement est réel : le scénario n'est plus le voté brut.
     assert app != _droit()
@@ -121,7 +123,8 @@ def test_mesures_de_l_annee_avant_et_apres_le_debut():
     prog['rabot_uniforme'] = {'taux_reduction': 0.02}
     del prog['collectivites']             # absent : hérite du droit
     prog['csg'] = None                     # null : hérite du droit
-    with atterrissage({}):                 # mécanique du lot A, sans réajustement (lot E)
+    # Mécanique du lot A : sans réajustement (lot E) ni valeur datée (release P).
+    with atterrissage({}), droit_sans_valeurs_datees():
         c = cadre.CadreTemporel.preparer(prog, DEBUT, droit=cadre.charger_droit_en_vigueur())
     assert c.etat.mesures_droit == droit and c.etat.mesures_droit is not droit  # copie par simulation
     for an in (2026, 2027):
@@ -197,9 +200,11 @@ def test_a_le_programme_s_applique_a_partir_du_debut(nom, statu_quo_cadre):
 def test_g_statu_quo_cadre_egal_statu_quo_historique_au_bit():
     """Le budget voté, rejoué en mode cadre (droit = programme), est au bit le
     budget voté historique, tables d'atterrissage vides (lot E : avec
-    l'atterrissage, 2026 est injecté — test_cadre_v070_atterrissage.py)."""
+    l'atterrissage, 2026 est injecté — test_cadre_v070_atterrissage.py) et
+    droit constant (release P : avec des valeurs datées, le droit d'une année
+    n'est plus le voté que le mode historique applique dès 2026)."""
     historique = simuler(_droit())
-    with atterrissage({}):
+    with atterrissage({}), droit_sans_valeurs_datees():
         for debut in (2027, DEBUT, 2032):
             egalite_bit_a_bit(historique, simuler(_droit(), annee_debut=debut), libelle=str(debut))
 
@@ -266,7 +271,8 @@ def test_lecteurs_lateraux_lisent_les_mesures_de_l_annee(monkeypatch):
             return super().update_labour_supply(year)
 
     sim = SimAnnee(periods=10, mesures=copy.deepcopy(PROGRAMME_MIXTE), annee_debut=DEBUT)
-    with atterrissage({}):                 # droit voté tel quel (réajustements : lot E)
+    # Droit voté tel quel : ni réajustement (lot E) ni valeur datée (release P).
+    with atterrissage({}), droit_sans_valeurs_datees():
         sim.simulate()
     droit = _droit()
     assert set(vus) == {'offre_seniors', 'chomage_seniors', 'effet_offre', 'asu_fraude',

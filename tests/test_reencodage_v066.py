@@ -58,14 +58,24 @@ non sourcé vaut ce droit réajusté, auquel `plf_2026` est lui-même égal (gar
 `test_cadre_v070_mesures_annee`). Ci-dessous, « droit voté » se lit « droit en vigueur
 réajusté » partout où le test compare via `DROIT_REAJUSTE`.
 
+Release de paramètres P (moteur v0.8.1, 12/11/2026) : tous les programmes sont
+ré-encodés le même jour sur leurs sources, et chaque paramètre qui s'écarte de la
+référence porte UNE entrée de source (url officielle, date de lecture, citation
+vérifiée, règle, valeur) dans ``scenariosSources.json``, à côté de
+``scenarios.json`` dans le dépôt parent. Les tables écrites à la main d'octobre et
+de novembre (b, c) sont remplacées par ce registre : (b) et (c) le lisent, pour
+tous les programmes. La référence est le droit en vigueur au premier budget du
+mandat (2028), valeurs datées comprises (``plf_2026`` lui est égal, garde
+``test_cadre_v070_mesures_annee``).
+
 Propriétés verrouillées :
   (a) RN et Horizons : les mesures retirées sont posées au droit voté (pas omises) —
       RN : superprofits et cotisations salariales (07/10/2026) ; Horizons : réforme
       des agences (02/11/2026) ;
-  (b) RN, LR, Horizons : même jeu de leviers que plf_2026, et chaque paramètre hors
-      écarts sourcés vaut EXACTEMENT le droit voté — c'est la forme exécutable de
-      « aucune économie ni dépense non sourcée » ;
-  (c) RN, LR, Horizons : les écarts sourcés valent les arbitrages ;
+  (b) tous les programmes (release P) : chaque paramètre qui s'écarte de la
+      référence a une entrée de source, et aucune entrée n'est sans écart — c'est
+      la forme exécutable de « aucune économie ni dépense non sourcée » ;
+  (c) tous les programmes (release P) : chaque entrée porte la valeur encodée ;
   (d) pourquoi « retirer » = poser au droit voté et JAMAIS omettre la clé : une clé
       absente vaut le DÉFAUT DU MOTEUR (config.py, année 2025), pas la loi votée.
       Historique : en v0.6.6, `taxe_superprofits` à intensité 0 émettait encore
@@ -77,6 +87,7 @@ Propriétés verrouillées :
       diffère du droit voté (`sante` du RN), omettre la clé change bien la
       trajectoire. C'est toujours (a) qui vérifie la valeur des clés retirées.
 """
+import json
 import sys
 from pathlib import Path
 
@@ -86,7 +97,7 @@ from budget_simulator.simulator import BudgetSimulatorV45
 
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 sys.path.insert(0, str(SNAPSHOTS_DIR))
-from run_scenarios_full import SCENARIOS  # noqa: E402
+from run_scenarios_full import _SCENARIOS_JSON, SCENARIOS  # noqa: E402
 
 
 def _droit_reajuste():
@@ -95,10 +106,13 @@ def _droit_reajuste():
     l'atterrissage, reconduits ensuite à droit constant. Lu dans le moteur, jamais
     recopié : un futur réajustement suit sans retoucher ce test. `plf_2026` lui est
     égal (garde test_cadre_v070_mesures_annee)."""
+    from budget_simulator.constants import ANNEE_PREMIER_BUDGET_MANDAT
     from budget_simulator.engine.cadre import (charger_atterrissage, charger_droit_en_vigueur,
-                                               droit_reajuste)
-    atterrissage = charger_atterrissage()
-    return droit_reajuste(charger_droit_en_vigueur().mesures, atterrissage, max(atterrissage.annees))
+                                               droit_de_l_annee)
+    # Release P : valeurs datées comprises, au premier budget du mandat.
+    droit = charger_droit_en_vigueur()
+    return droit_de_l_annee(droit.mesures, charger_atterrissage(), ANNEE_PREMIER_BUDGET_MANDAT,
+                            droit.valeurs_datees)
 
 
 DROIT_REAJUSTE = _droit_reajuste()
@@ -115,81 +129,28 @@ CLES_RETIREES_PAR_SCENARIO = {
     'horizons_2027': ('fonction_publique_reforme',),
 }
 
-# Écarts au droit voté que le contre-budget du 06/10/2026 chiffre ou paramètre
-# (table du dossier de sourcing, statut PROUVÉ ou arbitré le 07/10/2026).
-RN_ECARTS_SOURCES = {
-    ('retraites', 'age_depart'): 62.0,
-    ('retraites', 'duree_cotisation'): 42.0,
-    ('fonction_publique', 'effectifs'): -201000,     # 85 000 agences + 116 000 collectivités
-    ('collectivites', 'dotation'): 109.2,            # 116,6 − 8,2 + 0,8 (part effectifs déjà comptée)
-    ('immigration', 'ame'): 0.0,                     # 1,3 Md€ annoncés > budget AME du levier (1,2)
-    ('fraude_fiscale', 'effort'): 1.0,               # plafond du levier
-    ('tva_energie', 'taux'): 0.055,
-    ('impots_production', 'montant'): 80,            # 97 − 17 (CFE + CVAE + C3S)
-    ('transition_ecologique', 'renovation'): 3.8,    # 100 % Rénov' 5,1 − MaPrimeRénov' 1,3
-    ('transition_ecologique', 'taxe_carbone'): 30.5,  # composante carbone 2017
-    ('recherche_publique', 'budget'): 19,            # base 10 + 9 Md€
-}
+def _registre_des_sources():
+    """Entrées de source de la release de paramètres P (``scenariosSources.json``
+    du dépôt parent, à côté du ``scenarios.json`` lu) ; ``{}`` hors dépôt parent."""
+    if _SCENARIOS_JSON is None:
+        return {}
+    chemin = _SCENARIOS_JSON.with_name('scenariosSources.json')
+    return json.loads(chemin.read_text(encoding='utf-8')) if chemin.exists() else {}
 
-# Invariant « droit en vigueur sauf écart sourcé », appliqué par scénario. Clé = id
-# du scénario, valeur = liste EXPLICITE de ses écarts sourcés à plf_2026.
-# LR et Horizons : audit levier par levier du 07/10/2026 (tableau au CHANGELOG parent).
-LR_ECARTS_SOURCES = {
-    ('cotisations_patronales', 'taux'): 0.2525,      # > 25 Md€ coût du travail (fiche 14 : 15 gagés + 10 autofinancés)
-    ('cotisations_salariales', 'baisse_points'): 2.5,  # 15 Md€ rendus aux salariés (fiche 14)
-    ('impots_production', 'montant'): 82,            # 97 − 15 (fiche 14 : « impôts de production supprimés 15,0 »)
-    ('fonction_publique', 'effectifs'): -400000,     # fiche 3 : 400 000 départs non remplacés sur le quinquennat (25 Md€)
-    ('retraites', 'age_depart'): 65.0,               # taux plein à 65 ans (mesure 108)
-    ('asu', 'asu_activation'): 1,                    # compte social unique (fiche 8)
-    ('asu', 'asu_plafonnement'): 0.7,                # plafonné à 70 % du SMIC net
-    ('chomage_alloc', 'duree'): 15,                  # fiche 8 : durée maximale « de 18 à 15 mois »
-    ('immigration', 'ame'): 0.5,                     # fiche 9 : AME réduite aux soins essentiels, −0,7 Md€ sur 1,2
-    ('fraude_fiscale', 'effort'): 0.45,              # fiche 5 : +5 Md€ nets (régime net du levier, +0,31 sur le 0,14 voté)
-    ('fraude_sociale', 'effort'): 1.0,               # fiche 10 : 4 Md€ > capacité du levier (ASU active) → plafond
-    ('collectivites', 'dotation'): 106.6,            # fiche 12 : −10 Md€ de fonctionnement des collectivités
-    ('subventions_tge', 'montant'): 29,              # fiche 4 : énergies intermittentes subventionnées −4 Md€
-    ('niches_fiscales_tge', 'montant'): 52,          # fiche 4 : niches, politique de la ville, zonages −4,9 Md€ (57 − 5)
-}
 
-HORIZONS_ECARTS_SOURCES = {
-    ('retraites', 'age_depart'): 65.0,               # réforme du 29/09/2026
-    ('retraites', 'duree_cotisation'): 45.0,
-    ('chomage_alloc', 'duree'): 12,                  # 12 mois (sourcé le 30/08/2026)
-    ('impots_production', 'montant'): 47,            # pacte fiscal à somme nulle (30/08/2026)
-    ('niches_fiscales_tge', 'montant'): 32,
-    ('subventions_tge', 'montant'): 8,
-    ('is_exceptionnel_tge', 'montant'): 0,           # fin de la surtaxe IS
-    ('fonction_publique', 'effectifs'): -250000,     # « plus de 250 000 postes sur le quinquennat » (site, 02/11/2026)
-    ('education', 'salaires'): 20,                   # +20 % de rémunération moyenne des enseignants (23/10/2026), coût brut
-}
+SOURCES = _registre_des_sources()
+REFERENCE = 'plf_2026'
+PROGRAMMES_SOURCES = sorted(sid for sid in SOURCES if sid != REFERENCE)
+_REGISTRE = pytest.mark.skipif(not (SCENARIOS and SOURCES),
+                               reason="scenarios.json ou scenariosSources.json absent (fork moteur seul)")
 
-# PS, LFI, Écologistes, Renaissance : paramètres hérités pas encore passés au crible,
-# à ajouter ici à leurs prochains re-sourcings.
-ECARTS_SOURCES_PAR_SCENARIO = {
-    'rn_2027': RN_ECARTS_SOURCES,
-    'lr_2027': LR_ECARTS_SOURCES,
-    'horizons_2027': HORIZONS_ECARTS_SOURCES,
-}
+
+def _a_plat(scenario):
+    return {f'{lev}.{p}': v for lev, ps in scenario.items() for p, v in ps.items()}
 
 
 def _params(scenario):
     return {(lev, p): v for lev, ps in scenario.items() for p, v in ps.items()}
-
-
-def _ecarts_au_droit_en_vigueur(sid, ecarts_sources):
-    """Écarts de `sid` au droit en vigueur réajusté hors liste sourcée : (1) leviers
-    en trop ou manquants, (2) paramètres différents. Itère sur l'UNION des clés : un
-    paramètre présent dans la référence et absent du scénario (= défaut moteur) est un
-    écart."""
-    scn, ref = SCENARIOS[sid], DROIT_REAJUSTE
-    leviers = {'en_trop': set(scn) - set(ref), 'manquants': set(ref) - set(scn)}
-    p_scn, p_ref = _params(scn), _params(ref)
-    params = {
-        k: (p_ref.get(k, '<absent>'), p_scn.get(k, '<absent>'))
-        for k in set(p_ref) | set(p_scn)
-        if k not in ecarts_sources and p_scn.get(k, '<absent>') != p_ref.get(k, '<absent>')
-    }
-    return leviers, params
 
 
 @_SCENARIOS
@@ -228,23 +189,34 @@ def test_a3_les_valeurs_hors_curseur_sont_dans_le_domaine_moteur():
     assert SCENARIOS['horizons_2027']['education']['salaires'] == 20
 
 
-@_SCENARIOS
-@pytest.mark.parametrize('sid', sorted(ECARTS_SOURCES_PAR_SCENARIO))
+@_REGISTRE
+def test_b0_registre_et_scenarios_couvrent_les_memes_programmes():
+    assert set(SOURCES) == set(SCENARIOS)
+    assert REFERENCE in SCENARIOS and _params(SCENARIOS[REFERENCE]) == _params(DROIT_REAJUSTE)
+
+
+@_REGISTRE
+@pytest.mark.parametrize('sid', PROGRAMMES_SOURCES)
 def test_b_tout_parametre_non_source_vaut_le_droit_en_vigueur(sid):
-    leviers, params = _ecarts_au_droit_en_vigueur(sid, ECARTS_SOURCES_PAR_SCENARIO[sid])
-    assert not leviers['en_trop'] and not leviers['manquants'], f"{sid} leviers : {leviers}"
-    assert not params, f"paramètres {sid} hérités sans source (droit en vigueur, {sid}) : {params}"
+    """Tout paramètre qui s'écarte de la référence (présent d'un seul côté
+    compris) a une entrée de source ; aucune entrée sans écart."""
+    ref, scn = _a_plat(SCENARIOS[REFERENCE]), _a_plat(SCENARIOS[sid])
+    ecarts = {k for k in set(ref) | set(scn) if scn.get(k, '<absent>') != ref.get(k, '<absent>')}
+    entrees = set((SOURCES[sid].get('parametres') or {}))
+    assert not ecarts - entrees, f"paramètres {sid} encodés sans source : {sorted(ecarts - entrees)}"
+    assert not entrees - ecarts, f"entrées {sid} sans écart correspondant : {sorted(entrees - ecarts)}"
 
 
-@_SCENARIOS
-@pytest.mark.parametrize(
-    'sid,cle,attendu',
-    [(sid, k, v) for sid, ecarts in sorted(ECARTS_SOURCES_PAR_SCENARIO.items())
-     for k, v in ecarts.items()],
-    ids=str,
-)
-def test_c_ecarts_sources_valent_les_arbitrages(sid, cle, attendu):
-    assert _params(SCENARIOS[sid]).get(cle) == attendu
+@_REGISTRE
+@pytest.mark.parametrize('sid', PROGRAMMES_SOURCES)
+def test_c_ecarts_sources_valent_les_arbitrages(sid):
+    """Chaque entrée porte la valeur encodée (``retire`` : paramètre absent)."""
+    scn = _a_plat(SCENARIOS[sid])
+    for cle, entree in (SOURCES[sid].get('parametres') or {}).items():
+        if entree.get('retire'):
+            assert cle not in scn and entree.get('valeur') is None, (sid, cle)
+        else:
+            assert scn.get(cle) == entree['valeur'], (sid, cle, scn.get(cle), entree['valeur'])
 
 
 @pytest.fixture

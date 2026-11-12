@@ -20,9 +20,11 @@ Propriétés verrouillées :
       à des amplitudes défendables ;
   (d) statu quo inerte : 0 levier → Gini = GINI_BASE constant (pas de dérive
       du mécanisme de convergence à cible nulle) ;
-  (e) ancrage empirique : LFI 2030 dans [0,255 ; 0,275] (IPP/OFCE : un
-      programme de 5-10 % du PIB ≈ −0,015 à −0,035 de Gini), et LFI/PS
-      distincts à 3 décimales (la résolution d'affichage du comparateur).
+  (e) ancrage empirique : un programme redistributif figé (A) en 2030 dans
+      [0,255 ; 0,275] (IPP/OFCE : un programme de 5-10 % du PIB ≈ −0,015 à
+      −0,035 de Gini), A et B distincts à 3 décimales (la résolution
+      d'affichage du comparateur). Programmes figés depuis la release de
+      paramètres P (v0.8.1), voir ``tests/snapshots/programmes_figes_gini_v040.json``.
 
 Si un recalibrage des sensibilités handlers fait rougir (e), c'est un
 recalibrage de GINI_IMPACT_SCALE qu'il faut discuter — pas un élargissement
@@ -38,7 +40,11 @@ from budget_simulator.constants import GINI_BASE, GINI_SOFT_FLOOR
 
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 sys.path.insert(0, str(SNAPSHOTS_DIR))
-from run_scenarios_full import SCENARIOS  # noqa: E402
+from run_scenarios_full import SCENARIOS, pour_le_mode  # noqa: E402
+
+# Ancrage (e) : deux programmes FIGÉS (release de paramètres P, 12/11/2026), pour
+# que la calibration ne dépende pas d'un ré-encodage de leurs sources.
+PROGRAMMES_FIGES = SNAPSHOTS_DIR / 'programmes_figes_gini_v040.json'
 
 YEAR_IDX_2030 = 5
 # Le clip dur de l'orchestrator vaut GINI_SOFT_FLOOR par design (plancher
@@ -52,9 +58,17 @@ def ginis():
     """Trajectoires Gini (11 ans) de chaque scénario politique, simulées une fois."""
     out = {}
     for name, mesures in SCENARIOS.items():
-        df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+        # Mode historique : mesures telles que le mode les accepte (release P).
+        df, _, _ = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(mesures)).simulate()
         out[name] = [float(v) for v in df['Gini'].tolist()]
     return out
+
+
+def _gini_2030_fige(cle):
+    import json
+    mesures = json.loads(PROGRAMMES_FIGES.read_text(encoding='utf-8'))[cle]
+    df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    return float(df['Gini'].iloc[YEAR_IDX_2030])
 
 
 @pytest.mark.skipif(not SCENARIOS, reason="scenarios.json absent (fork moteur seul)")
@@ -125,16 +139,19 @@ def test_f_reentrance_sans_fuite_etat():
     )
 
 
-@pytest.mark.skipif(not SCENARIOS, reason="scenarios.json absent (fork moteur seul)")
-def test_e_ancrage_empirique_et_resolution(ginis):
-    """LFI 2030 dans la fourchette IPP/OFCE ; LFI ≠ PS à la résolution d'affichage."""
-    lfi = ginis['lfi_2027'][YEAR_IDX_2030]
-    ps = ginis['ps_2027'][YEAR_IDX_2030]
-    assert 0.255 <= lfi <= 0.275, (
-        f"LFI 2030 = {lfi:.4f} hors fourchette empirique [0,255 ; 0,275] "
+def test_e_ancrage_empirique_et_resolution():
+    """Programme redistributif figé A, 2030, dans la fourchette IPP/OFCE ; A ≠ B
+    à la résolution d'affichage. Release de paramètres P : l'ancrage porte sur
+    deux programmes FIGÉS (``programmes_figes_gini_v040.json``), publiés
+    jusqu'à v0.8.0 : il vérifie la calibration du moteur, pas un encodage qui
+    suit ses sources (la valeur publiée est dans le golden master)."""
+    a = _gini_2030_fige('programme_a')
+    b = _gini_2030_fige('programme_b')
+    assert 0.255 <= a <= 0.275, (
+        f"programme figé A, 2030 = {a:.4f} hors fourchette empirique [0,255 ; 0,275] "
         "(IPP/OFCE : programme 5-10 % PIB ≈ −0,015 à −0,035 de Gini)"
     )
-    assert round(lfi, 3) != round(ps, 3), (
-        f"LFI et PS indistincts à 3 décimales (LFI={lfi:.4f}, PS={ps:.4f}) — "
+    assert round(a, 3) != round(b, 3), (
+        f"programmes figés A et B indistincts à 3 décimales (A={a:.4f}, B={b:.4f}) — "
         "l'écart entre programmes est de nouveau écrasé"
     )

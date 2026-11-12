@@ -116,7 +116,10 @@ def _cas_couverts():
     from coverage_scenarios import annee_debut_mini, build_standalone_scenarios
     from run_scenarios_full import SCENARIOS
     cas = {f'standalone:{k}': (v, annee_debut_mini(k)) for k, v in build_standalone_scenarios().items()}
-    cas.update({k: (v, None) for k, v in SCENARIOS.items()})
+    # Mode historique : mesures telles que le mode les accepte (release P :
+    # sans la recette d'une seule année, cadre_harness.pour_le_mode).
+    from cadre_harness import pour_le_mode
+    cas.update({k: (pour_le_mode(v), None) for k, v in SCENARIOS.items()})
     return cas
 
 

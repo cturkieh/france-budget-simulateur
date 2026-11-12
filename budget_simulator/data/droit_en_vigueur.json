@@ -128,6 +128,34 @@
     },
     "is_exceptionnel_tge": {
       "montant": 7.3
+    },
+    "fiscalite_capital": {
+      "taux_ir_forfaitaire": 0.128,
+      "prelevements_sociaux_capital": 0.186
+    },
+    "multinationales": {
+      "taux_tsn": 0.03
+    },
+    "operations_financieres": {
+      "taux_ttf": 0.004,
+      "rachats_actions": 0
+    }
+  },
+  "valeurs_datees": {
+    "is_exceptionnel_tge": {
+      "montant": [
+        {
+          "de": 2026,
+          "a": 2026,
+          "valeur": 7.3,
+          "source": "Loi n° 2026-103 du 19 février 2026 de finances pour 2026, art. 12 (JORF du 20/02/2026) : contribution due au titre des deux premiers exercices clos à compter du 31 décembre 2025 ; BOFiP ACTU-2026-00097 du 12/08/2026."
+        },
+        {
+          "de": 2027,
+          "valeur": 0,
+          "source": "Fin de la prorogation de la loi 2026-103, art. 12. Projet de loi de finances pour 2027 (n° 3210), qui la prorogeait pour un rendement de 5,0 Md€ : considéré comme rejeté par l'Assemblée nationale le 4 novembre 2026 (T.A. n° 362) ; aucune loi de finances pour 2027 votée au 11/11/2026."
+        }
+      ]
     }
   }
 }

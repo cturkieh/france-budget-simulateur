@@ -1,0 +1,15 @@
+{
+ "_lisezmoi": "Pouvoir d'achat 2029 (mode historique) de chaque scénario publié, FIGÉ PAR REVUE HUMAINE : garde-fou de tests/test_political_scenarios_2027.py (tolérance ±1,5 pt), indépendant du golden master. Jamais régénéré automatiquement : après un recalibrage ou un ré-encodage volontaire, reporter ici les valeurs auditées (commit identifiable). Dernière mise à jour : release de paramètres P (moteur v0.8.1, 12/11/2026), les dix encodages suivant leurs sources ; écarts audités au CHANGELOG.",
+ "valeurs": {
+  "plf_2026": 102.9,
+  "rn_2027": 103.8,
+  "lfi_2027": 106.3,
+  "renaissance_2027": 101.7,
+  "horizons_2027": 102.8,
+  "lr_2027": 99.3,
+  "ps_2027": 105.2,
+  "ecologistes_2027": 103.1,
+  "im_rabot_2029": 96.9,
+  "nouvelle_energie_2027": 111.0
+ }
+}

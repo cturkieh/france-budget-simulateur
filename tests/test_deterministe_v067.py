@@ -40,7 +40,10 @@ class _HasardInterdit:
 
 def _cas():
     cas = {'statu_quo': {}}
-    cas.update(SCENARIOS)  # vide sur un fork moteur seul : le statu quo reste
+    # vide sur un fork moteur seul : le statu quo reste ; mode historique : chaque
+    # scénario tel que le mode l'accepte (release P, run_scenarios_full.pour_le_mode).
+    from run_scenarios_full import pour_le_mode
+    cas.update({k: pour_le_mode(v) for k, v in SCENARIOS.items()})
     cas.update({f'SA:{k}': v for k, v in build_standalone_scenarios().items()})
     return cas
 

@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from budget_simulator.simulator import BudgetSimulatorV45
-from run_scenarios_full import SCENARIOS
+from run_scenarios_full import SCENARIOS, pour_le_mode
 
 # 3 scénarios représentatifs : le budget voté (test en or), un programme
 # dépensier et un programme d'économies — couvrent les deux signes d'impulsion.
@@ -39,7 +39,8 @@ def capture() -> dict:
     for name in DELTA_SCENARIOS:
         if name not in SCENARIOS:
             raise KeyError(f"Scénario {name!r} absent de scenarios.json")
-        df, _, _ = BudgetSimulatorV45(periods=10, mesures=SCENARIOS[name]).simulate()
+        # Mode historique : mesures telles que le mode les accepte (release P).
+        df, _, _ = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(SCENARIOS[name])).simulate()
         out[name] = {
             col: {str(idx): round(float(df.iloc[idx][col] - baseline_df.iloc[idx][col]), 3)
                   for idx in DELTA_YEAR_IDX}

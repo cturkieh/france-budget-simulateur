@@ -59,10 +59,10 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
-| Deficit 2026 | -5,30 % | **-5,22 %** (loi votee : -5,0 %) |
-| Dette 2030 | 129,23 % | **128,81 %** (mission IGF : 130,5) |
-| Dette 2035 | 151,32 % | **150,11 %** |
-| Deficit 2035 | -9,06 % | **-8,75 %** |
+| Deficit 2026 | -5,30 % | **-5,45 %** (loi votee : -5,0 % ; surtaxe IS 2026 non comptee, voir ci-dessous) |
+| Dette 2030 | 129,23 % | **129,22 %** (mission IGF : 130,5) |
+| Dette 2035 | 151,32 % | **151,40 %** |
+| Deficit 2035 | -9,06 % | **-9,04 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
@@ -73,6 +73,11 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
   Insee Premiere n° 2106, mai 2026 ; tendanciel derive 1,2285 %), et scenario de reference
   reencode sur le droit reajuste (« Budget 2026 vote, reajuste sur l'execution 2026 » : defense 58, franchises 120 %,
   surtaxe IS 6,8).
+  Re-mesures le 12/11/2026 (release de parametres P, moteur v0.8.1) : le scenario de reference porte
+  desormais le droit du premier budget du mandat (2028), ou la surtaxe d'IS votee pour 2026 vaut 0
+  (valeur datee du droit en vigueur, cf. « Cadre temporel »). En mode historique, ou un programme
+  s'applique des 2026, ces chiffres ne comptent donc pas les 6,8 Md€ de surtaxe 2026 (environ 0,22 pt
+  de PIB). Le site, en mode cadre, part de l'atterrissage 2026 injecte (deficit -5,5 %).
 
   Toute grandeur mesuree publiee dans ce document nomme desormais son objet, et une garde de la suite moteur (`tests/test_chiffres_publies_v061.py`) la recalcule a chaque execution : un chiffre qui cesse de reproduire fait rougir la CI au lieu de rester en ligne.
 
@@ -223,9 +228,10 @@ Sources et dates de chaque valeur : dans le fichier. Décomposition publiée par
 Le solde « modèle » est celui du moteur avec les réajustements et le déflateur injecté. Même
 après eux, le moteur reste plus pessimiste que la dernière prévision officielle : le résidu est
 porté en recettes et persiste. Sans ce rebasage, l'écart disparaîtrait en 2027 et le déficit y
-rebondirait sans aucune mesure. Avec lui, le budget 2026 exécuté, reconduit à droit constant,
+rebondirait sans aucune mesure. Avec lui, le budget 2026 exécuté, reconduit à droit constant hors
+mesures votées pour une durée limitée (la surtaxe d'IS votée pour 2026 s'arrête en 2027, v0.8.1),
 donne en 2027 un **déficit de
-−5,63 %** du PIB et une **dette de 121,86 %**. La croissance 2027, 1,33 %, est le rebond du
+−5,86 %** du PIB et une **dette de 122,09 %**. La croissance 2027, 1,33 %, est le rebond du
 modèle : elle n'est jamais forcée. Une année injectée ne peut pas être l'année de début d'un
 programme : l'atterrissage écrase des niveaux (422 en mode strict).
 
@@ -375,6 +381,19 @@ la cible (corrigé après revue adverse : la référence restait le droit du dé
 « une seule année » reconduisait ensuite une mesure votée pour une durée limitée). Segments
 contigus depuis 2026, dernier segment ouvert, source non vide : sinon le fichier est refusé. La
 v0.8.0 est livrée sans aucune valeur datée.
+
+**v0.8.1 (release de paramètres P)** : une seule valeur datée, la surtaxe d'IS des grandes entreprises
+(`is_exceptionnel_tge.montant`) : 7,3 Md€ votés en 2026 (base votée ; l'atterrissage la réajuste à
+6,8 Md€ en 2026 seulement), 0 dès 2027. Sources du fichier : loi n° 2026-103 de finances pour 2026,
+art. 12 (contribution due au titre des deux premiers exercices clos à compter du 31 décembre 2025) et
+BOFiP ACTU-2026-00097 ; projet de loi de finances pour 2027 (n° 3210), qui la prorogeait, considéré
+comme rejeté par l'Assemblée nationale le 4 novembre 2026 (T.A. n° 362). Une loi de finances pour 2027
+votée remplacera ce segment. Les taux votés des leviers à taux de la release E sont inscrits au droit
+(`fiscalite_capital` 12,8 % et 18,6 %, `multinationales.taux_tsn` 3 %, `operations_financieres.taux_ttf`
+0,4 %, `rachats_actions` 0 = la taxe de 8 % en vigueur), sans effet sur les trajectoires ; leurs
+paramètres de comportement (élasticité, érosion) restent au défaut du moteur, hors du droit. Un bloc qui
+les écrit aussi, à leur défaut, laisse les sorties identiques au bit mais fait figurer le levier dans
+`cadre.leviers_modifies` (règle « présent = imposé »).
 
 ### Garde-fous d'entrée (v0.8.0)
 
@@ -2418,8 +2437,8 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
-- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,43 / 1,46 / 1,47 / 1,47%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,434%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
-- **Marge a declarer** : la moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
+- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,45 / 1,51 / 1,53 / 1,54%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,474%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
+- **Marge a declarer** : (re-mesure le 12/11/2026, release de parametres P, moteur v0.8.1 : moyenne du scenario servi 1,474 %, a 0,074 pt du plancher ; sensibilite a `rho` entre 0,25 et 0,50 : 0,052 pt ; a `rho` = 0,50, 1,436 %, au-dessus du plancher ; corridor de dette a 1,28 pt en 2030. La suite du paragraphe date de la v0.6.7.) La moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -2537,7 +2556,7 @@ non ré-audité) n'agit qu'en 2033 et le capital public (délai 3 ans) en 2031 e
 > mode cadre : de 0 à +1,48 pt ; le scénario de référence, les deux autres programmes et le statu quo sont
 > identiques au bit. Le sens est le même pour tous : chaque programme reçoit l'offre de son montant. **Le curseur
 > d'investissement tiré seul fait encore baisser le ratio de dette 2035** (« Budget 2026 voté », 0 → 50 Md€/an :
-> 150,11 → 148,51 ; canal d'offre coupé : 153,13) — ce n'est plus un artefact d'échelle mais ce qu'implique
+> 151,40 → 150,15 ; canal d'offre coupé : 154,79 ; mesuré en v0.8.1) — ce n'est plus un artefact d'échelle mais ce qu'implique
 > l'élasticité centrale (FMI WP 15/95 : « the public-debt-to-GDP ratio may actually decline ») ; dit, non verrouillé
 > en signe, verrouillé en échelle et en forme par `tests/test_effet_offre_echelle_v0612.py`.
 
@@ -3002,23 +3021,23 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 
 | Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
 |---|---|---|---|---|---|---|
-| 2026 | 117,99 | 118,4 | −0,41 | −5,22 | −5,00 | 0,37 % |
-| 2027 | 120,35 | 121,4 | −1,05 | −5,38 | −5,88 | 0,27 % |
-| 2028 | 122,91 | 124,2 | −1,29 | −5,60 | −6,21 | 0,06 % |
-| 2029 | 125,71 | 127,3 | −1,59 | −5,88 | −6,57 | 0,01 % |
-| 2030 | 128,81 | 130,5 | −1,69 | −6,23 | −6,76 | −0,05 % |
+| 2026 | 118,22 | 118,4 | −0,18 | −5,45 | −5,00 | 0,37 % |
+| 2027 | 120,58 | 121,4 | −0,82 | −5,54 | −5,88 | 0,41 % |
+| 2028 | 123,17 | 124,2 | −1,03 | −5,74 | −6,21 | 0,27 % |
+| 2029 | 126,03 | 127,3 | −1,27 | −6,02 | −6,57 | 0,28 % |
+| 2030 | 129,22 | 130,5 | −1,28 | −6,38 | −6,76 | 0,27 % |
 
-Lecture : le PIB nominal est désormais honnête (niveau 2030 à −0,05 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,69 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
+Re-mesurées le 12/11/2026 (release de paramètres P, moteur v0.8.1) : la référence ne compte plus la surtaxe d'IS votée pour 2026 seulement (0 dès 2027, valeur datée ; en mode historique, 0 dès 2026). Lecture : le PIB nominal est désormais honnête (niveau 2030 à +0,27 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,28 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | **-5,22 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30) |
-| Dette | **128,81 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,69 pt (v0.7.2 : dette de depart 115,7 % et reencodage du 08/11/2026 ; -1,86 avant) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
+| Deficit | **-5,45 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30 ; v0.8.1 : surtaxe IS 2026 non comptee en mode historique) |
+| Dette | **129,22 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,28 pt (v0.8.1 : surtaxe IS arretee ; -1,69 en v0.7.2 : dette de depart 115,7 % et reencodage du 08/11/2026 ; -1,86 avant) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
 | Dette | **129,23 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **151,32 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 150,11) |
-| Deficit | **-9,06 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -8,75) |
+| Dette | **151,32 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 151,40) |
+| Deficit | **-9,06 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -9,04) |
 | Croissance potentielle | tendanciel 1,2285 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,1285 pt (-0,005 x (115,7 - 90) %, dette fin 2025 de l'Insee Premiere n° 2106, mai 2026 ; 0,128 pt sur 115,6 avant v0.7.2) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
@@ -3125,15 +3144,15 @@ inchangee », la trajectoire est insoutenable.
 
 ### Règle d'encodage des programmes politiques
 
-Règle écrite le 07/10/2026. Elle est appliquée à ce jour à RN, Horizons et LR
-(re-encodage du 07/10/2026, puis LR et Horizons sur leurs sources primaires le
-02/11/2026), ainsi qu'à Renaissance et Horizons (re-encodage du 30/08/2026). PS,
-LFI et Écologistes seront passés au crible à leur prochain re-sourcing (PS après
-la publication du programme du candidat désigné le 11/10/2026, LFI après la
-parution du 6-7/11/2026, Écologistes après le vote des 10-13/12/2026).
+Règle écrite le 07/10/2026, appliquée à tous les programmes publiés depuis la release
+de paramètres P (moteur v0.8.1, 12/11/2026) : ils sont ré-encodés le même jour sur leurs
+sources, et chaque paramètre qui s'écarte de la référence porte une source (adresse
+officielle, date de lecture, citation vérifiée sur le texte téléchargé, règle appliquée),
+dans le registre `scenariosSources.json` du dépôt parent.
 
-Référence commune : le **droit en vigueur (budget 2026 voté)**, c'est-à-dire les
-paramètres du scénario « Budget 2026 (voté) » (`plf_2026`). Ci-dessous, « droit en
+Référence commune : le **droit en vigueur au premier budget du mandat** (budget 2026
+voté, réajusté sur l'exécution 2026, sans les mesures votées pour une durée limitée),
+c'est-à-dire les paramètres du scénario de référence (`plf_2026`). Ci-dessous, « droit en
 vigueur » désigne toujours cette référence.
 
 1. **Coût annoncé par le candidat.** Une mesure est encodée au paramètre publié
@@ -3149,9 +3168,15 @@ vigueur » désigne toujours cette référence.
    pour tous les scénarios, produisent des effets retour.
 4. **Aucune économie ni dépense non sourcée.** Un paramètre qu'aucune source
    vivante ne chiffre ni ne fixe est posé au droit en vigueur.
-5. **Exception : mesure annoncée mais non chiffrée.** Quand le candidat annonce
-   une mesure sans la chiffrer, elle est encodée sur des bornes de tiers
-   documentées dans sa fiche. Exemple : le « droit au brut » de Renaissance.
+5. **Aucun chiffrage de tiers.** Une mesure s'encode quand la source du programme
+   en donne la nature (qui paie ou qui reçoit, quel type de dépense ou de recette)
+   et un montant ou un paramètre. Une mesure annoncée sans chiffre ni paramètre
+   n'est pas encodée : la fiche l'affiche comme annoncée, non modélisée. Un
+   chiffrage publié par un tiers ne sert jamais à encoder un programme ; les
+   estimations publiques servent seulement à régler le moteur, de la même façon
+   pour tous les scénarios. (Cette règle remplace, depuis la release de
+   paramètres P, l'exception qui encodait une mesure non chiffrée sur des bornes
+   de tiers.)
 6. **Un levier absent de la source vivante est retiré.** Quand un document plus
    récent (contre-budget, projet chiffré) remplace la source d'un programme, une
    mesure de l'ancien document qui n'y figure plus revient au droit en vigueur.
@@ -3167,7 +3192,7 @@ ses hypothèses de modélisation sont écrites dans sa fiche.
 **Mise en œuvre : un levier retiré se pose à la valeur de `plf_2026`, il n'est
 jamais omis.** Une clé absente vaut le défaut du moteur (année 2025). Ce défaut
 diffère du droit en vigueur pour plusieurs leviers. Garde exécutable :
-`tests/test_reencodage_v066.py`.
+`tests/test_reencodage_v066.py` (avec, dans le dépôt parent, le registre des sources).
 
 ---
 
@@ -3195,17 +3220,18 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) | Ecart moteur v0.7.0 (cadre 2027-2032, dette 2032) |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) | Ecart moteur v0.7.0 (cadre 2027-2032, dette 2032) | Ecart au 12/11/2026 (moteur v0.8.0 et release de parametres P, dette 2032) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 | -0,2 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +4,5 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,2 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +0,8 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +1,5 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — |
+| `nouvelle_energie_2027` | — | — | — | — | — | — | — | — | — | — | +5,2 |
 
 **Mise à jour du 07/10/2026 — sixième colonne : re-encodage de trois scénarios,
 aucune ligne de moteur modifiée.** Les sept autres scénarios ont des trajectoires
@@ -3285,6 +3311,17 @@ dépenses, dette) et le plafond de 10 % du PIB sont ceux de la v0.6.11, seul le 
 d'application change. Les neuf colonnes précédentes restent publiées telles quelles : elles
 mesurent un autre objet (dette 2035, programme appliqué dès 2026) et ne se comparent pas
 terme à terme avec la dixième.
+
+**Mise à jour du 12/11/2026 — onzième colonne : moteur v0.8.0 (release E) et release de paramètres
+P (v0.8.1).** Même objet que la dixième colonne (dette 2032, mode cadre). Elle cumule la release
+d'équations E (CHANGELOG du moteur, v0.8.0 : de 0 à +1,5 point de dette 2032 selon les programmes) et
+la release de paramètres P : tous les programmes ré-encodés le même jour sur leurs sources, une source
+par paramètre ; une référence qui ne reconduit plus la surtaxe d'IS votée pour 2026 (déficit 2032 de
+−7,17 à −7,34 %, dette 2032 de 138,04 à 138,52 %) ; un scénario de think tank retiré (« — »), un
+programme ajouté. Cinq des huit scénarios déjà publiés changent de signe : les mouvements viennent de
+leurs encodages, pas d'une équation commune ; le paramétrage de chacun est dans
+`docs/SCENARIOS_POLITIQUES.md`. Valeurs du moteur v0.8.1 sur les scénarios de la release P ; le
+précalcul servi par le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,

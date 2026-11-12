@@ -62,6 +62,7 @@ _DROIT = json.loads((RACINE / 'budget_simulator' / 'data' / 'droit_en_vigueur.js
 
 sys.path.insert(0, str(RACINE / 'tests' / 'snapshots'))
 from run_scenarios_full import SCENARIOS as _SCENARIOS_PUBLIES  # noqa: E402
+from cadre_harness import bases_g1  # noqa: E402
 
 # Leviers du chantier (contrat § 1.1, colonne « Chantier » = W3).
 W3 = ('droits_succession', 'fiscalite_indirecte', 'impot_revenu_cible', 'recette_exceptionnelle')
@@ -900,7 +901,9 @@ def test_g1_ecritures_du_neutre_identiques_au_bit(levier, bloc, annee_debut, str
     droit en vigueur et les 10 scénarios publiés (dépôt parent)."""
     if len(BASES_G1) < 12:
         assert len(BASES_G1) == 2  # dépôt public seul
-    for nom, base in BASES_G1.items():
+    # Release de paramètres P : une base qui ENCODE le levier n'est pas une base
+    # de G1 (y poser le neutre retirerait sa mesure, cadre_harness.bases_g1).
+    for nom, base in bases_g1(BASES_G1, levier, annee_debut).items():
         ref_df, ref_det, ref_rap = _simuler(base, annee_debut, strict)
         df, det, rap = _simuler({**base, levier: bloc}, annee_debut, strict)
         assert df.equals(ref_df), (nom, levier, bloc, 'trajectoire')
@@ -1231,12 +1234,16 @@ def test_w3_11_gini_d_un_point():
 
 
 def test_w3_11_publies_sous_cinq_points():
-    """G1 du déplafonnement : tout scénario publié et le droit en vigueur restent
-    dans [0 ; 5] points, où le calcul est inchangé : le déplafonnement ne peut
-    pas les déplacer."""
-    for nom, base in {'droit_en_vigueur': _DROIT, **_SCENARIOS_PUBLIES}.items():
+    """G1 du déplafonnement (release E) : le droit en vigueur reste dans
+    [0 ; 5] points, où le calcul est inchangé. Release de paramètres P : un
+    programme publié peut désormais écrire au-delà de 5 points (c'est l'objet
+    du déplafonnement) ; tout scénario publié reste dans le domaine
+    [0 ; ``COTIS_SAL_POINTS_SUPPRESSION``]. Les valeurs ≤ 5 points gardent le
+    calcul de v0.7.2 (``test_w3_11_lineaire_de_cinq_au_maximum`` pour le reste)."""
+    assert 0 <= (_DROIT.get(COTIS) or {}).get('baisse_points', 0) <= PLAFOND_V072_POINTS
+    for nom, base in _SCENARIOS_PUBLIES.items():
         points = (base.get(COTIS) or {}).get('baisse_points', 0)
-        assert 0 <= points <= PLAFOND_V072_POINTS, (nom, points)
+        assert 0 <= points <= C.COTIS_SAL_POINTS_SUPPRESSION, (nom, points)
 
 
 @pytest.mark.parametrize('points', _grille_points(PLAFOND_V072_POINTS, C.COTIS_SAL_POINTS_SUPPRESSION, 6)[1:])

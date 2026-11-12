@@ -453,7 +453,9 @@ def test_a15_mesures_effectives_statu_quo_droit_reajuste():
     m = simuler({}, annee_debut=DEBUT)[2]['cadre']['mesures_effectives']
     assert m['defense'] == {'budget': 58}
     assert m['sante']['franchise_participation_taux'] == 120
-    assert m['is_exceptionnel_tge'] == {'montant': 6.8}
+    # Release P : surtaxe votée pour 2026 (réajustée à 6,8 en 2026), arrêtée
+    # dès 2027 (valeur datée) ; le réajustement ne quitte pas son segment.
+    assert m['is_exceptionnel_tge'] == {'montant': 0}
     assert m == _droit_reajuste()
     assert m['fraude_fiscale'] == DROIT['fraude_fiscale']              # non réajusté : voté
 
@@ -464,7 +466,7 @@ def test_a15_mesures_effectives_programme_par_dessus_le_droit():
     m = rapport['cadre']['mesures_effectives']
     assert m['defense'] == {'budget': 60}
     assert m['sante'] == {**_droit_reajuste()['sante'], 'effort_prev_org': 20}
-    assert m['is_exceptionnel_tge'] == {'montant': 6.8}
+    assert m['is_exceptionnel_tge'] == {'montant': 0}           # droit de 2028 (release P)
     assert simuler({'defense': {'budget': 60}})[2]['cadre']['mesures_effectives'] is None
 
 

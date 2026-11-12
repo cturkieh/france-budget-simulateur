@@ -355,9 +355,14 @@ def _simuler_cadre(mesures, strict: bool, monkeypatch):
 
 
 def _vote_different_du_reajuste() -> list[tuple[str, str, float, float]]:
-    """(levier, paramètre, voté, réajusté) lus dans le moteur, jamais recopiés."""
-    vote = _cadre.charger_droit_en_vigueur().mesures
-    reajuste = _cadre.droit_reajuste(vote, _cadre.charger_atterrissage(), _PREMIERE_ANNEE_MANDAT)
+    """(levier, paramètre, voté, réajusté) lus dans le moteur, jamais recopiés.
+    Release P : le voté et le réajusté sont ceux du premier budget du mandat,
+    valeurs datées comprises (un réajustement 2026 d'une mesure votée pour un
+    an ne vaut plus en 2028 : il n'y a rien à annuler)."""
+    droit = _cadre.charger_droit_en_vigueur()
+    vote = _cadre.droit_de_l_annee(droit.mesures, None, _PREMIERE_ANNEE_MANDAT, droit.valeurs_datees)
+    reajuste = _cadre.droit_de_l_annee(droit.mesures, _cadre.charger_atterrissage(),
+                                       _PREMIERE_ANNEE_MANDAT, droit.valeurs_datees)
     return [(l, p, v, reajuste[l][p]) for l, bloc in vote.items() for p, v in bloc.items()
             if reajuste[l].get(p) != v]
 

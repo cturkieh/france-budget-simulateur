@@ -79,6 +79,25 @@ def _mesures_publiees():
         return json.load(f)['plf_2026']['apiMeasures']
 
 
+def _mesures_publiees_droit_2026():
+    """``plf_2026`` dont chaque paramètre DATÉ du droit en vigueur prend sa valeur
+    de 2026, réajustement de l'atterrissage compris. Release de paramètres P :
+    ``plf_2026`` porte le droit du premier budget du mandat (2028), où la
+    surtaxe d'IS votée pour 2026 vaut 0 ; le mode historique l'appliquerait dès
+    2026, ce qui n'est pas la loi de 2026. Pour l'année votée, le test pose la
+    valeur de 2026, lue dans le moteur (jamais recopiée)."""
+    import copy
+    from budget_simulator.engine.cadre import (charger_atterrissage, charger_droit_en_vigueur,
+                                               droit_de_l_annee)
+    mesures = copy.deepcopy(_mesures_publiees())
+    droit = charger_droit_en_vigueur()
+    droit_2026 = droit_de_l_annee(droit.mesures, charger_atterrissage(), 2026, droit.valeurs_datees)
+    for levier, params in droit.valeurs_datees.items():
+        for param in params:
+            mesures.setdefault(levier, {})[param] = droit_2026[levier][param]
+    return mesures
+
+
 _SANS_FRONTEND = pytest.mark.skipif(
     _chemin_scenarios() is None,
     reason="frontend-react/ hors périmètre du fork moteur public seul")
@@ -383,7 +402,9 @@ _CAVEATS_I37 = {
     'sante': ['4,98', 'annuelle', '10,4', '4,1'],
     'niches_sociales_tge': ['3 SMIC', 'tous employeurs', '3,9', '3,1'],
     'defense': ['5,3', 'structurel', 'LPM'],
-    'is_exceptionnel_tge': ['reconduction', '7,3'],
+    # Release P (v0.8.1) : le caveat change d'objet — la surtaxe votée pour deux exercices
+    # n'est plus reconduite (valeur datée du droit en vigueur), elle s'arrête dès 2027.
+    'is_exceptionnel_tge': ['7,3', 'deux premiers exercices', "n'est pas reconduite", '4 novembre 2026'],
 }
 
 
@@ -556,8 +577,10 @@ def test_non_regression_deficit_2026():
     C'est la preuve que les deux temps se tiennent : le temps 1 seul donne
     −5,41 % (hors tolérance) ; le temps 2 encode ≈4,9 Md€ de recettes
     RÉELLEMENT votées et le déficit revient dans le corridor. Ce test interdit
-    de re-livrer un jour le temps 1 sans le temps 2 — ou l'inverse."""
-    df, _, _ = BudgetSimulatorV45(periods=10, mesures=_mesures_publiees()).simulate()
+    de re-livrer un jour le temps 1 sans le temps 2 — ou l'inverse. Release P :
+    le droit de l'année votée (2026), valeurs datées comprises
+    (``_mesures_publiees_droit_2026``)."""
+    df, _, _ = BudgetSimulatorV45(periods=10, mesures=_mesures_publiees_droit_2026()).simulate()
     deficit = df['Déficit/PIB %'].iloc[1]
     assert abs(deficit - CIBLE_DEFICIT_2026) <= TOLERANCE_DEFICIT_2026, (
         f"deficit 2026 {deficit:.2f} % vs cible votee {CIBLE_DEFICIT_2026} % "

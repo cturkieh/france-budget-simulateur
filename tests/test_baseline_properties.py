@@ -41,7 +41,7 @@ from budget_simulator.constants import (
 
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 sys.path.insert(0, str(SNAPSHOTS_DIR))
-from run_scenarios_full import SCENARIOS  # noqa: E402
+from run_scenarios_full import SCENARIOS, pour_le_mode  # noqa: E402
 
 DELTAS_BASELINE_PATH = SNAPSHOTS_DIR / 'scenario_deltas_baseline.json'
 REGEN_DELTAS_CMD = ('python3 tests/snapshots/capture_scenario_deltas.py '
@@ -196,7 +196,8 @@ def test_e_non_regression_deltas_scenarios():
     baseline_df, _, _ = BudgetSimulatorV45(periods=10, mesures={}).simulate()
     violations = []
     for name, cols in reference.items():
-        df, _, _ = BudgetSimulatorV45(periods=10, mesures=SCENARIOS[name]).simulate()
+        # Mode historique : mesures telles que le mode les accepte (release P).
+        df, _, _ = BudgetSimulatorV45(periods=10, mesures=pour_le_mode(SCENARIOS[name])).simulate()
         for col, by_year in cols.items():
             for year_idx, ref_delta in by_year.items():
                 idx = int(year_idx)
