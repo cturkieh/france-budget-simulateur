@@ -117,8 +117,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 ### Programme LR Retailleau 2027
 <!-- scenario:lr_2027 -->
 
-- **Source** : Livret « Rétablir l'ordre dans les comptes publics » (15 fiches, 12/10/2026) et projet de B. Retailleau sur avecretailleau.fr, lus le 11/11/2026
-- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, publié mesure par mesure sur le site de campagne avec une ligne de financement par mesure, puis ventilé ligne à ligne par le livret « Rétablir l'ordre dans les comptes publics » (12 octobre 2026) : réforme structurelle de l'État (non-remplacement massif des départs en retraite, encodé au nombre de postes du livret, montée en charge linéaire 2027-2032), refonte des aides sociales autour d'un compte social unique plafonné, durcissement de l'assurance chômage (durée maximale encodée au paramètre du livret), aide médicale d'État réduite aux soins essentiels, lutte contre la fraude fiscale et sociale, effort de fonctionnement des collectivités et fin de certaines subventions (encodés aux montants du livret là où un levier du simulateur correspond), report de l'âge du taux plein complété d'un pilier par capitalisation, et baisse des prélèvements sur le travail et la production, partagée entre entreprises (cotisations patronales, impôts de production) et salariés (cotisations salariales). Le paramétrage encode le coût de ces baisses tel que chiffré par le candidat ; les lignes du livret sans levier dans le simulateur (réserves des retraites, alignement des régimes, cotisation de capitalisation comptée en économie, arrêts maladie, jours de carence, revue des interventions de l'État, gestion de la Sécurité sociale, etc.) ne sont pas encodées et sont listées dans la fiche du programme.
+- **Source** : Livret « Rétablir l'ordre dans les comptes publics » (15 fiches, octobre 2026) et projet de B. Retailleau sur avecretailleau.fr, lus le 11/11/2026
+- **Orientation** : programme d'économies d'ampleur sans hausse d'impôts, publié mesure par mesure sur le site de campagne avec une ligne de financement par mesure, puis ventilé ligne à ligne par le livret « Rétablir l'ordre dans les comptes publics » (octobre 2026) : réforme structurelle de l'État (non-remplacement massif des départs en retraite, encodé au nombre de postes du livret, montée en charge linéaire 2027-2032), refonte des aides sociales autour d'un compte social unique plafonné, durcissement de l'assurance chômage (durée maximale encodée au paramètre du livret), aide médicale d'État réduite aux soins essentiels, lutte contre la fraude fiscale et sociale, effort de fonctionnement des collectivités et fin de certaines subventions (encodés aux montants du livret là où un levier du simulateur correspond), report de l'âge du taux plein complété d'un pilier par capitalisation, et baisse des prélèvements sur le travail et la production, partagée entre entreprises (cotisations patronales, impôts de production) et salariés (cotisations salariales). Le paramétrage encode le coût de ces baisses tel que chiffré par le candidat ; les lignes du livret sans levier dans le simulateur (réserves des retraites, alignement des régimes, cotisation de capitalisation comptée en économie, arrêts maladie, jours de carence, revue des interventions de l'État, gestion de la Sécurité sociale, etc.) ne sont pas encodées et sont listées dans la fiche du programme.
 
 ### Programme PS 2027
 <!-- scenario:ps_2027 -->
@@ -162,8 +162,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | chomage_alloc | taux_remplacement | 0.6 | 0.6 | — | — | 0.6 | — | 0.6 | 0.6 | 0.6 | 0.6 |
 | collectivites | dotation | 116.6 | 116.6 | 116.6 | 109.6 | 116.6 | 104.6277 | 116.6 | 116.6 | 116.6 | 116.6 |
 | collectivites | investissement | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| cotisations_patronales | taux | 0.27 | 0.27 | 0.27 | 0.27 | 0.27 | 0.2525 | 0.27 | 0.28 | 0.27 | 0.27 |
-| cotisations_salariales | baisse_points | 0 | 0 | 0 | 0.4321 | 0 | 1.4108 | 0 | 0 | 0 | 10.3702 |
+| cotisations_patronales | taux | 0.27 | 0.27 | 0.27 | 0.27 | 0.27 | 0.2526 | 0.27 | 0.28 | 0.27 | 0.27 |
+| cotisations_salariales | baisse_points | 0 | 0 | 0 | 0.4321 | 0 | 1.2965 | 0 | 0 | 0 | 10.3702 |
 | csg | progressive | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | csg | taux | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.108039 | 0.098039 | 0.098039 |
 | defense | budget | 58 | 58 | 58 | 58 | 58 | 58.1 | 58 | 58 | 58 | 58 |
@@ -171,9 +171,9 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | depenses_publiques | ondam | — | — | 2.4 | — | — | -5.9861 | 9.6 | — | — | 0.75 |
 | depenses_publiques | transferts_capital | — | — | — | 0.66 | — | — | — | — | — | — |
 | droits_succession | variation | — | — | 20 | — | — | — | 25 | — | — | — |
-| education | budget | 65 | 65 | 72.1 | 65 | 65 | 65 | 65 | 65 | 65 | 65 |
+| education | budget | 65 | 65 | 72.1 | 65 | 65 | 62 | 65 | 65 | 65 | 65 |
 | education | enseignants | 0 | 0 | 10000 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| education | salaires | 0 | 0 | 0 | 6.5 | 20 | 0 | 16 | 5 | 0 | 20 |
+| education | salaires | 0 | 0 | 0 | 6.5 | 20 | 4.4 | 16 | 5 | 0 | 20 |
 | elargissement_ir | taux_contribuables_cible | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 | 0.45 |
 | exonerations_salaires | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | fiscalite_capital | prelevements_sociaux_capital | 0.186 | 0.172 | — | 0.186 | 0.186 | 0.186 | 0.186 | 0.206 | 0.186 | 0.186 |
@@ -186,7 +186,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | fonction_publique_reforme | fusion_agences | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | fraude_fiscale | effort | 0.14 | 0.14 | 0.24 | 0.14 | 0.14 | 0.385 | 0.14 | 0.14 | 0.14 | 0.14 |
 | fraude_sociale | effort | 0.1 | 0.1 | 0.1 | 0.1 | 0.1 | 0.318 | 0.1 | 0.1 | 0.1 | 0.1 |
-| immigration | ame | 1.2 | 1.2 | 1.2 | 1.2 | 1.2 | 0.4381 | 1.2 | 1.2 | 1.2 | 0.45 |
+| immigration | ame | 1.2 | 1.2 | 1.2 | 1.2 | 1.2 | 0.4597 | 1.2 | 1.2 | 1.2 | 0.45 |
 | immigration | integration | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 | 0.8 |
 | impot_plancher_patrimoine | taux | — | — | 0.02 | — | — | — | 0.02 | 0.02 | — | — |
 | impot_revenu | decote | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
@@ -194,7 +194,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | impot_revenu_cible | montant | — | — | — | — | -3 | — | — | — | — | — |
 | impot_societes | niches | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | impot_societes | taux | 0.25 | 0.25 | 0.264 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 | 0.25 |
-| impots_production | montant | 97 | 80 | 100 | 92.89 | 47 | 80.6742 | 97 | 97 | 97 | 57 |
+| impots_production | montant | 97 | 80 | 100 | 92.89 | 47 | 82 | 97 | 97 | 97 | 57 |
 | is_exceptionnel_tge | montant | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | isf_climatique | intensite | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | multinationales | benefices_recuperes | — | — | 5 | — | — | — | — | — | — | — |
@@ -209,7 +209,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | optimisation_dette | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | prestations_indexation | taux_indexation | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 |
 | prestations_menages | pensions | — | — | — | — | — | -13.2783 | — | — | — | — |
-| prestations_menages | solidarite | — | — | 22.8 | — | — | -16.5289 | 20 | 6.06 | — | -8 |
+| prestations_menages | solidarite | — | — | 22.8 | — | — | -16.5289 | 20 | 8.89 | — | -8 |
 | rabot_uniforme | exclure_defense | — | — | — | — | — | — | — | — | 1 | — |
 | rabot_uniforme | exclure_dette | — | — | — | — | — | — | — | — | 1 | — |
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | — | 1 | — |
@@ -248,6 +248,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 - Calendrier, Programme LR Retailleau 2027, `collectivites.dotation` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `depenses_publiques.credits_etat` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `depenses_publiques.ondam` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme LR Retailleau 2027, `education.budget` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `niches_fiscales_tge.montant` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `prestations_menages.pensions` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `prestations_menages.solidarite` : montée progressive jusqu'à la fin du mandat (rampe)

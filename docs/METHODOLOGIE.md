@@ -3226,9 +3226,9 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 | `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +4,5 |
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,2 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,4 |
 | `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +0,8 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +1,5 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +1,6 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 |
 | `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — |
 | `nouvelle_energie_2027` | — | — | — | — | — | — | — | — | — | — | +5,2 |
@@ -3320,8 +3320,10 @@ par paramètre ; une référence qui ne reconduit plus la surtaxe d'IS votée po
 −7,17 à −7,34 %, dette 2032 de 138,04 à 138,52 %) ; un scénario de think tank retiré (« — »), un
 programme ajouté. Cinq des huit scénarios déjà publiés changent de signe : les mouvements viennent de
 leurs encodages, pas d'une équation commune ; le paramétrage de chacun est dans
-`docs/SCENARIOS_POLITIQUES.md`. Valeurs du moteur v0.8.1 sur les scénarios de la release P ; le
-précalcul servi par le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
+`docs/SCENARIOS_POLITIQUES.md`. Valeurs du moteur v0.8.1 sur les scénarios de la release P, après la
+relecture du 12/11/2026 qui a mis à jour sept paramètres de deux programmes (leurs deux écarts
+bougent d'un dixième ou deux ; les huit autres scénarios sont identiques au bit) ; le précalcul servi par
+le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,

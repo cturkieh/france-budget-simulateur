@@ -32,9 +32,16 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   historique et le delta de référence de v0.8.0 à l'identique ; en mode cadre, les scénarios d'avant P
   sur le droit SANS valeur datée redonnent le golden master du cadre 2028 et le standalone de v0.8.0 à
   l'identique. Tout écart vient donc des données de P (scénarios) et de la seule valeur datée (droit) ;
-- **mode cadre, scénarios de P** : les dix scénarios, en 2032, égalent cellule par cellule (déficit,
-  dette, croissance moyenne 2028-2032, chômage, pouvoir d'achat, Gini : 60 sur 60) le banc de la
-  release P (colonne C) ; la référence passe de −7,17 à −7,34 % de déficit 2032 et de 138,04 à 138,52 %
+- **mode cadre, scénarios de P** : huit des dix scénarios, en 2032, égalent cellule par cellule
+  (déficit, dette, croissance moyenne 2028-2032, chômage, pouvoir d'achat, Gini) le banc de la release P
+  (colonne C) ; les deux autres ont été ré-encodés après la relecture du même jour (sept paramètres :
+  six d'un programme, `education.salaires` 0 → 4,4 et `education.budget` 65 → 62 en rampe,
+  `cotisations_salariales.baisse_points` 1,4108 → 1,2965, `impots_production.montant` 80,6742 → 82,
+  `immigration.ame` 0,4381 → 0,4597, `cotisations_patronales.taux` 0,2525 → 0,2526 ; un d'un autre,
+  `prestations_menages.solidarite` 6,06 → 8,89). Leur écart au banc C, attribué paramètre par
+  paramètre (chaque changement seul sur l'ancien encodage ; reste d'interaction de l'ordre de
+  l'arrondi des sorties) : déficit 2032 +0,09 et −0,06 point, dette 2032 −0,21 et +0,10 point ;
+  l'ancien encodage rejoué sur cet arbre redonne les instantanés précédents au bit ; la référence passe de −7,17 à −7,34 % de déficit 2032 et de 138,04 à 138,52 %
   de dette ; en 2027, statu quo à −5,86 % de déficit (−5,63 avant) ;
 - **valeur datée seule** (scénarios d'avant P, mode cadre) : de −0,01 à −0,03 point de déficit 2032 et
   de +0,05 à +0,15 point de dette 2032 par scénario (2027 seule : un scénario qui écrit la surtaxe
@@ -42,7 +49,7 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   bouge ;
 - **garde-fou du pouvoir d'achat 2029** : valeurs re-figées après audit dans
   `tests/snapshots/pa_2029_figes.json` (données figées, jamais régénérées par un script ; elles
-  quittent le code du test).
+  quittent le code du test), y compris les deux encodages mis à jour (−0,1 et +0,2 point).
 
 **Conséquences à connaître** :
 - **Mode historique** (sans `annee_debut`) : la référence porte le droit de 2028 dès 2026 (surtaxe à
@@ -68,12 +75,12 @@ identifiant de programme dans le code ; G1 du déplafonnement : un programme pub
 5 points, dans le domaine. Outil `scripts/scan_discontinuites.py` : balayer une clé dominante d'un
 mode exclusif retire les paramètres qu'elle masque (la référence inscrit désormais ces taux).
 
-**Textes publics corrigés** (relus dans leurs sources) : infobulles du rabot uniforme et docstrings
-de `handlers/montaigne.py` (une citation attribuée à la note n'y figure pas, une base de 1 726 Md€
-introuvable, un « engagement OTAN 2 % » remplacé par les 2,7 % du PIB, pensions comprises, de la
-note) ; `docs/SCENARIOS_POLITIQUES.md` : ligne de la surtaxe et paragraphe du réajustement, nombre de
-scénarios, bloc du scénario retiré, bloc du scénario ajouté, phrases d'encodage devenues inexactes
-avec P, orientation du scénario de think tank citée dans la note, lignes « Source » régénérées par
+**Textes publics mis à jour** (relus dans leurs sources) : infobulles du rabot uniforme et docstrings
+de `handlers/montaigne.py`, alignées sur la seule note (une citation et une base de 1 726 Md€ qui n'y
+figurent pas sont retirées ; la cible de défense est celle de la note, 2,7 % du PIB, pensions
+comprises) ; `docs/SCENARIOS_POLITIQUES.md` : ligne de la surtaxe et paragraphe du réajustement, nombre
+de scénarios, bloc du scénario retiré, bloc du scénario ajouté, phrases d'encodage mises à jour avec P,
+orientation du scénario de think tank citée dans la note, lignes « Source » régénérées par
 `generate_scenario_sources.py` (dépôt parent) et tableau par `generate_scenario_params.py` ;
 `docs/METHODOLOGIE.md` : règle d'encodage 5 remplacée (aucun chiffrage de tiers n'encode un
 programme ; une mesure sans chiffre ni paramètre est affichée, non modélisée), référence commune,
