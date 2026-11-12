@@ -5,7 +5,8 @@ Test des nouvelles fonctions de reforme fiscale 2025.2
 
 import sys
 from budget_simulator.simulator import BudgetSimulatorV45
-from budget_simulator.constants import GINI_CONVERGENCE_RATE, GINI_IMPACT_SCALE
+from budget_simulator.constants import (COUT_PAR_POINT_COTIS_SAL, GINI_CONVERGENCE_RATE,
+                                        GINI_IMPACT_SCALE)
 
 PA_COL = "Pouvoir d'Achat"
 
@@ -77,13 +78,17 @@ def test_cotisations_salariales():
     delta_recettes = y0_baisse['Déficit'] - y0_sq['Déficit']
     delta_pa = y0_baisse[PA_COL] - y0_sq[PA_COL]
 
-    print(f"\n  Cout : {-delta_recettes:.2f} Md (attendu: 18 Md)")
-    print(f"  Delta PA : {delta_pa:.2f}% (attendu: +0.95%)")
+    # Release E (décision du mainteneur du 12/11/2026) : un point = 1 % de la
+    # masse salariale brute 2025 (COUT_PAR_POINT_COTIS_SAL, ≈ 11,57 Md€) ;
+    # jusqu'en v0.7.2, 6 Md€ (fenêtre −21 / −15 autour de 18 Md€).
+    attendu = 3.0 * COUT_PAR_POINT_COTIS_SAL
+    print(f"\n  Cout : {-delta_recettes:.2f} Md (attendu: {attendu:.1f} Md)")
+    print(f"  Delta PA : {delta_pa:.2f}% (attendu: {attendu / 19:.2f}%)")
 
-    assert -21 < delta_recettes < -15, f"[X] Cout hors cible : {delta_recettes:.2f} Md"
-    # v0.6.8 : 18 Md€ rendus sur un RDB 2026 d'environ 1 900 Md€ ≈ +0,95 pt
-    # (l'ancien +0,5 %/point transmettait 133 % de ses euros).
-    assert 0.85 < delta_pa < 1.05, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
+    assert -1.17 * attendu < delta_recettes < -0.83 * attendu, f"[X] Cout hors cible : {delta_recettes:.2f} Md"
+    # v0.6.8 : les euros rendus sur un RDB 2026 d'environ 1 900 Md€ (18 Md€ ≈
+    # +0,95 pt ; l'ancien +0,5 %/point transmettait 133 % de ses euros).
+    assert 0.9 * attendu / 19 < delta_pa < 1.1 * attendu / 19, f"[X] Impact PA hors cible : {delta_pa:.2f}%"
 
     print("\n[OK] TEST COTISATIONS SALARIALES REUSSI")
 
@@ -195,7 +200,10 @@ def test_package_complet():
     print(f"    Delta Gini : {delta_gini:.3f} (redistributif)")
     print(f"    Delta Chomage : {delta_chomage:.2f} pts (creation emplois)")
 
-    assert -50 < delta_recettes < -30, f"[X] Cout package hors cible : {delta_recettes:.2f} Md"
+    # Fenêtre v0.7.2 (point à 6 Md€) décalée du surcoût des 4 points au coût
+    # décidé le 12/11/2026 (1 % de la masse salariale brute 2025).
+    surcout = 4.0 * (COUT_PAR_POINT_COTIS_SAL - 6.0)
+    assert -50 - surcout < delta_recettes < -30 - surcout, f"[X] Cout package hors cible : {delta_recettes:.2f} Md"
     assert delta_pa > 1.3, f"[X] PA insuffisant : {delta_pa:.2f}%"
     # Net Gini effect: CSG progressive (-0.015) + cotisations salariales (regressive) + patrimoine -30% (regressive)
     # The package reduces taxes more than it redistributes, so net Gini may be slightly positive

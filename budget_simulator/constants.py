@@ -666,13 +666,27 @@ ETI_TRANCHE_SUPERIEURE = 0.25
 POLICY_START_YEAR = 2026
 
 # === PLAFOND DE L'IMPACT TOTAL DES MESURES (FMI 2010) ===
-# Somme des |Δ dépenses| + |Δ recettes| de toutes les mesures d'une année,
-# rapportée au PIB : au-delà, tous les impacts sont réduits au prorata
-# (engine/orchestrator.py, apply_measures). Porte sur les écarts au DÉFAUT du
-# moteur. Valeur INCHANGÉE depuis v4 (littéral 0.10 jusqu'en v0.7.0) ; nommée
-# ici pour que le calcul et le bloc `cadre.plafond_total` de la réponse lisent
-# la même source (revue passe 1 de v0.7.0).
+# Seuil sur la somme des |Δ dépenses| + |Δ recettes| de toutes les mesures
+# d'une année, rapportée au PIB, mesurée dans les deux modes
+# (engine/orchestrator.py, apply_measures) et publiée dans
+# `cadre.plafond_total` (années au-delà, impact maximal). Au-delà, l'effet
+# dépend de PLAFOND_TOTAL_MODE (bloc RELEASE E — W1) : 'avertissement'
+# (défaut, décision D6 du mainteneur du 12/11/2026) n'en réduit aucun et émet
+# un avis (seuil d'avertissement) ; 'reduction' (comportement v0.7.2, toujours
+# disponible) réduit tous les impacts au prorata. Porte sur les écarts au
+# DÉFAUT du moteur. Valeur
+# INCHANGÉE depuis v4 (littéral 0.10 jusqu'en v0.7.0) ; nommée ici pour que le
+# calcul et le bloc `cadre.plafond_total` lisent la même source.
 PLAFOND_IMPACT_TOTAL_PIB = 0.10
+
+# Filet de croissance réelle annuelle (engine/growth.py, calculate_growth) :
+# borne de validité des multiplicateurs linéaires, même logique que le plafond
+# ci-dessus. Valeurs INCHANGÉES (littéraux jusqu'à la release E) ; nommées pour
+# que le calcul et l'avis du rapport lisent la même source. Quand le filet
+# mord, un avis le dit, avec l'année et la valeur calculée avant écrêtage
+# (contre-vérification adverse m6) ; il n'invalide pas le rapport.
+CROISSANCE_FILET_MIN = -0.035
+CROISSANCE_FILET_MAX = 0.025
 
 # === CONJONCTURE OBSERVÉE (v0.6.9) — tables par année calendaire, VIDES ===
 # Pourquoi : la croissance de l'année part du potentiel et y revient (rappel
@@ -862,7 +876,16 @@ INTENSITE_DOMAINS = {
 # couple 0,45/0,80 était dupliqué entre l'entrée `taux_remplacement` et la
 # dérivation du domaine `montant`, un littéral de dict ne pouvant pas
 # s'auto-référencer).
-_CHOMAGE_TAUX_DOMAINE = (0.45, 0.80)
+# Release E (revue adverse) : la borne basse est portée à un budget chômage de
+# 24,85 Md€ en montant (valeur à encoder d'un programme, release de paramètres ;
+# règle « domaine = union UI + valeurs à encoder »). Le montant n'est qu'une
+# autre écriture du taux (montant = base × taux / 60 %, modes exclusifs) : la
+# borne basse du TAUX est dérivée de celle du montant (≈ 40,7 %), pour que les
+# deux écritures couvrent la même plage ; celle du montant est posée telle
+# quelle (une dérivation aller-retour en flottant pourrait la placer à
+# 24,850000000000001 et écrêter la valeur demandée). Borne haute inchangée.
+CHOMAGE_MONTANT_MIN_MD = 24.85
+_CHOMAGE_TAUX_DOMAINE = (CHOMAGE_TAUX_REF * CHOMAGE_MONTANT_MIN_MD / CHOMAGE_MONTANT_REF_MD, 0.80)
 
 # v0.6.7 (audit externe, oct. 2026) : le registre ne couvrait que 16 des 55
 # paramètres auxquels `policy_measures.json` publie un min/max — `tva_rate.taux
@@ -886,7 +909,7 @@ _PARAM_DOMAINS_MOTEUR = {
         # taux au lieu d'ouvrir une porte qui le contourne (avant : aucune
         # borne, montant=200 valait taux 3,28 sans clamp).
         'montant': (
-            CHOMAGE_MONTANT_REF_MD * _CHOMAGE_TAUX_DOMAINE[0] / CHOMAGE_TAUX_REF,
+            CHOMAGE_MONTANT_MIN_MD,
             CHOMAGE_MONTANT_REF_MD * _CHOMAGE_TAUX_DOMAINE[1] / CHOMAGE_TAUX_REF,
         ),
     },
@@ -931,8 +954,13 @@ _PARAM_DOMAINS_MOTEUR = {
     # un début en 2029, un an plus tard par année de début (jamais dans
     # l'horizon 2035 pour un début en 2032 à −500 000). Ce rabot est signalé
     # dans report.leviers_ecretes (motif « vivier ») et par un avis.
+    # Borne haute (release E, revue adverse) : +140 000 postes, valeur à
+    # encoder d'un programme (release de paramètres). Une CRÉATION ne puise pas
+    # dans le vivier des départs (seul plafond interne du handler, côté
+    # réductions) : aucun rabot ; la garde v0.7.2 de la borne basse est
+    # inchangée (tests/test_domaines_release_e.py).
     'fonction_publique': {
-        'effectifs': (-500_000.0, 60_000.0),
+        'effectifs': (-500_000.0, 140_000.0),
         'point_indice': (-2.0, 10.0),
     },
     'fonction_publique_reforme': {
@@ -1228,6 +1256,12 @@ RETRAITES_PART_MASSE_INDEXEE = 0.86
 # INFLATION_BASE pour 2026 : leur taux effectif n'a pas été vérifié.
 REVALORISATION_PENSIONS_2026 = 0.009
 RETRAITES_EROSION_PLATEAU_ANS = 7        # revalorisations comptées au plus : renouvellement des cohortes, l'écart au statu quo cesse de croître
+# Prestations sociales hors pensions (levier ``prestations_indexation``) : dix
+# revalorisations comptées au plus (l'ancien plafond « 10 ans » du levier), sans
+# plateau de cohortes — un barème sous-indexé le reste pour tous les
+# bénéficiaires. Nommé à la relecture adverse finale de la release E (I-1) :
+# c'est aussi le N de la part gardée du Gini au retour d'un gel (min(k, N)/N).
+PRESTATIONS_REVALORISATIONS_MAX = 10
 
 # --- Canal redistributif du levier d'âge -----------------------------------
 # Reculer l'âge de départ pénalise davantage les catégories à faible espérance
@@ -1438,9 +1472,13 @@ RETRAITES_PART_COTISATIONS_PO = 0.205
 # Deux sources indépendantes, MÊME nomenclature (System of Health Accounts) :
 # - DREES, « Les dépenses de santé en 2023 — Résultats des comptes de la
 #   santé », Panoramas édition 2024, FICHE 21, TABLEAU 1 (et série longue) :
-#   prévention institutionnelle 7 516 M€ en 2023 ; édition 2025 (30/09/2025) :
-#   +0,9 % en 2024, soit ≈ 7,6 Md€, sur une dépense courante de santé au sens
-#   international (DCSi) de 333 Md€.
+#   prévention institutionnelle 7 516 M€ en 2023. L'édition 2025 a RÉVISÉ la
+#   série : 8 657 M€ en 2023 et 8 731 M€ en 2024 (PLFSS 2026, annexe 5
+#   « Prévention », p. 47, source DREES, comptes de la santé), sur une dépense
+#   courante de santé au sens international (DCSi) de 333 Md€ (même annexe,
+#   p. 79). La base 7,5 du curseur appartient à l'ancien millésime ; la passer
+#   à ≈ 8,7 est une décision ouverte (release de paramètres), qui réduirait la
+#   tranche avec retour à ≈ 2,6 Md€ (la borne, en niveau, ne bouge presque pas).
 #   https://drees.solidarites-sante.gouv.fr/sites/default/files/2025-02/Les%20d%C3%A9penses%20de%20sant%C3%A9%20en%202023_MEL2ok.pdf
 # - OCDE, « Health at a Glance 2025 — Country note : France », novembre 2025 :
 #   « France spends 2.3 % of total health spending on prevention […] less than
@@ -1456,7 +1494,10 @@ RETRAITES_PART_COTISATIONS_PO = 0.205
 #     dépistages hors dépistage organisé, une grande partie de la vaccination
 #     et la prise en charge des facteurs de risque (toutes en CSBM). En
 #     périmètre large la Cour des comptes chiffre l'effort français à
-#     ≈ 15 Md€/an : le curseur pilote l'agrégat SHA, PAS les 15.
+#     ≈ 15 Md€/an (« La politique de prévention en santé », communication au
+#     comité d'évaluation et de contrôle de l'Assemblée nationale, 1er
+#     décembre 2021, p. 44, données 2016) : le curseur pilote l'agrégat SHA,
+#     PAS les 15.
 DEPENSE_COURANTE_SANTE_MD_EUR = 333.0  # DCSi 2024 (DREES, comptes de la santé éd. 2025)
 PREVENTION_PART_FRANCE = 0.023         # OCDE, Health at a Glance 2025, country note France
 PREVENTION_PART_OCDE = 0.034           # idem, moyenne OCDE
@@ -1491,9 +1532,12 @@ PREVENTION_PLAFOND_MD_EUR = round(
 #   entièrement absent du moteur.
 #   https://journals.plos.org/plosmedicine/article?id=10.1371/journal.pmed.0050029
 # - Vos T. et al., « ACE-Prevention Final Report », University of Queensland /
-#   Deakin University, septembre 2010 — 21 mesures DOMINANTES sur 150 : 4,6
-#   Md AU$ investis ⇒ 11 Md AU$ d'économies de santé, ratio 2,4. C'est la
-#   BORNE HAUTE ABSOLUE (sélection optimale, vie entière), pas une moyenne.
+#   Deakin University, septembre 2010 —
+#   23 interventions préventives dominantes sur 123 évaluées (25 sur 150 avec
+#   les 2 curatives), dont 20 forment le paquet « dominant » : 4,6 Md AU$
+#   investis ⇒ 11 Md AU$ d'économies de santé, ratio 2,4 (rapport, p. 23 et
+#   25). C'est la BORNE HAUTE ABSOLUE (sélection optimale, vie entière), pas
+#   une moyenne.
 #   https://public-health.uq.edu.au/files/571/ACE-Prevention_final_report.pdf
 # - OCDE, « The Heavy Burden of Obesity — The Economics of Prevention », 2019,
 #   CHAPITRE 6 (Goryakin et al.) — la meilleure intervention y vaut 13 Md USD
@@ -1523,20 +1567,27 @@ PREVENTION_PLAFOND_MD_EUR = round(
 # 1,2 Md€ ⇒ ≈ 1,6 Md€ à horizon 2029, et par un MEILLEUR CIBLAGE, pas par une
 # dépense additionnelle. C'est la borne haute crédible pour la France.
 #
-# Le délai de 4 ans (contre 2) : Cash & Fourcade 2023 § 45 (« les bénéfices
-# économiques de la prévention sont souvent postérieurs aux dépenses
-# engagées ») et ACE-Prevention (14 % de la dépense décaissée en année 1).
+# Le délai de 4 ans (contre 2) : Fourcade N. & Cash R., « Comment évaluer
+# l'efficacité économique de la prévention ? », Regards n° 61 (EN3S), mai
+# 2023, p. 41 (« les bénéfices économiques de la prévention sont souvent
+# postérieurs aux dépenses engagées ») et ACE-Prevention (14 % de la dépense
+# décaissée en année 1).
 # La forme de la rampe est une CONVENTION : aucune courbe de rendement
 # décroissant n'est publiée (§ B.3-24), mais deux éléments convergents
 # interdisent un rendement constant et non borné — Cohen 2008 (« des
 # dépistages fréquents sont plus efficaces mais moins efficients ») et
 # l'IGAS 2024 (aucune évaluation d'efficience disponible en France).
-# NB de sourcing : le dossier v0.6.1 proposait un troisième appui, un constat
-# de la Cour des comptes daté de 2021 sur le rendement de la prévention
-# française. Il n'est PAS repris : la seule attribution « Cour des comptes
-# 2021 » déjà rencontrée dans ce moteur s'est révélée introuvable (§ B.1-5,
-# retirée au lot 1), et une garde de citation la bloque désormais. On ne
-# re-source pas par approximation — les deux appuis restants suffisent.
+# NB de sourcing (corrigé à la release E, vérification du 12/11/2026) : le
+# rapport de la Cour des comptes « La politique de prévention en santé »
+# (communication au comité d'évaluation et de contrôle de l'Assemblée
+# nationale, 1er décembre 2021) EXISTE ; une version antérieure de ce
+# commentaire le disait introuvable, par confusion avec une autre attribution
+# à la Cour, sur les retraites, réellement introuvable (§ B.1-5, garde de
+# citation). Il chiffre l'effort à ≈ 15 Md€ en périmètre large (données 2016)
+# et juge que ces dépenses « produisent néanmoins des résultats médiocres »
+# (p. 29), mais ne publie AUCUN taux de rendement : il sert au périmètre
+# ci-dessus, pas au taux de compensation, que les deux appuis restants
+# bornent.
 PREVENTION_OFFSET_HARD_CEILING = 1.00   # plafond DUR : au-delà, la mesure se paierait elle-même
 PREVENTION_OFFSET_CENTRAL_CAP = 0.50    # plafond central — CHOIX DE MODÉLISATION ASSUMÉ
 PREVENTION_OFFSET_RAMP_PER_YEAR = 0.10  # montée en charge annuelle du taux (convention)
@@ -2192,3 +2243,509 @@ GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
 # Reste au chantier v0.7 la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 :
 # « non calculable en l'état », « ne pas bricoler ») — elle n'a jamais dépendu
 # de ce fallback.
+
+
+# ===========================================================================
+# === RELEASE E — SOCLE ===
+# ===========================================================================
+# Release d'équations « E » : onze nouveaux leviers (contrat de spécification
+# du dépôt parent, docs/plans/contrat-curseurs-release-E-2026-11.md, § 1.3 et
+# § 7.2). Ce bloc ne change AUCUN résultat :
+#   (1) des littéraux de handlers existants reçoivent un nom, à valeur égale et
+#       dans le même ordre d'opérations (golden masters inchangés, sans
+#       régénération) ;
+#   (2) les coefficients par Md€ des nouveaux leviers sont écrits comme des
+#       EXPRESSIONS de ces noms, jamais comme des nombres recopiés ;
+#   (3) les données sourcées des nouveaux leviers, chacune avec sa source.
+# Chaque chantier (W1 à W6) n'écrit que dans SON bloc, plus bas : un levier
+# appartient à un seul chantier.
+#
+# RÈGLE DE SIGNE (relecture adverse du contrat, B1) : une constante
+# « …_PAR_MD » est SIGNÉE et vaut l'effet d'un +1 Md€ du paramètre du levier
+# (+1 Md€ de recette, ou +1 Md€ de dépense). Un handler écrit
+# « effet = COEFFICIENT × montant » et n'ajoute jamais de signe ; une constante
+# extraite garde le signe du littéral qu'elle remplace.
+# Verrouillé par tests/test_release_e_socle.py.
+
+# --- Constantes extraites des handlers existants (valeur et signe inchangés)
+# handlers/fiscalite_menages.py, _apply_fiscalite_patrimoine : +10 Md€ de
+# recette patrimoniale = −0,010 de Gini et −0,002 de compétitivité.
+PATRIMOINE_GINI_PAR_10MD = -0.010
+PATRIMOINE_COMPET_PAR_10MD = -0.002
+# _apply_isf_climatique : −0,020 de Gini et −0,002 de compétitivité pour
+# 12 Md€ de recette nette ; taux maximal du barème (1 %) ; phasage de la
+# collecte (0,5 l'année de mise en place, 1,0 ensuite).
+ISF_GINI_PAR_12MD = -0.020
+ISF_COMPET_PAR_12MD = -0.002
+ISF_TAUX_MAX = 0.01
+ISF_PHASAGE = (0.5, 1.0)
+# _apply_impot_revenu : suppression de la décote = +0,003 de Gini pour
+# 7,5 Md€ de recette ; tranche supérieure +5 points = −0,008 de Gini ;
+# plancher du facteur comportemental (élasticité du revenu imposable).
+IR_GINI_DECOTE = 0.003
+IR_RECETTE_DECOTE = 7.5
+IR_GINI_PAR_5PTS = -0.008
+ETI_PLANCHER_FACTEUR = 0.5
+# _apply_cotisations_salariales : coût d'un point de cotisation (Md€) = 1 % de
+# la masse salariale brute 2025, tous salariés, public compris : salaires et
+# traitements bruts (D11) des comptes de la Nation, Insee, comptes nationaux
+# annuels base 2020, tableau 2.101, 2025 = 1 157,166 Md€ (fichier du
+# 22/05/2026). Même tableau, même année et même périmètre que la masse des
+# cotisations salariales (COTIS_SAL_MASSE_2025_MD) : « baisser de X points »
+# signifie « baisser le taux moyen de X points ». Décision du mainteneur du
+# 12/11/2026 (dossier du dépôt parent
+# docs/plans/cout-point-cotisation-sources-2026-11.md) ; jusqu'à la release E,
+# 6 Md€ sans source (vraisemblablement un point sur l'assiette du seul secteur
+# privé vers 2018-2019). C'est un majorant du rendement d'une baisse d'un point
+# du taux légal (une partie de D11 est hors assiette) ; borne basse sourcée :
+# 9,74 Md€ (salariés, cotisation déplafonnée, Commission des comptes de la
+# Sécurité sociale, octobre 2026, encadré 2).
+SALAIRES_BRUTS_2025_MD = 1157.166
+COUT_PAR_POINT_COTIS_SAL = SALAIRES_BRUTS_2025_MD / 100
+
+# _apply_cotisations_salariales : effet sur l'indice de Gini PAR Md€ de
+# cotisations rendu aux salariés (baisse), positif : une baisse proportionnelle
+# au salaire accroît légèrement les inégalités de niveau de vie.
+# C'est une estimation de France Budget, pas une valeur de la littérature :
+# aucune étude publiée ne chiffre une baisse uniforme de cotisations
+# salariales. Méthode : effet statique de premier ordre
+# ΔGini ≈ s × (C − G) / (1 + s), calculé par quintiles de niveau de vie (Insee,
+# France, portrait social 2025, figure 1 : cotisations famille, substitut d'une
+# cotisation proportionnelle au salaire brut, et niveau de vie par quintile ;
+# CCSS octobre 2026 pour la masse), plage +0,00006 à +0,0001 par Md€, retenue au
+# haut de la plage ; incertitude d'un facteur 2 environ. Valable pour une baisse
+# uniforme de quelques points, effet statique seul (le signe s'inverse pour une
+# baisse ciblée, heures supplémentaires : Insee 2020). Décision du mainteneur du
+# 12/11/2026 (dossier du dépôt parent
+# docs/plans/cout-point-cotisation-sources-2026-11.md, § 5). Un coefficient par
+# Md€ rend le Gini indépendant de la convention du point. Jusqu'à la release E :
+# +0,0027 par point de 6 Md€ (≈ +0,00045 par Md€), attribué à une source
+# introuvable, quatre à sept fois au-dessus de cette estimation.
+GINI_COTIS_SAL_PAR_MD = 0.0001
+# _apply_tva_rate : TVA +2 points = +0,005 de Gini et −0,0005 de
+# compétitivité. La recette du levier est la fonction recette_tva_taux
+# ci-dessous, que le handler APPELLE.
+TVA_GINI_PAR_2PTS = 0.005
+TVA_COMPET_PAR_2PTS = -0.0005
+# _apply_tva_energie : Gini = variation du taux × 0,05 ; consommations
+# d'électricité et de gaz soumises à la TVA (Md€).
+TVA_ENERGIE_GINI_PAR_TAUX = 0.05
+TVA_ENERGIE_CONSO_ELECTRICITE_MD = 60.0
+TVA_ENERGIE_CONSO_GAZ_MD = 60.0
+# handlers/competitivite.py : compétitivité par Md€ d'impôt sur les sociétés,
+# d'impôts de production et d'IS exceptionnel, valeurs positives telles que
+# les handlers les écrivent (une BAISSE d'impôt améliore la compétitivité).
+IS_COMPET_PAR_MD = 0.015
+IMPOTS_PRODUCTION_COMPET_PAR_MD = 0.020
+IS_EXCEPTIONNEL_COMPET_PAR_MD = 0.003
+# simulator.py, spending_categories_base['retraites'] : masse des pensions de
+# l'année de base du moteur (Md€). Écart connu au COR (401 Md€ en 2025) :
+# donnée à revoir dans une passe de données dédiée, pas dans ce socle.
+MASSE_RETRAITES_2025_MD_EUR = 380
+
+
+def recette_tva_taux(taux: float, pib: float, chomage: float) -> float:
+    """Variation de recette (Md€) du levier ``tva_rate`` au taux ``taux``
+    (référence 20 %), au PIB nominal ``pib`` et au taux de chômage
+    ``chomage``. Extraite AU BIT de ``_apply_tva_rate`` (mêmes opérations,
+    même ordre) : le handler l'appelle, et la dérivation des coefficients par
+    Md€ de la TVA aussi (appel, jamais recopie)."""
+    consumption_base = 0.53 * pib
+    base_elasticity = -0.2 if taux > 0.20 else -0.1
+    if chomage > 0.10:
+        base_elasticity *= 1.2
+    adjusted_base = consumption_base * (1 + base_elasticity * (taux - 0.20))
+    delta_revenue = (taux - 0.20) * adjusted_base * 0.9
+    if taux > 0.22:
+        delta_revenue *= (1 - 0.2 * (taux - 0.22) / 0.03)
+    return delta_revenue
+
+
+# --- Horizon du mandat (arbitrages du mainteneur du 07/11/2026) -------------
+# Premier budget du nouvel élu : 2028 ; fin du quinquennat : 2032. Le cadre
+# temporel (engine/cadre.py) borne ``annee_debut`` à ANNEE_DEBUT_MAX, égale à
+# ANNEE_FIN_MANDAT (verrouillé par test) ; défini ici parce que constants.py
+# ne peut pas importer le cadre (qui l'importe).
+ANNEE_PREMIER_BUDGET_MANDAT = 2028
+ANNEE_FIN_MANDAT = 2032
+HORIZON_MANDAT_ANNEES = ANNEE_FIN_MANDAT - ANNEE_PREMIER_BUDGET_MANDAT + 1
+
+# --- Coefficients par Md€ des nouveaux leviers (dérivés, signés) -----------
+# Prestations de solidarité : règle « par Md€ d'allocations » du moteur (OFCE
+# 2023, GINI_ALLOC_PAR_MD_EUR), au signe d'une HAUSSE de prestation.
+GINI_SOLIDARITE_PAR_MD = -GINI_ALLOC_PAR_MD_EUR
+# Pensions : émission EFFECTIVE du levier ``retraites`` sur le mandat — Gini
+# CUMULÉ d'un gel total de l'indexation (100 % la première année, puis le
+# résidu de flux chaque année suivante) rapporté à l'économie atteinte en fin
+# de mandat (masse × (1 − (1 + inflation)^−N)), au signe d'une HAUSSE de
+# pension. La règle suit le CODE de _apply_retraites (0,005 × (1 −
+# indexation)), pas le commentaire de RETRAITES_GINI_PAR_POINT_DESINDEXATION
+# (« 100 % → 90 % = +0,005 »), qui en diffère d'un facteur 10 (écart signalé).
+GINI_PENSIONS_PAR_MD = (-RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1 + RETRAITES_GINI_RESIDU_FLUX * (HORIZON_MANDAT_ANNEES - 1))
+                        / (MASSE_RETRAITES_2025_MD_EUR * (1 - (1 + INFLATION_STRUCTURELLE) ** -HORIZON_MANDAT_ANNEES)))
+# Recettes sur le patrimoine (successions, revenus du capital) : règle du
+# levier ``fiscalite_patrimoine``.
+GINI_PATRIMOINE_PAR_MD = PATRIMOINE_GINI_PAR_10MD / 10
+COMPET_PATRIMOINE_PAR_MD = PATRIMOINE_COMPET_PAR_10MD / 10
+# Impôt plancher : émission EFFECTIVE de l'ISF par Md€ de recette d'année
+# pleine. Le phasage entre DEUX fois dans _apply_isf_climatique (dans la
+# recette nette et dans l'impact) : l'effet émis vaut le quart de la règle
+# affichée. Reproduit à l'identique ; la correction de l'ISF et du plancher se
+# fera ENSEMBLE, jamais l'une sans l'autre.
+GINI_ISF_EFFECTIF_PAR_MD = ISF_GINI_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
+COMPET_ISF_EFFECTIF_PAR_MD = ISF_COMPET_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
+# Impôt sur le revenu ciblé : règle de la décote, seule règle IR du moteur dont
+# l'incidence porte sur le milieu de la distribution.
+GINI_IR_DECOTE_PAR_MD = IR_GINI_DECOTE / IR_RECETTE_DECOTE
+# TVA à taux réduits : règle de ``tva_rate`` rapportée à la recette que rend
+# sa fonction à +2 points (taux 22 %), au PIB et au chômage de l'année de base.
+GINI_TVA_PAR_MD = TVA_GINI_PAR_2PTS / recette_tva_taux(0.22, PIB_BASE_2025_MD_EUR, CHOMAGE_BASE)
+COMPET_TVA_PAR_MD = TVA_COMPET_PAR_2PTS / recette_tva_taux(0.22, PIB_BASE_2025_MD_EUR, CHOMAGE_BASE)
+# Accises sur l'énergie : règle de ``tva_energie`` par Md€ de recette.
+GINI_TVA_ENERGIE_PAR_MD = TVA_ENERGIE_GINI_PAR_TAUX / (TVA_ENERGIE_CONSO_ELECTRICITE_MD + TVA_ENERGIE_CONSO_GAZ_MD)
+# Impôts d'entreprise : +1 Md€ d'impôt en plus = perte de compétitivité.
+COMPET_IS_PAR_MD = -IS_COMPET_PAR_MD
+COMPET_IMPOTS_PRODUCTION_PAR_MD = -IMPOTS_PRODUCTION_COMPET_PAR_MD
+COMPET_IS_EXCEPTIONNEL_PAR_MD = -IS_EXCEPTIONNEL_COMPET_PAR_MD
+
+# --- Données sourcées des nouveaux leviers ---------------------------------
+# Impôt plancher sur les patrimoines de plus de 100 M€ : rendement SANS
+# comportement d'un taux de 2 %, « 20 milliards d'euros, avec une marge
+# d'erreur de 5 » (Sénat, rapport n° 689, 2025) ; année source 2025.
+R_REF_PLANCHER = 20.0
+# Évitement de l'impôt plancher : part de la recette mécanique perdue par
+# l'exil, l'optimisation, la sous-évaluation et la moindre accumulation des
+# SEULS contribuables visés (les effets sur la croissance et les autres
+# recettes sont calculés par le moteur). Fourchette publiée, en % du rendement
+# statique : de 15 % (Saez et Zucman, « Progressive Wealth Taxation »,
+# Brookings Papers on Economic Activity, automne 2019, tableau 2 p. 461 :
+# contrôle fort) à 55 % environ (Jakobsen et al., Danemark, p. 36 : 54 % sur
+# la marge intensive, moindre accumulation comprise, long terme). Confiance
+# faible : aucune estimation pour un impôt plancher différentiel incluant les
+# biens professionnels ; assiette très concentrée. Aucun chiffre non publié
+# (note de la DG Trésor) n'est utilisé.
+EVITEMENT_PLANCHER_FOURCHETTE_PCT = (15, 55)
+# Défaut du paramètre d'évitement : milieu de la fourchette (0,35), décision
+# du mainteneur du 11/11/2026. Donnée, pas équation.
+EVITEMENT_PLANCHER_DEFAUT = (EVITEMENT_PLANCHER_FOURCHETTE_PCT[0] + EVITEMENT_PLANCHER_FOURCHETTE_PCT[1]) / 2 / 100
+# Revenus du capital, part impôt sur le revenu du prélèvement forfaitaire :
+# assiette = rendement 2022 (7,2 Md€, Sénat, rapport n° 689) / taux (12,8 %),
+# prise comme valeur 2025 sans revalorisation (hypothèse prudente, qui
+# sous-estime une hausse comme une baisse).
+A_CAPITAL_IR = 7.2 / 0.128
+# Revenus du capital, prélèvements sociaux : revenus du patrimoine (≈ 81 Md€)
+# et produits de placement (≈ 110 Md€) (Commission des comptes de la Sécurité
+# sociale, octobre 2026, fiche 1.5 ; Voies et moyens 2027) ; somme calculée.
+A_CAPITAL_PS = 191.0
+# Revenus du capital : seule la part de l'assiette sociale soumise au
+# prélèvement forfaitaire (A_CAPITAL_IR, dividendes, intérêts, plus-values)
+# réagit au taux total ; le reste (A_CAPITAL_PS − A_CAPITAL_IR : revenus
+# fonciers, produits de placement hors prélèvement forfaitaire) ne réagit
+# qu'aux prélèvements sociaux (handlers/recettes_taux.variation_capital_hors_indice).
+# Borne de VRAISEMBLANCE du sommet de recette qui en résulte (non lue par le
+# calcul, vérifiée par test) : taux de Laffer des revenus du capital en France,
+# ≈ 57 % sans l'élasticité croisée des revenus du travail, ≈ 43 % avec
+# (Lefebvre, Lehmann et Sicsic, « Estimating the Laffer tax rate on capital
+# income: cross-base responses matter! », Scandinavian Journal of Economics
+# 127(2), 2025, p. 460-489, DOI 10.1111/sjoe.12578, résumé ; réformes
+# françaises 2008-2017).
+TAUX_LAFFER_CAPITAL_FOURCHETTE_PCT = (43, 57)
+# Taxe sur les services numériques : 902 M€ perçus en 2025 au taux de 3 %
+# (Voies et moyens 2027 ; CIBS, art. L453-70).
+A_TSN = 0.902 / 0.03
+# Taxe sur les transactions financières : 2 888 M€ en 2026, première année
+# pleine au taux de 0,4 % (Voies et moyens 2027 ; CGI, art. 235 ter ZD).
+V_REF_TTF = 2.888 / 0.004
+# Droits de mutation à titre gratuit perçus en 2025 : successions 16,1 et
+# donations 5,1 Md€ (Voies et moyens 2027). Borne basse SOURCÉE du levier
+# ``droits_succession`` (jamais relevée).
+DMTG_2025_MD = 21.2
+# Borne haute de ``droits_succession.variation`` (Md€ par an) : décision du
+# mainteneur du 12/11/2026, le plus haut supplément annoncé par un programme
+# publié, compté tel quel (la borne +20 de la première version n'était pas
+# sourcée). Aucune décote d'évitement : pour une forte hausse, aucune étude ne
+# permet de chiffrer la part évitée, qui dépend de la fermeture des dispositifs
+# dérogatoires (dossier du dépôt parent
+# docs/plans/evitement-successions-sources-2026-11.md) ; l'infobulle le dit.
+DMTG_VARIATION_MAX_MD = 25.0
+# Prélèvement sur recettes au profit de l'Union européenne, 28 440 M€, et
+# crédits de paiement de la mission « Aide publique au développement »,
+# 3 569 M€ (loi de finances pour 2026). Leur somme est la borne basse SOURCÉE
+# du levier ``transferts_etranger``.
+PSR_UE_2026_MD = 28.44
+APD_MISSION_2026_MD = 3.569
+# Cotisations sociales effectives à la charge des salariés (D613CE) en 2025,
+# CSG et CRDS exclues (classées en impôts) : Insee, comptes de la Nation 2025,
+# tableau 2.101 = 138,217 Md€. Borne de suppression totale de
+# ``cotisations_salariales``, dérivée au coût du point du moteur : D613CE / 1 %
+# de D11 = le taux moyen réel des cotisations salariales, ≈ 11,94 points.
+COTIS_SAL_MASSE_2025_MD = 138.217
+COTIS_SAL_POINTS_SUPPRESSION = COTIS_SAL_MASSE_2025_MD / COUT_PAR_POINT_COTIS_SAL
+# Année source de chaque assiette d'impôt à taux : l'assiette suit le PIB
+# nominal depuis cette année (BudgetSimulatorV45._indice_pib_source).
+ANNEE_SOURCE_PLANCHER = 2025
+ANNEE_SOURCE_CAPITAL = 2025
+ANNEE_SOURCE_TSN = 2025
+ANNEE_SOURCE_TTF = 2026
+# Bénéfices des multinationales imposés en France, borne haute PROVISOIRE (À
+# SOURCER) : 21 % de l'impôt sur les sociétés perdu par transfert de bénéfices
+# (Tørsløv, Wier et Zucman, Review of Economic Studies 90(3), 2023, ligne
+# France, millésime 2015) × 60 Md€ d'IS net (valeur de competitivite.py) ; à
+# figer sur l'IS net exécuté 2025.
+BENEFICES_RECUPERES_MAX = 0.21 * 60
+
+# --- Les onze leviers de la release et leurs valeurs NEUTRES ---------------
+# Ordre du contrat (§ 1.1). Neutre = valeur d'un paramètre qui laisse toutes
+# les sorties identiques au bit. Source UNIQUE : ``valeur_defaut`` de l'entrée
+# du levier dans policy_measures.json, lue une fois à l'import (même mécanisme
+# que _deriver_param_domains) ; le site les relira dans le registre généré. Un
+# paramètre de mode exclusif (``rendement_*``) n'a pas de valeur_defaut : son
+# neutre est l'ABSENCE de la clé. Les squelettes du socle rendent un effet nul
+# au neutre et refusent toute autre valeur (handlers/_types.levier_non_livre).
+LEVIERS_RELEASE_E = (
+    'depenses_publiques', 'prestations_menages', 'transferts_etranger',
+    'droits_succession', 'impot_plancher_patrimoine', 'fiscalite_capital',
+    'multinationales', 'operations_financieres', 'fiscalite_indirecte',
+    'impot_revenu_cible', 'recette_exceptionnelle',
+)
+
+
+def _deriver_neutres_release_e() -> dict:
+    """``{levier: {paramètre: valeur neutre}}`` des leviers de la release E,
+    lus dans policy_measures.json. Un levier absent du registre empêche le
+    moteur de démarrer (même règle que PARAM_DOMAINS) : jamais un neutre
+    deviné."""
+    registre = {m['id']: m for m in json.loads(
+        POLICY_MEASURES_PATH.read_text(encoding='utf-8')).get('mesures', [])}
+    absents = [levier for levier in LEVIERS_RELEASE_E if levier not in registre]
+    if absents:
+        raise RuntimeError(
+            f"policy_measures.json : levier(s) de la release E absent(s) du registre : {absents}")
+    return {levier: {param: spec['valeur_defaut']
+                     for param, spec in (registre[levier].get('parametres') or {}).items()
+                     if 'valeur_defaut' in spec}
+            for levier in LEVIERS_RELEASE_E}
+
+
+NEUTRES_RELEASE_E = _deriver_neutres_release_e()
+
+# --- Leviers inscrits au registre mais NON LIVRÉS (squelettes) --------------
+# Liste UNIQUE des leviers dont le handler est encore un squelette du socle :
+# effet nul aux valeurs neutres, toute autre valeur refusée
+# (handlers/_types.levier_non_livre : jamais un levier muet). Les outils et
+# tests qui essaient chaque levier du registre à une valeur non neutre (les
+# mini-scénarios standalone de tests/snapshots/coverage_scenarios.py, les
+# balayages de PARAM_DOMAINS) les sautent tant qu'ils sont listés : un levier
+# non livré n'a pas de mini-scénario. Chaque chantier RETIRE ses leviers en
+# livrant leurs corps (une ligne par chantier, séparées, pour des fusions sans
+# conflit). Gardes (tests/test_release_e_socle.py) : la liste nomme EXACTEMENT
+# les squelettes qui lèvent ; elle doit être VIDE avant tout tag (test
+# d'intégration actif avec BUDGETLAB_RELEASE_E_PRET=1).
+# Release E intégrée : les onze leviers sont livrés, la liste est VIDE.
+LEVIERS_NON_LIVRES = frozenset()
+
+# === RELEASE E — W1 ===
+# Contrat et garde-fous (porte des leviers inconnus, exclusions mutuelles,
+# profils temporels, valeurs datées, plafond mesuré dans les deux modes :
+# avertissement par défaut, décision D6 du mainteneur du 12/11/2026 ;
+# réduction disponible et testée).
+
+# --- Exclusions mutuelles (contrat § 4.1) -----------------------------------
+# Deux leviers qui feraient varier LE MÊME euro : quand toutes les conditions
+# d'une règle sont vraies, le levier ``ignore`` est retiré du programme (porte
+# d'entrée, engine/_param_domain.appliquer_exclusions). Strict :
+# LeviersIncompatibles (422) ; tolérant : correction tracée (report.valid =
+# false), lisible dans report.corrections. Une condition porte sur la valeur
+# demandée ; un paramètre absent ou ``null`` vaut le défaut du levier
+# (NEUTRES_RELEASE_E, puis config.load_default_values), ou, pour un levier
+# absent de ces deux sources, la valeur de ``defauts`` (défaut écrit dans son
+# handler). Un paramètre sans défaut connu est un défaut de cette table
+# (RuntimeError), jamais une condition fausse en silence.
+EXCLUSIONS_MUTUELLES = {
+    'X1': {
+        'ignore': 'droits_succession',
+        'avec': 'fiscalite_patrimoine',
+        'conditions': (
+            ('droits_succession', 'variation', '!=', 0),
+            ('fiscalite_patrimoine', 'intensite', '!=', 0),
+        ),
+        'motif': ("le curseur de la fiscalité du patrimoine fait déjà varier les droits de "
+                  "succession : la même recette ne se compte qu'une fois"),
+        'defauts': {},
+    },
+    'X2': {
+        'ignore': 'transferts_etranger',
+        'avec': 'rabot_uniforme',
+        'conditions': (
+            ('transferts_etranger', 'montant', '!=', 0),
+            ('rabot_uniforme', 'taux_reduction', '>', 0),
+            ('rabot_uniforme', 'exclure_ue', '==', 0),
+        ),
+        'motif': ("le rabot uniforme qui n'exclut pas la contribution à l'Union européenne "
+                  "(exclure_ue = 0) la coupe déjà : la même dépense ne se coupe qu'une fois"),
+        # Défauts du handler (handlers/montaigne.py, _apply_rabot_uniforme :
+        # params.get('taux_reduction', 0), params.get('exclure_ue', 1)), le levier
+        # n'ayant pas d'entrée dans config.load_default_values.
+        'defauts': {('rabot_uniforme', 'taux_reduction'): 0, ('rabot_uniforme', 'exclure_ue'): 1},
+    },
+}
+
+# --- Plafond de l'impact total (contrat § 5.4, décision D6) -----------------
+# PLAFOND_IMPACT_TOTAL_PIB (10 % du PIB, inchangé) est mesuré dans les deux
+# modes. 'reduction' : comportement v0.7.2, réduction proportionnelle des
+# impacts au-delà du seuil ; 'avertissement' : aucune réduction, un avis et le
+# bloc cadre.plafond_total (années, impact maximal). DÉFAUT 'avertissement' :
+# décision D6 du mainteneur du 12/11/2026, prise en connaissant la condition
+# d'arrêt du banc W1 (11/11/2026 : sans réduction, le filet de croissance
+# [−3,5 % ; +2,5 %] mord davantage, une année, sur un scénario publié) ; le
+# mode 'reduction' reste disponible et testé. Relu à chaque simulation.
+PLAFOND_TOTAL_MODES = ('reduction', 'avertissement')
+PLAFOND_TOTAL_MODE = 'avertissement'
+
+# === RELEASE E — W2 ===
+# Dépenses, prestations, transferts vers l'étranger. Aucune constante propre :
+# le handler de prestations_menages (handlers/transferts_menages.py) lit les
+# coefficients signés du bloc socle (GINI_SOLIDARITE_PAR_MD,
+# GINI_PENSIONS_PAR_MD) ; les deux formules sont dans policy_measures.json.
+
+# === RELEASE E — W3 ===
+# Recettes en Md€ sans comportement, déplafonnement des cotisations
+# salariales. Aucune constante propre : les quatre handlers
+# (handlers/recettes_montants.py) lisent les coefficients signés du bloc socle,
+# et la borne du déplafonnement (COTIS_SAL_POINTS_SUPPRESSION, bloc socle) est
+# portée par policy_measures.json, vérifiée à 1e-9 par tests/test_release_e_w3.py.
+
+# === RELEASE E — W4 ===
+# Impôts à taux avec comportement (handlers/recettes_taux.py : impôt plancher,
+# revenus du capital, multinationales, opérations financières ; contrat du
+# dépôt parent, § 1.2-5 à 1.2-8 et § 3). Les données sourcées (assiettes,
+# rendement de référence du plancher, années sources, défaut de l'évitement
+# EVITEMENT_PLANCHER_DEFAUT) sont au bloc SOCLE et ne sont pas recopiées ici ;
+# les taux de référence (droit voté) sont les neutres du registre
+# (NEUTRES_RELEASE_E). Ce bloc ne nomme que deux conventions d'unité des
+# formules du contrat et le taux d'IS de référence des bénéfices récupérés.
+
+# Impôt plancher : taux du texte auquel R_REF_PLANCHER est sourcé (2 % au-delà
+# de 100 M€, proposition de loi, Sénat, rapport n° 689, 2025). Rendement
+# mécanique d'un taux τ : R_REF_PLANCHER × τ / PLANCHER_TAUX_TEXTE (assiette
+# statique implicite du texte, 1 000 Md€ en 2025 [CALCUL]).
+PLANCHER_TAUX_TEXTE = 0.02
+# Taxe sur les transactions financières : unité du paramètre
+# ``elasticite_volume`` = perte de volume par +0,1 point de taux (0,001).
+TTF_PAS_ELASTICITE_VOLUME = 0.001
+
+
+def _defaut_du_registre(levier: str, parametre: str) -> float:
+    """``valeur_defaut`` d'un paramètre de policy_measures.json ; un défaut
+    absent empêche le moteur de démarrer (jamais une valeur devinée)."""
+    registre = {m['id']: m for m in json.loads(
+        POLICY_MEASURES_PATH.read_text(encoding='utf-8')).get('mesures', [])}
+    try:
+        return registre[levier]['parametres'][parametre]['valeur_defaut']
+    except KeyError as e:
+        raise RuntimeError(
+            f"policy_measures.json : {levier}.{parametre} sans valeur_defaut") from e
+
+
+# Bénéfices récupérés (``multinationales.benefices_recuperes``) : montant écrit
+# « au taux d'IS de 25 % » (taux normal, CGI art. 219) = défaut du levier
+# ``impot_societes`` au registre ; mis à l'échelle par le taux d'IS du
+# scénario (règle M1 du contrat : ΔR₁ = b × τ_IS / TAUX_IS_REFERENCE_BENEFICES).
+TAUX_IS_REFERENCE_BENEFICES = _defaut_du_registre('impot_societes', 'taux')
+
+# === RELEASE E — W6 ===
+# Effet d'offre structurel : ÉCHELLE (engine/growth.py,
+# GrowthMixin.SUPPLY_EFFECTS / update_potential_growth). Reprise de la passe
+# « échelle » préparée en novembre 2026 et jamais publiée (code et test seuls).
+# Jusqu'à la release E, le bonus d'un levier valait coeff × log2(1 + |Δ|) (Δ en
+# Md€/an d'écart au défaut), puis Σ clippée à ±0,20 pt : le plafond était
+# atteint dès Δ ≈ 1 Md€ (transition_invest : 0,0020 × log2(2) = 0,0020), 1 Md€
+# et 50 Md€ recevaient la même prime, et le seul effet d'offre valait −5 à −7 pt
+# de dette 2035 pour SEPT des dix programmes publiés, quel que soit leur montant.
+# Un défaut d'échelle, favorable aux petits montants (revue adverse v0.6.11).
+# Désormais le bonus est LINÉAIRE dans le flux annuel — la forme qu'implique une
+# fonction de production à élasticité constante au STOCK de capital public : un
+# flux Δ soutenu accroît le stock de Δ par an, donc la croissance potentielle de
+# ε × Δ / K par an (stock K supposé constant sur l'horizon, écart ≤ 3 % du
+# PIB) — puis SATURÉ en douceur vers le plafond conventionnel ±0,20 pt (tanh,
+# borné par construction, voir OFFRE_PLAFOND).
+#
+# Capital public (transition_ecologique.investissement) :
+#   ε : Bom & Ligthart (2014), « What Have We Learned From Three Decades of
+#   Research on the Productivity of Public Capital? », Journal of Economic
+#   Surveys 28(5), 889-916 (DOI 10.1111/joes.12037), méta-analyse de 578
+#   estimations : élasticité moyenne 0,106 (0,083 à court terme, 0,122 à long
+#   terme, capital de l'administration centrale ; presque doublée pour les seules
+#   infrastructures « cœur » locales). Valeur centrale retenue. Ramey (2020, NBER
+#   WP 27625) argue que ces estimations sont biaisées vers le HAUT (choix optimal
+#   du capital public, effets d'équilibre général) et calibre θ_G = 0,05 — borne
+#   basse de l'incertitude.
+#   K : actifs non financiers des APU fin 2025, 2 945 Md€ (98,5 % du PIB), dont
+#   37 % de terrains (INSEE, comptes de patrimoine 2025, tableaux 8.2xx, lus via
+#   FIPECO, « Le patrimoine des administrations publiques à la fin de 2025 »,
+#   2026 : génie civil 35 %, bâtiments non résidentiels 13 %, le reste armes,
+#   logements, incorporels). Le capital PRODUCTIF est pris hors terrains :
+#   2 945 × (1 − 0,37) ≈ 1 855 Md€ (62 % du PIB).
+#   Efficience : FMI (2015), « Making Public Investment More Efficient », Policy
+#   Paper, 11/06/2015 : écart d'efficience moyen 27 %, 13 % dans les économies
+#   avancées — 87 % d'un euro investi devient du capital productif.
+#   → pente = 0,106 × 0,87 / 1 855 ≈ 5,0e-5 par Md€/an : +0,005 pt de potentiel
+#   par Md€/an ; 1 % du PIB (≈ 30 Md€) ≈ +0,15 pt/an, cohérent avec FMI WEO oct.
+#   2014 ch. 3 / Abiad, Furceri & Topalova (2016, J. Macroeconomics 50) : +1 pt de
+#   PIB d'investissement public → niveau de PIB +0,4 % l'année même, +1,5 % à
+#   4 ans (demande ET offre, économies avancées).
+# Recherche publique (recherche_publique.budget) :
+#   ε : Fieldhouse & Mertens, « The Returns to Government R&D: Evidence from U.S.
+#   Appropriations Shocks », Dallas Fed WP 2305 (rév. 11/2024 ; AER 116(11), 2026) :
+#   élasticité de production du capital de R&D public ≈ 0,11 (total), soit 0,06
+#   pour la R&D NON militaire (note 2 ; +1 % de capital R&D → PGF +0,2 % à long
+#   terme dans la projection de base, délai 8-15 ans ; rendements 140-210 %).
+#   Retenu : 0,06 (R&D civile — le levier est « recherche fondamentale : CNRS,
+#   CEA, universités » ; borne prudente de la fourchette 0,06-0,20).
+#   K_RD : inventaire permanent sur le flux de R&D des APU, 28 Md€ en 2025 (INSEE
+#   comptes de patrimoine via FIPECO 2026), au taux de dépréciation du canal
+#   (15 %/an, DEPRECIATION_RD_PUBLIQUE, que SUPPLY_EFFECTS['recherche_publique']
+#   lit aussi) : 28 / 0,15 ≈ 187 Md€. AUCUNE statistique publiée du stock de R&D
+#   des APU trouvée (recherche du 02/11/2026) : dérivation déclarée.
+#   → pente = 0,06 / 187 ≈ 3,2e-4 par Md€/an : +0,032 pt par Md€/an.
+# Rénovation énergétique (transition_ecologique.renovation) : PAS d'effet d'offre.
+#   DG Trésor, Trésor-Éco n° 394 (07/2026), « ThreeME : un modèle macroéconomique
+#   vert… », tableau 1 : une hausse de 50 % des subventions à la rénovation des
+#   logements (version hybride) donne +2,21 / +2,62 pt de PIB à 1 et 2 ans
+#   (demande), +0,93 à 5 ans, −0,36 à 10 ans, +0,08 à 30 ans, −0,04 à long
+#   terme : un effet de DEMANDE transitoire (porté ici par le multiplicateur
+#   keynésien, profil INVEST), aucun effet de niveau durable. La valeur 0,0010
+#   (v3.1, « FMI 2020 », sans référence précise) n'avait pas de source.
+# Éducation (education.budget) : canal au délai de 15 ans (hors horizon simulé,
+#   inerte sur 2026-2035) ; pente posée à la moitié de celle du capital public,
+#   soit le rapport des coefficients de la v3.1 (0,0010 / 0,0020) — CONVENTION
+#   sans source propre, déclarée, sans effet publié.
+# Saturation : plafond ±0,20 pt (OFFRE_PLAFOND, borne conventionnelle de la v3.1,
+#   inchangée, METHODOLOGIE § design) atteint asymptotiquement :
+#   bonus = OFFRE_PLAFOND × tanh(Σ_canaux pente × Δ / OFFRE_PLAFOND). Linéaire à
+#   l'origine (dérivée = pente), monotone, impair (coupe = hausse en miroir),
+#   continu, borné. Mi-plafond à 0,549 × 0,20 / pente : ≈ 22 Md€/an de capital
+#   public, ≈ 3,4 Md€/an de recherche ; 90 % du plafond à 59 et 9 Md€/an. Le
+#   plafond garde son rôle de filet : la littérature ne trouve de contrainte
+#   d'absorption qu'à des échelles très supérieures (Gurara, Kpodar, Presbitero &
+#   Tessema, FMI WP 20/48 : coûts unitaires des projets croissants quand
+#   l'investissement public approche 10 % du PIB, 7 % si l'efficience est faible ;
+#   Presbitero 2016, J. Development Economics 120 : projets lancés en période
+#   d'accélération moins souvent réussis, effet « relativement petit »), mais
+#   l'incertitude sur ε (0,05-0,12 capital public ; 0,06-0,20 R&D) et le délai de
+#   8-15 ans de la R&D justifient de ne pas publier plus de +0,20 pt/an.
+ELASTICITE_PIB_CAPITAL_PUBLIC = 0.106      # Bom & Ligthart 2014, moyenne des 578 estimations
+EFFICIENCE_INVESTISSEMENT_PUBLIC = 0.87     # 1 − 0,13 : écart d'efficience des économies avancées (FMI 2015)
+CAPITAL_PUBLIC_PRODUCTIF_MD_EUR = 2945 * (1 - 0.37)  # ≈ 1 855 Md€ : actifs non financiers APU hors terrains (INSEE 2025 via FIPECO)
+ELASTICITE_PIB_CAPITAL_RD_PUBLIC = 0.06    # Fieldhouse & Mertens, R&D civile (note 2)
+INVESTISSEMENT_RD_APU_MD_EUR = 28.0        # flux de R&D des APU 2025 (INSEE via FIPECO)
+DEPRECIATION_RD_PUBLIQUE = 0.15            # taux du canal recherche (inchangé depuis la v3.1), lu par SUPPLY_EFFECTS
+CAPITAL_RD_PUBLIC_MD_EUR = INVESTISSEMENT_RD_APU_MD_EUR / DEPRECIATION_RD_PUBLIQUE  # ≈ 187 Md€ (inventaire permanent)
+OFFRE_PENTE_CAPITAL_PUBLIC = (ELASTICITE_PIB_CAPITAL_PUBLIC * EFFICIENCE_INVESTISSEMENT_PUBLIC
+                              / CAPITAL_PUBLIC_PRODUCTIF_MD_EUR)   # ≈ 5,0e-5 par Md€/an (+0,005 pt)
+OFFRE_PENTE_RD_PUBLIQUE = ELASTICITE_PIB_CAPITAL_RD_PUBLIC / CAPITAL_RD_PUBLIC_MD_EUR  # ≈ 3,2e-4 par Md€/an (+0,032 pt)
+OFFRE_PENTE_RENOVATION = 0.0               # ThreeME (Trésor-Éco 394) : aucun effet de niveau durable
+OFFRE_PENTE_EDUCATION = OFFRE_PENTE_CAPITAL_PUBLIC * 0.5  # convention v3.1 (rapport 1/2), canal inerte sur l'horizon
+OFFRE_PLAFOND = 0.002                      # ±0,20 pt de croissance potentielle (convention v3.1, inchangée)
+
+# === FIN RELEASE E ===

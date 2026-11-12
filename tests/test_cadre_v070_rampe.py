@@ -49,7 +49,10 @@ DEF_REF = cadre.CadreTemporel.preparer({}, DEBUT).etat.mesures_droit['defense'][
 # (c) la rampe des paramètres
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize('n', [1, 3, 5, 6])
+# Release E (contre-vérification m5) : depuis 2028, au plus 5 ans (la rampe
+# finit au plus tard en 2032) ; 6 ans relève du test de la borne
+# (tests/test_release_e_arbitrages.py, m5).
+@pytest.mark.parametrize('n', [1, 3, 5])
 def test_c_rampe_nulle_avant_egale_par_pas_monotone_pleine_a_la_fin(n):
     prog = programme_sur_droit(defense={'budget': 70}, collectivites={'dotation': 100.0, 'investissement': 10})
     c = _cadre(prog, {'annees': n, 'leviers': ['defense.budget', 'collectivites.investissement']})
@@ -182,7 +185,8 @@ def test_rampe_en_mode_historique_strict_et_tolerant():
 
 
 @pytest.mark.parametrize('rampe, attendu', [
-    ({'annees': 9, 'leviers': ['defense.budget']}, (6, ['defense.budget'])),
+    # Ramenée à 5 depuis 2028 : la rampe finit au plus tard en 2032 (m5).
+    ({'annees': 9, 'leviers': ['defense.budget']}, (5, ['defense.budget'])),
     ({'annees': 3, 'leviers': ['defense.budget', 'tva_rate.taux', 'inconnu.x']}, (3, ['defense.budget'])),
 ])
 def test_rampe_tolerant_corrigee(rampe, attendu):
@@ -257,11 +261,14 @@ def test_refuteur_d_rampe_d_un_an_egale_bascule_au_bit():
 
 
 def test_refuteur_d_rampe_au_dela_de_l_horizon():
-    """Début 2031, rampe sur 6 ans : la rampe n'est pas finie en 2035 (5/6), sans
-    erreur ni extrapolation."""
+    """Début 2031, rampe sur 6 ans : depuis la release E (contre-vérification
+    m5), ramenée à 2 ans — la rampe finit au plus tard en 2032, cible exacte
+    ensuite, sans extrapolation (jusqu'en v0.7.2 : 5/6 de la cible en 2035)."""
     c = _cadre(programme_sur_droit(defense={'budget': 69}), {'annees': 6, 'leviers': ['defense.budget']}, debut=2031)
-    assert c.mesures_de_l_annee(2035)['defense']['budget'] == pytest.approx(
-        DEF_REF + (69 - DEF_REF) * 5 / 6, rel=1e-12)
+    assert c.etat.rampe.annees == 2
+    assert c.mesures_de_l_annee(2031)['defense']['budget'] == pytest.approx(
+        DEF_REF + (69 - DEF_REF) / 2, rel=1e-12)
+    assert all(c.mesures_de_l_annee(an)['defense']['budget'] == 69 for an in range(2032, 2036))
 
 
 def test_refuteur_d_rampe_vers_le_bas():

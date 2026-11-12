@@ -27,6 +27,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from budget_simulator.constants import ANNEE_PREMIER_BUDGET_MANDAT, LEVIERS_NON_LIVRES  # noqa: E402
+from budget_simulator.engine.cadre import LEVIERS_REFUSES_EN_MODE_HISTORIQUE  # noqa: E402
 from budget_simulator.simulator import BudgetSimulatorV45  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -111,6 +113,13 @@ def build_standalone_scenarios() -> dict[str, dict[str, dict]]:
     supérieur au défaut). La clé pilote est cross-validée contre le registre
     (vérité = handlers) : dé-tautologisation T4 — voir
     `_assert_param_in_contract`.
+
+    Release E : un levier de ``constants.LEVIERS_NON_LIVRES`` (squelette qui
+    refuse toute valeur non neutre) n'a PAS de mini-scénario tant qu'il est
+    listé ; il en reçoit un quand son chantier le retire de la liste (vide
+    avant tout tag : 42 mini-scénarios après la release E, dont les 33
+    d'origine, inchangés). Un levier refusé en mode historique est simulé en
+    mode cadre (``annee_debut_mini``).
     """
     config = json.loads((ROOT / 'policy_measures.json').read_text(encoding='utf-8'))
     handler_ids = set(BudgetSimulatorV45().measure_handlers.keys())
@@ -119,7 +128,7 @@ def build_standalone_scenarios() -> dict[str, dict[str, dict]]:
     scenarios = {}
     for measure in config['mesures']:
         m_id = measure['id']
-        if m_id not in handler_ids:
+        if m_id not in handler_ids or m_id in LEVIERS_NON_LIVRES:
             continue
         for param_name, param_cfg in measure.get('parametres', {}).items():
             if not isinstance(param_cfg, dict):
@@ -143,11 +152,32 @@ def build_standalone_scenarios() -> dict[str, dict[str, dict]]:
     return scenarios
 
 
+# Leviers REFUSÉS en mode historique (release E, chantier W1, contrat § 2.1) :
+# une recette exceptionnelle s'applique une seule année et exige un calendrier,
+# donc un mode cadre. Leur mini-scénario tourne en mode cadre, à la première
+# année budgétaire du mandat (son année par défaut) ; tous les autres restent
+# en mode historique. Source unique de la règle : engine/cadre.py.
+MINI_EN_MODE_CADRE = LEVIERS_REFUSES_EN_MODE_HISTORIQUE
+
+
+def annee_debut_mini(nom: str):
+    """``annee_debut`` de la simulation du mini-scénario ``nom`` (None =
+    mode historique). Tout consommateur de ``build_standalone_scenarios``
+    simule par cette fonction ou ``simuler_mini``, jamais en dur."""
+    return ANNEE_PREMIER_BUDGET_MANDAT if nom in MINI_EN_MODE_CADRE else None
+
+
+def simuler_mini(nom: str, mesures: dict, periods: int = 10):
+    """(df, détail, rapport) du mini-scénario ``nom``, dans son mode."""
+    return BudgetSimulatorV45(periods=periods, mesures=mesures,
+                              annee_debut=annee_debut_mini(nom)).simulate()
+
+
 def build_snapshot() -> dict:
     """Génère le snapshot standalone : pour chaque mini-scénario, simule et capture les colonnes tracked."""
     snapshot = {}
     for name, mesures in build_standalone_scenarios().items():
-        df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+        df, _, _ = simuler_mini(name, mesures)
         # Échec BRUYANT plutôt que filtrage silencieux : une colonne suivie qui
         # n'existe pas est une couverture FICTIVE, et c'est précisément ce qui
         # a masqué l'absence totale d'inégalités dans ce snapshot (cf. le

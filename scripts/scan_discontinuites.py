@@ -53,10 +53,20 @@ def _scenarios():
     return {k: v['apiMeasures'] for k, v in json.loads(chemin.read_text(encoding='utf-8')).items()}
 
 
-def _simuler(mesures):
+def _simuler(mesures, annee_debut=None):
     from budget_simulator.simulator import BudgetSimulatorV45
-    df, d2, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    df, d2, _ = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=annee_debut).simulate()
     return df, d2
+
+
+def annee_debut_du_balayage(levier):
+    """Mode du balayage d'un levier : historique (None), sauf pour un levier
+    refusé en mode historique (release E : recette exceptionnelle, une seule
+    année, calendrier obligatoire), balayé en mode cadre à la première année
+    budgétaire du mandat."""
+    from budget_simulator.constants import ANNEE_PREMIER_BUDGET_MANDAT
+    from budget_simulator.engine.cadre import LEVIERS_REFUSES_EN_MODE_HISTORIQUE
+    return ANNEE_PREMIER_BUDGET_MANDAT if levier in LEVIERS_REFUSES_EN_MODE_HISTORIQUE else None
 
 
 def parametre_masque(mesures, levier, param):
@@ -72,8 +82,8 @@ def _avec(mesures, levier, param, x):
     return {**mesures, levier: {**(mesures.get(levier) or {}), param: x}}
 
 
-def _dette(mesures, colonne='Dette/PIB %'):
-    return float(_simuler(mesures)[0][colonne].iloc[-1])
+def _dette(mesures, colonne='Dette/PIB %', annee_debut=None):
+    return float(_simuler(mesures, annee_debut)[0][colonne].iloc[-1])
 
 
 def pleine_precision():
@@ -92,9 +102,16 @@ def _balayer(args):
 
 def balayer(mesures, sid, levier, param, lo, hi, n, colonne='Dette/PIB %'):
     """Balaye un paramètre sur [lo ; hi] en n points ; renvoie les sauts survivant à
-    la bissection (tous, sans seuil). Suppose les sorties en pleine précision."""
-    xs = [lo + (hi - lo) * i / (n - 1) for i in range(n)]
-    ds = [_dette(_avec(mesures, levier, param, x), colonne) for x in xs]
+    la bissection (tous, sans seuil). Suppose les sorties en pleine précision.
+    Mode de simulation : ``annee_debut_du_balayage(levier)``."""
+    annee_debut = annee_debut_du_balayage(levier)
+    # Grille bornée au domaine : ``lo + (hi − lo) × i / (n − 1)`` peut dépasser
+    # une borne d'un ulp (domaine [−21,2 ; 20] de ``droits_succession``, release
+    # E : dernier point 20,000000000000004), valeur que la porte stricte refuse
+    # à juste titre (ValeurInvalide). Le bornage ne change aucun point déjà
+    # dans le domaine.
+    xs = [min(hi, max(lo, lo + (hi - lo) * i / (n - 1))) for i in range(n)]
+    ds = [_dette(_avec(mesures, levier, param, x), colonne, annee_debut) for x in xs]
     deltas = [b - a for a, b in zip(ds, ds[1:])]
     mediane = sorted(abs(d) for d in deltas)[len(deltas) // 2]
     sauts = []
@@ -105,13 +122,13 @@ def balayer(mesures, sid, levier, param, lo, hi, n, colonne='Dette/PIB %'):
         a, b, da, db = xs[i], xs[i + 1], ds[i], ds[i + 1]
         while b - a > 1e-9 * max(1.0, hi - lo):
             c = (a + b) / 2
-            dc = _dette(_avec(mesures, levier, param, c), colonne)
+            dc = _dette(_avec(mesures, levier, param, c), colonne, annee_debut)
             if abs(dc - da) >= abs(db - dc):
                 b, db = c, dc
             else:
                 a, da = c, dc
-        dfa, d2a = _simuler(_avec(mesures, levier, param, a))
-        dfb, d2b = _simuler(_avec(mesures, levier, param, b))
+        dfa, d2a = _simuler(_avec(mesures, levier, param, a), annee_debut)
+        dfb, d2b = _simuler(_avec(mesures, levier, param, b), annee_debut)
         divergence = None
         for k in range(1, len(dfa)):
             etat_a = (d2a['Output_Gap %'].iloc[k], dfa['Croissance %'].iloc[k], dfa['Inflation %'].iloc[k], dfa['Chômage %'].iloc[k])
@@ -133,13 +150,18 @@ def main():
     ap.add_argument('--seuil', type=float, default=1e-3)
     ap.add_argument('--colonne', default='Dette/PIB %')
     opts = ap.parse_args()
+    from budget_simulator.constants import LEVIERS_NON_LIVRES
     from budget_simulator.engine._param_domain import PARAM_DOMAINS
     scen = _scenarios()
     if opts.scenarios:
         scen = {k: scen[k] for k in opts.scenarios.split(',')}
     candidats = [(m, sid, levier, param, float(lo), float(hi), opts.points, opts.colonne)
                  for sid, m in scen.items() for levier, dom in PARAM_DOMAINS.items()
+                 if levier not in LEVIERS_NON_LIVRES
                  for param, (lo, hi) in dom.items() if param not in DRAPEAUX]
+    if LEVIERS_NON_LIVRES:
+        print(f'{len(LEVIERS_NON_LIVRES)} levier(s) non livré(s) écarté(s) (squelettes de la '
+              f'release E, refusent toute valeur non neutre) : {", ".join(sorted(LEVIERS_NON_LIVRES))}')
     travaux = [t for t in candidats if not parametre_masque(t[0], t[2], t[3])]
     if len(travaux) < len(candidats):
         print(f'{len(candidats) - len(travaux)} balayage(s) écarté(s) : paramètre masqué '

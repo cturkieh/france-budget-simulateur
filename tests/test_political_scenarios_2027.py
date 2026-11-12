@@ -75,8 +75,12 @@ SCENARIOS = {
         "asu": {"asu_activation": 1},
         "transition_ecologique": {"investissement": 20, "taxe_carbone": 110},
     },
+    # Release E (chantier W1) : « depenses_etat » n'a jamais été un levier du
+    # moteur (absent de policy_measures.json) ; il était sauté en silence, et
+    # ce cas simulait le statu quo. Le levier du rabot uniforme de 8 % est
+    # `rabot_uniforme.taux_reduction` (scénario publié de ce cas).
     "im_rabot_2029": {
-        "depenses_etat": {"economies_pct": 0.08},
+        "rabot_uniforme": {"taux_reduction": 0.08},
     },
     "im_competitivite_2029": {
         "impots_production": {"montant": 80},

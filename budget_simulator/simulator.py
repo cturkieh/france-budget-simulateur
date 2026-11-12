@@ -18,6 +18,7 @@ from .constants import (
     CHOMAGE_NAIRU, GINI_BASE,
     GINI_HARD_CEILING, GINI_SOFT_FLOOR,
     INFLATION_BASE, INFLATION_INERTIE, CROISSANCE_POTENTIELLE, CROISSANCE_2025,
+    MASSE_RETRAITES_2025_MD_EUR,
     OUTPUT_GAP_INITIAL,
     POLICY_START_YEAR,
     TAUX_INTERET_BASE, TAUX_PLAFOND_ABSOLU,
@@ -29,6 +30,9 @@ from .handlers.efficience import EfficienceMixin
 from .handlers.fiscalite_menages import FiscaliteMenagesMixin
 from .handlers.investissements import InvestissementsMixin
 from .handlers.montaigne import MontaigneMixin
+from .handlers.recettes_montants import RecettesMontantsMixin
+from .handlers.recettes_taux import RecettesTauxMixin
+from .handlers.transferts_menages import PrestationsMenagesMixin
 from .handlers._types import Handler
 
 from .engine.inflation import InflationMixin
@@ -41,6 +45,7 @@ from .engine.growth import GrowthMixin
 from .engine.orchestrator import OrchestratorMixin
 from .engine._regimes import en_dessous, poids_expansion, poids_recession
 from .engine._param_domain import leviers_presents
+from .engine.cadre import reference_du_profil
 
 logger = logging.getLogger(__name__)
 
@@ -376,6 +381,7 @@ class FiscalMultipliers:
 
 # === MOTEUR ÉCONOMIQUE PRINCIPAL V4.5 AJUSTÉ ===
 class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin, FiscaliteMenagesMixin, CompetitiviteMixin, DepensesMixin, EfficienceMixin,
+                         PrestationsMenagesMixin, RecettesMontantsMixin, RecettesTauxMixin,
                          InflationMixin, UnemploymentMixin, RevenuesMixin, DebtMixin,
                          ExpendituresMixin, MicroImpactsMixin, GrowthMixin,
                          OrchestratorMixin):
@@ -427,10 +433,23 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     ])
 
     # Mesures de transfert direct (decay rapide)
+    # Release E (socle) : ``prestations_menages`` (prestations de solidarité et
+    # pensions en montant) prend le multiplicateur des transferts dans les deux
+    # sens et leur profil de décroissance.
     TRANSFER_MEASURES = frozenset([
         'chomage_alloc', 'retraites', 'asu', 'smic',
         'prestations_indexation', 'abattement_retraites',
+        'prestations_menages',
     ])
+
+    # Release E (socle) : flux dont la contrepartie DIRECTE est un agent non
+    # résident (budget de l'Union européenne, bénéficiaires de l'aide
+    # extérieure) : multiplicateur intérieur nul, aucune impulsion keynésienne
+    # stockée (engine/growth.py, _stocker_impulsions). Le montant reste dans le
+    # solde, la dette et l'effort qui nourrit l'éviction (effet de
+    # financement). Un impôt payé par une entreprise établie en France garde le
+    # multiplicateur fiscal, quels que soient ses actionnaires.
+    MESURES_HORS_DEMANDE_INTERIEURE = frozenset({'transferts_etranger'})
 
     @staticmethod
     def _get_decay_profile(measure_id):
@@ -442,7 +461,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         return BudgetSimulatorV45.DECAY_PROFILE_TAXES
 
     def __init__(self, periods: int = 10, mesures: Dict = None, *,
-                 annee_debut: int | None = None, rampe: Dict | None = None):
+                 annee_debut: int | None = None, rampe: Dict | None = None,
+                 profils: Dict | None = None):
 
         # Paramètres de base INSEE/Eurostat 2025 (from constants.py)
         self.base_params = {
@@ -491,7 +511,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         self.spending_categories_base = {
             # PRESTATIONS SOCIALES
-            'retraites': 380,              # Pensions (fusionné)
+            'retraites': MASSE_RETRAITES_2025_MD_EUR,  # Pensions (fusionné), constants.py
             'sante': 250,                  # Remboursements + ALD (fusionné)
             'chomage': CHOMAGE_DEPENSE_BASELINE_MD,  # périmètre RÉGIME entier ≠ base du canal taux (cf. constants.py)
             'dependance': 35,              # APA + AAH (fusionné)
@@ -530,6 +550,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # l'année courante (lag standard d'un an — refonte 2026-06, étape 1 du
         # bloc REFONTE de simulate()).
         self._budget_effort_prev = 0.0
+        self._budget_effort_interieur_prev = 0.0
         self._part_investissement_prev = 0.0
 
         # Sauvegarde de la baseline initiale pour reset entre simulations.
@@ -573,6 +594,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.annee_debut = annee_debut
         # Rampe générique (v0.7.0, lot D) : {annees, leviers}, mode cadre seul.
         self.rampe = rampe
+        # Profils temporels (release E, chantier W1, engine/cadre.py) :
+        # {"levier.parametre": {forme, annee?}}, mode cadre seul ; validés par
+        # simulate() (CadreTemporel.preparer).
+        self.profils = profils
         self.mesures = mesures or {}
         self.debug_logs = []
         self._last_impacts = {}  # Initialisation par défaut pour éviter AttributeError
@@ -620,6 +645,19 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
             'exonerations_salaires': self._apply_exonerations_salaires,
             # SCÉNARIOS INSTITUT MONTAIGNE
             'rabot_uniforme': self._apply_rabot_uniforme,
+            # RELEASE E (socle : squelettes neutres ; corps par les chantiers
+            # W2 à W4). Les deux autres leviers de la release,
+            # depenses_publiques et transferts_etranger, sont des formules
+            # ASTEVAL de policy_measures.json.
+            'prestations_menages': self._apply_prestations_menages,
+            'droits_succession': self._apply_droits_succession,
+            'fiscalite_indirecte': self._apply_fiscalite_indirecte,
+            'impot_revenu_cible': self._apply_impot_revenu_cible,
+            'recette_exceptionnelle': self._apply_recette_exceptionnelle,
+            'impot_plancher_patrimoine': self._apply_impot_plancher_patrimoine,
+            'fiscalite_capital': self._apply_fiscalite_capital,
+            'multinationales': self._apply_multinationales,
+            'operations_financieres': self._apply_operations_financieres,
         }
         self.validator = EconomicValidator()
         self.multipliers = FiscalMultipliers()
@@ -630,6 +668,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.gini_courant = self.base_params['gini_base']
         self.gini_cible_cumul = 0.0  # Décalage cumulé de la cible vs gini_base, en points DÉJÀ rescalés (× GINI_IMPACT_SCALE) ; cible = gini_base + ce décalage (cf orchestrator)
         self.inflation_precedente = self.base_params['inflation_base']
+        # TVA à taux réduits (release E, contre-vérification I1) : recette déjà
+        # passée dans les prix (Md€) et effet d'inflation correspondant, lus et
+        # écrits par calculate_inflation (engine/inflation.py).
+        self._passage_tva_reduite = (0.0, 0.0)
         # croissance_precedente : RETIRÉ (refonte 2026-06) — état devenu write-only
         # (les flux consomment désormais la croissance contemporaine, la macro
         # l'impulsion t−1 via _budget_effort_prev/_part_investissement_prev).
@@ -641,6 +683,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # les handlers (v0.6.7) : mémoire des revalorisations passées pour les
         # handlers qui cumulent un écart de prix (désindexation des prestations).
         self._inflation_par_annee: Dict[int, float] = {}
+        # PIB nominal de chaque année CIVILE, tel que reçu par apply_measures
+        # (release E, socle) : assiette d'un impôt à taux suivie depuis son
+        # année source (_indice_pib_source).
+        self._pib_nominal_par_annee: Dict[int, float] = {}
 
         self.output_gap_courant = OUTPUT_GAP_INITIAL  # source unique (constants.py)
         self.debt_structure = {
@@ -724,7 +770,12 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
 
         # --- Mémoire inter-années ---
         self._inflation_par_annee = {}
+        self._pib_nominal_par_annee = {}
         self.inflation_precedente = self.base_params['inflation_base']
+        # TVA à taux réduits (release E, contre-vérification I1) : recette déjà
+        # passée dans les prix (Md€) et effet d'inflation correspondant, lus et
+        # écrits par calculate_inflation (engine/inflation.py).
+        self._passage_tva_reduite = (0.0, 0.0)
         self.recettes_precedentes = self.base_params['recettes_base']
         self.gini_courant = self.base_params['gini_base']
         self.gini_cible_cumul = 0.0  # Décalage cumulé de la cible vs gini_base, en points DÉJÀ rescalés (× GINI_IMPACT_SCALE) ; cible = gini_base + ce décalage (cf orchestrator)
@@ -773,6 +824,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._spending_factors = {cat: 1.0 for cat in self.spending_categories_base}
         self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
         self._budget_effort_prev = 0.0
+        self._budget_effort_interieur_prev = 0.0
         self._part_investissement_prev = 0.0
 
         # --- Attributs créés dynamiquement pendant la simulation ---
@@ -845,6 +897,39 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         (lectures croisées : l'ASU pour la fraude sociale, la réforme FP pour
         les effectifs) — jamais la constante globale."""
         return self._origines_courantes.get(levier, POLICY_START_YEAR)
+
+    def _reference_du_calendrier(self, levier: str, param: str, annee: int):
+        """Référence d'un paramètre l'année ``annee`` (relecture adverse finale
+        de la release E, I-1) : la valeur qu'un calendrier « une seule année »
+        applique hors de son année — en mode cadre, celle du droit en vigueur DE
+        CETTE ANNÉE (``CadreTemporel.droit_en_vigueur_de``), à défaut son neutre
+        ou le défaut du moteur (``cadre.reference_du_profil``, la fonction même
+        du calendrier : égalité exacte avec la valeur qu'il pose) ; en mode
+        historique et hors simulation, le défaut. Lue par les leviers
+        d'indexation pour reconnaître le RETOUR à la référence, quelle que soit
+        sa valeur, et non par égalité à un littéral."""
+        cadre_temporel = getattr(self, '_cadre', None)
+        droit = cadre_temporel.droit_en_vigueur_de(annee) if cadre_temporel is not None else None
+        return reference_du_profil(levier, param, droit or {})
+
+    def _indice_pib_source(self, annee_source: int, gdp: float) -> float:
+        """Indice d'assiette d'un impôt à TAUX (release E, règle R-IDX du
+        contrat) : ``gdp / PIB(annee_source)``. L'assiette, sourcée à une année
+        donnée, suit le PIB nominal depuis cette année — un résultat qui ne
+        dépend pas de l'année d'entrée du programme. ``PIB(2025)`` = PIB de
+        base du moteur (constants.PIB_BASE_2025_MD_EUR) ; toute autre année =
+        PIB nominal enregistré par apply_measures, ``RuntimeError`` si elle ne
+        l'est pas encore (lecture prématurée : défaut du moteur, jamais un 1,0
+        silencieux). Les montants en Md€ ne passent JAMAIS par cet indice."""
+        if annee_source == 2025:
+            return gdp / PIB_BASE_2025_MD_EUR
+        pib_source = self._pib_nominal_par_annee.get(annee_source)
+        if pib_source is None:
+            raise RuntimeError(
+                f"PIB nominal de l'année source {annee_source} non encore enregistré "
+                f"(années connues : {sorted(self._pib_nominal_par_annee)}) — "
+                "indice d'assiette lu avant que l'année ait été simulée")
+        return gdp / pib_source
 
     def _mode_cadre(self) -> bool:
         """Vrai pendant une simulation en mode cadre (v0.7.0, engine/cadre.py) :

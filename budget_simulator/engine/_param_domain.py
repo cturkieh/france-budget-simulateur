@@ -37,12 +37,20 @@ invalidation (tolérant) tout nom que le levier ne lit pas, contre le module
 GÉNÉRÉ ``_noms_parametres.py`` (même extracteur que le registre public).
 Même contrat dual pour un nom ADMIS mais ignoré parce qu'un autre est fourni
 (modes exclusifs, ``valider_modes_exclusifs``, réfutation de V2-04).
+
+Porte des LEVIERS INCONNUS et EXCLUSIONS MUTUELLES (release E, chantier W1,
+contrat § 5.1 et § 4.1) : dans ``assainir_mesures``, avant tout le reste, un
+levier que le moteur ne connaît pas (``LevierInconnu``) et un levier qui
+compterait une seconde fois le même euro qu'un autre (``LeviersIncompatibles``,
+table ``constants.EXCLUSIONS_MUTUELLES``) : strict, 422 ; tolérant, retirés du
+programme avec correction tracée, lisible dans ``report.corrections``.
 """
 import logging
 import math
+import numbers
 from typing import Dict
 
-from ..constants import INTENSITE_DOMAINS, PARAM_DOMAINS
+from ..constants import EXCLUSIONS_MUTUELLES, INTENSITE_DOMAINS, NEUTRES_RELEASE_E, PARAM_DOMAINS
 from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
 
 logger = logging.getLogger(__name__)
@@ -83,6 +91,19 @@ class ParametreIgnore(EntreeInvalide, ValueError):
     (modes exclusifs : ``intensite`` masque le mode hérité,
     ``taux_remplacement`` masque ``montant``) — v0.6.10, réfutation de V2-04
     (mode BUDGETLAB_STRICT). Avant : ignoré en silence, ``report.valid: true``."""
+
+
+class LevierInconnu(EntreeInvalide, ValueError):
+    """Levier de premier niveau que le moteur ne connaît pas (release E, W1,
+    contrat § 5.1 ; mode BUDGETLAB_STRICT). Avant : sauté en silence par
+    ``apply_measures`` quand le moteur servait de bibliothèque (l'API, elle,
+    le refusait déjà en 422)."""
+
+
+class LeviersIncompatibles(EntreeInvalide, ValueError):
+    """Deux leviers qui feraient varier le même euro (exclusions mutuelles,
+    ``constants.EXCLUSIONS_MUTUELLES`` ; release E, W1, contrat § 4.1 ; mode
+    BUDGETLAB_STRICT)."""
 
 
 def _est_fini(value) -> bool:
@@ -599,10 +620,138 @@ def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool,
     return params
 
 
+def _resume_noms(noms: list) -> str:
+    """Au plus ``_DETAILS_MAX`` noms, puis « (+N autres) »."""
+    texte = ', '.join(noms[:_DETAILS_MAX])
+    return texte + (f" (+{len(noms) - _DETAILS_MAX} autres)" if len(noms) > _DETAILS_MAX else '')
+
+
+def _noter_regle(regles: dict | None, regle: str, ignores: list, message: str) -> None:
+    """Entrée de ``report.corrections`` (release E, W1) : une par règle
+    déclenchée, ``{"regle", "leviers_ignores", "message"}`` ; noms nus, au plus
+    ``_DETAILS_MAX``, chacun borné à 40 caractères ; ``message`` est aussi la
+    correction publiée dans ``report.warnings``."""
+    if regles is not None:
+        regles.setdefault(regle, {'regle': regle,
+                                  'leviers_ignores': [_apercu_nom(n) for n in ignores[:_DETAILS_MAX]],
+                                  'message': message})
+
+
+def retirer_leviers_inconnus(mesures: Dict, *, strict: bool, warned: set | None,
+                             corrections: dict | None,
+                             regles: dict | None = None, connus=None) -> Dict:
+    """Porte des LEVIERS INCONNUS (release E, W1, contrat § 5.1) : un levier de
+    premier niveau absent du REGISTRE du moteur (``connus`` : le
+    ``measure_registry`` de la simulation, le même que lit l'API ; à défaut,
+    les leviers du contrat des noms ``NOMS_PARAMETRES_ADMIS``) n'est lu par
+    aucun handler ni aucune formule. Un levier du registre absent du module
+    généré des noms (artefact périmé) n'est PAS inconnu : c'est un défaut du
+    moteur, que la porte des noms fait échouer bruyamment.
+
+    Pourquoi : ``apply_measures`` le sautait en silence (``continue``) ; l'API le
+    refusait déjà en 422, mais le moteur appelé comme bibliothèque (précalcul,
+    scripts, lecteurs qui rejouent des paramètres publiés) rendait le statu quo
+    avec ``report.valid: true`` (constat « avant » du cadrage : un
+    ``impot_plancher`` mal nommé passait sans trace).
+
+    Strict : ``LevierInconnu``. Tolérant : UN WARNING par simulation, une
+    correction (``report.valid = false``, une ligne bornée dans
+    ``report.warnings``), une entrée ``LEVIER_INCONNU`` dans
+    ``report.corrections`` ; les leviers sont retirés. Un bloc ``null`` d'un
+    levier inconnu suit la même règle (la faute est dans le nom). Message
+    borné : au plus ``_DETAILS_MAX`` noms, chacun tronqué à 40 caractères, et
+    le nombre total. Objet identique si tout est connu."""
+    connus = NOMS_PARAMETRES_ADMIS if connus is None else connus
+    inconnus = [k for k in mesures if k not in connus]
+    if not inconnus:
+        return mesures
+    noms = sorted(_apercu_nom(k) for k in inconnus)
+    if strict:
+        raise LevierInconnu(f"{len(noms)} levier(s) inconnu(s) du moteur : {_resume_noms(noms)} "
+                            f"(leviers connus : policy_measures.json ; mode BUDGETLAB_STRICT)")
+    message = (f"{len(noms)} levier(s) inconnu(s) du moteur, ignoré(s) : {_resume_noms(noms)} "
+               f"(leviers connus : policy_measures.json)")
+    _avertir_une_fois(warned, ('*', 'LEVIER_INCONNU'), "LEVIER_INCONNU %s — résultat invalidé",
+                      message)
+    _noter(corrections, '*', 'LEVIER_INCONNU', message)
+    _noter_regle(regles, 'LEVIER_INCONNU', noms, message)
+    retires = set(inconnus)
+    return {k: v for k, v in mesures.items() if k not in retires}
+
+
+_OPERATEURS_EXCLUSION = {
+    '!=': lambda valeur, seuil: valeur != seuil,
+    '>': lambda valeur, seuil: valeur > seuil,
+    '==': lambda valeur, seuil: valeur == seuil,
+}
+
+
+def condition_d_exclusion_vraie(mesures: Dict, regle: str, spec: Dict, condition: tuple) -> bool:
+    """Une condition ``(levier, parametre, operateur, seuil)`` d'une règle de
+    ``constants.EXCLUSIONS_MUTUELLES``, sur la valeur DEMANDÉE ; paramètre
+    absent ou ``null`` (levier absent compris) = défaut du levier
+    (``NEUTRES_RELEASE_E``, ``config.load_default_values``, puis
+    ``spec['defauts']``). Une valeur non numérique ou non finie ne satisfait
+    aucune condition : la porte des valeurs la qualifie (échec bruyant ou
+    retrait tracé). Un paramètre sans défaut connu, ou un opérateur inconnu,
+    est un défaut de la TABLE : ``RuntimeError``."""
+    levier, parametre, operateur, seuil = condition
+    if operateur not in _OPERATEURS_EXCLUSION:
+        raise RuntimeError(f"EXCLUSIONS_MUTUELLES[{regle!r}] : opérateur {operateur!r} inconnu")
+    bloc = mesures.get(levier)
+    valeur = bloc.get(parametre) if isinstance(bloc, dict) else None
+    if valeur is None:
+        from ..config import load_default_values
+        for source in (NEUTRES_RELEASE_E.get(levier, {}), load_default_values().get(levier) or {}):
+            if parametre in source:
+                valeur = source[parametre]
+                break
+        else:
+            if (levier, parametre) not in spec.get('defauts', {}):
+                raise RuntimeError(
+                    f"EXCLUSIONS_MUTUELLES[{regle!r}] : aucun défaut connu pour "
+                    f"{levier}.{parametre} (ajouter ce défaut à 'defauts')")
+            valeur = spec['defauts'][(levier, parametre)]
+    if not isinstance(valeur, numbers.Real) or not _est_fini(valeur):
+        return False
+    return bool(_OPERATEURS_EXCLUSION[operateur](valeur, seuil))
+
+
+def appliquer_exclusions(mesures: Dict, *, strict: bool, warned: set | None,
+                         corrections: dict | None, regles: dict | None = None) -> Dict:
+    """Exclusions MUTUELLES (release E, W1, contrat § 4.1) : pour chaque règle
+    de ``constants.EXCLUSIONS_MUTUELLES`` (relue à chaque appel) dont toutes
+    les conditions sont vraies, le levier ``ignore`` n'est pas appliqué — sans
+    quoi le même euro serait compté par deux leviers.
+
+    Strict : ``LeviersIncompatibles`` (422), message qui nomme les deux
+    leviers. Tolérant : WARNING une fois, correction tracée (``report.valid =
+    false``), entrée lisible dans ``report.corrections`` (règle, levier
+    ignoré, message), levier retiré du programme : jamais évalué, absent des
+    impacts et, en mode cadre, de ``leviers_modifies``. Objet identique si
+    aucune règle ne se déclenche."""
+    for regle, spec in EXCLUSIONS_MUTUELLES.items():
+        if not all(condition_d_exclusion_vraie(mesures, regle, spec, c) for c in spec['conditions']):
+            continue
+        ignore, avec = spec['ignore'], spec['avec']
+        if strict:
+            raise LeviersIncompatibles(f"{regle} : {ignore} et {avec} ne se combinent pas — "
+                                       f"{spec['motif']} (mode BUDGETLAB_STRICT)")
+        message = (f"{regle} : {ignore} ignoré, il ne se combine pas avec {avec} — "
+                   f"{spec['motif']}")
+        _avertir_une_fois(warned, ('*', 'EXCLUSION', regle), "EXCLUSION %s — résultat invalidé",
+                          message)
+        _noter(corrections, '*', ('EXCLUSION', regle), message)
+        _noter_regle(regles, regle, [ignore], message)
+        mesures = {k: v for k, v in mesures.items() if k != ignore}
+    return mesures
+
+
 def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
                      corrections: dict | None,
                      avis: dict | None = None,
-                     ecretages: dict | None = None) -> Dict:
+                     ecretages: dict | None = None,
+                     regles: dict | None = None, connus=None) -> Dict:
     """Porte d'ENTRÉE, appliquée UNE fois par simulation à tout le dict de
     mesures (v0.6.7), en amont de la porte annuelle d'``apply_measures``.
 
@@ -632,7 +781,16 @@ def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
       quo pour la plupart des leviers mais pas pour ``taxe_superprofits``
       (choix de conception antérieur). Ce n'est pas une CORRECTION (l'entrée
       est lue telle quelle) : ``corrections`` reste vide, ``avis`` le dit.
+    - levier inconnu (release E) → ``retirer_leviers_inconnus``, AVANT tout le
+      reste (strict : ``LevierInconnu``) ;
+    - exclusions mutuelles (release E) → ``appliquer_exclusions``, APRÈS les
+      portes des valeurs (sur les blocs tels qu'ils seront appliqués ; en
+      strict, sur l'entrée brute : ``LeviersIncompatibles``).
+    ``regles`` (optionnel) : reçoit les entrées de ``report.corrections`` ;
+    ``connus`` (optionnel) : les leviers du registre du moteur.
     """
+    mesures = retirer_leviers_inconnus(mesures, strict=strict, warned=warned,
+                                       corrections=corrections, regles=regles, connus=connus)
     propre = None
     for measure_id, bloc in mesures.items():
         if not isinstance(bloc, dict):
@@ -674,4 +832,5 @@ def assainir_mesures(mesures: Dict, *, strict: bool, warned: set | None,
             if propre is None:
                 propre = dict(mesures)
             propre[measure_id] = nouveau
-    return mesures if propre is None else propre
+    return appliquer_exclusions(mesures if propre is None else propre, strict=strict,
+                                warned=warned, corrections=corrections, regles=regles)

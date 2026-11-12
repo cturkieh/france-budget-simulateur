@@ -76,14 +76,16 @@ def _corrections(report):
 # Bornes d'entrée : source unique, couverture, curseurs réels
 # --------------------------------------------------------------------------
 
-def test_les_55_parametres_bornes_par_le_registre_public_sont_au_moteur():
+def test_les_81_parametres_bornes_par_le_registre_public_sont_au_moteur():
     """Chaque min/max publié par `policy_measures.json` a un domaine moteur
-    (PARAM_DOMAINS, ou INTENSITE_DOMAINS pour les `intensite`)."""
+    (PARAM_DOMAINS, ou INTENSITE_DOMAINS pour les `intensite`). 81 = les 55
+    paramètres bornés de v0.6.7 à v0.7.2 et les 26 des onze leviers de la
+    release E (contrat § 1.1)."""
     registre = json.loads(POLICY_MEASURES_PATH.read_text(encoding='utf-8'))
     publies = [(m['id'], p) for m in registre['mesures']
                for p, spec in (m.get('parametres') or {}).items()
                if spec.get('min') is not None and spec.get('max') is not None]
-    assert len(publies) == 55
+    assert len(publies) == 81
     manquants = [(mid, p) for mid, p in publies
                  if p not in PARAM_DOMAINS.get(mid, {})
                  and not (p == 'intensite' and mid in INTENSITE_DOMAINS)]
@@ -287,7 +289,27 @@ def test_horizon_long_dette_bornee_a_zero_et_libelles_derives(tolerant):
 
 
 def test_horizon_10_ans_inchange(tolerant):
-    """Sur l'horizon servi, la consolidation maximale ne touche aucune borne."""
-    df, _, report = _simuler(CONSOLIDATION_MAXIMALE, periods=10)
+    """Sur l'horizon servi, la consolidation maximale ne touche aucune borne,
+    avec le plafond de 10 % du PIB en mode « reduction » (posé explicitement :
+    ce n'est plus le défaut depuis la décision D6 du 12/11/2026)."""
+    import budget_simulator.engine.orchestrator as orchestrateur
+    with patch.object(orchestrateur, 'PLAFOND_TOTAL_MODE', 'reduction'):
+        df, _, report = _simuler(CONSOLIDATION_MAXIMALE, periods=10)
     assert df['Dette'].min() > 0 and report['valid'] is True
     assert any(t.startswith('Solde budgétaire 2035') for t in report['tests'])
+
+
+def test_horizon_10_ans_mode_avertissement_borne_signalee(tolerant):
+    """Mode par défaut « avertissement » (décision D6) : la consolidation
+    maximale (jusqu'à ≈ 23 % du PIB d'impact par an, très au-delà du domaine de
+    validité) n'est plus réduite ; la dette brute atteint sa borne 0 avant 2035.
+    Rien n'est muet : borne signalée (``valid`` faux, correction « Dette brute
+    bornée à 0 »), avis du plafond pour chaque année au-delà."""
+    df, _, report = _simuler(CONSOLIDATION_MAXIMALE, periods=10)
+    assert (df['Dette'] >= 0).all()
+    assert report['cadre']['plafond_total']['mode'] == 'avertissement'
+    assert report['cadre']['plafond_total']['annees']
+    assert any('au-delà de 10 % du PIB' in w for w in report['warnings'])
+    if df['Dette'].min() == 0:
+        assert report['valid'] is False
+        assert any('Dette brute bornée à 0' in w for w in report['warnings'])

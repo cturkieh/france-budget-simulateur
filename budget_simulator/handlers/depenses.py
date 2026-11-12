@@ -59,6 +59,10 @@ Convention d'application :
   sous-effet a sa propre clé de gating (``retraites_gini_indexation``,
   ``sante``, ``chomage_alloc_competitivite``, ``abattement_retraites``,
   ``prestations_indexation``).
+  Leviers d'indexation (release E, relecture adverse finale I-1) : au RETOUR
+  à la référence du calendrier après un palier (gel d'une année), le levier
+  garde la part réalisée min(k, N)/N de l'effet émis au-delà de la référence
+  (``_retour_au_calendrier``) ; ailleurs, la même règle d'incrément.
   EXCEPTION, et elle est structurelle : le canal d'ÂGE des retraites ne
   passe pas par ``_effet_ponctuel`` mais par l'horloge du CHOC
   (``_seniors.retraites_annee_debut_ecart_age_handler``). Sa référence est
@@ -120,7 +124,7 @@ avant clip/agrégation, donc pas d'erreur runtime. À aplatir lors d'un
 futur chantier de durcissement du contrat (typage strict) — ne pas
 reproduire le pattern.
 """
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from ..constants import (
     ASU_GINI_BORNE_PAR_MD_EUR,
@@ -141,6 +145,7 @@ from ..constants import (
     PREVENTION_OFFSET_CENTRAL_CAP,
     PREVENTION_OFFSET_LAG_YEARS,
     PREVENTION_OFFSET_RAMP_PER_YEAR,
+    PRESTATIONS_REVALORISATIONS_MAX,
     RETRAITES_COEFF_AGE_MD_EUR,
     RETRAITES_COEFF_DUREE_MD_EUR,
     RETRAITES_EROSION_PLATEAU_ANS,
@@ -163,6 +168,15 @@ from .._seniors import (
 )
 from ._phasing import _year_phasing, asu_is_active, asu_phasing
 from ._types import ImpactsDict, canaux_menages
+
+
+# Base des deux leviers d'indexation (pensions, prestations) : la pleine
+# indexation sur l'inflation (coefficient 1,0), contre laquelle se mesurent
+# l'écart de niveau et l'effet sur le Gini. Ce n'est PAS la référence d'un
+# calendrier (le droit en vigueur de l'année, `_reference_du_calendrier`) :
+# aucun retour ne se reconnaît à l'égalité à cette constante (relecture
+# adverse finale de la release E, I-1).
+INDEXATION_PLEINE = 1.0
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -203,9 +217,22 @@ def ratio_revalorisation_partielle(delta: float, pi: float) -> float:
 class DepensesMixin(_MixinBase):
     """Handlers Section 2 — Maîtrise des dépenses."""
 
+    def _deltas_revalorisations(self, cle: str, year: int, delta: float) -> Dict[int, float]:
+        """Sous-indexation δ de CHAQUE revalorisation vue par un levier
+        d'indexation dans le monde courant (release E, gel d'une année, décision
+        du mainteneur du 12/11/2026) : l'année ``year`` est inscrite au traqueur
+        du monde (état propre de chaque monde de la composition, comme les
+        déclencheurs ponctuels), sous la clé ``cle``, puis l'historique est
+        rendu. Une revalorisation écoulée garde le coefficient de SON année :
+        revenir à la pleine indexation ne rattrape rien."""
+        historique = self._measure_params_tracker.setdefault(cle, {})
+        historique[year] = delta
+        return historique
+
     def _ecart_revalorisations(self, delta: float, year: int, inflation: float,
                                max_revalorisations: int, taux_2026: float,
-                               origine: int = POLICY_START_YEAR) -> float:
+                               origine: int = POLICY_START_YEAR,
+                               deltas: Optional[Dict[int, float]] = None) -> float:
         """Écart de NIVEAU d'une masse sous-indexée, en part de la masse
         pleinement revalorisée (v0.6.7 ; ratio exact v0.6.10).
 
@@ -253,6 +280,14 @@ class DepensesMixin(_MixinBase):
         historique, ``annee_debut`` pour un programme qui modifie l'indexation).
         La revalorisation de 2026 porte toujours ``taux_2026`` (fait légal) ;
         celle d'une année ultérieure, l'inflation de l'année d'avant.
+
+        COEFFICIENT DE CHAQUE REVALORISATION (release E, gel d'une année) :
+        ``deltas`` = {année: δ} des revalorisations écoulées
+        (``_deltas_revalorisations``) ; chaque revalorisation porte le δ de SON
+        année (``delta`` pour une année absente : hors simulation, monde
+        jetable). Un gel en 2028 puis la pleine indexation laissent ainsi
+        l'écart de 2028 tel quel, appliqué à la masse de chaque année : aucun
+        rattrapage. À coefficient constant, calcul identique au bit.
         """
         dernier = min(year, origine + max_revalorisations - 1)
         facteur = 1.0
@@ -261,8 +296,52 @@ class DepensesMixin(_MixinBase):
                 pi = taux_2026
             else:
                 pi = self._inflation_par_annee.get(annee - 1, inflation)
-            facteur *= ratio_revalorisation_partielle(delta, pi)
+            delta_annee = delta if deltas is None else deltas.get(annee, delta)
+            facteur *= ratio_revalorisation_partielle(delta_annee, pi)
         return 1.0 - facteur
+
+    def _retour_au_calendrier(self, levier: str, param: str, year: int, avant: float,
+                              coefficient: float, cle_revalorisations: str,
+                              plateau: int) -> Optional[Tuple[float, int, float]]:
+        """RETOUR à la référence du calendrier après un palier qui s'en écartait
+        (relecture adverse finale de la release E, I-1) — un gel d'une année
+        suivi de la revalorisation normale en est le cas type.
+
+        Retour : le coefficient de l'année ``coefficient`` est la référence de
+        l'année (``_reference_du_calendrier`` : le droit en vigueur de l'année,
+        QUELLE QUE SOIT sa valeur — jusqu'ici, l'égalité au littéral 1,0 : un
+        droit à 0,9999 rendait presque tout l'effet du même gel) et le
+        coefficient précédent ``avant`` s'écartait de la référence de l'année
+        précédente. ``None`` sinon — premier passage, changement entre deux
+        coefficients, ou référence qui change d'elle-même (mondes du droit en
+        vigueur, valeur datée suivie par le programme) : la règle d'incrément.
+
+        Rend ``(reference_avant, annees, part)`` : la référence de l'année
+        précédente ; le nombre d'années du palier (flux résiduel des pensions) ;
+        ``part = min(k, N) / N``, k revalorisations au coefficient du palier
+        comptées dans l'écart de niveau (fenêtre [origine ; origine + N − 1] de
+        ``_ecart_revalorisations``), N = ``plateau``. C'est la part RÉALISÉE de
+        l'effet de niveau que la convention émet en entier à l'ouverture d'un
+        écart (au plateau, N revalorisations) : un gel d'une année en garde
+        1/N, un palier qui n'a porté sur aucune revalorisation comptée ne garde
+        rien. Le palier se lit dans l'historique des revalorisations du monde
+        (``_deltas_revalorisations``, année courante déjà inscrite)."""
+        if coefficient != self._reference_du_calendrier(levier, param, year):
+            return None
+        reference_avant = self._reference_du_calendrier(levier, param, year - 1)
+        historique = self._measure_params_tracker.get(cle_revalorisations, {})
+        delta_palier = historique.get(year - 1)
+        if avant == reference_avant or delta_palier is None:
+            return None
+        origine = self._origine(levier)
+        annees = revalorisations = 0
+        annee = year - 1
+        while historique.get(annee) == delta_palier:
+            annees += 1
+            if origine <= annee <= origine + plateau - 1:
+                revalorisations += 1
+            annee -= 1
+        return reference_avant, annees, min(revalorisations, plateau) / plateau
 
     def _apply_retraites(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         # Convention : les handlers ne sont jamais appeles en annee baseline (year=2025).
@@ -342,12 +421,16 @@ class DepensesMixin(_MixinBase):
         # revalorisations (renouvellement des cohortes). Jusqu'en v0.6.6 :
         # 1,5 Md€ × (1 − indexation) × années, insensible à l'inflation
         # (inflation implicite 0,39 % sur la masse des pensions).
+        # Release E (gel d'une année) : chaque revalorisation garde le
+        # coefficient de SON année — un retour à la pleine indexation laisse
+        # l'écart des années gelées, sans rattrapage.
+        deltas = self._deltas_revalorisations('retraites_revalorisations', year, 1.0 - indexation)
         delta_spending -= (RETRAITES_PART_MASSE_INDEXEE
                            * self.masse_categorie_nominale('retraites')
                            * self._ecart_revalorisations(1.0 - indexation, year, inflation,
                                                          RETRAITES_EROSION_PLATEAU_ANS,
                                                          REVALORISATION_PENSIONS_2026,
-                                                         origine))
+                                                         origine, deltas))
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
@@ -392,13 +475,38 @@ class DepensesMixin(_MixinBase):
         # plein effet — g(avant)·R + (g − g(avant)) ; jusqu'en v0.6.11, g en
         # entier (la part déjà comptée était recomptée). Première fois : g,
         # comme avant.
+        # Release E, gel d'une année (décision du 12/11/2026 ; relecture adverse
+        # finale, I-1) : le RETOUR à la référence du calendrier (le droit en
+        # vigueur de l'année, quelle que soit sa valeur) après k revalorisations
+        # au coefficient du palier laisse l'écart de niveau des pensions (aucun
+        # rattrapage, canal budgétaire ci-dessus) ; le Gini suit cet écart
+        # ACCUMULÉ : le levier garde min(k, N)/N de l'effet émis au-delà de la
+        # référence pendant le palier (ouverture et flux des cohortes), N =
+        # RETRAITES_EROSION_PLATEAU_ANS, et rend le reste (`_retour_au_calendrier`).
+        # La référence suit sa propre règle d'incrément (flux, changement de la
+        # référence), comme dans le monde du droit en vigueur ; aucune nouvelle
+        # cohorte n'est touchée par le palier (aucun flux du palier au retour).
+        # Jusqu'ici : tout l'effet gardé (autant qu'un gel permanent), et retour
+        # reconnu à l'égalité au littéral 1,0 (un droit à 0,9999 rendait tout).
+        # Coefficient constant : branches « premier » et « inchangé », au bit.
         statut, precedents = self._ponctuel('retraites_gini_indexation',
                                             {'indexation': indexation})
         if statut == 'premier':
             gini = gini_indexation
         elif statut == 'change':
             gini_avant = RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1.0 - precedents['indexation'])
-            gini = gini_avant * RETRAITES_GINI_RESIDU_FLUX + (gini_indexation - gini_avant)
+            retour = self._retour_au_calendrier('retraites', 'indexation', year,
+                                                precedents['indexation'], indexation,
+                                                'retraites_revalorisations',
+                                                RETRAITES_EROSION_PLATEAU_ANS)
+            if retour is None:
+                gini = gini_avant * RETRAITES_GINI_RESIDU_FLUX + (gini_indexation - gini_avant)
+            else:
+                reference_avant, annees, part = retour
+                gini_reference = RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1.0 - reference_avant)
+                emis = (gini_avant - gini_reference) * (1.0 + (annees - 1) * RETRAITES_GINI_RESIDU_FLUX)
+                gini = (gini_reference * RETRAITES_GINI_RESIDU_FLUX + (gini_indexation - gini_reference)
+                        - (1.0 - part) * emis)
         else:
             gini = gini_indexation * RETRAITES_GINI_RESIDU_FLUX
         if year == annee_ouverture_age:
@@ -1153,7 +1261,7 @@ class DepensesMixin(_MixinBase):
             return 0, 0, {}
 
         # === BUDGET IMPACT ===
-        indexation_ref = 1.0  # Référence: indexation complète
+        indexation_ref = INDEXATION_PLEINE  # Référence: indexation complète
 
         # Érosion composée : chaque revalorisation multiplie la masse de
         # prestations par r(δ, π) = (1 + (1 − δ)π) / (1 + π) relativement à la
@@ -1175,11 +1283,17 @@ class DepensesMixin(_MixinBase):
         # APL, prestations familiales) au lieu de 90 Md€ figés en euros 2025, et
         # première revalorisation dès POLICY_START_YEAR (2026 valait 0 : un gel
         # voté pour 2026 ne rapportait rien en 2026). Dix revalorisations au plus
-        # (l'ancien plafond « 10 ans »), sans plateau de cohortes : un barème
-        # sous-indexé le reste pour tous les bénéficiaires.
-        ecart = self._ecart_revalorisations(indexation_ref - indexation, year, inflation, 10,
+        # (PRESTATIONS_REVALORISATIONS_MAX, l'ancien plafond « 10 ans »), sans
+        # plateau de cohortes : un barème sous-indexé le reste pour tous les
+        # bénéficiaires.
+        # Release E (gel d'une année) : coefficient de chaque revalorisation
+        # écoulée, comme les pensions (aucun rattrapage au retour à 1).
+        deltas = self._deltas_revalorisations('prestations_indexation_revalorisations', year,
+                                              indexation_ref - indexation)
+        ecart = self._ecart_revalorisations(indexation_ref - indexation, year, inflation,
+                                            PRESTATIONS_REVALORISATIONS_MAX,
                                             self.base_params['inflation_base'],
-                                            self._origine('prestations_indexation'))
+                                            self._origine('prestations_indexation'), deltas)
         delta_spending = -self.masse_categorie_nominale('minima_sociaux') * ecart  # <0 économie, >0 surcoût
 
         # === MACRO IMPACTS ===
@@ -1193,7 +1307,35 @@ class DepensesMixin(_MixinBase):
         def _effet_prestations_indexation(p):
             return 0.008 * (indexation_ref - p['indexation']) / 0.10
 
-        gini = self._effet_ponctuel('prestations_indexation', params_tracking, _effet_prestations_indexation)
+        # Release E, gel d'une année (décision du 12/11/2026 ; relecture adverse
+        # finale, I-1) : le RETOUR à la référence du calendrier (droit en
+        # vigueur de l'année, quelle que soit sa valeur) après k revalorisations
+        # au coefficient du palier laisse l'écart de niveau des prestations
+        # (aucun rattrapage) ; le Gini suit cet écart ACCUMULÉ : le levier garde
+        # min(k, N)/N de l'effet émis au-delà de la référence, N =
+        # PRESTATIONS_REVALORISATIONS_MAX, et rend le reste
+        # (`_retour_au_calendrier`). Jusqu'ici : tout gardé, retour reconnu à
+        # l'égalité au littéral 1,0. Ailleurs, la règle de `_effet_ponctuel`
+        # (premier passage : l'effet ; inchangé : 0 ; changement : l'incrément),
+        # au bit.
+        statut, precedents = self._ponctuel('prestations_indexation', params_tracking)
+        if statut == 'premier':
+            gini = _effet_prestations_indexation(params_tracking)
+        elif statut == 'inchange':
+            gini = 0.0
+        else:
+            effet_avant = _effet_prestations_indexation(precedents)
+            retour = self._retour_au_calendrier('prestations_indexation', 'taux_indexation', year,
+                                                precedents['indexation'], indexation,
+                                                'prestations_indexation_revalorisations',
+                                                PRESTATIONS_REVALORISATIONS_MAX)
+            if retour is None:
+                gini = _effet_prestations_indexation(params_tracking) - effet_avant
+            else:
+                reference_avant, _, part = retour
+                effet_reference = _effet_prestations_indexation({'indexation': reference_avant})
+                gini = ((_effet_prestations_indexation(params_tracking) - effet_reference)
+                        - (1.0 - part) * (effet_avant - effet_reference))
 
         # Pouvoir d'achat (v0.6.8) : l'écart de revalorisation EST le revenu
         # retiré (ou rendu) aux allocataires — canal ``prestations``, au

@@ -32,6 +32,7 @@ from budget_simulator.simulator import BudgetSimulatorV45
 
 D = 1e-9
 EPSILON_PT = 1e-3
+DEMI_ECART_TVA = 2e-7
 
 
 def _inflation(year=3, **etat):
@@ -91,6 +92,14 @@ POINTS_DE_SAUT = [
 @pytest.mark.parametrize('sid,levier,param,x,d', POINTS_DE_SAUT,
                          ids=[f'{p[0]}-{p[1]}.{p[2]}@{p[3]:.6g}' for p in POINTS_DE_SAUT])
 def test_variation_infinitesimale_ne_deplace_pas_la_dette(sid, levier, param, x, d):
+    # TVA : demi-écart ramené à DEMI_ECART_TVA depuis le plafond de 10 % en mode
+    # « avertissement » par défaut (décision D6 du 12/11/2026) : sans la
+    # réduction, la PENTE continue de la dette au taux (≈ 500 pt par unité de
+    # taux sur le programme au-delà du seuil ; 0,2069 → 0,2072 : linéaire)
+    # donnait 0,0010 pt sur ±1e-6, au seuil EPSILON_PT ; les sauts visés (0,25 à
+    # 0,30 pt) restent 250 fois au-dessus.
+    if levier == 'tva_rate':
+        d = min(d, DEMI_ECART_TVA)
     mesures = _scenarios()[sid]
     ecart = _dette_2035(mesures, levier, param, x + d) - _dette_2035(mesures, levier, param, x - d)
     assert abs(ecart) < EPSILON_PT, (

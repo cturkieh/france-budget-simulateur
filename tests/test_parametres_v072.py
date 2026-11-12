@@ -72,8 +72,9 @@ def test_borne_effectifs_sous_le_vivier_du_mandat():
 
 def test_borne_effectifs_couvre_la_decision_du_08_11_2026():
     """La borne couvre −500 000 (décision du mainteneur), au-delà du −400 000
-    de v0.6.11 ; la borne haute est inchangée."""
-    assert PARAM_DOMAINS['fonction_publique']['effectifs'] == (-500_000.0, 60_000.0)
+    de v0.6.11 ; la borne haute, 60 000 en v0.7.2, est portée à +140 000 par la
+    release E (tests/test_domaines_release_e.py)."""
+    assert PARAM_DOMAINS['fonction_publique']['effectifs'] == (-500_000.0, 140_000.0)
 
 
 def _journal_plafond(effectifs: float, monkeypatch) -> list[str]:
@@ -125,7 +126,7 @@ def test_porte_des_parametres_consigne_l_ecretage():
     assert out['effectifs'] == -500_000.0
     assert list(ecretages.values()) == [{
         'levier': 'fonction_publique.effectifs', 'demande': -600_000,
-        'applique': -500_000.0, 'borne': [-500_000.0, 60_000.0], 'motif': 'domaine'}]
+        'applique': -500_000.0, 'borne': [-500_000.0, 140_000.0], 'motif': 'domaine'}]
 
 
 def test_porte_des_parametres_ne_consigne_rien_dans_le_domaine():
@@ -204,7 +205,7 @@ def test_api_tolerant_expose_leviers_ecretes(_client, monkeypatch):
     rapport = r.json()['report']
     assert rapport['leviers_ecretes'] == [{
         'levier': 'fonction_publique.effectifs', 'demande': -600000,
-        'applique': -500000.0, 'borne': [-500000.0, 60000.0], 'motif': 'domaine'}]
+        'applique': -500000.0, 'borne': [-500000.0, 140000.0], 'motif': 'domaine'}]
     assert rapport['valid'] is False
 
 

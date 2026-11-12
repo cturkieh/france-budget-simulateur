@@ -751,6 +751,12 @@ def build_registry() -> dict:
         "sliders_sans_handler": sorted(
             slider_orphans + orphan_no_handler, key=lambda o: o["id"]
         ),
+        # Release E (chantier W1, garde G9 du site) : TOUS les noms admis, leviers
+        # à formule compris (`depenses_publiques`, `transferts_etranger`,
+        # `defense`…), que `mesures` ci-dessus ne liste pas (leviers à handler
+        # seulement). Même contrat que `_noms_parametres.py` ; le site vérifie
+        # que chaque groupe qu'il envoie y figure.
+        "noms_parametres_admis": build_noms_admis(),
     }
 
 

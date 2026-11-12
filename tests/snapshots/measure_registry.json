@@ -85,6 +85,13 @@
           "step": 3
         },
         {
+          "id": "chomage_montant",
+          "max": 48.8,
+          "min": 24.85,
+          "param": "montant",
+          "step": 0.05
+        },
+        {
           "id": "chomage_taux_remplacement",
           "max": 0.8,
           "min": 0.45,
@@ -126,10 +133,10 @@
       "sliders": [
         {
           "id": "cotisations_salariales_baisse",
-          "max": 5,
+          "max": 11.94,
           "min": 0,
           "param": "baisse_points",
-          "step": 0.5
+          "step": 0.01
         }
       ],
       "type": "fonction"
@@ -160,6 +167,27 @@
           "min": 0.08,
           "param": "taux",
           "step": 0.001
+        }
+      ],
+      "type": "fonction"
+    },
+    "droits_succession": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Droits de succession et de donation",
+      "params": {
+        "variation": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['droits_succession']['variation']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "droits_succession_variation",
+          "max": 25,
+          "min": -21.2,
+          "param": "variation",
+          "step": 0.5
         }
       ],
       "type": "fonction"
@@ -256,6 +284,92 @@
       ],
       "type": "fonction"
     },
+    "fiscalite_capital": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Revenus du capital",
+      "params": {
+        "elasticite": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['fiscalite_capital']['elasticite']"
+        },
+        "prelevements_sociaux_capital": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['fiscalite_capital']['prelevements_sociaux_capital']"
+        },
+        "rendement_md": {
+          "presence_checked": true,
+          "required": true
+        },
+        "taux_ir_forfaitaire": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['fiscalite_capital']['taux_ir_forfaitaire']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "capital_elasticite",
+          "max": 2,
+          "min": 0,
+          "param": "elasticite",
+          "step": 0.05
+        },
+        {
+          "id": "capital_prelevements_sociaux",
+          "max": 0.3,
+          "min": 0,
+          "param": "prelevements_sociaux_capital",
+          "step": 0.001
+        },
+        {
+          "id": "capital_rendement_md",
+          "max": 15,
+          "min": -15,
+          "param": "rendement_md",
+          "step": 0.5
+        },
+        {
+          "id": "capital_taux_ir",
+          "max": 0.45,
+          "min": 0,
+          "param": "taux_ir_forfaitaire",
+          "step": 0.001
+        }
+      ],
+      "type": "fonction"
+    },
+    "fiscalite_indirecte": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Fiscalité indirecte ciblée",
+      "params": {
+        "accises_energie": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['fiscalite_indirecte']['accises_energie']"
+        },
+        "tva_ciblee": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['fiscalite_indirecte']['tva_ciblee']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "accises_energie",
+          "max": 15,
+          "min": -15,
+          "param": "accises_energie",
+          "step": 0.5
+        },
+        {
+          "id": "tva_ciblee",
+          "max": 15,
+          "min": -15,
+          "param": "tva_ciblee",
+          "step": 0.5
+        }
+      ],
+      "type": "fonction"
+    },
     "fiscalite_patrimoine": {
       "categorie": "fiscalite",
       "flags": [
@@ -297,7 +411,7 @@
       "sliders": [
         {
           "id": "fp_effectifs",
-          "max": 50000,
+          "max": 140000,
           "min": -100000,
           "param": "effectifs",
           "step": 10000
@@ -386,6 +500,38 @@
       ],
       "type": "fonction"
     },
+    "impot_plancher_patrimoine": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Impôt plancher sur les très hauts patrimoines",
+      "params": {
+        "evitement": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['impot_plancher_patrimoine']['evitement']"
+        },
+        "taux": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['impot_plancher_patrimoine']['taux']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "impot_plancher_evitement",
+          "max": 0.95,
+          "min": 0,
+          "param": "evitement",
+          "step": 0.025
+        },
+        {
+          "id": "impot_plancher_taux",
+          "max": 0.03,
+          "min": 0,
+          "param": "taux",
+          "step": 0.001
+        }
+      ],
+      "type": "fonction"
+    },
     "impot_revenu": {
       "categorie": "fiscalite",
       "flags": [],
@@ -412,6 +558,27 @@
           "min": 0.4,
           "param": "taux_superieur",
           "step": 0.01
+        }
+      ],
+      "type": "fonction"
+    },
+    "impot_revenu_cible": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Impôt sur le revenu : mesure ciblée",
+      "params": {
+        "montant": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['impot_revenu_cible']['montant']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "impot_revenu_cible_montant",
+          "max": 5,
+          "min": -15,
+          "param": "montant",
+          "step": 0.5
         }
       ],
       "type": "fonction"
@@ -505,6 +672,60 @@
       ],
       "type": "fonction"
     },
+    "multinationales": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Multinationales : bénéfices transférés et taxe numérique",
+      "params": {
+        "benefices_recuperes": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['multinationales']['benefices_recuperes']"
+        },
+        "erosion_tsn": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['multinationales']['erosion_tsn']"
+        },
+        "rendement_tsn_md": {
+          "presence_checked": true,
+          "required": true
+        },
+        "taux_tsn": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['multinationales']['taux_tsn']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "multinationales_benefices",
+          "max": 12.6,
+          "min": 0,
+          "param": "benefices_recuperes",
+          "step": 0.1
+        },
+        {
+          "id": "tsn_erosion",
+          "max": 10,
+          "min": 0,
+          "param": "erosion_tsn",
+          "step": 0.1
+        },
+        {
+          "id": "tsn_rendement_md",
+          "max": 10,
+          "min": -1,
+          "param": "rendement_tsn_md",
+          "step": 0.1
+        },
+        {
+          "id": "tsn_taux",
+          "max": 0.1,
+          "min": 0,
+          "param": "taux_tsn",
+          "step": 0.005
+        }
+      ],
+      "type": "fonction"
+    },
     "niches_fiscales_tge": {
       "categorie": "competitivite",
       "flags": [],
@@ -541,6 +762,71 @@
           "min": 10,
           "param": "montant",
           "step": 5
+        }
+      ],
+      "type": "fonction"
+    },
+    "operations_financieres": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Opérations financières",
+      "params": {
+        "crypto_actifs": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['operations_financieres']['crypto_actifs']"
+        },
+        "elasticite_volume": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['operations_financieres']['elasticite_volume']"
+        },
+        "rachats_actions": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['operations_financieres']['rachats_actions']"
+        },
+        "rendement_ttf_md": {
+          "presence_checked": true,
+          "required": true
+        },
+        "taux_ttf": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['operations_financieres']['taux_ttf']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "crypto_actifs",
+          "max": 5,
+          "min": 0,
+          "param": "crypto_actifs",
+          "step": 0.1
+        },
+        {
+          "id": "rachats_actions",
+          "max": 15,
+          "min": -0.2,
+          "param": "rachats_actions",
+          "step": 0.1
+        },
+        {
+          "id": "ttf_elasticite_volume",
+          "max": 0.25,
+          "min": 0,
+          "param": "elasticite_volume",
+          "step": 0.01
+        },
+        {
+          "id": "ttf_rendement_md",
+          "max": 10,
+          "min": -3,
+          "param": "rendement_ttf_md",
+          "step": 0.1
+        },
+        {
+          "id": "ttf_taux",
+          "max": 0.01,
+          "min": 0,
+          "param": "taux_ttf",
+          "step": 0.0005
         }
       ],
       "type": "fonction"
@@ -591,6 +877,38 @@
       ],
       "type": "fonction"
     },
+    "prestations_menages": {
+      "categorie": "social",
+      "flags": [],
+      "nom": "Prestations versées aux ménages, en montant",
+      "params": {
+        "pensions": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['prestations_menages']['pensions']"
+        },
+        "solidarite": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['prestations_menages']['solidarite']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "prestations_pensions",
+          "max": 10,
+          "min": -20,
+          "param": "pensions",
+          "step": 0.5
+        },
+        {
+          "id": "prestations_solidarite",
+          "max": 30,
+          "min": -35,
+          "param": "solidarite",
+          "step": 0.5
+        }
+      ],
+      "type": "fonction"
+    },
     "rabot_uniforme": {
       "categorie": "depenses",
       "flags": [],
@@ -610,6 +928,27 @@
         }
       },
       "sliders": [],
+      "type": "fonction"
+    },
+    "recette_exceptionnelle": {
+      "categorie": "fiscalite",
+      "flags": [],
+      "nom": "Recette exceptionnelle",
+      "params": {
+        "montant": {
+          "default": null,
+          "default_expr": "NEUTRES_RELEASE_E['recette_exceptionnelle']['montant']"
+        }
+      },
+      "sliders": [
+        {
+          "id": "recette_exceptionnelle_montant",
+          "max": 60,
+          "min": 0,
+          "param": "montant",
+          "step": 1
+        }
+      ],
       "type": "fonction"
     },
     "recherche_publique": {
@@ -892,6 +1231,193 @@
       "type": "fonction"
     }
   },
+  "noms_parametres_admis": {
+    "abattement_retraites": [
+      "reforme_active"
+    ],
+    "asu": [
+      "asu_activation",
+      "asu_plafonnement"
+    ],
+    "chomage_alloc": [
+      "degressivite",
+      "duree",
+      "montant",
+      "taux_remplacement"
+    ],
+    "collectivites": [
+      "dotation",
+      "investissement"
+    ],
+    "cotisations_patronales": [
+      "taux"
+    ],
+    "cotisations_salariales": [
+      "baisse_points"
+    ],
+    "csg": [
+      "progressive",
+      "taux"
+    ],
+    "defense": [
+      "budget"
+    ],
+    "depenses_publiques": [
+      "credits_etat",
+      "ondam",
+      "transferts_capital"
+    ],
+    "droits_succession": [
+      "variation"
+    ],
+    "education": [
+      "budget",
+      "enseignants",
+      "salaires"
+    ],
+    "elargissement_ir": [
+      "taux_contribuables_cible"
+    ],
+    "exonerations_salaires": [
+      "intensite",
+      "seuil_hausse",
+      "taux_exoneration"
+    ],
+    "fiscalite_capital": [
+      "elasticite",
+      "prelevements_sociaux_capital",
+      "rendement_md",
+      "taux_ir_forfaitaire"
+    ],
+    "fiscalite_indirecte": [
+      "accises_energie",
+      "tva_ciblee"
+    ],
+    "fiscalite_patrimoine": [
+      "intensite"
+    ],
+    "fonction_publique": [
+      "effectifs",
+      "point_indice"
+    ],
+    "fonction_publique_reforme": [
+      "digitalisation",
+      "fusion_agences"
+    ],
+    "fraude_fiscale": [
+      "effort"
+    ],
+    "fraude_sociale": [
+      "effort"
+    ],
+    "immigration": [
+      "ame",
+      "integration"
+    ],
+    "impot_plancher_patrimoine": [
+      "evitement",
+      "taux"
+    ],
+    "impot_revenu": [
+      "decote",
+      "taux_superieur"
+    ],
+    "impot_revenu_cible": [
+      "montant"
+    ],
+    "impot_societes": [
+      "niches",
+      "taux"
+    ],
+    "impots_production": [
+      "montant"
+    ],
+    "is_exceptionnel_tge": [
+      "montant"
+    ],
+    "isf_climatique": [
+      "intensite"
+    ],
+    "multinationales": [
+      "benefices_recuperes",
+      "erosion_tsn",
+      "rendement_tsn_md",
+      "taux_tsn"
+    ],
+    "niches_fiscales_tge": [
+      "montant"
+    ],
+    "niches_sociales_tge": [
+      "montant"
+    ],
+    "operations_financieres": [
+      "crypto_actifs",
+      "elasticite_volume",
+      "rachats_actions",
+      "rendement_ttf_md",
+      "taux_ttf"
+    ],
+    "optimisation_dette": [
+      "intensite"
+    ],
+    "prestations_indexation": [
+      "taux_indexation"
+    ],
+    "prestations_menages": [
+      "pensions",
+      "solidarite"
+    ],
+    "rabot_uniforme": [
+      "exclure_defense",
+      "exclure_dette",
+      "exclure_ue",
+      "taux_reduction"
+    ],
+    "recette_exceptionnelle": [
+      "montant"
+    ],
+    "recherche_publique": [
+      "budget"
+    ],
+    "retraites": [
+      "age_depart",
+      "duree_cotisation",
+      "indexation"
+    ],
+    "sante": [
+      "effort_ambu",
+      "effort_hopital",
+      "effort_prev_org",
+      "franchise_participation_taux",
+      "prevention_budget"
+    ],
+    "smic": [
+      "montant_brut"
+    ],
+    "subventions_tge": [
+      "montant"
+    ],
+    "taxe_superprofits": [
+      "intensite",
+      "seuil_hausse",
+      "taux",
+      "tous_secteurs"
+    ],
+    "transferts_etranger": [
+      "montant"
+    ],
+    "transition_ecologique": [
+      "investissement",
+      "renovation",
+      "taxe_carbone"
+    ],
+    "tva_energie": [
+      "taux"
+    ],
+    "tva_rate": [
+      "taux"
+    ]
+  },
   "sliders_sans_handler": [
     {
       "id": "collectivites_dotation",
@@ -915,6 +1441,27 @@
       "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
     },
     {
+      "id": "depenses_credits_etat",
+      "kind": "formule",
+      "measure": "depenses_publiques",
+      "param": "credits_etat",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "depenses_ondam",
+      "kind": "formule",
+      "measure": "depenses_publiques",
+      "param": "ondam",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "depenses_transferts_capital",
+      "kind": "formule",
+      "measure": "depenses_publiques",
+      "param": "transferts_capital",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
       "id": "immigration_ame",
       "kind": "formule",
       "measure": "immigration",
@@ -926,6 +1473,13 @@
       "kind": "formule",
       "measure": "immigration",
       "param": "integration",
+      "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
+    },
+    {
+      "id": "transferts_etranger_montant",
+      "kind": "formule",
+      "measure": "transferts_etranger",
+      "param": "montant",
       "reason": "mesure formule ASTEVAL — effet réel sur le solde (policy_measures.json), hors measure_handlers Python"
     }
   ]

@@ -16,6 +16,7 @@ import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from budget_simulator.constants import POLICY_START_YEAR
 from budget_simulator.simulator import BudgetSimulatorV45
 
 
@@ -60,7 +61,7 @@ def _locate_scenarios_json() -> Path | None:
     return None
 
 
-def _load_scenarios() -> dict:
+def _load_raw() -> dict:
     path = _locate_scenarios_json()
     if path is None:
         return {}
@@ -69,13 +70,29 @@ def _load_scenarios() -> dict:
     missing = [sid for sid, d in raw.items() if "apiMeasures" not in d]
     if missing:
         raise KeyError(f"Clé 'apiMeasures' absente pour : {missing} dans {path}")
-    return {sid: d["apiMeasures"] for sid, d in raw.items()}
+    # Profils temporels (release E, chantier W1) : champ FACULTATIF, même forme
+    # que l'API ({"levier.parametre": {forme, annee?}}). Mal formé = erreur, pas
+    # un scénario sans calendrier en silence (le moteur valide le contenu).
+    mal_formes = [sid for sid, d in raw.items()
+                  if d.get("profils") is not None and not isinstance(d["profils"], dict)]
+    if mal_formes:
+        raise TypeError(f"Champ 'profils' non objet pour : {mal_formes} dans {path}")
+    return raw
+
+
+def _load_scenarios() -> dict:
+    return {sid: d["apiMeasures"] for sid, d in _RAW.items()}
 
 
 _SCENARIOS_JSON = _locate_scenarios_json()
+_RAW = _load_raw()
 # Interface historique préservée : {scenario_id: apiMeasures} (consommée par
 # test_political_scenarios_2027.py et test_golden_master_full.py).
 SCENARIOS = _load_scenarios()
+# Profils temporels de chaque scénario (release E, contrat § 2.3) : {} sans
+# calendrier ; transmis au moteur avec les mesures (fiche = simulateur =
+# précalcul = golden master).
+PROFILS = {sid: dict(d.get("profils") or {}) for sid, d in _RAW.items()}
 
 
 YEAR_IDX_2029 = 4
@@ -119,7 +136,11 @@ def main():
     print(f"{'Scenario':<24} {'Dette':>8} {'Déficit':>9} {'Chômage':>9} {'Croiss':>9} {'PA':>8} {'Comp':>8} {'Gini':>8}")
     print("-" * 92)
     for name, mesures in SCENARIOS.items():
-        sim = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=args.annee_debut)
+        # Calendriers en mode cadre seulement : le mode historique n'en a pas
+        # (le moteur les refuserait, correction tracée).
+        mode_cadre = args.annee_debut is not None and args.annee_debut > POLICY_START_YEAR
+        sim = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=args.annee_debut,
+                                 profils=(PROFILS.get(name) or None) if mode_cadre else None)
         df_main, _, _ = sim.simulate()
         available = [c for c in TRACKED_COLUMNS if c in df_main.columns]
         snapshot[name] = {

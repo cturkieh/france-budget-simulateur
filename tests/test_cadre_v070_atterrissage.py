@@ -366,9 +366,11 @@ def test_plafond_total_expose_sans_changer_le_calcul():
     assert p['seuil_pct_pib'] == 10 and p['reference'] == 'defauts_du_moteur'
     assert p['annees'] == sorted(p['annees'])
     assert all(an >= DEBUT for an in p['annees'])
-    if p['annees']:
+    if p['annees'] and p['mode'] == 'reduction':
         assert any('plafonné à 10 % du PIB' in w and f"dès {p['annees'][0]}" in w
                    for w in rapport['warnings'])
+    elif p['annees']:   # mode « avertissement », défaut depuis la décision D6 du 12/11/2026
+        assert any(f"au-delà de 10 % du PIB en {p['annees'][0]}" in w for w in rapport['warnings'])
     assert simuler(DROIT, annee_debut=DEBUT)[2]['cadre']['plafond_total']['annees'] == []
 
 

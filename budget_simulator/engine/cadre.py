@@ -56,12 +56,20 @@ from pathlib import Path
 from typing import Callable, Dict, FrozenSet, Literal, Optional, Tuple, get_args
 
 from ..constants import (
+    ANNEE_FIN_MANDAT,
     CHOMAGE_CLIP_MAX,
     CHOMAGE_CLIP_MIN,
+    CHOMAGE_MONTANT_REF_MD,
+    CHOMAGE_TAUX_REF,
     CONJONCTURE_AMPLITUDE_MAX,
     CONJONCTURE_DERNIERE_ANNEE,
     CONJONCTURE_PREMIERE_ANNEE,
+    CROISSANCE_FILET_MAX,
+    CROISSANCE_FILET_MIN,
+    EXCLUSIONS_MUTUELLES,
+    NEUTRES_RELEASE_E,
     PLAFOND_IMPACT_TOTAL_PIB,
+    PLAFOND_TOTAL_MODE,
     POLICY_START_YEAR,
 )
 from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
@@ -69,6 +77,9 @@ from ._param_domain import (
     _DETAILS_MAX,
     EntreeInvalide,
     _apercu,
+    _apercu_nom,
+    _est_fini,
+    condition_d_exclusion_vraie,
     validate_intensite_domain,
     validate_param_domains,
     valider_modes_exclusifs,
@@ -79,9 +90,10 @@ logger = logging.getLogger(__name__)
 
 # Domaine de ``annee_debut`` : 2026 (mode historique) à la fin du quinquennat
 # 2027-2032. Au-delà, un programme n'aurait plus d'année d'application dans la
-# fenêtre affichée.
+# fenêtre affichée. ANNEE_FIN_MANDAT (constants.py) est aussi la dernière année
+# d'une rampe de profil (release E, contrat § 2.1) : une seule source.
 ANNEE_DEBUT_MIN = POLICY_START_YEAR
-ANNEE_DEBUT_MAX = 2032
+ANNEE_DEBUT_MAX = ANNEE_FIN_MANDAT
 
 MODE_HISTORIQUE = 'historique'
 MODE_CADRE = 'cadre'
@@ -97,6 +109,12 @@ class AnneeDebutInvalide(EntreeInvalide, ValueError):
 
 class RampeInvalide(EntreeInvalide, ValueError):
     """``rampe`` mal formée, hors domaine ou en mode historique (mode BUDGETLAB_STRICT)."""
+
+
+class ProfilInvalide(EntreeInvalide, ValueError):
+    """``profils`` mal formé, clé non éligible, année hors du mandat, forme
+    interdite (recette exceptionnelle), mode historique, ou ``rampe`` et
+    ``profils`` ensemble (release E, W1, contrat § 2.1 ; mode BUDGETLAB_STRICT)."""
 
 
 # === RAMPE GÉNÉRIQUE (lot D) ===
@@ -132,7 +150,8 @@ class Rampe:
 
 def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
                      warned: Optional[set] = None,
-                     corrections: Optional[dict] = None) -> Optional['Rampe']:
+                     corrections: Optional[dict] = None,
+                     debut: Optional[int] = None) -> Optional['Rampe']:
     """Rampe effective, ou ``None`` (aucune). Strict : ``RampeInvalide`` au
     premier défaut. Tolérant : WARNING une fois et correction tracée —
     ``annees`` ramenée au domaine, leviers inconnus ou non éligibles retirés,
@@ -143,7 +162,12 @@ def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
     (``RAMPE_LEVIERS_ELIGIBLES``), sinon rejet sans parcourir la liste ; noms
     dédoublonnés ; les noms retirés font UN avertissement à clé fixe, au plus
     ``_DETAILS_MAX`` noms détaillés et chacun tronqué ; la liste des leviers
-    éligibles n'y est jamais répétée (elle vit ici et dans METHODOLOGIE)."""
+    éligibles n'y est jamais répétée (elle vit ici et dans METHODOLOGIE).
+
+    FIN DU MANDAT (contre-vérification m5) : comme un profil « rampe », la
+    rampe finit au plus tard en ``ANNEE_FIN_MANDAT`` — ``annees`` est borné à
+    ``ANNEE_FIN_MANDAT − debut + 1`` (≤ ``RAMPE_ANNEES_MAX``) : ramené à la
+    borne et tracé en tolérant, ``RampeInvalide`` en strict."""
     if valeur is None:
         return None
     cle = ('cadre', 'rampe')
@@ -169,10 +193,17 @@ def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
         return defaut(f"annees = {_apercu(annees)} : entier attendu dans "
                       f"[{RAMPE_ANNEES_MIN} ; {RAMPE_ANNEES_MAX}] — rampe ignorée", None, 'annees')
     annees = int(annees)
-    if not RAMPE_ANNEES_MIN <= annees <= RAMPE_ANNEES_MAX:
-        borne = min(max(annees, RAMPE_ANNEES_MIN), RAMPE_ANNEES_MAX)
-        annees = defaut(f"annees = {_apercu(annees)} hors de [{RAMPE_ANNEES_MIN} ; "
-                        f"{RAMPE_ANNEES_MAX}] — ramenée à {borne}", borne, 'annees')
+    annees_max = (RAMPE_ANNEES_MAX if debut is None
+                  else max(RAMPE_ANNEES_MIN, min(RAMPE_ANNEES_MAX, ANNEE_FIN_MANDAT - debut + 1)))
+    hors_borne = _annees_hors_borne(annees, annees_max)
+    if hors_borne is not None:
+        # Strict : refus, avec le domaine (jamais « ramenée à », la requête
+        # étant refusée) ; tolérant : ramenée à la borne, comme un profil
+        # « rampe » (relecture adverse finale, m-c).
+        message, borne = hors_borne
+        if strict:
+            raise RampeInvalide(f"rampe : {message} (mode BUDGETLAB_STRICT)")
+        annees = defaut(f"{message} — ramenée à {borne}", borne, 'annees')
     leviers = valeur.get('leviers')
     if not isinstance(leviers, list):
         return defaut(f"leviers = {_apercu(leviers)} : liste de « levier.parametre » attendue — "
@@ -197,14 +228,280 @@ def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
     return Rampe(annees=int(annees), leviers=tuple(retenus)) if retenus else None
 
 
+# === PROFILS TEMPORELS (release E, chantier W1, contrat § 2) ===
+# Calendrier d'un montant en Md€ : « chaque année » (plein), « montée
+# progressive jusqu'à la fin du mandat » (rampe), « une seule année » (annee).
+# UN seul mécanisme, au niveau du cadre : les handlers reçoivent toujours le
+# niveau de l'année (point unique mesures_de_l_annee) ; la rampe v0.7.0 en est
+# un cas particulier (alias, mêmes sorties au bit).
+# Clés éligibles : celles de la rampe générique, les dix-sept paramètres en
+# Md€ de la release E (contrat § 2.1), quatre taux ou niveaux qu'un programme
+# écrit avec une montée progressive (PROFILS_TAUX_ET_NIVEAUX) et les deux
+# coefficients d'indexation, pour un gel d'une seule année
+# (PROFILS_INDEXATIONS). Les autres taux et les durées basculent sans profil.
+#
+# Taux et niveaux (revue adverse de la release E ; règle du mainteneur : on
+# suit le calendrier écrit par le programme) : cotisations salariales
+# (points), cotisations patronales (taux), salaires des enseignants (%), budget
+# chômage en montant. Formes admises : « plein » et « rampe » (interpolation
+# linéaire entre le droit en vigueur de l'année et la cible, cible exacte en
+# 2032) ; leurs effets ponctuels sont émis en incréments. « Une seule année »
+# est refusée : une réforme de niveau qui s'annule l'année suivante n'est pas
+# un calendrier de programme. (Le handler des cotisations salariales, qui
+# sortait avant de rendre son effet ponctuel au retour à 0, le rend depuis la
+# contre-vérification m4.) Effets ponctuels qui lisent la masse salariale de
+# l'année (compétitivité) : cumul dépendant du chemin sous une rampe, limite
+# dite dans METHODOLOGIE (contre-vérification m3).
+PROFILS_TAUX_ET_NIVEAUX = frozenset({
+    'cotisations_salariales.baisse_points', 'cotisations_patronales.taux',
+    'education.salaires', 'chomage_alloc.montant',
+})
+# Coefficients d'indexation des pensions et des prestations sociales (décision
+# du mainteneur du 12/11/2026 : gel d'UNE année, revalorisation normale
+# ensuite). Le coefficient s'applique à la revalorisation de l'année ; les
+# handlers gardent le coefficient de chaque revalorisation écoulée, si bien
+# qu'un gel d'une année laisse un écart de NIVEAU permanent (aucun rattrapage)
+# et que le retour à la pleine indexation ne rend rien. Formes admises :
+# « plein » et « une seule année ». La rampe n'est pas ouverte : une montée
+# progressive du coefficient n'est pas un calendrier qu'un programme écrit (il
+# écrit un gel ou une sous-indexation, pour une ou plusieurs années).
+PROFILS_INDEXATIONS = frozenset({
+    'retraites.indexation', 'prestations_indexation.taux_indexation',
+})
+PROFILS_ELIGIBLES = RAMPE_LEVIERS_ELIGIBLES | PROFILS_TAUX_ET_NIVEAUX | PROFILS_INDEXATIONS | frozenset({
+    'depenses_publiques.credits_etat', 'depenses_publiques.ondam',
+    'depenses_publiques.transferts_capital',
+    'prestations_menages.solidarite', 'prestations_menages.pensions',
+    'transferts_etranger.montant', 'droits_succession.variation',
+    'fiscalite_capital.rendement_md',
+    'multinationales.benefices_recuperes', 'multinationales.rendement_tsn_md',
+    'operations_financieres.rendement_ttf_md', 'operations_financieres.rachats_actions',
+    'operations_financieres.crypto_actifs',
+    'fiscalite_indirecte.tva_ciblee', 'fiscalite_indirecte.accises_energie',
+    'impot_revenu_cible.montant', 'recette_exceptionnelle.montant',
+})
+FORMES_PROFIL = ('plein', 'rampe', 'annee')
+_PROFIL_CLES = frozenset({'forme', 'annee', 'annees'})
+# Une recette exceptionnelle ne s'applique qu'UNE année : seule la forme
+# « annee » est admise, et c'est son défaut, à l'année de début (règle 4.2-k du
+# plan consolidé) ; en mode historique (aucun calendrier), elle est refusée.
+CLE_RECETTE_EXCEPTIONNELLE = 'recette_exceptionnelle.montant'
+# Formes admises par clé, quand elles diffèrent de FORMES_PROFIL.
+FORMES_ADMISES = {CLE_RECETTE_EXCEPTIONNELLE: ('annee',),
+                  **{cle: ('plein', 'rampe') for cle in PROFILS_TAUX_ET_NIVEAUX},
+                  **{cle: ('plein', 'annee') for cle in PROFILS_INDEXATIONS}}
+# Leviers qu'une demande non neutre fait refuser en mode historique (source
+# unique pour les outils qui essaient chaque levier : mini-scénarios
+# standalone, balayages ; ils les simulent en mode cadre).
+LEVIERS_REFUSES_EN_MODE_HISTORIQUE = frozenset({CLE_RECETTE_EXCEPTIONNELLE.split('.')[0]})
+
+
+@dataclass(frozen=True)
+class Profil:
+    """Profil validé d'un paramètre. ``annees`` : durée de rampe explicite
+    (alias ``rampe`` v0.7.0 ; facultatif, réservé à la compatibilité) ; sans
+    elle, une rampe finit en ``ANNEE_FIN_MANDAT``. Dans ``profils`` comme dans
+    l'alias, ``annees`` est borné pour finir au plus tard en
+    ``ANNEE_FIN_MANDAT`` (``_lire_profil``, ``normaliser_rampe``)."""
+    forme: str
+    annee: Optional[int] = None
+    annees: Optional[int] = None
+
+    def publier(self) -> Dict:
+        out = {'forme': self.forme}
+        if self.forme == 'annee':
+            out['annee'] = self.annee
+        if self.annees is not None:
+            out['annees'] = self.annees
+        return out
+
+
+def _entier(v) -> bool:
+    return isinstance(v, numbers.Integral) and not isinstance(v, bool)
+
+
+def _annees_hors_borne(annees: int, annees_max: int):
+    """Durée de rampe entière hors de [RAMPE_ANNEES_MIN ; ``annees_max``] (la
+    rampe finit au plus tard en ``ANNEE_FIN_MANDAT``) : ``(message, borne)``,
+    sinon ``None``. SOURCE UNIQUE du profil « rampe » et de l'alias ``rampe``
+    (relecture adverse finale, m-c) : même domaine, même message, même borne
+    en tolérant."""
+    if RAMPE_ANNEES_MIN <= annees <= annees_max:
+        return None
+    return (f"annees = {_apercu(annees)} hors de [{RAMPE_ANNEES_MIN} ; {annees_max}] (la rampe "
+            f"finit au plus tard en {ANNEE_FIN_MANDAT})",
+            min(max(annees, RAMPE_ANNEES_MIN), annees_max))
+
+
+def _lire_profil(cle, brut, debut: int):
+    """``Profil`` d'une entrée valide, ``(Profil, texte)`` d'une durée de
+    rampe entière hors de sa borne (profil ramené à la borne ; le texte dit le
+    défaut, pour le refus strict ou la correction tracée), ou le texte (borné)
+    du défaut d'une entrée invalide."""
+    if not isinstance(cle, str) or cle not in PROFILS_ELIGIBLES:
+        return (f"{_apercu_nom(cle)} : paramètre non éligible ou inconnu (éligibles : montants en "
+                f"Md€, quatre taux ou niveaux et deux coefficients d'indexation, engine/cadre.py, "
+                f"PROFILS_ELIGIBLES)")
+    if not isinstance(brut, dict):
+        return f"{cle} : objet {{forme, annee?}} attendu, reçu {_apercu(brut)}"
+    inconnues = sorted(_apercu_nom(c) for c in set(brut) - _PROFIL_CLES)
+    if inconnues:
+        return f"{cle} : clé(s) inconnue(s) {_resume(inconnues)}"
+    forme = brut.get('forme')
+    if not isinstance(forme, str) or forme not in FORMES_PROFIL:
+        return f"{cle} : forme {_apercu(forme)} inconnue (plein, rampe ou annee)"
+    if cle == CLE_RECETTE_EXCEPTIONNELLE and forme != 'annee':
+        return (f"{cle} : seule la forme « annee » est admise pour une recette d'une seule année "
+                f"(reçu « {forme} »)")
+    if forme not in FORMES_ADMISES.get(cle, FORMES_PROFIL):
+        if cle in PROFILS_INDEXATIONS:
+            return (f"{cle} : forme « {forme} » non admise pour un coefficient d'indexation "
+                    f"(admises : {', '.join(FORMES_ADMISES[cle])} ; le coefficient s'applique à la "
+                    f"revalorisation de chaque année, une rampe du coefficient n'est pas un calendrier "
+                    f"de programme)")
+        return (f"{cle} : forme « {forme} » non admise pour un taux ou un niveau (admises : "
+                f"{', '.join(FORMES_ADMISES[cle])} ; une réforme de niveau ne s'annule pas l'année "
+                f"suivante)")
+    annee, annees = brut.get('annee'), brut.get('annees')
+    if forme == 'annee':
+        if annee is None:
+            return f"{cle} : annee requise pour la forme « annee »"
+        if not _entier(annee):
+            return (f"{cle} : annee = {_apercu(annee)} : année entière attendue dans "
+                    f"[{debut} ; {ANNEE_FIN_MANDAT}]")
+        if not debut <= annee <= ANNEE_FIN_MANDAT:
+            return f"{cle} : annee = {int(annee)} hors de [{debut} ; {ANNEE_FIN_MANDAT}]"
+    elif annee is not None:
+        return f"{cle} : annee interdite pour la forme « {forme} » (seulement pour « annee »)"
+    hors_borne = None
+    if annees is not None:
+        if forme != 'rampe':
+            return f"{cle} : annees réservé à la forme « rampe »"
+        # Une rampe finit au plus tard en ANNEE_FIN_MANDAT (revue adverse de la
+        # release E) : début + annees − 1 ≤ 2032 ; l'alias ``rampe`` v0.7.0 suit
+        # la même borne (contre-vérification m5, normaliser_rampe). Une durée
+        # entière hors de la borne est ramenée à la borne en tolérant, comme
+        # pour l'alias (relecture adverse finale, m-c ; avant : profil ignoré,
+        # programme en plein dès le début) ; une durée non entière est refusée.
+        annees_max = max(RAMPE_ANNEES_MIN, min(RAMPE_ANNEES_MAX, ANNEE_FIN_MANDAT - debut + 1))
+        if not _entier(annees):
+            return (f"{cle} : annees = {_apercu(annees)} : entier attendu dans "
+                    f"[{RAMPE_ANNEES_MIN} ; {annees_max}] (la rampe finit au plus tard en "
+                    f"{ANNEE_FIN_MANDAT})")
+        hors_borne = _annees_hors_borne(int(annees), annees_max)
+        if hors_borne is not None:
+            annees = hors_borne[1]
+    profil = Profil(forme=forme, annee=int(annee) if forme == 'annee' else None,
+                    annees=None if annees is None else int(annees))
+    return profil if hors_borne is None else (profil, f"{cle} : {hors_borne[0]}")
+
+
+def normaliser_profils(valeur, *, mode_cadre: bool, debut: int, strict: bool,
+                       warned: Optional[set] = None,
+                       corrections: Optional[dict] = None) -> Dict[str, Profil]:
+    """Profils validés ``{"levier.parametre": Profil}`` (``{}`` sans profil).
+
+    Même contrat dual que ``normaliser_rampe`` : strict, ``ProfilInvalide`` au
+    premier défaut ; tolérant, l'entrée fautive est ignorée (les autres sont
+    gardées), WARNING une fois et correction tracée (``report.valid =
+    false``). Profils non vides en mode historique : refusés en bloc. TAILLE
+    BORNÉE (parité avec la rampe, revue de sécurité) : au plus
+    ``len(PROFILS_ELIGIBLES)`` entrées, sinon rejet sans parcourir."""
+    if valeur is None or (isinstance(valeur, dict) and not valeur):
+        return {}
+    cle = ('cadre', 'profils')
+
+    def refus(message, sous_cle):
+        if strict:
+            raise ProfilInvalide(f"profils : {message} (mode BUDGETLAB_STRICT)")
+        _signaler(warned, corrections, f"profils : {message}", cle=cle + (sous_cle,))
+        return {}
+
+    if not mode_cadre:
+        return refus(f"un calendrier exige annee_debut dans [2027 ; {ANNEE_DEBUT_MAX}] (mode "
+                     f"historique : programme dès {POLICY_START_YEAR}, sans calendrier) — profils "
+                     f"ignorés", 'mode')
+    if not isinstance(valeur, dict):
+        return refus(f"objet {{\"levier.parametre\": {{forme, annee?}}}} attendu, reçu "
+                     f"{type(valeur).__name__} — profils ignorés", 'forme')
+    n_max = len(PROFILS_ELIGIBLES)
+    if len(valeur) > n_max:
+        return refus(f"{len(valeur)} entrées pour {n_max} paramètres éligibles au plus "
+                     f"(engine/cadre.py, PROFILS_ELIGIBLES) — profils ignorés", 'taille')
+    retenus, defauts, ramenes = {}, [], []
+    for cle_profil, brut in valeur.items():
+        lu = _lire_profil(cle_profil, brut, debut)
+        if isinstance(lu, tuple):
+            # Durée de rampe hors de sa borne : refus en strict, ramenée à la
+            # borne et tracée en tolérant (comme l'alias, m-c).
+            profil, texte = lu
+            if strict:
+                raise ProfilInvalide(f"profils : {texte} (mode BUDGETLAB_STRICT)")
+            ramenes.append(f"{texte} — ramenée à {profil.annees}")
+            retenus[cle_profil] = profil
+        elif isinstance(lu, Profil):
+            retenus[cle_profil] = lu
+        elif strict:
+            raise ProfilInvalide(f"profils : {lu} (mode BUDGETLAB_STRICT)")
+        else:
+            defauts.append(lu)
+    if defauts:
+        _signaler(warned, corrections, f"profils : entrée(s) ignorée(s) — {_resume(defauts)}",
+                  cle=cle + ('entrees',))
+    if ramenes:
+        _signaler(warned, corrections, f"profils : durée de rampe ramenée — {_resume(ramenes)}",
+                  cle=cle + ('annees',))
+    return retenus
+
+
+def _sans_recette_exceptionnelle(programme: Dict, *, strict: bool, warned: Optional[set],
+                                 corrections: Optional[dict]) -> Dict:
+    """Mode historique : une recette exceptionnelle (une seule année, calendrier
+    obligatoire) est refusée — strict ``ProfilInvalide``, tolérant levier
+    retiré (jamais évalué) et correction tracée. Seul un MONTANT demandé (un
+    nombre fini différent du neutre) est refusé : un bloc au neutre ne demande
+    rien, et un nom inconnu ou une valeur non numérique restent aux portes des
+    noms et des valeurs, qui les qualifient (objet identique)."""
+    levier, param = CLE_RECETTE_EXCEPTIONNELLE.split('.')
+    bloc = programme.get(levier)
+    montant = bloc.get(param) if isinstance(bloc, dict) else None
+    if (not _nombre(montant) or not _est_fini(montant)
+            or montant == NEUTRES_RELEASE_E[levier][param]):
+        return programme
+    message = (f"{levier} : une recette d'une seule année exige annee_debut dans [2027 ; "
+               f"{ANNEE_DEBUT_MAX}] (mode historique : aucun calendrier) — levier ignoré")
+    if strict:
+        raise ProfilInvalide(f"{message} (mode BUDGETLAB_STRICT)")
+    _signaler(warned, corrections, message, cle=('cadre', 'recette_exceptionnelle'))
+    return {k: v for k, v in programme.items() if k != levier}
+
+
+@dataclass(frozen=True)
+class Segment:
+    """Valeur datée d'un paramètre du droit en vigueur : de ``de`` à ``a``
+    inclus (``a`` absent : segment ouvert, le dernier), avec sa source."""
+    de: int
+    a: Optional[int]
+    valeur: float
+    source: str
+
+    def contient(self, annee: int) -> bool:
+        return self.de <= annee and (self.a is None or annee <= self.a)
+
+
 @dataclass(frozen=True)
 class DroitEnVigueur:
-    """Jeu de paramètres appliqué avant ``annee_debut`` (donnée serveur validée)."""
+    """Jeu de paramètres appliqué avant ``annee_debut`` (donnée serveur validée).
+
+    ``valeurs_datees`` (release E, W1, contrat § 5.3) : ``{levier: {paramètre:
+    (Segment, …)}}``, segments contigus de 2026 à un dernier segment ouvert ;
+    vide quand le fichier n'en porte pas (E est livré sans valeur datée)."""
     identifiant: str
     libelle: str
     source: str
     date: str
     mesures: Dict
+    valeurs_datees: Dict = field(default_factory=dict)
 
     def meta(self) -> Dict:
         return {'identifiant': self.identifiant, 'libelle': self.libelle,
@@ -295,7 +592,70 @@ def _droit_en_vigueur_valide() -> DroitEnVigueur:
         raise _defaut_serveur("champ 'mesures' : dict de leviers non vide attendu")
     valider_mesures_serveur(mesures, 'mesures')
     valider_droit_composable(mesures, 'mesures')
-    return DroitEnVigueur(**{c: contenu[c] for c in _CHAMPS_TEXTE_DROIT}, mesures=mesures)
+    datees = _lire_valeurs_datees(mesures, contenu.get('valeurs_datees', {}))
+    return DroitEnVigueur(**{c: contenu[c] for c in _CHAMPS_TEXTE_DROIT}, mesures=mesures,
+                          valeurs_datees=datees)
+
+
+_SEGMENT_CLES = frozenset({'de', 'a', 'valeur', 'source'})
+
+
+def _lire_valeurs_datees(mesures: Dict, brut) -> Dict:
+    """Valeurs datées validées (release E, W1, contrat § 5.3), ou ``{}``.
+
+    Chaque ``levier.parametre`` daté est inscrit dans ``mesures`` ; ses
+    segments sont contigus, le premier commence en ``POLICY_START_YEAR``, le
+    dernier est ouvert (sans ``a``), chacun porte une source (texte non vide) ;
+    chaque valeur passe les portes d'entrée sans correction et le droit qui en
+    résulte reste composable. Tout défaut : ``RuntimeError`` (donnée serveur,
+    500), jamais une correction silencieuse."""
+    if brut == {}:
+        return {}
+    if not isinstance(brut, dict):
+        raise _defaut_serveur("valeurs_datees : dict {levier: {paramètre: [segments]}} attendu")
+    lues = {}
+    for levier, params in brut.items():
+        if levier not in mesures or not isinstance(params, dict) or not params:
+            raise _defaut_serveur(f"valeurs_datees.{_apercu_nom(levier)} : levier inscrit dans "
+                                  f"'mesures' et bloc de paramètres non vide attendus")
+        for param, segments in params.items():
+            chemin = f"valeurs_datees.{levier}.{_apercu_nom(param)}"
+            if param not in mesures[levier]:
+                raise _defaut_serveur(f"{chemin} : paramètre absent de mesures.{levier}")
+            if not isinstance(segments, list) or not segments:
+                raise _defaut_serveur(f"{chemin} : liste de segments non vide attendue")
+            lus = []
+            for i, seg in enumerate(segments):
+                ici = f"{chemin}[{i}]"
+                if not isinstance(seg, dict) or set(seg) - _SEGMENT_CLES:
+                    raise _defaut_serveur(f"{ici} : objet {{de, a?, valeur, source}} attendu")
+                de, a = seg.get('de'), seg.get('a')
+                if not _entier(de) or (a is not None and not _entier(a)):
+                    raise _defaut_serveur(f"{ici} : de et a entiers attendus")
+                source = seg.get('source')
+                if not isinstance(source, str) or not source.strip():
+                    raise _defaut_serveur(f"{ici} : source manquante ou vide")
+                if i == 0 and de != POLICY_START_YEAR:
+                    raise _defaut_serveur(f"{ici} : le premier segment commence en "
+                                          f"{POLICY_START_YEAR} (reçu {de})")
+                if i > 0 and de != lus[-1].a + 1:
+                    raise _defaut_serveur(f"{ici} : segments non contigus ({lus[-1].a} puis {de})")
+                dernier = i == len(segments) - 1
+                if dernier and a is not None:
+                    raise _defaut_serveur(f"{ici} : le dernier segment est ouvert (sans a)")
+                if not dernier and (a is None or a < de):
+                    raise _defaut_serveur(f"{ici} : a ≥ de attendu pour un segment fermé")
+                valeur = seg.get('valeur')
+                if not _nombre(valeur):
+                    raise _defaut_serveur(f"{ici} : valeur numérique attendue (reçu {_apercu(valeur)})")
+                valider_mesures_serveur({levier: {**mesures[levier], param: valeur}}, ici)
+                lus.append(Segment(de=int(de), a=None if a is None else int(a), valeur=valeur,
+                                   source=source))
+            lues.setdefault(levier, {})[param] = tuple(lus)
+    for annee in sorted({s.de for p in lues.values() for segs in p.values() for s in segs}):
+        valider_droit_composable(droit_de_l_annee(mesures, None, annee, lues),
+                                 f"valeurs_datees ({annee})")
+    return lues
 
 
 # Canaux lus HORS des handlers, par des lecteurs latéraux qui n'ont pas de
@@ -337,6 +697,20 @@ def valider_droit_composable(mesures: Dict, origine: str) -> None:
                     f"moteur ({'absent' if defaut is None else defaut!r}) sur un canal lu hors "
                     f"des handlers (composition des horloges non implémentée pour ce "
                     f"lecteur — engine/cadre.py, CANAUX_LATERAUX_HORS_HANDLERS)")
+    # Exclusions mutuelles (release E, W1) : elles sont appliquées au programme
+    # de l'appelant, à la porte d'entrée. Un droit en vigueur qui remplirait
+    # LUI-MÊME une condition d'exclusion la ferait hériter en silence par un
+    # programme qui pose l'autre levier : refusé (composition non implémentée).
+    for regle, spec in EXCLUSIONS_MUTUELLES.items():
+        for condition in spec['conditions']:
+            levier, param = condition[0], condition[1]
+            bloc = mesures.get(levier)
+            if (isinstance(bloc, dict) and bloc.get(param) is not None
+                    and condition_d_exclusion_vraie(mesures, regle, spec, condition)):
+                raise _defaut_serveur(
+                    f"{origine} : {levier}.{param} = {bloc[param]!r} remplit une condition de "
+                    f"l'exclusion {regle} (constants.EXCLUSIONS_MUTUELLES) : un programme qui "
+                    f"pose l'autre levier l'hériterait sans contrôle (non implémenté)")
 
 
 def normaliser_annee_debut(valeur, *, strict: bool, warned: Optional[set] = None,
@@ -382,6 +756,37 @@ def _signaler(warned: Optional[set], corrections: Optional[dict], texte: str,
             warned.add(cle)
     if corrections is not None:
         corrections.setdefault(cle, texte)
+
+
+def retirer_blocs_neutres(programme: Dict, droit_en_vigueur: Dict) -> Dict:
+    """Programme sans les blocs AU NEUTRE des leviers absents du droit en
+    vigueur, lus comme un ``null`` (contrat de la release E, § 2.1 « Neutres » ;
+    règle avancée au commit socle, que le chantier W1 hérite avec son test).
+
+    Sans elle, un tel bloc ne change aucune trajectoire mais entre dans
+    ``leviers_modifies`` et ``mesures_effectives`` (et déclenche la composition
+    à trois mondes) : la neutralité au bit du RAPPORT (test G1) ne tiendrait pas
+    en mode cadre.
+
+    Portée : les seuls leviers dont le moteur définit le neutre,
+    ``constants.NEUTRES_RELEASE_E`` ; tout autre levier garde la règle v0.7.2
+    (un bloc présent est appliqué, même égal au défaut du moteur). Un bloc est
+    neutre si chacune de ses valeurs est ``null`` (absente) ou un nombre égal au
+    neutre du paramètre ; un bloc vide l'est donc ; une clé de mode exclusif
+    (``rendement_*``, neutre = clé absente) ne l'est jamais. Rien n'est signalé :
+    le bloc ne demandait rien. Programme renvoyé tel quel (même objet) quand
+    aucun bloc n'est retiré."""
+    def neutre(levier, bloc) -> bool:
+        reference = NEUTRES_RELEASE_E.get(levier)
+        return (reference is not None and levier not in droit_en_vigueur
+                and isinstance(bloc, dict)
+                and all(v is None or (p in reference and _nombre(v) and v == reference[p])
+                        for p, v in bloc.items()))
+
+    retires = {levier for levier, bloc in programme.items() if neutre(levier, bloc)}
+    if not retires:
+        return programme
+    return {levier: bloc for levier, bloc in programme.items() if levier not in retires}
 
 
 def heriter_du_droit(programme: Dict, droit_en_vigueur: Dict) -> Dict:
@@ -475,7 +880,15 @@ class EtatCadre:
     """Champs du MODE CADRE (revue passe 1) : tous présents dès que le mode est
     établi, jamais optionnels ; absents en mode historique, où
     ``CadreTemporel.etat`` vaut ``None``. Un seul test, ``actif``. Gelé : une
-    simulation lit son cadre, elle ne le réécrit jamais."""
+    simulation lit son cadre, elle ne le réécrit jamais.
+
+    Release E (W1) : ``profils`` (validés, défaut de la recette exceptionnelle
+    compris), ``origines`` (horloge de chaque levier modifié : première année
+    où il s'écarte du droit en vigueur), ``mesures_par_annee`` (années du
+    programme où un calendrier ou une valeur datée fait varier les mesures ;
+    au-delà de la dernière clé, les mesures de la dernière) et
+    ``droit_apres_debut`` (droit en vigueur des années postérieures au début
+    où une valeur datée change)."""
     droit: DroitEnVigueur
     droit_vote: Dict
     mesures_droit: Dict
@@ -485,7 +898,17 @@ class EtatCadre:
     rampe: Optional[Rampe] = None
     leviers_rampes: Tuple[str, ...] = ()
     leviers_ignores: Tuple[str, ...] = ()
-    mesures_rampe: Optional[Dict[int, Dict]] = None
+    mesures_par_annee: Optional[Dict[int, Dict]] = None
+    droit_apres_debut: Dict[int, Dict] = field(default_factory=dict)
+    profils: Dict[str, Profil] = field(default_factory=dict)
+    references: Dict[str, float] = field(default_factory=dict)
+    origines: Dict[str, int] = field(default_factory=dict)
+
+    def vote_de_l_annee(self, annee: int) -> Dict:
+        """Budget voté de ``annee`` (valeurs datées comprises, réajustements de
+        l'atterrissage non compris) : la référence « voté » de la
+        décomposition des réajustements."""
+        return droit_de_l_annee(self.droit_vote, None, annee, self.droit.valeurs_datees)
 
 
 @dataclass(frozen=True)
@@ -499,19 +922,35 @@ class CadreTemporel:
 
     @classmethod
     def preparer(cls, programme: Dict, annee_debut, *, droit: Optional[DroitEnVigueur] = None,
-                 rampe=None, strict: bool = False, warned: Optional[set] = None,
+                 rampe=None, profils=None, strict: bool = False, warned: Optional[set] = None,
                  corrections: Optional[dict] = None,
                  avis: Optional[dict] = None) -> 'CadreTemporel':
         """``programme`` : mesures de l'appelant APRÈS la porte d'entrée
         (``assainir_mesures``). ``droit`` : injecté en test, sinon le fichier.
-        ``rampe`` : demande de l'appelant (lot D), validée ici. ``avis`` : avis
+        ``rampe`` : demande de l'appelant (lot D), validée ici ; alias, depuis la
+        release E, d'un profil « rampe » sur chaque levier listé. ``profils`` :
+        calendriers de l'appelant (release E, W1), validés ici. ``avis`` : avis
         informatifs (``report.warnings`` sans toucher ``report.valid``)."""
         debut = normaliser_annee_debut(annee_debut, strict=strict, warned=warned,
                                        corrections=corrections)
         historique = debut is None or debut == POLICY_START_YEAR
+        if not historique and rampe is not None and profils is not None and profils != {}:
+            # Un seul calendrier par requête : ``profils`` (forme de la release
+            # E) prime sur l'alias ``rampe``.
+            message = ("profils : rampe et profils fournis ensemble — un seul calendrier par "
+                       "requête, profils retenu, rampe ignorée")
+            if strict:
+                raise ProfilInvalide(f"{message} (mode BUDGETLAB_STRICT)")
+            _signaler(warned, corrections, message, cle=('cadre', 'profils', 'rampe'))
+            rampe = None
         rampe_effective = normaliser_rampe(rampe, mode_cadre=not historique, strict=strict,
-                                           warned=warned, corrections=corrections)
+                                           warned=warned, corrections=corrections,
+                                           debut=None if historique else debut)
         if debut is None or debut == POLICY_START_YEAR:
+            normaliser_profils(profils, mode_cadre=False, debut=POLICY_START_YEAR, strict=strict,
+                               warned=warned, corrections=corrections)
+            programme = _sans_recette_exceptionnelle(programme, strict=strict, warned=warned,
+                                                     corrections=corrections)
             return cls(annee_debut=POLICY_START_YEAR, programme=programme)
         droit = droit if droit is not None else charger_droit_en_vigueur()
         atterrissage = charger_atterrissage()
@@ -529,32 +968,72 @@ class CadreTemporel:
             _signaler(warned, corrections, message + f" — ramenée à {derniere + 1}",
                       cle=('cadre', 'annee_debut_atterrissage'))
             debut = derniere + 1
+        profils_valides = normaliser_profils(profils, mode_cadre=True, debut=debut, strict=strict,
+                                             warned=warned, corrections=corrections)
         # Copie PAR SIMULATION (le droit injecté en test n'est jamais altéré).
         droit_vote = copy.deepcopy(droit.mesures)
-        droit_par_annee = {an: droit_reajuste(droit_vote, atterrissage, an)
+        datees = droit.valeurs_datees
+        droit_par_annee = {an: droit_de_l_annee(droit_vote, atterrissage, an, datees)
                            for an in range(POLICY_START_YEAR, debut)}
-        # Droit en vigueur au début (et ensuite) : réajustements compris.
-        mesures_droit = droit_reajuste(droit_vote, atterrissage, debut)
+        # Droit en vigueur au début : réajustements et valeurs datées compris.
+        mesures_droit = droit_de_l_annee(droit_vote, atterrissage, debut, datees)
+        # Ensuite, le même, sauf aux années où une valeur datée change (une
+        # mesure votée pour un an ne se reconduit pas, contrat § 5.3).
+        droit_apres_debut, precedent = {}, mesures_droit
+        for an in sorted({s.de for p in datees.values() for segs in p.values() for s in segs
+                          if s.de > debut}):
+            courant = droit_de_l_annee(droit_vote, atterrissage, an, datees)
+            if courant != precedent:
+                droit_apres_debut[an] = precedent = courant
+        # Un bloc au neutre d'un levier absent du droit est un ``null``.
+        programme = retirer_blocs_neutres(programme, mesures_droit)
         effectif = heriter_du_droit(programme, mesures_droit)
         if avis is not None:
-            _aviser_reajustements_annules(programme, droit_vote, mesures_droit,
-                                          atterrissage, debut, avis)
+            _aviser_reajustements_annules(programme, droit_de_l_annee(droit_vote, None, debut, datees),
+                                          mesures_droit, atterrissage, debut, avis)
         modifies = frozenset(l for l in set(effectif) | set(mesures_droit)
                              if effectif.get(l) != mesures_droit.get(l))
-        rampes, ignores, par_annee = _mesures_rampees(effectif, mesures_droit, debut,
-                                                      rampe_effective)
-        if ignores:
-            # Demande sans effet, lue telle quelle : avis informatif, jamais une
-            # correction (``report.valid`` inchangé).
-            _signaler(warned, avis,
-                      f"rampe : {_resume(list(ignores))} égal(s) au droit en vigueur dans le "
-                      f"programme — rien à ramper, demande sans effet",
-                      cle=('cadre', 'rampe', 'ignores'))
+        # Calendriers : l'alias ``rampe`` (v0.7.0) est un profil « rampe » de
+        # durée ``annees`` sur chaque levier listé ; sinon les profils validés.
+        # La recette exceptionnelle a toujours un profil « une seule année ».
+        if rampe_effective is not None:
+            demandes = {nom: Profil('rampe', annees=rampe_effective.annees)
+                        for nom in rampe_effective.leviers}
+        else:
+            demandes = dict(profils_valides)
+        en_vigueur = dict(demandes)
+        en_vigueur.setdefault(CLE_RECETTE_EXCEPTIONNELLE, Profil('annee', annee=debut))
+        cal = _mesures_profilees(programme, effectif, mesures_droit, droit_apres_debut, debut,
+                                 en_vigueur)
+        sans_effet = tuple(nom for nom in demandes if nom not in cal.actifs)
+        if rampe_effective is not None:
+            rampes = () if rampe_effective.annees == 1 else tuple(
+                nom for nom in demandes if nom in cal.actifs)
+            if sans_effet:
+                # Demande sans effet, lue telle quelle : avis informatif, jamais
+                # une correction (``report.valid`` inchangé).
+                _signaler(warned, avis,
+                          f"rampe : {_resume(list(sans_effet))} égal(s) au droit en vigueur dans "
+                          f"le programme — rien à ramper, demande sans effet",
+                          cle=('cadre', 'rampe', 'ignores'))
+        else:
+            rampes = ()
+            if sans_effet:
+                _signaler(warned, avis,
+                          f"profils : {_resume(list(sans_effet))} égal(s) à la référence (droit en "
+                          f"vigueur ou neutre) dans le programme — calendrier sans effet",
+                          cle=('cadre', 'profils', 'sans_effet'))
+        modifies = modifies | frozenset(cal.origines)
+        origines = {l: cal.origines.get(l, debut) for l in modifies}
         return cls(annee_debut=debut, programme=effectif, etat=EtatCadre(
             droit=droit, droit_vote=droit_vote, mesures_droit=mesures_droit,
             droit_par_annee=droit_par_annee, leviers_modifies=modifies,
             atterrissage=atterrissage, rampe=rampe_effective, leviers_rampes=rampes,
-            leviers_ignores=ignores, mesures_rampe=par_annee))
+            leviers_ignores=sans_effet if rampe_effective is not None else (),
+            mesures_par_annee=cal.par_annee, droit_apres_debut=droit_apres_debut,
+            profils={nom: p for nom, p in en_vigueur.items()
+                     if nom in demandes or nom in cal.actifs},
+            references=cal.references, origines=origines))
 
     @property
     def actif(self) -> bool:
@@ -576,18 +1055,40 @@ class CadreTemporel:
             return self.programme
         if annee < self.annee_debut:
             return etat.droit_par_annee.get(annee, etat.mesures_droit)
-        if etat.mesures_rampe and annee in etat.mesures_rampe:
-            return etat.mesures_rampe[annee]
+        if etat.mesures_par_annee:
+            # Calendriers et valeurs datées (release E, W1) : au-delà de la
+            # dernière année qui varie, les mesures restent celles-ci.
+            return etat.mesures_par_annee[min(annee, max(etat.mesures_par_annee))]
         return self.programme
+
+    def droit_en_vigueur_de(self, annee: int) -> Optional[Dict]:
+        """Droit en vigueur de ``annee`` (mode cadre ; ``None`` en mode
+        historique) : réajusté avant le début ; au début et ensuite, celui du
+        début, sauf aux années où une valeur datée change (release E, W1). Lu
+        par l'orchestrateur pour les mondes « droit » de la composition (le
+        même objet chaque année sans valeur datée : sorties inchangées)."""
+        etat = self.etat
+        if etat is None:
+            return None
+        if annee < self.annee_debut:
+            return etat.droit_par_annee.get(annee, etat.mesures_droit)
+        ruptures = [an for an in etat.droit_apres_debut if an <= annee]
+        return etat.droit_apres_debut[max(ruptures)] if ruptures else etat.mesures_droit
 
     def origines_de_l_annee(self, annee: int) -> Dict[str, int]:
         """Origine d'horloge de chaque levier MODIFIÉ par le programme, à partir
-        du début (lot C) ; ``{}`` avant (et en mode historique) : tous les
-        leviers comptent alors depuis ``POLICY_START_YEAR``. Lue par
+        de son origine (lot C ; release E, W1 : la première année ≥ début où le
+        levier s'écarte du droit en vigueur, le début pour un levier modifié
+        sans calendrier « une seule année ») ; ``{}`` avant le début (et en mode
+        historique) : tous les leviers comptent alors depuis
+        ``POLICY_START_YEAR``. Avant son origine, un levier garde l'horloge
+        2026 dans les deux mondes de la composition, où ses valeurs sont
+        égales : leur écart est nul. Lue par
         ``BudgetSimulatorV45._origine(levier)``."""
         if self.etat is None or annee < self.annee_debut:
             return {}
-        return {levier: self.annee_debut for levier in self.etat.leviers_modifies}
+        return {levier: origine for levier, origine in self.etat.origines.items()
+                if origine <= annee}
 
     def cible(self, annee: int, grandeur: 'Grandeur') -> Optional[float]:
         """Valeur injectée de ``grandeur`` pour ``annee`` (mode cadre), sinon
@@ -676,15 +1177,50 @@ class CadreTemporel:
         return {'version': etat.atterrissage.version, 'date': etat.atterrissage.date,
                 'description': etat.atterrissage.description, 'annees': annees}
 
+    def rapport_profils(self) -> Dict:
+        """Bloc ``cadre.profils`` (release E, W1, contrat § 2.1) : pour chaque
+        calendrier en vigueur, ``forme`` (``annee`` pour la forme « annee »,
+        ``annees`` pour une rampe de durée explicite), ``origine`` (horloge du
+        LEVIER : première année où il s'écarte du droit en vigueur ; ``null``
+        s'il ne s'en écarte jamais) et ``valeurs`` (valeur appliquée chaque
+        année du mandat, du début à ``ANNEE_FIN_MANDAT``). TOUJOURS émis :
+        ``{}`` sans calendrier, et en mode historique (signature de contrat
+        de la release E, § 5.1). Alias ``rampe`` compris."""
+        etat = self.etat
+        if etat is None:
+            return {}
+        out = {}
+        for nom in sorted(etat.profils):
+            levier, param = nom.split('.')
+            reference = etat.references.get(nom)
+            valeurs = {}
+            for an in range(self.annee_debut, ANNEE_FIN_MANDAT + 1):
+                bloc = self.mesures_de_l_annee(an).get(levier)
+                valeur = bloc.get(param) if isinstance(bloc, dict) else None
+                valeurs[str(an)] = reference if valeur is None else valeur
+            out[nom] = {**etat.profils[nom].publier(), 'origine': etat.origines.get(levier),
+                        'valeurs': valeurs}
+        return out
+
     def rapport(self, journal_atterrissage: Optional[Dict] = None,
-                annees_plafond_total=()) -> Dict:
+                annees_plafond_total=(), impact_max: Optional[Tuple[int, float]] = None,
+                filet_croissance=()) -> Dict:
         """Bloc ``cadre`` de la réponse. ``mesures_effectives`` (mode cadre) :
         les mesures appliquées à partir du début, rampe achevée — le droit en
         vigueur RÉAJUSTÉ et, par-dessus, le programme ; pour le statu quo, le
         droit en vigueur réajusté lui-même. ``plafond_total`` : le plafond de
         l'impact total des mesures (``constants.PLAFOND_IMPACT_TOTAL_PIB``,
-        inchangé), sur les écarts au DÉFAUT du moteur, et les années où il
-        mord."""
+        inchangé), sur les écarts au DÉFAUT du moteur, le mode
+        (``constants.PLAFOND_TOTAL_MODE`` : ``reduction`` ou ``avertissement``,
+        signature de contrat de la release E), les années où il est dépassé,
+        l'impact maximal mesuré (avant toute réduction, % du PIB) et son année
+        — ``null`` si le seuil n'est jamais dépassé. ``filet_croissance`` : le
+        filet de la croissance réelle annuelle (``constants.CROISSANCE_FILET_MIN``
+        et ``CROISSANCE_FILET_MAX``, en %), les années où il mord et, pour
+        chacune, la croissance calculée et la croissance retenue (en %, 4
+        décimales) ; même journal que l'avis texte de ``report.warnings``,
+        listes vides si le filet ne mord pas (``bloc_filet_croissance``).
+        ``profils`` : calendriers (``rapport_profils``)."""
         etat = self.etat
         return {
             'mode': self.mode,
@@ -701,47 +1237,191 @@ class CadreTemporel:
             'atterrissage': self.rapport_atterrissage(journal_atterrissage),
             'plafond_total': {'seuil_pct_pib': round(PLAFOND_IMPACT_TOTAL_PIB * 100, 6),
                               'reference': 'defauts_du_moteur',
-                              'annees': list(annees_plafond_total)},
+                              'mode': PLAFOND_TOTAL_MODE,
+                              'annees': list(annees_plafond_total),
+                              'impact_max_pct_pib': (None if impact_max is None
+                                                     else round(impact_max[1], 4)),
+                              'annee_impact_max': None if impact_max is None else impact_max[0]},
+            'filet_croissance': bloc_filet_croissance(filet_croissance),
+            'profils': self.rapport_profils(),
         }
 
 
-def _mesures_rampees(programme: Dict, droit: Dict, debut: int, rampe: Optional[Rampe]):
-    """(leviers effectivement rampés, leviers demandés SANS effet, {année:
-    mesures}) pour les années de rampe non pleines (début … début + n − 2) ;
-    ensuite, le programme lui-même (valeur EXACTE du programme, jamais p_droit +
-    (p − p_droit) × 1). Référence d'un levier absent du droit : le défaut du
-    moteur. Sans effet : paramètre égal à la référence (levier non modifié par
-    le programme) ou non numérique."""
-    if rampe is None:
-        return (), (), None
+def bloc_filet_croissance(ecretages=()) -> Dict:
+    """Bloc ``cadre.filet_croissance`` (release E) : la même information que
+    l'avis du filet de croissance (``report.warnings``), sans phrase à analyser.
+    ``ecretages`` : journal ``(annee, croissance calculée, croissance retenue)``
+    du moteur (fractions), dans l'ordre des années ; publié en %."""
+    lignes = [{'annee': int(annee),
+               'croissance_calculee_pct': round(float(calculee) * 100, 4),
+               'croissance_retenue_pct': round(float(retenue) * 100, 6)}
+              for annee, calculee, retenue in ecretages]
+    return {'borne_min_pct': round(CROISSANCE_FILET_MIN * 100, 6),
+            'borne_max_pct': round(CROISSANCE_FILET_MAX * 100, 6),
+            'annees': [ligne['annee'] for ligne in lignes],
+            'ecretages': lignes}
+
+
+@dataclass(frozen=True)
+class Calendrier:
+    """Résultat de ``_mesures_profilees``."""
+    actifs: Tuple[str, ...]
+    par_annee: Optional[Dict[int, Dict]]
+    references: Dict[str, float]
+    origines: Dict[str, int]
+
+
+def reference_du_profil(levier: str, param: str, droit: Dict):
+    """Référence ``p_ref`` d'un paramètre profilé (contrat § 2.1) : sa valeur
+    dans le droit en vigueur ``droit`` (celui de l'année calculée, le droit du
+    début pour la référence publiée) ; à défaut, son neutre
+    (``NEUTRES_RELEASE_E``) ; à défaut, le défaut du moteur
+    (``config.load_default_values``) ; pour la clé dominante d'un mode exclusif
+    en Md€ (``rendement_*``, dont le neutre est l'ABSENCE de la clé), 0 :
+    un rendement nul est la recette du neutre [INTERPRÉTATION : au neutre,
+    ΔR = 0 dans les deux modes]. ``None`` si aucune n'existe.
+
+    Budget chômage en MONTANT (contre-vérification m2) : le droit l'écrit en
+    TAUX de remplacement ; la référence est alors le montant équivalent à ce
+    taux, par la formule du handler (``MONTANT_REF × (taux / TAUX_REF)``,
+    ``_apply_chomage_alloc``), jamais le défaut du moteur — 36,6 exactement au
+    droit livré (taux de référence)."""
+    bloc = droit.get(levier)
+    if isinstance(bloc, dict) and param in bloc:
+        return bloc[param]
+    if ((levier, param) == ('chomage_alloc', 'montant') and isinstance(bloc, dict)
+            and _nombre(bloc.get('taux_remplacement'))):
+        return CHOMAGE_MONTANT_REF_MD * (bloc['taux_remplacement'] / CHOMAGE_TAUX_REF)
+    if param in NEUTRES_RELEASE_E.get(levier, {}):
+        return NEUTRES_RELEASE_E[levier][param]
     from ..config import load_default_values
-    defauts = load_default_values()
-    a_ramper, ignores = [], []
-    for nom in rampe.leviers:
+    defauts = load_default_values().get(levier) or {}
+    if param in defauts:
+        return defauts[param]
+    if param in MODES_EXCLUSIFS.get(levier, {}):
+        return 0.0
+    return None
+
+
+def valeur_du_profil(profil: Profil, p_ref, p, annee: int, debut: int):
+    """Valeur appliquée en ``annee`` ≥ ``debut`` (contrat § 2.1) :
+    - ``plein`` : ``p`` ;
+    - ``rampe`` : ``n`` = ``annees`` (alias v0.7.0) ou ``ANNEE_FIN_MANDAT −
+      début + 1`` ; année ``a`` de rang ``k = a − début + 1 < n`` :
+      ``p_ref + (p − p_ref) × k / n`` (arithmétique de la rampe v0.7.0) ;
+      ensuite la valeur EXACTE ``p``, jamais ``p_ref + (p − p_ref) × 1`` ;
+    - ``annee`` : ``p`` l'année choisie, ``p_ref`` toutes les autres."""
+    if profil.forme == 'plein':
+        return p
+    if profil.forme == 'annee':
+        return p if annee == profil.annee else p_ref
+    n = profil.annees if profil.annees is not None else ANNEE_FIN_MANDAT - debut + 1
+    k = annee - debut + 1
+    return p if k >= n else p_ref + (p - p_ref) * k / n
+
+
+def _derniere_annee_variable(profil: Profil, debut: int) -> int:
+    """Dernière année où le profil s'écarte de son régime final."""
+    if profil.forme == 'annee':
+        return profil.annee + 1
+    if profil.forme == 'rampe':
+        n = profil.annees if profil.annees is not None else ANNEE_FIN_MANDAT - debut + 1
+        return debut + n - 1
+    return debut
+
+
+def _ecart_au_droit(levier: str, bloc, droit: Dict) -> bool:
+    """Le bloc de l'année s'écarte-t-il du droit en vigueur de l'année ? Levier
+    inscrit au droit : comparaison des blocs ; levier absent du droit :
+    paramètre par paramètre, contre la référence (neutre, défaut ; un
+    paramètre sans référence connue est un écart)."""
+    if not isinstance(bloc, dict):
+        return False
+    reference = droit.get(levier)
+    if isinstance(reference, dict):
+        return bloc != reference
+    for param, valeur in bloc.items():
+        if valeur is None:
+            continue
+        ref = reference_du_profil(levier, param, {})
+        if ref is None or valeur != ref:
+            return True
+    return False
+
+
+def _mesures_profilees(programme: Dict, effectif: Dict, droit: Dict,
+                       droit_apres_debut: Dict[int, Dict], debut: int,
+                       profils: Dict[str, Profil]) -> Calendrier:
+    """Calendriers (release E, W1, contrat § 2.1) : remplace ``_mesures_rampees``
+    (v0.7.0), dont la rampe est un cas particulier au bit.
+
+    ``programme`` : programme de l'appelant (blocs au neutre retirés) ;
+    ``effectif`` : le même par-dessus le droit en vigueur au début (``droit``).
+    Un profil a un EFFET si son paramètre est posé (non ``null``) dans le
+    programme, numérique, et différent de sa référence d'au moins une année.
+    La référence d'une année est le droit en vigueur DE CETTE ANNÉE (revue
+    adverse de la release E) : une valeur datée qui change après le début
+    change la référence du calendrier cette année-là (« une seule année » :
+    le droit de l'année les autres années ; « rampe » : interpolation entre le
+    droit de l'année et la cible). Rend les profils actifs, les mesures des
+    années qui varient (``None`` si aucune : le programme chaque année, comme
+    avant), les références (au début, publiées) et les ORIGINES d'horloge qui
+    ne sont pas le début (leviers à calendrier « une seule année », et
+    leviers dont le droit change après le début)."""
+    def droit_de(an: int) -> Dict:
+        ruptures = [r for r in droit_apres_debut if r <= an]
+        return droit_apres_debut[max(ruptures)] if ruptures else droit
+
+    actifs, references = {}, {}
+    for nom in sorted(profils):
         levier, param = nom.split('.')
         bloc = programme.get(levier)
-        if not isinstance(bloc, dict) or param not in bloc:
-            ignores.append(nom)
-            continue
-        ref_bloc = droit.get(levier)
-        ref_bloc = ref_bloc if isinstance(ref_bloc, dict) else {}
-        p_ref = ref_bloc.get(param, defauts.get(levier, {}).get(param))
-        p_prog = bloc[param]
-        if _nombre(p_ref) and _nombre(p_prog) and p_prog != p_ref:
-            a_ramper.append((nom, levier, param, p_ref, p_prog))
-        else:
-            ignores.append(nom)
-    if not a_ramper or rampe.annees == 1:
-        return (), tuple(ignores), None
+        p = bloc.get(param) if isinstance(bloc, dict) else None
+        p_ref = reference_du_profil(levier, param, droit)
+        if p_ref is not None:
+            references[nom] = p_ref
+        refs = [p_ref] + [reference_du_profil(levier, param, d) for _, d in sorted(droit_apres_debut.items())]
+        if _nombre(p) and all(_nombre(r) for r in refs) and any(p != r for r in refs):
+            actifs[nom] = (levier, param, p_ref, p, profils[nom])
+    # Dernière année qui varie : au-delà, les mesures de cette année valent pour
+    # toutes les suivantes. Aucune (profils « plein », rampe d'un an, pas de
+    # valeur datée après le début) : le programme chaque année, comme avant.
+    variables = [an for an in ([_derniere_annee_variable(prof, debut)
+                                for *_, prof in actifs.values()] + list(droit_apres_debut))
+                 if an > debut]
+    if not variables:
+        return Calendrier(actifs=tuple(actifs), par_annee=None, references=references,
+                          origines={})
+    derniere = max(variables)
     par_annee = {}
-    for k in range(1, rampe.annees):
-        m = dict(programme)
-        for _, levier, param, p_ref, p_prog in a_ramper:
-            bloc = dict(m[levier])
-            bloc[param] = p_ref + (p_prog - p_ref) * k / rampe.annees
-            m[levier] = bloc
-        par_annee[debut + k - 1] = m
-    return tuple(nom for nom, *_ in a_ramper), tuple(ignores), par_annee
+    for an in range(debut, derniere + 1):
+        droit_an = droit_de(an)
+        blocs = {}
+        for levier, param, p_ref, p, profil in actifs.values():
+            # Référence de l'année : le droit de CETTE année (le même objet que
+            # ``droit`` sans valeur datée après le début : sorties inchangées).
+            p_ref_an = p_ref if droit_an is droit else reference_du_profil(levier, param, droit_an)
+            valeur = valeur_du_profil(profil, p_ref_an, p, an, debut)
+            if valeur != p:
+                blocs.setdefault(levier, dict(programme[levier]))[param] = valeur
+        if not blocs and droit_an is droit:
+            par_annee[an] = effectif
+        else:
+            par_annee[an] = heriter_du_droit({**programme, **blocs}, droit_an)
+    # Origine d'horloge : première année où le levier s'écarte du droit de
+    # l'année, pour les leviers qu'un calendrier « une seule année » ou une
+    # valeur datée peut retarder ; les autres leviers modifiés partent au début.
+    a_dater = {levier for levier, _, _, _, profil in actifs.values() if profil.forme == 'annee'}
+    if droit_apres_debut:
+        a_dater |= set(programme)
+    origines = {}
+    for levier in sorted(a_dater):
+        for an in range(debut, derniere + 1):
+            if _ecart_au_droit(levier, par_annee[an].get(levier), droit_de(an)):
+                origines[levier] = an
+                break
+    return Calendrier(actifs=tuple(actifs), par_annee=par_annee, references=references,
+                      origines=origines)
 
 
 # ---------------------------------------------------------------------------
@@ -920,21 +1600,51 @@ def _atterrissage_valide() -> Atterrissage:
                         description=contenu['description'], annees=annees)
 
 
-def droit_reajuste(droit: Dict, atterrissage: Optional[Atterrissage], annee: int) -> Dict:
-    """Droit en vigueur de ``annee`` : le droit voté, et les réajustements des
-    années observées ≤ ``annee`` (ils le suivent ensuite : droit constant).
-    Fusion PARAMÈTRE par paramètre (un réajustement ne porte que ce qui a
-    dérapé) ; résultat validé au chargement."""
-    if atterrissage is None:
-        return droit
+def _segment_de(segments: Tuple[Segment, ...], annee: int) -> int:
+    """Rang du segment qui contient ``annee`` (avant 2026 : le premier)."""
+    for i, segment in enumerate(segments):
+        if segment.contient(annee):
+            return i
+    return 0
+
+
+def droit_de_l_annee(droit: Dict, atterrissage: Optional[Atterrissage], annee: int,
+                     valeurs_datees: Optional[Dict] = None) -> Dict:
+    """Droit en vigueur de ``annee`` (contrat de la release E, § 5.3) : le droit
+    voté, où chaque paramètre DATÉ prend la valeur du segment qui contient
+    ``annee`` ; puis les réajustements des années observées ≤ ``annee`` (ils
+    le suivent ensuite : droit constant), fusion PARAMÈTRE par paramètre (un
+    réajustement ne porte que ce qui a dérapé). Un réajustement de l'année
+    ``y`` sur un paramètre daté ne vaut que dans le segment de ``y`` : une
+    mesure votée pour un an ne se reconduit pas, même réajustée. Sans valeur
+    datée : exactement le droit réajusté v0.7.2 (même objet si rien ne
+    change) ; résultat validé au chargement."""
     out = None
+    for levier, params in (valeurs_datees or {}).items():
+        for param, segments in params.items():
+            out = dict(droit) if out is None else out
+            out[levier] = {**out[levier], param: segments[_segment_de(segments, annee)].valeur}
+    if atterrissage is None:
+        return droit if out is None else out
     for an in sorted(atterrissage.annees):
         if an > annee:
             break
         for levier, params in atterrissage.annees[an].reajustements.items():
+            dates = (valeurs_datees or {}).get(levier, {})
+            retenus = {p: v for p, v in params.items()
+                       if p not in dates or _segment_de(dates[p], an) == _segment_de(dates[p], annee)}
+            if not retenus:
+                continue
             out = dict(droit) if out is None else out
-            out[levier] = {**out[levier], **params}
+            out[levier] = {**out[levier], **retenus}
     return droit if out is None else out
+
+
+def droit_reajuste(droit: Dict, atterrissage: Optional[Atterrissage], annee: int) -> Dict:
+    """Droit en vigueur de ``annee`` SANS valeur datée (v0.7.0 à v0.7.2) :
+    ``droit_de_l_annee`` sans son quatrième argument. Conservé pour les
+    lecteurs existants ; le moteur appelle ``droit_de_l_annee``."""
+    return droit_de_l_annee(droit, atterrissage, annee)
 
 
 # ---------------------------------------------------------------------------

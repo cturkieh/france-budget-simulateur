@@ -10,7 +10,8 @@ Méthodes couvertes :
   retiré en v0.6.7).
 - ``update_potential_growth`` : ajuste la croissance POTENTIELLE
   (hystérèse conjoncturelle + effet d'offre structurel ``SUPPLY_EFFECTS``,
-  cap +0,20 pt).
+  release E, W6 : contributions linéaires par Md€/an, sourcées dans
+  constants.py, saturées en douceur vers le plafond ±0,20 pt).
 
 Constante de classe ``SUPPLY_EFFECTS`` : portée par ce mixin (et non
 plus par ``BudgetSimulatorV45``). Elle était délibérément maintenue sur
@@ -75,8 +76,9 @@ adverse 2026-05-16) : le ``except Exception`` de
 ``update_potential_growth`` est **inatteignable en run normal**. Preuve :
 aucune opération du bloc ne peut lever (``_get_default_values`` =
 return dict littéral pur ; ``.get`` sur dict ; ``isinstance`` neutralise
-les types tordus avant arithmétique ; ``np.log2(1+delta)`` avec
-``delta>0.1`` garanti ⇒ argument > 1.1, jamais d'exception ; depuis v0.6.7
+les types tordus avant arithmétique ; depuis la release E (W6) le calcul
+est ``pente × delta`` puis ``plafond × tanh(Σ / plafond)``, définis et
+bornés pour tout delta fini, jamais d'exception ; depuis v0.6.7
 la valeur passe par la porte ``validate_param_domains`` — non finie →
 défaut, hors domaine → clampée —, exactement comme côté handler). Exception
 connue : un entier hors de la plage des flottants (JSON de 400 chiffres)
@@ -111,7 +113,10 @@ import numpy as np
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
 from ..constants import (
+    CROISSANCE_FILET_MAX,
+    CROISSANCE_FILET_MIN,
     DEBT_DRAG_SEUIL,
+    DEPRECIATION_RD_PUBLIQUE,
     EVICTION_INTENSITE_INVESTISSEMENT,
     EVICTION_SEUIL_DETTE,
     EVICTION_SURCROIT_NON_PRODUCTIF,
@@ -119,6 +124,11 @@ from ..constants import (
     HYSTERESE_POTENTIEL_ECART_HAUT,
     HYSTERESE_POTENTIEL_MARGE_BASSE,
     HYSTERESE_POTENTIEL_MARGE_HAUTE,
+    OFFRE_PENTE_CAPITAL_PUBLIC,
+    OFFRE_PENTE_EDUCATION,
+    OFFRE_PENTE_RD_PUBLIQUE,
+    OFFRE_PENTE_RENOVATION,
+    OFFRE_PLAFOND,
     OUTPUT_GAP_RAPPEL,
     REGIME_DEMI_LARGEUR_CROISSANCE,
 )
@@ -434,6 +444,10 @@ class GrowthMixin:
         }
         for cle in sorted(set(niveaux) | set(self._niveaux_impulsion)):
             m_id, canal = cle
+            # Release E (socle) : flux vers un agent non résident — aucun effet
+            # sur la demande intérieure, donc aucune impulsion (k nul).
+            if m_id in self.MESURES_HORS_DEMANDE_INTERIEURE:
+                continue
             avant = self._niveaux_impulsion.get(cle, 0.0)
             apres = niveaux.get(cle, 0.0)
             troncons = [(avant, 0.0), (0.0, apres)] if avant * apres < 0 else [(avant, apres)]
@@ -543,8 +557,13 @@ class GrowthMixin:
         # de cicatrice car elles améliorent l'offre à long terme.
         # Seuil relevé à 3% PIB et coefficient réduit pour éviter le piège
         # où l'utilisateur ne peut trouver aucune solution viable.
-        if effort_budgetaire > 0.03:
-            severity = effort_budgetaire - 0.03
+        # Effet de DEMANDE : il lit l'effort INTÉRIEUR, net des flux vers un
+        # agent non résident (revue adverse de la release E) ; un appelant qui
+        # ne le fournit pas n'a pas de tel flux (effort intérieur = effort
+        # total). L'éviction, effet de financement, garde l'effort total.
+        effort_interieur = economic_state.get('effort_interieur', effort_budgetaire)
+        if effort_interieur > 0.03:
+            severity = effort_interieur - 0.03
             scarring = -0.10 * severity  # Pas de duration_factor (simplifié)
             scarring = max(scarring, -0.003)  # Cap à -0.3% max par an
             croissance += scarring
@@ -605,7 +624,15 @@ class GrowthMixin:
         # scénario de référence du corridor de la mission (dette 2029 −2,26 pt ;
         # sans lui −0,39). Ne pas réintroduire : une incertitude se publie en
         # variante, pas en tirage caché dans la trajectoire centrale.
-        croissance = np.clip(croissance, -0.035, 0.025)
+        # Filet [CROISSANCE_FILET_MIN ; CROISSANCE_FILET_MAX] (borne de validité
+        # des multiplicateurs linéaires) : chaque écrêtage est consigné, année et
+        # valeur calculée, pour l'avis du rapport (contre-vérification m6 ;
+        # jusque-là, un journal de débogage seulement).
+        calculee = croissance
+        croissance = np.clip(croissance, CROISSANCE_FILET_MIN, CROISSANCE_FILET_MAX)
+        if croissance != calculee and hasattr(self, '_filet_croissance'):
+            self._filet_croissance.append(
+                (self.annee_base + year, float(calculee), float(croissance)))
         if croissance < -0.025:
             _log_debug(self.debug_logs, f"Y{year}: Récession profonde")
         elif croissance > 0.024:
@@ -613,19 +640,35 @@ class GrowthMixin:
 
         return croissance
 
-    # Effet d'offre structurel — constante de classe (pas réallouée chaque appel)
-    # Sources : Khan & Luintel 2006, Bom & Ligthart 2014, FMI 2015/2020,
-    # OCDE/IEA 2014, Hanushek & Woessmann 2010. Rendements décroissants ln(1+x).
+    # Effet d'offre structurel — constante de classe (pas réallouée chaque appel).
+    # Release E (W6, « échelle ») : `pente` = bonus de croissance potentielle
+    # (en taux) par Md€/an d'écart au défaut, source unique constants.py, bloc
+    # « RELEASE E — W6 » (ELASTICITE_*, CAPITAL_*, OFFRE_PENTE_*) : capital
+    # public (Bom & Ligthart 2014 ; INSEE 2025 ; FMI 2015), R&D publique
+    # (Fieldhouse & Mertens 2024 ; INSEE 2025), rénovation (ThreeME, Trésor-Éco
+    # 394 : 0), éducation (convention, délai hors horizon).
+    # Délais et dépréciations : inchangés depuis la v3.1 (Khan & Luintel 2006,
+    # FMI 2015/2020, OCDE/IEA 2014, Hanushek & Woessmann 2010 — non ré-audités).
+    # La dépréciation de la R&D est lue dans DEPRECIATION_RD_PUBLIQUE, dont
+    # dérive aussi le stock CAPITAL_RD_PUBLIC_MD_EUR (inventaire permanent) :
+    # un seul nombre pour le canal et pour sa pente.
+    # Investissement des collectivités (revue adverse de la release E) : capital
+    # public comme l'investissement de l'État, même pente, délai et
+    # dépréciation ; canal distinct (un paramètre n'alimente qu'un canal), dont
+    # la contribution s'ajoute avant la saturation commune.
     SUPPLY_EFFECTS = {
-        'recherche_publique':    {'coeff': 0.0025, 'delay': 5,  'deprec': 0.15, 'param': 'budget',         'measure_id': 'recherche_publique'},
-        'transition_invest':     {'coeff': 0.0020, 'delay': 3,  'deprec': 0.05, 'param': 'investissement',  'measure_id': 'transition_ecologique'},
-        'transition_renovation': {'coeff': 0.0010, 'delay': 2,  'deprec': 0.03, 'param': 'renovation',      'measure_id': 'transition_ecologique'},
-        'education':             {'coeff': 0.0010, 'delay': 15, 'deprec': 0.05, 'param': 'budget',          'measure_id': 'education'},
+        'recherche_publique':    {'pente': OFFRE_PENTE_RD_PUBLIQUE,     'delay': 5,  'deprec': DEPRECIATION_RD_PUBLIQUE, 'param': 'budget', 'measure_id': 'recherche_publique'},
+        'transition_invest':     {'pente': OFFRE_PENTE_CAPITAL_PUBLIC,  'delay': 3,  'deprec': 0.05, 'param': 'investissement',  'measure_id': 'transition_ecologique'},
+        'transition_renovation': {'pente': OFFRE_PENTE_RENOVATION,      'delay': 2,  'deprec': 0.03, 'param': 'renovation',      'measure_id': 'transition_ecologique'},
+        'education':             {'pente': OFFRE_PENTE_EDUCATION,       'delay': 15, 'deprec': 0.05, 'param': 'budget',          'measure_id': 'education'},
+        'collectivites_invest':  {'pente': OFFRE_PENTE_CAPITAL_PUBLIC,  'delay': 3,  'deprec': 0.05, 'param': 'investissement',  'measure_id': 'collectivites'},
     }
 
     def update_potential_growth(self, growth: float, year: int):
         """Ajuste la croissance potentielle : hystérèse + effet d'offre structurel.
-        Cap total +0.20pt. Dépréciation différenciée par type si dépense coupée."""
+        Plafond total ±0,20 pt, atteint asymptotiquement (release E, W6 :
+        contributions linéaires dans le flux, saturation tanh de la somme). Dépréciation
+        différenciée par type si dépense ramenée au défaut."""
 
         # --- Hystérèse conjoncturelle ---
         # ×0,997 si croissance < −2 %, ×1,002 si > 2 % (après l'an 3), à
@@ -679,25 +722,34 @@ class GrowthMixin:
 
                 # v0.6.0 (audit 08/2026) : effet SYMÉTRIQUE. Une coupe sous le
                 # défaut érode la croissance potentielle comme une hausse
-                # l'augmente — même délai, même forme log2, même dépréciation.
+                # l'augmente — même délai, même forme, même dépréciation.
                 # L'élasticité d'output au capital public porte sur le STOCK,
                 # donc joue dans les deux sens par construction (Bom & Ligthart
                 # 2014, méta-analyse 578 estimations, élasticité moyenne 0,106 ;
                 # FMI WEO oct. 2010 ch. 3 ; Fieldhouse & Mertens 2025 pour la
                 # R&D). v0.5.1 ne testait que `delta > 0.1` : les coupes
                 # étaient structurellement gratuites côté offre.
-                # v0.6.7 (lot 3b) : plus de porte à 0,1 Md€. Le bonus vaut
-                # coeff × log2(1 + |delta|), nul en 0 : la porte ne faisait que le
-                # faire naître d'un coup à coeff × log2(1,1) (transition_ecologique
-                # à 0,1 Md€ : −0,80 pt de dette 2035 sur « Budget 2026 (voté) »).
+                # v0.6.7 (lot 3b) : plus de porte à 0,1 Md€. Le bonus est nul en
+                # 0 : la porte ne faisait que le faire naître d'un coup
+                # (transition_ecologique à 0,1 Md€ : −0,80 pt de dette 2035 sur
+                # « Budget 2026 (voté) »).
+                # Release E (W6, échelle) : contribution LINÉAIRE dans le flux
+                # annuel, pente × delta (signée), à la place de
+                # coeff × log2(1 + |delta|) qui saturait le plafond ±0,20 pt dès
+                # |delta| ≈ 1 Md€ — 1 Md€ et 50 Md€ recevaient la même prime
+                # d'offre (revue adverse v0.6.11).
+                # La dépréciation ci-dessous (retour au défaut) porte sur cette
+                # contribution linéaire, la saturation s'appliquant ensuite à la
+                # somme : jamais de dépréciation d'un bonus déjà saturé.
+                # Les rendements décroissants ne sont plus par canal mais sur la
+                # SOMME, par saturation douce vers le plafond (ci-dessous).
+                # Sources et dérivation des pentes : constants.py, OFFRE_PENTE_*.
                 if delta != 0:
                     years_active = self._supply_years.get(key, 0) + 1
                     self._supply_years[key] = years_active
 
                     if years_active >= cfg['delay']:
-                        signe = 1.0 if delta > 0 else -1.0
-                        effective_delta = np.log2(1 + abs(delta))  # rendements décroissants
-                        self._supply_bonus_by_key[key] = signe * cfg['coeff'] * effective_delta
+                        self._supply_bonus_by_key[key] = cfg['pente'] * delta
                 else:
                     # Dépréciation progressive avec coefficient différencié
                     # (symétrique : l'amplitude décroît quel que soit le signe)
@@ -711,10 +763,16 @@ class GrowthMixin:
                     if prev_years > 0:
                         self._supply_years[key] = max(0, prev_years - 1)
 
-            # Cap +0.20pt et plancher symétrique −0.20pt (bornes conventionnelles
-            # assumées, METHODOLOGIE § design)
+            # Plafond +0,20 pt et plancher symétrique −0,20 pt (OFFRE_PLAFOND,
+            # bornes conventionnelles assumées, METHODOLOGIE § design), atteints
+            # ASYMPTOTIQUEMENT (release E, W6) : saturation douce de la somme des
+            # contributions linéaires, plafond × tanh(Σ / plafond) — impaire,
+            # monotone, continue, dérivée 1 à l'origine (les petits montants
+            # restent proportionnels), bornée par construction. Le clip final
+            # est un filet contre l'arithmétique flottante, inerte sinon.
+            somme = float(sum(self._supply_bonus_by_key.values()))
             self._potential_growth_bonus = float(np.clip(
-                sum(self._supply_bonus_by_key.values()), -0.002, 0.002))
+                OFFRE_PLAFOND * np.tanh(somme / OFFRE_PLAFOND), -OFFRE_PLAFOND, OFFRE_PLAFOND))
 
             if abs(self._potential_growth_bonus) > 0.0001:
                 _log_debug(self.debug_logs,

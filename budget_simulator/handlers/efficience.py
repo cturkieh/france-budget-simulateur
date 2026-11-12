@@ -82,6 +82,7 @@ Sous-sections : ``fraude_fiscale`` / ``fraude_sociale`` (lutte fraude),
 puis ``fonction_publique_reforme`` / ``fonction_publique`` /
 ``optimisation_dette`` (Sous-section 1.2 : Efficience Dépenses).
 """
+import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
@@ -396,11 +397,19 @@ class EfficienceMixin(_MixinBase):
         # self.mesures BRUT (pas la porte validate_param_domains des handlers) —
         # un paramètre invalide dans la réforme ne doit ni crasher ni
         # contaminer le handler effectifs qui l'appelle. bool exclu (bool ⊂ int),
-        # NaN exclu (NaN != NaN).
+        # NaN exclu (NaN != NaN). Valeur non finie (±inf) ou entier hors des
+        # flottants : la clé absente, comme la porte des valeurs la traite
+        # (retirée en tolérant, refusée en strict) — relecture adverse finale
+        # de la release E : un entier géant levait ici OverflowError, que l'API
+        # servait en 500 au lieu du 422 de l'entrée invalide.
         def _num(x):
-            if isinstance(x, bool) or not isinstance(x, (int, float)) or x != x:
+            if isinstance(x, bool) or not isinstance(x, (int, float)):
                 return 0.0
-            return float(x)
+            try:
+                valeur = float(x)
+            except OverflowError:
+                return 0.0
+            return valeur if math.isfinite(valeur) else 0.0
 
         fusion = _num(params.get('fusion_agences', 0)) / 10
         digitalisation = _num(params.get('digitalisation', 0)) / 10
@@ -495,7 +504,7 @@ class EfficienceMixin(_MixinBase):
         Base: 5.5M agents, masse salariale 330 Md€, salaire moyen 60k€/an (charges incluses).
         Sources: DGAFP 2024, INSEE 2024."""
 
-        variation_effectifs = params.get('effectifs', 0)  # -100k à +50k
+        variation_effectifs = params.get('effectifs', 0)  # domaine : PARAM_DOMAINS (constants.py)
         hausse_point_indice = params.get('point_indice', 0)  # -2% à +5%
 
         if variation_effectifs == 0 and hausse_point_indice == 0:

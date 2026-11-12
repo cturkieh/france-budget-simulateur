@@ -88,6 +88,7 @@ import os  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 
 from budget_simulator import BudgetSimulatorV45, load_default_values  # noqa: E402
+from budget_simulator.constants import LEVIERS_NON_LIVRES  # noqa: E402
 from budget_simulator.engine._noms_parametres import (  # noqa: E402
     MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS)
 from budget_simulator.engine._param_domain import (  # noqa: E402
@@ -97,14 +98,24 @@ RACINE = Path(__file__).resolve().parent.parent
 CORRIGEE = 'Entrée ou sortie corrigée'
 
 #: (levier, clé dominante, clé ignorée) — TOUS les couples du module généré.
-COUPLES = sorted((mid, dom, cle) for mid, groupes in MODES_EXCLUSIFS.items()
-                 for dom, cles in groupes.items() for cle in cles)
+TOUS_LES_COUPLES = sorted((mid, dom, cle) for mid, groupes in MODES_EXCLUSIFS.items()
+                          for dom, cles in groupes.items() for cle in cles)
+#: Couples EXERCÉS par les tests de comportement : ceux des leviers livrés. Un
+#: levier non livré de la release E (``constants.LEVIERS_NON_LIVRES``, vide avant
+#: tout tag) refuse toute valeur non neutre, mode montant compris : son couple
+#: entre ici quand son chantier le retire de la liste.
+COUPLES = [c for c in TOUS_LES_COUPLES if c[0] not in LEVIERS_NON_LIVRES]
 
 #: Valeur légitime (dans le domaine, non nulle) par clé, pour composer les
 #: blocs : la valeur ne change rien au contrat, seule la présence compte.
 VALEUR = {'intensite': 0.5, 'taux_remplacement': 0.6, 'montant': 30,
           'taux': 0.05, 'seuil_hausse': 1.1, 'tous_secteurs': False,
-          'taux_exoneration': 0.2}
+          'taux_exoneration': 0.2,
+          # Release E, chantier W4 (modes montant et paramètres qu'ils masquent).
+          'rendement_md': 3.0, 'taux_ir_forfaitaire': 0.2,
+          'prelevements_sociaux_capital': 0.2, 'elasticite': 0.5,
+          'rendement_tsn_md': 1.0, 'taux_tsn': 0.05, 'erosion_tsn': 2.0,
+          'rendement_ttf_md': 2.0, 'taux_ttf': 0.006, 'elasticite_volume': 0.1}
 
 
 def _simuler(mesures, periods=3, strict=False):
@@ -120,15 +131,22 @@ def _conflits(mesures):
             if bloc.get(dom) is not None and set(bloc) & cles]
 
 
-def test_module_genere_couvre_les_trois_leviers_connus():
-    """Garde de sens : les trois modes exclusifs de la réfutation sont dérivés
-    (si l'un disparaît, c'est le code qui a changé — le relire)."""
-    assert {(mid, dom) for mid, dom, _ in COUPLES} == {
+def test_module_genere_couvre_les_leviers_connus():
+    """Garde de sens : les trois modes exclusifs de la réfutation et les trois
+    modes montant de la release E (``rendement_md``, ``rendement_tsn_md``,
+    ``rendement_ttf_md``, contrat § 1.2-6 à 1.2-8) sont dérivés (si l'un
+    disparaît, c'est le code qui a changé — le relire)."""
+    assert {(mid, dom) for mid, dom, _ in TOUS_LES_COUPLES} == {
         ('taxe_superprofits', 'intensite'), ('exonerations_salaires', 'intensite'),
-        ('chomage_alloc', 'taux_remplacement')}
-    for mid, dom, cle in COUPLES:
+        ('chomage_alloc', 'taux_remplacement'),
+        ('fiscalite_capital', 'rendement_md'), ('multinationales', 'rendement_tsn_md'),
+        ('operations_financieres', 'rendement_ttf_md')}
+    for mid, dom, cle in TOUS_LES_COUPLES:
         assert {dom, cle} <= NOMS_PARAMETRES_ADMIS[mid], (mid, dom, cle)
-        assert cle in VALEUR and dom in VALEUR
+    # Un couple exercé a ses valeurs : le chantier qui retire son levier de
+    # LEVIERS_NON_LIVRES complète VALEUR.
+    for mid, dom, cle in COUPLES:
+        assert cle in VALEUR and dom in VALEUR, (mid, dom, cle)
 
 
 @pytest.mark.parametrize('mid,dom,cle', COUPLES, ids=['.'.join(c) for c in COUPLES])

@@ -41,10 +41,10 @@ def _scenarios():
     return {k: v['apiMeasures'] for k, v in json.loads(Path(chemin).read_text(encoding='utf-8')).items()}
 
 
-def _simuler(mesures):
+def _simuler(mesures, annee_debut=None):
     """Simulation complète ; renvoie, par indice d'année, l'état macro passé à
     ``calculate_growth`` et les impacts par levier rendus par ``apply_measures``."""
-    sim = BudgetSimulatorV45(periods=10, mesures=mesures)
+    sim = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=annee_debut)
     croissance, appliquer = sim.calculate_growth, sim.apply_measures
     etats, impacts = {}, {}
 
@@ -139,10 +139,12 @@ from budget_simulator.constants import (  # noqa: E402
     EVICTION_SEUIL_DETTE,
     EVICTION_SURCROIT_NON_PRODUCTIF,
     HANDLER_FAILED_KEY,
+    LEVIERS_NON_LIVRES,
     PARAM_DOMAINS,
 )
 from budget_simulator.engine import growth  # noqa: E402
 from budget_simulator.engine._noms_parametres import MODES_EXCLUSIFS  # noqa: E402
+from budget_simulator.engine._param_domain import condition_d_exclusion_vraie  # noqa: E402
 from budget_simulator.engine.growth import (  # noqa: E402
     effet_eviction,
     flux_par_levier,
@@ -298,17 +300,25 @@ def _hausses_investissement():
 
 
 def _autres_bornes():
-    return [(m, p, b) for m, dom in PARAM_DOMAINS.items() if m not in INVEST
+    # Release E : un levier non livré (squelette, ``LEVIERS_NON_LIVRES``) refuse
+    # toute valeur non neutre ; il entre quand son chantier le retire de la liste.
+    return [(m, p, b) for m, dom in PARAM_DOMAINS.items()
+            if m not in INVEST and m not in LEVIERS_NON_LIVRES
             for p, (lo, hi) in dom.items() for b in (lo, hi)]
 
 
 def test_paires_investissement_coupe_aux_bornes_des_domaines():
     """Investissement poussé au maximum de son domaine × chaque autre paramètre à
     chacune de ses bornes (coupe, hausse d'impôt, ou expansion concurrente)."""
+    from budget_simulator.constants import ANNEE_PREMIER_BUDGET_MANDAT
+    from budget_simulator.engine.cadre import LEVIERS_REFUSES_EN_MODE_HISTORIQUE
     for mi, pi, xi in _hausses_investissement():
         for mo, po, xo in _autres_bornes():
             mesures = {mi: {pi: xi}, mo: {po: xo}}
-            etats, _ = _simuler(mesures)
+            # Release E : un levier refusé en mode historique (recette
+            # exceptionnelle, une seule année) est essayé en mode cadre.
+            annee_debut = ANNEE_PREMIER_BUDGET_MANDAT if mo in LEVIERS_REFUSES_EN_MODE_HISTORIQUE else None
+            etats, _ = _simuler(mesures, annee_debut)
             _verifier_etats(f"{mi}.{pi}={xi} + {mo}.{po}={xo}", etats)
 
 
@@ -328,7 +338,19 @@ def test_tirages_aleatoires_dans_param_domains():
     Les clés qu'un levier IGNORE quand une autre est fournie
     (``MODES_EXCLUSIFS``, v0.6.10 V2-04) sont retirées après le tirage : le
     moteur ne les lisait pas, le mode strict les rejette désormais (422), et
-    les tirages restent ceux de la graine (même consommation du générateur)."""
+    les tirages restent ceux de la graine (même consommation du générateur).
+    De même, le bloc d'un levier non livré de la release E (squelette,
+    ``LEVIERS_NON_LIVRES``) est tiré puis retiré : les tirages des autres
+    leviers ne changent pas quand la liste se vide. Et le levier qu'une
+    exclusion mutuelle ignore (release E, chantier W1,
+    ``constants.EXCLUSIONS_MUTUELLES`` : le moteur ne l'applique pas, le mode
+    strict rejette la paire, 422) est retiré après le tirage, sans toucher au
+    générateur. De même, un levier refusé en mode historique (release E :
+    recette exceptionnelle, une seule année, calendrier obligatoire ; ces
+    programmes tournent en mode historique) est tiré puis retiré ; il est
+    essayé en mode cadre par le test des paires aux bornes."""
+    from budget_simulator.constants import EXCLUSIONS_MUTUELLES
+    from budget_simulator.engine.cadre import LEVIERS_REFUSES_EN_MODE_HISTORIQUE
     rng = random.Random(GRAINE)
     for k in range(200):
         mesures = {}
@@ -340,7 +362,12 @@ def test_tirages_aleatoires_dans_param_domains():
                     if dominante in bloc:
                         for cle in ignorees:
                             bloc.pop(cle, None)
+                if m in LEVIERS_NON_LIVRES or m in LEVIERS_REFUSES_EN_MODE_HISTORIQUE:
+                    continue
                 mesures[m] = bloc
+        for regle, spec in EXCLUSIONS_MUTUELLES.items():
+            if all(condition_d_exclusion_vraie(mesures, regle, spec, c) for c in spec['conditions']):
+                mesures.pop(spec['ignore'])
         etats, _ = _simuler(mesures)
         _verifier_etats(f"tirage {k}", etats)
 

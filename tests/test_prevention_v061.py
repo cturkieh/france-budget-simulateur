@@ -21,10 +21,11 @@ moteur :
     5(2):e29, 05/02/2008 — « lifetime health expenditure was highest among
     healthy-living people » : le contre-effet des années de vie gagnées ;
   - **Vos T. et al.**, *ACE-Prevention Final Report*, University of
-    Queensland / Deakin University, septembre 2010 — les **21 mesures
-    dominantes sur 150** rapportent 11 Md AU$ pour 4,6 Md AU$ investis, soit
-    un ratio de **2,4** : c'est la **borne haute absolue**, obtenue par
-    sélection optimale et sur la vie entière, pas un rendement moyen ;
+    Queensland / Deakin University, septembre 2010 — le paquet « dominant »
+    (20 des **23 interventions préventives dominantes sur 123** évaluées)
+    rapporte 11 Md AU$ pour 4,6 Md AU$ investis, soit un ratio de **2,4** :
+    c'est la **borne haute absolue**, obtenue par sélection optimale et sur la
+    vie entière, pas un rendement moyen ;
   - **OCDE**, *The Heavy Burden of Obesity — The Economics of Prevention*,
     2019, **chapitre 6** — la meilleure intervention chiffrée y vaut 13 Md USD
     PPA cumulés 2020-2050 sur 36 pays, soit ≈ **0,012 Md€ par pays et par
@@ -52,8 +53,9 @@ maximum, et jamais avant la cinquième année.
 Ce que ce fichier NE prétend PAS établir (§ B.3-22 du dossier) : l'effet
 budgétaire net d'un euro SUPPLÉMENTAIRE de prévention en France
 **n'existe pas** dans la littérature — l'IGAS 2024 (Bras & Monasse) explique
-pourquoi (« en l'absence d'une évaluation structurée en France de
-l'efficacité et de l'efficience des actions de PPS »). Le plafond central de
+pourquoi : le champ « est encore peu structuré en France, et mobilise de façon
+insuffisante des analyses d'efficience » (synthèse, p. 2 ; vérifié au PDF le
+12/11/2026, la citation qui figurait ici n'est pas dans le rapport). Le plafond central de
 0,50 est donc **un choix de modélisation assumé, borné par la littérature
 internationale, jamais présenté comme sourcé**. Ce fichier verrouille ce que
 les sources permettent d'affirmer : que le taux est **< 1**, qu'il est
@@ -226,10 +228,11 @@ def test_prevention_trajectoire_publiee():
 def test_prevention_delai_avant_tout_retour():
     """Aucun retour avant la 5e année (délai de 4 ans révolus).
 
-    Le délai de 2 ans de la v0.5.1 est trop court : Cash & Fourcade 2023 § 45
-    (« les bénéfices économiques de la prévention sont souvent postérieurs aux
-    dépenses engagées ») et ACE-Prevention (14 % de la dépense décaissée en
-    année 1) situent le retour bien plus loin.
+    Le délai de 2 ans de la v0.5.1 est trop court : Fourcade N. & Cash R.,
+    *Regards* n° 61 (EN3S), mai 2023, p. 41 (« les bénéfices économiques de la
+    prévention sont souvent postérieurs aux dépenses engagées ») et
+    ACE-Prevention (14 % de la dépense décaissée en année 1) situent le retour
+    bien plus loin.
     """
     premiere_annee_avec_effet = POLICY_START_YEAR + PREVENTION_OFFSET_LAG_YEARS
     for year in range(POLICY_START_YEAR, premiere_annee_avec_effet):
@@ -495,8 +498,9 @@ def test_base_prevention_coherente_avec_la_part_publiee():
 
     - **DREES**, *Les dépenses de santé en 2023 — Résultats des comptes de la
       santé*, Panoramas édition 2024, **fiche 21, tableau 1** : prévention
-      institutionnelle **7 516 M€ en 2023** ; édition 2025 : +0,9 % en 2024,
-      soit ≈ 7,6 Md€ ;
+      institutionnelle **7 516 M€ en 2023** ; l'édition 2025 a révisé la série
+      (8 731 M€ en 2024, PLFSS 2026, annexe 5, source DREES) : la base 7,5 est
+      l'ancien millésime, sa révision est une décision ouverte ;
     - **OCDE**, *Health at a Glance 2025 — Country note : France*, novembre
       2025 : « France spends **2.3 %** of total health spending on prevention
       […] less than the OECD average of **3.4 %** », soit 2,3 % × 333 Md€ de
@@ -830,7 +834,8 @@ def test_methodologie_documente_les_deux_perimetres_de_prevention():
     (b) le périmètre SHA « prévention institutionnelle » (7,5 Md€) exclut la
         prévention en consultation ordinaire, une grande partie de la
         vaccination et la prise en charge des facteurs de risque — en
-        périmètre large, la Cour des comptes chiffre l'effort à ≈ 15 Md€/an.
+        périmètre large, la Cour des comptes chiffre l'effort à ≈ 15 Md€/an
+        (*La politique de prévention en santé*, décembre 2021, données 2016).
         Le curseur pilote l'agrégat SHA, pas les 15.
     """
     texte = (_RACINE / "docs" / "METHODOLOGIE.md").read_text(encoding="utf-8")

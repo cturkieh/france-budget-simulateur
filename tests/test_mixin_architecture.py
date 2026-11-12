@@ -25,7 +25,8 @@ docstrings, ou différés à un mypy non encore branché) :
 2. Contrat ``Handler`` mécanique : en l'absence de mypy/pyright branché
    (cf ``_types.py``), le Protocol ``Handler`` n'apporte aucune
    vérification runtime. Ce fichier ajoute un plancher mécanique
-   minimal : ``measure_handlers`` couvre exactement 33 handlers, tous
+   minimal : ``measure_handlers`` couvre exactement 42 handlers (33 + les 9
+   de la release E), tous
    appelables avec la signature à 6 paramètres du Protocol (le ``self``
    étant absorbé par la liaison de méthode).
 """
@@ -42,7 +43,7 @@ HANDLERS_DIR = ROOT / 'budget_simulator' / 'handlers'
 # Signature d'appel du Protocol Handler (handlers/_types.py), self exclu
 # car measure_handlers stocke des méthodes LIÉES.
 _HANDLER_PARAMS = ('measure', 'params', 'year', 'gdp', 'inflation', 'unemployment')
-_EXPECTED_HANDLER_COUNT = 33
+_EXPECTED_HANDLER_COUNT = 42
 
 
 def _cross_handler_calls(path: Path):
@@ -91,7 +92,7 @@ def test_no_cross_mixin_handler_calls():
 
 
 def test_measure_handlers_match_handler_protocol(default_simulator):
-    """``measure_handlers`` : 33 entrées, toutes à la signature Handler.
+    """``measure_handlers`` : 42 entrées, toutes à la signature Handler.
 
     Plancher mécanique en attendant mypy : un handler à signature
     divergente (param renommé/ajouté/supprimé) casse ici, pas seulement

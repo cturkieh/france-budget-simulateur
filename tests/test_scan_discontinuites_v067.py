@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 
+from budget_simulator.constants import LEVIERS_NON_LIVRES
 from budget_simulator.engine._param_domain import PARAM_DOMAINS
 
 _SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'scan_discontinuites.py'
@@ -53,6 +54,10 @@ def test_aucun_saut_hors_interrupteurs(sid, pleine_precision):
     mesures = _scenarios()[sid]
     sauts = []
     for levier, domaine in PARAM_DOMAINS.items():
+        # Release E : un levier non livré (squelette) refuse toute valeur non
+        # neutre ; il est balayé quand son chantier le retire de la liste.
+        if levier in LEVIERS_NON_LIVRES:
+            continue
         for param, (lo, hi) in domaine.items():
             # v0.6.10 : un paramètre masqué par un mode exclusif n'est pas lu
             # (balayage plat, qui ne testait rien) et la porte le rejette en

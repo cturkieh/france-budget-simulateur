@@ -49,11 +49,11 @@ class _SansCanalChomage(BudgetSimulatorV45):
         return ds, dr, impacts
 
 
-def _chomage(mesures, sans_canal=None):
+def _chomage(mesures, sans_canal=None, annee_debut=None):
     cls = BudgetSimulatorV45
     if sans_canal is not None:
         cls = type('_Coupe', (_SansCanalChomage,), {'cible': sans_canal})
-    df, _, rapport = cls(periods=10, mesures=mesures).simulate()
+    df, _, rapport = cls(periods=10, mesures=mesures, annee_debut=annee_debut).simulate()
     return list(df['Chômage %']), rapport['measure_impacts_by_year']
 
 
@@ -113,21 +113,21 @@ def _cas_couverts():
     from pathlib import Path
     snapshots = Path(__file__).parent / 'snapshots'
     sys.path.insert(0, str(snapshots))
-    from coverage_scenarios import build_standalone_scenarios
+    from coverage_scenarios import annee_debut_mini, build_standalone_scenarios
     from run_scenarios_full import SCENARIOS
-    cas = {f'standalone:{k}': v for k, v in build_standalone_scenarios().items()}
-    cas.update(SCENARIOS)
+    cas = {f'standalone:{k}': (v, annee_debut_mini(k)) for k, v in build_standalone_scenarios().items()}
+    cas.update({k: (v, None) for k, v in SCENARIOS.items()})
     return cas
 
 
 def test_lot1_aucun_emetteur_chomage_recurrent():
     """Inventaire exécutable des émetteurs de ``impacts['chomage']`` : à politique
     constante, plus aucun levier n'émet d'effet chômage direct une fois sa montée en
-    charge finie (2030+), sur les 33 mini-scénarios standalone ET les scénarios
+    charge finie (2030+), sur les mini-scénarios standalone ET les scénarios
     publiés. Un futur handler qui réémettrait chaque année rougit ici."""
     fautifs = {}
-    for nom, mesures in _cas_couverts().items():
-        _, par_annee = _chomage(mesures)
+    for nom, (mesures, annee_debut) in _cas_couverts().items():
+        _, par_annee = _chomage(mesures, annee_debut=annee_debut)
         for an in par_annee:
             if an['Année'] < 2030:
                 continue

@@ -1,4 +1,7 @@
 import logging
+
+import pytest
+
 from budget_simulator import BudgetSimulatorV45, FiscalMultipliers, EconomicValidator
 
 # Fixtures 'simulator' and 'multipliers' are defined in conftest.py
@@ -442,12 +445,14 @@ def test_calculate_growth_zlb(simulator):
     # (v0.6.7 : le mélange ci-dessus est remplacé par la somme flux par flux.)
 
 def test_apply_measures_invalid_input(simulator):
+    """Release E (chantier W1, contrat § 5.1) : un levier inconnu est refusé ou
+    retiré par la porte d'ENTRÉE de simulate() (tests/test_release_e_w1.py,
+    W1-1 à W1-4) ; atteindre apply_measures avec lui (porte contournée, comme
+    ici) est un défaut du moteur : RuntimeError, et non plus un `continue`
+    silencieux qui rendait le statu quo."""
     simulator.mesures = {'invalid_measure': {'param': 'invalid'}}  # Mesure inconnue
-    spending, revenues, impacts = simulator.apply_measures(2026, 1698, 1545, 2994, 0.01, 0.076)
-    assert spending == 1698, "Dépenses inchangées pour mesure invalide"
-    assert revenues == 1545, "Recettes inchangées pour mesure invalide"
-    assert not impacts, "Aucun impact pour mesure invalide"
-    assert any("Mesure invalid_measure inconnue - ignorée" in s for s in simulator.debug_logs), "Log erreur manquant"
+    with pytest.raises(RuntimeError, match='invalid_measure'):
+        simulator.apply_measures(2026, 1698, 1545, 2994, 0.01, 0.076)
 
 def test_calculate_revenues_laffer(simulator):
     gdp = 2994

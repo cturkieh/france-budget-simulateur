@@ -25,7 +25,7 @@ import pytest
 from budget_simulator.simulator import BudgetSimulatorV45
 
 sys.path.insert(0, str(Path(__file__).parent / 'snapshots'))
-from coverage_scenarios import build_standalone_scenarios  # noqa: E402
+from coverage_scenarios import annee_debut_mini, build_standalone_scenarios  # noqa: E402
 from run_scenarios_full import SCENARIOS  # noqa: E402
 
 
@@ -48,8 +48,9 @@ def _cas():
 @pytest.mark.parametrize('nom', sorted(_cas()))
 def test_aucun_acces_au_generateur_aleatoire(nom, monkeypatch):
     mesures = _cas()[nom]
+    annee_debut = annee_debut_mini(nom[3:]) if nom.startswith('SA:') else None
     monkeypatch.setattr(np, 'random', _HasardInterdit())
-    df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=annee_debut).simulate()
     assert len(df) == 11
 
 

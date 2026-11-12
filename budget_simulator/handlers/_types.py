@@ -31,7 +31,8 @@ statiques, AUCUN impact runtime
 pattern ``_MixinBase`` des mixins : base ``object`` au runtime, Protocol
 au type-check, MRO inchangé) :
 
-- ``Handler`` : contrat d'appel des 33 handlers thématiques. Permet de
+- ``Handler`` : contrat d'appel des 42 handlers thématiques (33 jusqu'à
+  v0.7.2, plus les 9 leviers à handler de la release E). Permet de
   typer ``BudgetSimulatorV45.measure_handlers: Dict[str, Handler]`` et
   d'activer la vérification mypy/pyright de tous les handlers gratuitement.
 - ``_SimulatorState`` : union exacte de l'état hôte (``BudgetSimulatorV45``)
@@ -74,16 +75,16 @@ def canaux_menages(**montants: float) -> Dict[str, float]:
 class Handler(Protocol):
     """Contrat d'appel d'un handler de mesure (méthode liée ``self._apply_*``).
 
-    Les 33 handlers thématiques partagent cette signature (seul le style
+    Les 42 handlers thématiques partagent cette signature (seul le style
     mono-/multi-ligne diffère). Plancher mécanique :
     ``tests/test_mixin_architecture.py::test_measure_handlers_match_handler_protocol``
-    verrouille déjà le compte (33) et l'arité (6 paramètres) ; mypy/pyright
+    verrouille déjà le compte (42) et l'arité (6 paramètres) ; mypy/pyright
     une fois branché ajoutera la vérification fine des TYPES de paramètres.
     Le ``self`` est absorbé par la liaison de méthode → signature d'appel
     à 6 paramètres positionnels. Le dispatcher legacy
     ``_apply_complex_measure`` (Section 7, retour
     ``Tuple[float, float, Dict]``) n'est volontairement PAS couvert
-    (hors des 33, contrat de retour plus large).
+    (hors des 42, contrat de retour plus large).
     """
 
     def __call__(
@@ -143,6 +144,15 @@ class _SimulatorState(Protocol):
     def indice_prix_depenses(self) -> float:
         ...
 
+    # Indice d'assiette d'un impôt à taux depuis son année source (release E).
+    def _indice_pib_source(self, annee_source: int, gdp: float) -> float:
+        ...
+
+    # Référence d'un paramètre à calendrier l'année donnée (droit en vigueur de
+    # l'année ; relecture adverse finale de la release E, I-1).
+    def _reference_du_calendrier(self, levier: str, param: str, annee: int) -> Any:
+        ...
+
     # --- Attributs hôte lus par les mixins ---
     mesures: Dict[str, Dict]
     base_params: Dict[str, float]
@@ -153,5 +163,26 @@ class _SimulatorState(Protocol):
     # --- État cross-année propre à un seul handler (lu ET écrit) ---
     _chomage_params_prev: Dict
 
+    # Traqueur des paramètres du monde actif (release E) : lu par les handlers
+    # des chantiers W2, W3 et W4 pour leur retour anticipé au neutre (clé
+    # absente = levier jamais vu dans ce monde). Écrit par l'hôte seulement
+    # (``_is_first_year_change``, bascule des mondes, reset).
+    _measure_params_tracker: Dict[str, Dict]
 
-__all__ = ['ImpactsDict', 'CANAUX_MENAGES', 'canaux_menages', 'Handler', '_SimulatorState']
+
+def levier_non_livre(levier: str, chantier: str) -> NotImplementedError:
+    """Erreur d'un SQUELETTE de la release E appelé hors de ses valeurs neutres.
+
+    Le socle inscrit les onze leviers au registre avant que leurs chantiers
+    n'écrivent les calculs : au neutre, un squelette rend un effet nul ; toute
+    autre valeur lève cette erreur, pour qu'aucun levier ne soit jamais servi
+    MUET (effet compté nul sans le dire). L'orchestrateur la traite comme tout
+    handler en échec : ERROR, ``HANDLER_FAILED_KEY``, ``report.valid = false``
+    en tolérant, ``ExceptionGroup`` en ``BUDGETLAB_STRICT``."""
+    return NotImplementedError(
+        f"levier non encore implémenté : {levier} (chantier {chantier} de la "
+        f"release E non livré) — seule sa valeur neutre est acceptée")
+
+
+__all__ = ['ImpactsDict', 'CANAUX_MENAGES', 'canaux_menages', 'Handler', '_SimulatorState',
+           'levier_non_livre']

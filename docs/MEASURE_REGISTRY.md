@@ -30,6 +30,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
   - `taux_remplacement` (défaut : `TAUX_REF` (non littéral))
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `chomage_duree` → param `duree` [12–36, pas 3]
+  - `chomage_montant` → param `montant` [24.85–48.8, pas 0.05]
   - `chomage_taux_remplacement` → param `taux_remplacement` [0.45–0.8, pas 0.05]
 
 ## `cotisations_patronales` — Cotisations patronales
@@ -44,7 +45,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - paramètres lus par le handler :
   - `baisse_points` (défaut : `0.0`)
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
-  - `cotisations_salariales_baisse` → param `baisse_points` [0–5, pas 0.5]
+  - `cotisations_salariales_baisse` → param `baisse_points` [0–11.94, pas 0.01]
 
 ## `csg` — CSG/CRDS
 - type : `fonction` · catégorie : `fiscalite`
@@ -54,6 +55,13 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `csg_progressive` → param `progressive` [0–1, pas 1]
   - `csg_taux` → param `taux` [0.08–0.12, pas 0.001]
+
+## `droits_succession` — Droits de succession et de donation
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `variation` (défaut : `NEUTRES_RELEASE_E['droits_succession']['variation']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `droits_succession_variation` → param `variation` [-21.2–25, pas 0.5]
 
 ## `education` — Éducation nationale
 - type : `fonction` · catégorie : `depenses`
@@ -83,6 +91,28 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `exo_salaires_intensite` → param `intensite` [0–1, pas 0.1]
 
+## `fiscalite_capital` — Revenus du capital
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `elasticite` (défaut : `NEUTRES_RELEASE_E['fiscalite_capital']['elasticite']` (non littéral))
+  - `prelevements_sociaux_capital` (défaut : `NEUTRES_RELEASE_E['fiscalite_capital']['prelevements_sociaux_capital']` (non littéral))
+  - `rendement_md` (**requis** (KeyError si absent))
+  - `taux_ir_forfaitaire` (défaut : `NEUTRES_RELEASE_E['fiscalite_capital']['taux_ir_forfaitaire']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `capital_elasticite` → param `elasticite` [0–2, pas 0.05]
+  - `capital_prelevements_sociaux` → param `prelevements_sociaux_capital` [0–0.3, pas 0.001]
+  - `capital_rendement_md` → param `rendement_md` [-15–15, pas 0.5]
+  - `capital_taux_ir` → param `taux_ir_forfaitaire` [0–0.45, pas 0.001]
+
+## `fiscalite_indirecte` — Fiscalité indirecte ciblée
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `accises_energie` (défaut : `NEUTRES_RELEASE_E['fiscalite_indirecte']['accises_energie']` (non littéral))
+  - `tva_ciblee` (défaut : `NEUTRES_RELEASE_E['fiscalite_indirecte']['tva_ciblee']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `accises_energie` → param `accises_energie` [-15–15, pas 0.5]
+  - `tva_ciblee` → param `tva_ciblee` [-15–15, pas 0.5]
+
 ## `fiscalite_patrimoine` — Fiscalité du patrimoine
 - type : `fonction` · catégorie : `fiscalite`
 - flags : `INTENSITE_DRIVEN`
@@ -97,7 +127,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
   - `effectifs` (défaut : `0`)
   - `point_indice` (défaut : `0`)
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
-  - `fp_effectifs` → param `effectifs` [-100000–50000, pas 10000]
+  - `fp_effectifs` → param `effectifs` [-100000–140000, pas 10000]
   - `fp_point_indice` → param `point_indice` [-2–5, pas 0.5]
 
 ## `fonction_publique_reforme` — Réforme fonction publique
@@ -125,6 +155,15 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `fraude_sociale_effort` → param `effort` [0–1, pas 0.1]
 
+## `impot_plancher_patrimoine` — Impôt plancher sur les très hauts patrimoines
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `evitement` (défaut : `NEUTRES_RELEASE_E['impot_plancher_patrimoine']['evitement']` (non littéral))
+  - `taux` (défaut : `NEUTRES_RELEASE_E['impot_plancher_patrimoine']['taux']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `impot_plancher_evitement` → param `evitement` [0–0.95, pas 0.025]
+  - `impot_plancher_taux` → param `taux` [0–0.03, pas 0.001]
+
 ## `impot_revenu` — Impôt sur le revenu
 - type : `fonction` · catégorie : `fiscalite`
 - paramètres lus par le handler :
@@ -133,6 +172,13 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `ir_decote` → param `decote` [0.5–1.5, pas 0.1]
   - `ir_taux_superieur` → param `taux_superieur` [0.4–0.6, pas 0.01]
+
+## `impot_revenu_cible` — Impôt sur le revenu : mesure ciblée
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `montant` (défaut : `NEUTRES_RELEASE_E['impot_revenu_cible']['montant']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `impot_revenu_cible_montant` → param `montant` [-15–5, pas 0.5]
 
 ## `impot_societes` — Impôt sur les sociétés
 - type : `fonction` · catégorie : `fiscalite`
@@ -164,6 +210,19 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `isf_intensite` → param `intensite` [0–1, pas 0.01]
 
+## `multinationales` — Multinationales : bénéfices transférés et taxe numérique
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `benefices_recuperes` (défaut : `NEUTRES_RELEASE_E['multinationales']['benefices_recuperes']` (non littéral))
+  - `erosion_tsn` (défaut : `NEUTRES_RELEASE_E['multinationales']['erosion_tsn']` (non littéral))
+  - `rendement_tsn_md` (**requis** (KeyError si absent))
+  - `taux_tsn` (défaut : `NEUTRES_RELEASE_E['multinationales']['taux_tsn']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `multinationales_benefices` → param `benefices_recuperes` [0–12.6, pas 0.1]
+  - `tsn_erosion` → param `erosion_tsn` [0–10, pas 0.1]
+  - `tsn_rendement_md` → param `rendement_tsn_md` [-1–10, pas 0.1]
+  - `tsn_taux` → param `taux_tsn` [0–0.1, pas 0.005]
+
 ## `niches_fiscales_tge` — Niches fiscales grandes entreprises
 - type : `fonction` · catégorie : `competitivite`
 - paramètres lus par le handler :
@@ -177,6 +236,21 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
   - `montant` (défaut : `70`)
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `niches_sociales_tge` → param `montant` [10–80, pas 5]
+
+## `operations_financieres` — Opérations financières
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `crypto_actifs` (défaut : `NEUTRES_RELEASE_E['operations_financieres']['crypto_actifs']` (non littéral))
+  - `elasticite_volume` (défaut : `NEUTRES_RELEASE_E['operations_financieres']['elasticite_volume']` (non littéral))
+  - `rachats_actions` (défaut : `NEUTRES_RELEASE_E['operations_financieres']['rachats_actions']` (non littéral))
+  - `rendement_ttf_md` (**requis** (KeyError si absent))
+  - `taux_ttf` (défaut : `NEUTRES_RELEASE_E['operations_financieres']['taux_ttf']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `crypto_actifs` → param `crypto_actifs` [0–5, pas 0.1]
+  - `rachats_actions` → param `rachats_actions` [-0.2–15, pas 0.1]
+  - `ttf_elasticite_volume` → param `elasticite_volume` [0–0.25, pas 0.01]
+  - `ttf_rendement_md` → param `rendement_ttf_md` [-3–10, pas 0.1]
+  - `ttf_taux` → param `taux_ttf` [0–0.01, pas 0.0005]
 
 ## `optimisation_dette` — Optimisation dette
 - type : `fonction` · catégorie : `depenses`
@@ -193,6 +267,15 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `prestations_indexation` → param `taux_indexation` [0–120, pas 5]
 
+## `prestations_menages` — Prestations versées aux ménages, en montant
+- type : `fonction` · catégorie : `social`
+- paramètres lus par le handler :
+  - `pensions` (défaut : `NEUTRES_RELEASE_E['prestations_menages']['pensions']` (non littéral))
+  - `solidarite` (défaut : `NEUTRES_RELEASE_E['prestations_menages']['solidarite']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `prestations_pensions` → param `pensions` [-20–10, pas 0.5]
+  - `prestations_solidarite` → param `solidarite` [-35–30, pas 0.5]
+
 ## `rabot_uniforme` — Rabot budgétaire uniforme
 - type : `fonction` · catégorie : `depenses`
 - paramètres lus par le handler :
@@ -201,6 +284,13 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
   - `exclure_ue` (défaut : `1`)
   - `taux_reduction` (défaut : `0`)
 - sliders UI : _(aucun — mesure pilotée par scénario/API uniquement)_
+
+## `recette_exceptionnelle` — Recette exceptionnelle
+- type : `fonction` · catégorie : `fiscalite`
+- paramètres lus par le handler :
+  - `montant` (défaut : `NEUTRES_RELEASE_E['recette_exceptionnelle']['montant']` (non littéral))
+- sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
+  - `recette_exceptionnelle_montant` → param `montant` [0–60, pas 1]
 
 ## `recherche_publique` — Recherche publique
 - type : `formule` · catégorie : `economie`
@@ -296,5 +386,9 @@ Pilotées par une formule déclarative dans `policy_measures.json` (évaluée vi
 - `collectivites_dotation` → `collectivites`.`dotation`
 - `collectivites_investissement` → `collectivites`.`investissement`
 - `defense_budget` → `defense`.`budget`
+- `depenses_credits_etat` → `depenses_publiques`.`credits_etat`
+- `depenses_ondam` → `depenses_publiques`.`ondam`
+- `depenses_transferts_capital` → `depenses_publiques`.`transferts_capital`
 - `immigration_ame` → `immigration`.`ame`
 - `immigration_integration` → `immigration`.`integration`
+- `transferts_etranger_montant` → `transferts_etranger`.`montant`

@@ -122,7 +122,7 @@ def _cumul_gini(mesures: dict, periods: int = 10) -> float:
     return float(sim.gini_cible_cumul)
 
 
-def _serie_emissions(mesures: dict, periods: int) -> list[float]:
+def _serie_emissions(mesures: dict, periods: int, annee_debut=None) -> list[float]:
     """Série année par année des impacts Gini agrégés bruts."""
     serie: list[float] = []
     original = micro_impacts.MicroImpactsMixin.calculate_gini_impact
@@ -134,7 +134,7 @@ def _serie_emissions(mesures: dict, periods: int) -> list[float]:
 
     micro_impacts.MicroImpactsMixin.calculate_gini_impact = espion
     try:
-        BudgetSimulatorV45(periods=periods, mesures=mesures).simulate()
+        BudgetSimulatorV45(periods=periods, mesures=mesures, annee_debut=annee_debut).simulate()
     finally:
         micro_impacts.MicroImpactsMixin.calculate_gini_impact = original
     return serie
@@ -887,11 +887,11 @@ def test_carte_des_emissions_gini_recurrentes():
     le Gini linéairement avec l'horizon : la liste ci-dessus est la dette
     connue, et elle ne doit que RÉTRÉCIR."""
     _ajoute_snapshots_au_path()
-    from coverage_scenarios import build_standalone_scenarios  # noqa: E402
+    from coverage_scenarios import annee_debut_mini, build_standalone_scenarios  # noqa: E402
 
     recurrents = set()
     for nom, mesures in build_standalone_scenarios().items():
-        serie = _serie_emissions(mesures, periods=25)
+        serie = _serie_emissions(mesures, periods=25, annee_debut=annee_debut_mini(nom))
         if abs(serie[-1]) > 1e-9:
             recurrents.add(nom)
     nouveaux = recurrents - _EMETTEURS_RECURRENTS_CONNUS

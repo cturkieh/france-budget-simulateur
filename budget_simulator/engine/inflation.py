@@ -216,6 +216,8 @@ class InflationMixin:
         output_gap = economic_state['output_gap']
         unemployment_gap = economic_state['unemployment_gap']
         tva_impact = economic_state.get('tva_impact', 0)
+        # Effort de DEMANDE : l'orchestrateur passe ici l'effort INTÉRIEUR, net
+        # des flux vers un agent non résident (revue adverse de la release E).
         effort_budgetaire = economic_state.get('effort_budgetaire', 0)
 
         # Phillips ANCRÉE (forme output_gap uniquement, évite le double-comptage
@@ -280,10 +282,41 @@ class InflationMixin:
         # v0.7.0 (cadre temporel) : l'année du passage suit l'horloge de la TVA,
         # fournie par l'orchestrateur ; 2 (2027) par défaut et en mode
         # historique. Coefficient et plafond inchangés.
+        # Release E (revue adverse, puis contre-vérification I1 et m1) : la TVA
+        # à taux réduits (``fiscalite_indirecte``, un MONTANT qui admet les
+        # calendriers « une seule année » et « rampe ») passe dans les prix par
+        # la même règle, appliquée à l'INCRÉMENT annuel positif de sa recette
+        # (lue à t−1, en Md€) : chaque marche d'une rampe passe, plafonnée à
+        # 0,2 point ; quand une hausse antérieure est retirée, le passage déjà
+        # fait est rendu au prorata du retrait (passage négatif symétrique) ;
+        # une baisse sous zéro ne passe pas (règle de tva_rate).
+        # Règle d'addition (m1) : seules les HAUSSES de l'année (tva_rate à son
+        # horloge, incrément positif des taux réduits) s'additionnent avant le
+        # plafond commun ; une baisse de l'un n'annule pas la hausse de l'autre.
+        # tva_rate ne change qu'une fois : sans TVA à taux réduits, la règle
+        # est celle de v0.7.2 au bit.
+        hausse_tva = 0.0
         if year == economic_state.get('annee_pass_through_tva', 2) and tva_impact > 0:
-            tva_pass_through = min(tva_impact * 0.3, 0.002)
+            hausse_tva = tva_impact
+        base_md, effet_passe = getattr(self, '_passage_tva_reduite', (0.0, 0.0))
+        recette_md = max(economic_state.get('tva_reduite_recette_md', 0.0), 0.0)
+        hausse_reduite = retrait = 0.0
+        if recette_md > base_md:
+            hausse_reduite = (recette_md - base_md) / economic_state['pib_nominal']
+        elif recette_md < base_md:
+            retrait = -effet_passe * (base_md - recette_md) / base_md
+            effet_passe += retrait
+        tva_passage = hausse_tva + hausse_reduite
+        if tva_passage > 0:
+            tva_pass_through = min(tva_passage * 0.3, 0.002)
             inflation += tva_pass_through
+            effet_passe += tva_pass_through * hausse_reduite / tva_passage
             _log_debug(self.debug_logs, f"Y{year}: Impact TVA +{tva_pass_through*100:.2f}%")
+        if retrait:
+            inflation += retrait
+            _log_debug(self.debug_logs, f"Y{year}: Retrait d'une hausse de TVA à taux réduits "
+                                        f"{retrait*100:+.3f}%")
+        self._passage_tva_reduite = (recette_md, effet_passe)
 
         # Règle monétaire — source unique dans `rappel_bce` (fonction pure).
         # En statu quo v0.6.1, aucune des deux branches ne se déclenche : la

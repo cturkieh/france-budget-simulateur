@@ -33,10 +33,13 @@ def test_bloc_confiance_et_stabilisateurs_supprimes():
     """Aucun scénario ne déclenche plus le bonus de croissance « effet
     confiance » ni les stabilisateurs en escalier. Contrat observable : les
     logs déterministes du moteur (BUDGET_DEBUG), qui traçaient chaque
-    déclenchement — sous-processus car le flag est lu au load du module."""
+    déclenchement — sous-processus car le flag est lu au load du module.
+    Release E (chantier W1) : le levier « aide_sociale » du programme d'origine
+    n'a jamais existé (absent de policy_measures.json) et était sauté en
+    silence ; retiré, le programme simulé est celui qui l'a toujours été."""
     code = (
         "from budget_simulator.simulator import BudgetSimulatorV45 as S\n"
-        "mes = {'aide_sociale': {'reduction': 20}, 'sante': {'effort_hopital': 1.0},\n"
+        "mes = {'sante': {'effort_hopital': 1.0},\n"
         "       'fonction_publique': {'effectifs': -100000, 'point_indice': 0},\n"
         "       'retraites': {'age_depart': 65.0, 'indexation': 0.5, 'duree_cotisation': 43}}\n"
         "for m in (mes, {}):\n"

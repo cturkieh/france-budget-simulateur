@@ -124,7 +124,7 @@
           "step": 0.1,
           "label": "Budget prévention (Md€)",
           "type": "number",
-          "tooltip": "Base France : 7,5 Md€ de prévention institutionnelle (DREES, comptes de la santé, fiche 21 — 7 516 M€ en 2023), soit 2,3 % de la dépense de santé contre 3,4 % en moyenne OCDE (Health at a Glance 2025). La borne haute (11,2 Md€) est la convergence vers cette moyenne. Un euro investi n'est jamais intégralement remboursé : le retour est différé de 4 ans, monte de 10 points par an et plafonne à 50 % — plafond assumé, borné par la littérature internationale, qu'aucune évaluation française ne permet de chiffrer précisément (IGAS 2024). Périmètre : agrégat SHA (dépistage organisé, vaccination collective, santé publique), hors prévention en consultation ordinaire."
+          "tooltip": "Base France : 7,5 Md€ de prévention institutionnelle (DREES, comptes de la santé, édition 2024, fiche 21 — 7 516 M€ en 2023 ; la série révisée de l'édition 2025 donne 8 731 M€ en 2024, PLFSS 2026, annexe 5), soit 2,3 % de la dépense de santé contre 3,4 % en moyenne OCDE (Health at a Glance 2025). Le curseur borne la dépense de prévention à 11,2 Md€ (convergence vers cette moyenne) : au-delà, aucune évaluation ne documente de gain ; un effort supplémentaire se saisit en dépense de soins (curseur « Moyens de soins de l'Assurance maladie »), sans retour modélisé. Un euro investi n'est jamais intégralement remboursé : le retour est différé de 4 ans, monte de 10 points par an et plafonne à 50 % — une hypothèse haute, assumée, qu'aucune source ne chiffre (IGAS 2024). Périmètre : agrégat SHA (dépistage organisé, vaccination collective, santé publique), hors prévention en consultation ordinaire."
         }
       }
     },
@@ -138,9 +138,9 @@
       "parametres": {
         "montant": {
           "valeur_defaut": 36.6,
-          "min": 27.5,
+          "min": 24.85,
           "max": 48.8,
-          "step": 0.1,
+          "step": 0.05,
           "label": "Budget allocations (Md€)",
           "type": "number"
         },
@@ -170,7 +170,7 @@
         "effectifs": {
           "valeur_defaut": 0,
           "min": -100000,
-          "max": 50000,
+          "max": 140000,
           "step": 10000,
           "label": "Variation effectifs",
           "type": "number"
@@ -563,11 +563,11 @@
         "baisse_points": {
           "valeur_defaut": 0,
           "min": 0,
-          "max": 5,
+          "max": 11.94444012354321,
           "step": 0.5,
-          "label": "Baisse (points)",
+          "label": "Baisse des cotisations salariales (points)",
           "type": "number",
-          "tooltip": "Taux actuel 22%. -1 point = +0.5% PA, coût 6 Md€, -0.05% chômage. Assiette 30M salariés. Sources: DARES 2024, ACOSS."
+          "tooltip": "Cotisations sociales prélevées sur le salaire brut, hors CSG et CRDS (curseur CSG). 1 point = 1 % de la masse salariale brute 2025 (11,6 Md€) ; au maximum, suppression des 138 Md€ de cotisations salariales (2025, Insee), soit 11,9 points, le taux moyen réel. Effet sur les inégalités : +0,0001 de Gini par Md€ rendu, estimation de France Budget (quintiles de niveau de vie Insee 2025, incertitude d'un facteur 2, valable pour une baisse uniforme de quelques points)."
         }
       }
     },
@@ -843,6 +843,349 @@
           "label": "Exclure contribution UE",
           "type": "toggle",
           "tooltip": "1 = Sanctuariser la contribution européenne (~44 Md€). Obligation juridique."
+        }
+      }
+    },
+    {
+      "id": "depenses_publiques",
+      "categorie": "depenses",
+      "nom": "Dépenses publiques en montant",
+      "description": "Crédits des ministères et des opérateurs, moyens de soins de l'Assurance maladie et dotations en capital aux ménages, en montant (Md€ par an)",
+      "type": "formule",
+      "formule": "p.get('credits_etat', 0) + p.get('ondam', 0) + p.get('transferts_capital', 0)",
+      "cible": "depenses",
+      "parametres": {
+        "credits_etat": {
+          "valeur_defaut": 0,
+          "min": -60,
+          "max": 20,
+          "step": 1,
+          "label": "Crédits des ministères et des opérateurs (Md€/an)",
+          "type": "number",
+          "tooltip": "Dépenses de fonctionnement et d'intervention de l'État, de ses opérateurs et de la gestion de la Sécurité sociale. Exclut ce qui a son propre curseur : postes, agences, collectivités, défense, éducation, recherche, aide médicale de l'État (curseur Immigration), rénovation des logements (curseur Transition), contribution européenne et aide au développement, prestations versées aux ménages (AAH, prime d'activité, aides au logement : curseur Prestations de solidarité). Montant en plus (+) ou en moins (−) par an, identique chaque année, en euros courants (non revalorisé)."
+        },
+        "ondam": {
+          "valeur_defaut": 0,
+          "min": -10,
+          "max": 10,
+          "step": 0.5,
+          "label": "Moyens de soins de l'Assurance maladie (Md€/an)",
+          "type": "number",
+          "tooltip": "Soins financés en plus ou en moins, y compris les indemnités journalières maladie, hors postes de la fonction publique hospitalière (curseur Effectifs) et sans hypothèse d'efficience (curseur Santé). Montant identique chaque année, en euros courants (non revalorisé). Repère : Ondam 2026, 274,4 Md€ (LFSS 2026)."
+        },
+        "transferts_capital": {
+          "valeur_defaut": 0,
+          "min": -10,
+          "max": 10,
+          "step": 0.5,
+          "label": "Dotations en capital aux ménages (Md€/an)",
+          "type": "number",
+          "tooltip": "Sommes versées une fois en capital (épargne, dotation à la naissance), hors revenu courant. Montant identique chaque année, en euros courants (non revalorisé)."
+        }
+      }
+    },
+    {
+      "id": "prestations_menages",
+      "categorie": "social",
+      "nom": "Prestations versées aux ménages, en montant",
+      "description": "Prestations de solidarité et pensions de retraite : montant versé en plus ou en moins (Md€ par an)",
+      "type": "fonction",
+      "cible": "depenses",
+      "parametres": {
+        "solidarite": {
+          "valeur_defaut": 0,
+          "min": -35,
+          "max": 30,
+          "step": 0.5,
+          "label": "Prestations de solidarité versées aux ménages (Md€/an)",
+          "type": "number",
+          "tooltip": "Minima sociaux (RSA, AAH, prime d'activité), aides au logement, prestations familiales : montant versé en plus (+) ou en moins (−), identique chaque année, en euros courants (non revalorisé). Ont leur propre curseur : une règle d'indexation, le SMIC, l'allocation sociale unique, l'assurance chômage (règles et budget des allocations) et les indemnités journalières maladie (curseur Moyens de soins)."
+        },
+        "pensions": {
+          "valeur_defaut": 0,
+          "min": -20,
+          "max": 10,
+          "step": 0.5,
+          "label": "Pensions de retraite, en montant (Md€/an)",
+          "type": "number",
+          "tooltip": "Hausse ou baisse du montant des pensions versées, hors âge de départ, durée de cotisation et indexation, qui ont leur propre curseur. Montant identique chaque année, en euros courants (non revalorisé)."
+        }
+      }
+    },
+    {
+      "id": "transferts_etranger",
+      "categorie": "depenses",
+      "nom": "Contribution à l'Union européenne et aide extérieure",
+      "description": "Sommes versées hors de France (Md€ par an), sans effet sur la demande intérieure",
+      "type": "formule",
+      "formule": "p.get('montant', 0)",
+      "cible": "depenses",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 0,
+          "min": -32.009,
+          "max": 10,
+          "step": 0.5,
+          "label": "Contribution à l'Union européenne et aide extérieure (Md€/an)",
+          "type": "number",
+          "tooltip": "Sommes versées hors de France (contribution au budget européen, crédits de l'aide au développement). Une hausse ou une baisse change le solde public mais pas la demande intérieure. La contribution européenne est fixée par les décisions de l'Union (cadre financier pluriannuel) : le simulateur chiffre l'effet budgétaire d'une variation sans juger de sa faisabilité. Montant identique chaque année, en euros courants (non revalorisé). Repère : 28,4 Md€ de contribution et 3,6 Md€ de crédits d'aide au développement en 2026."
+        }
+      }
+    },
+    {
+      "id": "droits_succession",
+      "categorie": "fiscalite",
+      "nom": "Droits de succession et de donation",
+      "description": "Recette en plus ou en moins sur les transmissions de patrimoine (Md€ par an)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "variation": {
+          "valeur_defaut": 0,
+          "min": -21.2,
+          "max": 25.0,
+          "step": 0.5,
+          "label": "Droits de succession et de donation (Md€/an)",
+          "type": "number",
+          "tooltip": "Recette en plus (+) ou en moins (−) sur les transmissions de patrimoine, identique chaque année, en euros courants (non revalorisé). Repère : 21,2 Md€ perçus en 2025 (successions 16,1, donations 5,1 ; Voies et moyens 2027). Ne se combine pas avec le curseur « Fiscalité du patrimoine », qui fait déjà varier les successions. Avertissement : au sommet, l’impôt payé est loin du barème. Le 0,1 % qui hérite le plus « ne paie qu’à peine 10 % de droits de succession sur l’ensemble de ce patrimoine hérité, bien loin du taux marginal de 45 % affiché par le barème » (Conseil d’analyse économique, note n° 69, 2021) ; pour une entreprise de 100 M€ transmise par décès à deux enfants, « un taux effectif d’imposition de 10,7 % » avec le pacte Dutreil, contre 44,4 % sans (Cour des comptes, Les droits de succession, 2024). Pour une forte hausse, aucune étude ne permet de chiffrer la part évitée, qui dépend de la fermeture des dispositifs dérogatoires : le montant est compté tel quel, sans décote."
+        }
+      }
+    },
+    {
+      "id": "impot_plancher_patrimoine",
+      "categorie": "fiscalite",
+      "nom": "Impôt plancher sur les très hauts patrimoines",
+      "description": "Impôt minimum sur les patrimoines de plus de 100 M€, dont on déduit les impôts déjà payés",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 0.03,
+          "step": 0.001,
+          "label": "Impôt plancher sur les patrimoines de plus de 100 M€ (taux)",
+          "type": "number",
+          "tooltip": "Impôt minimum sur la fortune des foyers les plus riches, dont on déduit les impôts déjà payés. Rendement calculé par le moteur : environ 20 Md€ pour 2 % sans aucune réaction des contribuables (Sénat, rapport n° 689, 2025), diminué de la part perdue par évitement (réglage suivant)."
+        },
+        "evitement": {
+          "valeur_defaut": 0.35,
+          "min": 0,
+          "max": 0.95,
+          "step": 0.025,
+          "label": "Part du rendement perdue par les réactions des contribuables (%)",
+          "type": "number",
+          "tooltip": "Exil, optimisation, sous-évaluation, moindre accumulation des seuls contribuables visés. Défaut 35 % : milieu de la fourchette publiée, de 15 % (Saez et Zucman, 2019, contrôle fort) à 55 % environ (Jakobsen et al., Danemark), confiance faible. 0 % = rendement sans aucune réaction (≈ 20 Md€ pour 2 %, Sénat, rapport n° 689, 2025)."
+        }
+      }
+    },
+    {
+      "id": "fiscalite_capital",
+      "categorie": "fiscalite",
+      "nom": "Revenus du capital",
+      "description": "Prélèvement forfaitaire sur les revenus du capital : part impôt sur le revenu et prélèvements sociaux, avec la réaction des détenteurs",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux_ir_forfaitaire": {
+          "valeur_defaut": 0.128,
+          "min": 0,
+          "max": 0.45,
+          "step": 0.001,
+          "label": "Revenus du capital : part impôt sur le revenu du prélèvement forfaitaire",
+          "type": "number",
+          "tooltip": "12,8 % aujourd'hui (31,4 % avec les prélèvements sociaux depuis 2026). Le moteur calcule le rendement avec la réaction des détenteurs (dividendes versés) au taux total, sur les seuls revenus soumis au prélèvement forfaitaire (≈ 56 Md€). À la réaction par défaut, la recette culmine vers 54 % de taux total (fourchette publiée : 43 à 57 %)."
+        },
+        "prelevements_sociaux_capital": {
+          "valeur_defaut": 0.186,
+          "min": 0,
+          "max": 0.3,
+          "step": 0.001,
+          "label": "Revenus du capital : prélèvements sociaux",
+          "type": "number",
+          "tooltip": "18,6 % depuis 2026 (revenus du patrimoine et produits de placement, ≈ 34 Md€ perçus en 2025), avec la réaction des détenteurs sur toute l'assiette. Une variation générale de la CSG se règle avec le curseur CSG."
+        },
+        "elasticite": {
+          "valeur_defaut": 0.9,
+          "min": 0,
+          "max": 2,
+          "step": 0.05,
+          "label": "Réaction des détenteurs au taux",
+          "type": "number",
+          "tooltip": "Défaut 0,9 : dividendes versés après la baisse de 2018. Après la hausse de 2013, les dividendes déclarés par les ménages concernés avaient baissé de 40 % (Institut des politiques publiques, note n° 46, 2019). 0 = aucune réaction."
+        },
+        "rendement_md": {
+          "min": -15,
+          "max": 15,
+          "step": 0.5,
+          "label": "Revenus du capital : rendement en Md€",
+          "type": "number",
+          "tooltip": "Montant annoncé, utilisé à la place du calcul par taux, identique chaque année, en euros courants (non revalorisé)."
+        }
+      }
+    },
+    {
+      "id": "multinationales",
+      "categorie": "fiscalite",
+      "nom": "Multinationales : bénéfices transférés et taxe numérique",
+      "description": "Impôt sur les sociétés perçu sur des bénéfices aujourd'hui déclarés hors de France, et taxe sur les services numériques",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "benefices_recuperes": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 12.6,
+          "step": 0.1,
+          "label": "Bénéfices des multinationales imposés en France (Md€/an)",
+          "type": "number",
+          "tooltip": "Impôt sur les sociétés perçu sur des bénéfices aujourd'hui déclarés hors de France, en Md€ au taux de 25 % (ajusté si le taux d'IS change), identique chaque année, en euros courants (non revalorisé). Plafond : 21 % de l'impôt sur les sociétés, perte estimée par la recherche."
+        },
+        "taux_tsn": {
+          "valeur_defaut": 0.03,
+          "min": 0,
+          "max": 0.1,
+          "step": 0.005,
+          "label": "Taxe sur les services numériques (taux)",
+          "type": "number",
+          "tooltip": "3 % aujourd'hui, 902 M€ perçus en 2025."
+        },
+        "erosion_tsn": {
+          "valeur_defaut": 1.0,
+          "min": 0,
+          "max": 10,
+          "step": 0.1,
+          "label": "Réaction de l'assiette de la taxe numérique",
+          "type": "number",
+          "tooltip": "Hypothèse provisoire, faute d'estimation publiée."
+        },
+        "rendement_tsn_md": {
+          "min": -1,
+          "max": 10,
+          "step": 0.1,
+          "label": "Taxe numérique : rendement en Md€",
+          "type": "number",
+          "tooltip": "Montant annoncé, utilisé à la place du calcul par taux, identique chaque année, en euros courants (non revalorisé)."
+        }
+      }
+    },
+    {
+      "id": "operations_financieres",
+      "categorie": "fiscalite",
+      "nom": "Opérations financières",
+      "description": "Taxe sur les transactions financières, rachats d'actions et crypto-actifs",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "taux_ttf": {
+          "valeur_defaut": 0.004,
+          "min": 0,
+          "max": 0.01,
+          "step": 0.0005,
+          "label": "Taxe sur les transactions financières (taux)",
+          "type": "number",
+          "tooltip": "0,4 % aujourd'hui sur les achats d'actions des grandes sociétés françaises, 2,9 Md€ en 2026."
+        },
+        "elasticite_volume": {
+          "valeur_defaut": 0.05,
+          "min": 0,
+          "max": 0.25,
+          "step": 0.01,
+          "label": "Baisse des volumes échangés par +0,1 point de taxe",
+          "type": "number",
+          "tooltip": "Défaut 5 % : −10 % de volume pour 0,2 point en 2012 (Colliard et Hoffmann, 2017) ; −20 % sur une partie des titres."
+        },
+        "rendement_ttf_md": {
+          "min": -3,
+          "max": 10,
+          "step": 0.1,
+          "label": "Taxe sur les transactions : rendement en Md€",
+          "type": "number",
+          "tooltip": "Montant annoncé, utilisé à la place du calcul par taux, identique chaque année, en euros courants (non revalorisé)."
+        },
+        "rachats_actions": {
+          "valeur_defaut": 0,
+          "min": -0.2,
+          "max": 15,
+          "step": 0.1,
+          "label": "Rachats d'actions : recette en plus de la taxe actuelle (Md€/an)",
+          "type": "number",
+          "tooltip": "Une taxe de 8 % existe depuis 2025 (≈ 0,2 Md€/an). Montant identique chaque année, en euros courants (non revalorisé)."
+        },
+        "crypto_actifs": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 5,
+          "step": 0.1,
+          "label": "Crypto-actifs : recette nouvelle (Md€/an)",
+          "type": "number",
+          "tooltip": "Aucune taxe spécifique en vigueur. Montant identique chaque année, en euros courants (non revalorisé)."
+        }
+      }
+    },
+    {
+      "id": "fiscalite_indirecte",
+      "categorie": "fiscalite",
+      "nom": "Fiscalité indirecte ciblée",
+      "description": "TVA à taux réduits et taxes sur les carburants et l'énergie, en montant (Md€ par an)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "tva_ciblee": {
+          "valeur_defaut": 0,
+          "min": -15,
+          "max": 15,
+          "step": 0.5,
+          "label": "TVA à taux réduits (Md€/an)",
+          "type": "number",
+          "tooltip": "Recette en plus ou en moins sur les produits à taux réduit (2,1 %, 5,5 %, 10 %), identique chaque année, en euros courants (non revalorisé). Repère : un point du taux de 5,5 % vaut 2,4 Md€, du taux de 10 % 1,9 Md€ (DG Trésor, 2025). Le taux normal et la TVA sur l'énergie ont leur propre curseur."
+        },
+        "accises_energie": {
+          "valeur_defaut": 0,
+          "min": -15,
+          "max": 15,
+          "step": 0.5,
+          "label": "Taxes sur les carburants et l'énergie (Md€/an)",
+          "type": "number",
+          "tooltip": "Accises (carburants, gaz, électricité), toutes administrations, hors composante carbone et hors TVA, qui ont leur propre curseur. Montant identique chaque année, en euros courants (non revalorisé). Repère : 31,3 Md€ d'accise sur les carburants en 2025."
+        }
+      }
+    },
+    {
+      "id": "impot_revenu_cible",
+      "categorie": "fiscalite",
+      "nom": "Impôt sur le revenu : mesure ciblée",
+      "description": "Baisse ou hausse d'impôt pour une catégorie de foyers (Md€ par an)",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 0,
+          "min": -15,
+          "max": 5,
+          "step": 0.5,
+          "label": "Impôt sur le revenu : mesure ciblée (Md€/an)",
+          "type": "number",
+          "tooltip": "Exonération, demi-part, quotient : baisse (−) ou hausse (+) d'impôt pour une catégorie de foyers, identique chaque année, en euros courants (non revalorisé). Le taux de la tranche supérieure, la décote et le nombre de foyers imposables ont leur propre curseur."
+        }
+      }
+    },
+    {
+      "id": "recette_exceptionnelle",
+      "categorie": "fiscalite",
+      "nom": "Recette exceptionnelle",
+      "description": "Recette d'une seule année (Md€), qui ne se répète pas",
+      "type": "fonction",
+      "cible": "recettes",
+      "parametres": {
+        "montant": {
+          "valeur_defaut": 0,
+          "min": 0,
+          "max": 60,
+          "step": 1,
+          "label": "Recette exceptionnelle d'une seule année (Md€)",
+          "type": "number",
+          "tooltip": "Recette qui ne se répète pas (contribution ponctuelle, cession non comptée). Elle améliore le solde de l'année choisie seulement ; comme tout prélèvement, elle freine la croissance l'année suivante, puis l'effet s'inverse."
         }
       }
     }

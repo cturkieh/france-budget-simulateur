@@ -117,7 +117,42 @@ def build_block(data: dict) -> str:
         rows.append(f"| {mesure} | {param} | " + " | ".join(cells) + " |")
 
     table = "\n".join([header, separator] + rows)
+    calendriers = _lignes_calendrier(data, scenario_ids)
+    if calendriers:
+        table += "\n\n" + "\n".join(calendriers)
     return f"{MARKER_START}\n{table}\n{MARKER_END}"
+
+
+# Profils temporels (release E du moteur, contrat § 2.3) : le calendrier d'un
+# montant en Md€, champ facultatif `profils` d'un scénario, même forme que
+# l'API ({"levier.parametre": {"forme": "plein" | "rampe" | "annee", "annee"?,
+# "annees"?}}). Publié sous le tableau, une ligne par paramètre profilé ; sans
+# profils, le bloc est inchangé.
+def _texte_calendrier(cle: str, profil) -> str:
+    if not isinstance(profil, dict):
+        raise RuntimeError(f"profil {cle!r} : objet {{forme, annee?}} attendu, reçu {profil!r}")
+    forme = profil.get("forme")
+    if forme == "plein":
+        return "chaque année dès le début du programme (plein)"
+    if forme == "rampe":
+        if profil.get("annees") is not None:
+            return f"montée progressive sur {_format_value(profil['annees'])} budgets (rampe)"
+        return "montée progressive jusqu'à la fin du mandat (rampe)"
+    if forme == "annee":
+        return f"une seule année, {_format_value(profil.get('annee'))} (annee)"
+    raise RuntimeError(f"profil {cle!r} : forme {forme!r} inconnue (plein, rampe ou annee)")
+
+
+def _lignes_calendrier(data: dict, scenario_ids: list) -> list[str]:
+    lignes = []
+    for sid in scenario_ids:
+        profils = data[sid].get("profils") or {}
+        if not isinstance(profils, dict):
+            raise RuntimeError(f"scénario {sid!r} : champ 'profils' non objet")
+        for cle in sorted(profils):
+            lignes.append(f"- Calendrier, {data[sid]['label']}, `{cle}` : "
+                          f"{_texte_calendrier(cle, profils[cle])}")
+    return lignes
 
 
 # ---------------------------------------------------------------------------

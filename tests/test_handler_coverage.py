@@ -2,12 +2,14 @@
 
 Trois tests complémentaires aux golden master combinés (Phase 0.6) :
 
-1. **Coverage 33/33** : 100% des handlers du moteur (`measure_handlers`) sont
-   activés par ≥1 scénario combiné FULL_SCENARIOS OU ≥1 mini-scénario standalone
-   avec une valeur ≠ default. Détecte les handlers orphelins (oubli de scénario,
-   handler obsolète à supprimer, etc.).
+1. **Coverage** : 100% des handlers LIVRÉS du moteur (`measure_handlers`, moins
+   `constants.LEVIERS_NON_LIVRES` : squelettes de la release E qui refusent toute
+   valeur non neutre, liste vide avant tout tag) sont activés par ≥1 scénario
+   combiné FULL_SCENARIOS OU ≥1 mini-scénario standalone avec une valeur ≠
+   default. Détecte les handlers orphelins (oubli de scénario, handler obsolète à
+   supprimer, etc.).
 
-2. **Standalone master** : 33 mini-scénarios (1 handler activé, autres à default)
+2. **Standalone master** : 42 mini-scénarios (1 handler activé, autres à default)
    comparés cellule par cellule au snapshot `standalone_master_v1.json` (33 × 7
    colonnes × 11 années = 2 541 cellules). Évite les bugs masqués par compensation
    entre mesures dans les scénarios combinés.
@@ -27,12 +29,17 @@ from pathlib import Path
 
 import pytest
 
+from budget_simulator.constants import LEVIERS_NON_LIVRES
 from budget_simulator.simulator import BudgetSimulatorV45
 
 
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 STANDALONE_MASTER_PATH = SNAPSHOTS_DIR / 'standalone_master_v1.json'
 TOLERANCE = 1e-3
+# Handlers câblés par ``measure_handlers`` : 33 jusqu'à v0.7.2, plus les 9
+# leviers à handler de la release E (tous livrés : 42 mini-scénarios ; un
+# levier encore listé dans LEVIERS_NON_LIVRES n'en aurait pas).
+NB_HANDLERS = 42
 
 sys.path.insert(0, str(SNAPSHOTS_DIR))
 from _compare import assert_no_silent_handler_failure, compare_against_snapshot
@@ -63,11 +70,12 @@ def standalone_master():
 @pytest.fixture(scope='module')
 def standalone_results(standalone_scenarios):
     """Pré-calcule (df, report) pour chaque mini-scénario : partagé par les 2 tests qui
-    en ont besoin (master comparison + no_silent_handler_failure) → 33 simulations
+    en ont besoin (master comparison + no_silent_handler_failure) → 42 simulations
     au lieu de 66."""
+    from coverage_scenarios import simuler_mini
     results = {}
     for name, mesures in standalone_scenarios.items():
-        df, _, report = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+        df, _, report = simuler_mini(name, mesures)
         results[name] = (df, report)
     return results
 
@@ -82,9 +90,10 @@ def _measure_deviates_from_default(measure_id: str, params: dict, defaults: dict
 
 
 def test_all_handlers_covered_by_scenarios(full_scenarios, standalone_scenarios):
-    """100% des handlers sont activés (valeur ≠ default) par ≥1 scénario FULL OU standalone."""
+    """100% des handlers livrés sont activés (valeur ≠ default) par ≥1 scénario FULL OU standalone."""
     sim = BudgetSimulatorV45()
-    all_handlers = set(sim.measure_handlers.keys())
+    assert len(sim.measure_handlers) == NB_HANDLERS
+    all_handlers = set(sim.measure_handlers.keys()) - LEVIERS_NON_LIVRES
     defaults = sim._get_default_values()
 
     covered = set()
@@ -104,7 +113,7 @@ def test_all_handlers_covered_by_scenarios(full_scenarios, standalone_scenarios)
 
 
 def test_standalone_master_all_scenarios_match(standalone_master, standalone_results):
-    """Les 33 mini-scénarios actuels matchent le snapshot standalone_master_v1.json (ε=1e-3)."""
+    """Les mini-scénarios des handlers livrés matchent le snapshot standalone_master_v1.json (ε=1e-3)."""
     compare_against_snapshot(
         {name: df for name, (df, _) in standalone_results.items()},
         standalone_master,
@@ -113,7 +122,8 @@ def test_standalone_master_all_scenarios_match(standalone_master, standalone_res
                      "du snapshot (régénérer après ajout d'un handler ou modif "
                      "de policy_measures.json)"),
         tolerance=TOLERANCE,
-        min_scenarios=33,  # 33 mini-scénarios standalone (anti-faux-vert)
+        # Un mini-scénario par handler livré (anti-faux-vert) : 42 après la release E.
+        min_scenarios=NB_HANDLERS - len(LEVIERS_NON_LIVRES),
         report_missing_column=True,
     )
 

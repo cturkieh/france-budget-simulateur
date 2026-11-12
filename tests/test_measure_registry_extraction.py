@@ -254,7 +254,10 @@ def test_registry_documents_slider_to_measure_mapping():
 
 
 def test_registry_slider_extraction_is_coherent_count():
-    """~52-53 sliders extraits au total (cohérence anti-régression parsing).
+    """~71 sliders extraits au total (cohérence anti-régression parsing) :
+    ~52-53 jusqu'à la release E, qui en ajoute 18 avec registre (montants en
+    Md€, taux et modes exclusifs ; le simulateur en montre davantage, certains
+    sans paramètre de handler propre).
 
     Si le nb diffère fortement, le parsing de allVariables/variablesConfig a
     silencieusement raté des sliders → registre menteur par omission.
@@ -268,7 +271,7 @@ def test_registry_slider_extraction_is_coherent_count():
         for m in snap["mesures"].values()
         for s in m.get("sliders", [])
     }
-    assert 45 <= len(all_slider_ids) <= 55, sorted(all_slider_ids)
+    assert 66 <= len(all_slider_ids) <= 76, sorted(all_slider_ids)
 
 
 def test_handler_source_raises_loud_when_unavailable():

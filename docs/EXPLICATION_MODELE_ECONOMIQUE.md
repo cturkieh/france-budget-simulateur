@@ -182,6 +182,26 @@ Recettes (t) = Recettes (t-1) x (1 + n(t) x 1,0) + dMesures
 - Taux fiscaux en hausse -> Recettes en hausse
 - Chomage en hausse -> Recettes en baisse (assiette reduite)
 
+**Recettes écrites en montant (v0.8.0).** Quatre curseurs permettent d'écrire une recette en milliards
+d'euros quand un programme la donne ainsi : droits de succession, TVA sur les produits à taux réduit,
+taxes sur les carburants et l'énergie, mesure ciblée d'impôt sur le revenu, et une recette d'une seule
+année. Le simulateur prend le montant tel quel, le même chaque année, et calcule ses effets sur la
+croissance comme pour tout impôt. Une hausse de TVA sur les produits à taux réduit se répercute aussi
+dans les prix l'année suivante, comme une hausse du taux normal du même montant ; une hausse progressive se
+répercute marche par marche, et une hausse retirée fait redescendre les prix d'autant. Le curseur des cotisations salariales va jusqu'à leur suppression
+totale (138 milliards d'euros en 2025), hors CSG et CRDS, qui ont leur propre curseur ; un point y vaut 1 % de la
+masse salariale brute 2025 (11,6 milliards d'euros, Insee), si bien que la suppression totale vaut 11,9 points, le
+taux moyen réel de ces cotisations.
+
+**Impôts écrits en taux (v0.8.0).** Quand un programme écrit un taux d'impôt, le simulateur ne recopie
+pas le montant annoncé : il calcule la recette à partir d'une assiette sourcée, puis retire la part que
+les contribuables visés feraient disparaître en réagissant (départ, optimisation, baisse des dividendes
+versés, des volumes échangés ou de la facturation en France). Cette réaction est un réglage visible, avec
+sa source, que chacun peut modifier ; pour l'impôt plancher sur les très grands patrimoines, 35 % par
+défaut, milieu de la fourchette publiée (15 % à 55 % environ). Elle ne contient que la réaction des
+contribuables : l'effet de l'impôt sur l'activité et l'emploi est calculé par ailleurs, une seule fois,
+par le moteur. Quand une source ne donne qu'un montant, sans taux, ce montant est utilisé tel quel.
+
 ---
 
 ### 2. Depenses Publiques
@@ -413,6 +433,19 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 | SMIC | **0,15** | Kramarz & Philippon 2001 (quasi-zero) |
 | Fraude fiscale | **-0,40** | Enforcement, pas nouvelle taxe |
 
+**Flux hors de la demande intérieure (v0.8.0).** Les multiplicateurs mesurent l'effet d'un euro dépensé,
+ou prélevé, sur la demande des agents résidents. Un versement dont la contrepartie directe est non
+résidente (contribution au budget de l'Union, aide extérieure) ne passe pas par cette demande : son
+multiplicateur intérieur est nul. Le moteur n'enregistre donc aucune impulsion pour le curseur
+`transferts_etranger` (`MESURES_HORS_DEMANDE_INTERIEURE`), et les deux autres effets de demande qui
+lisent l'effort budgétaire (terme d'inflation, cicatrice d'austérité) lisent l'effort intérieur, net de
+ce flux. Le flux garde ses effets de financement : solde, dette, traînée de dette sur la croissance,
+prime de taux, éviction pour une hausse.
+
+**Prestations en montant (v0.8.0).** Le curseur `prestations_menages` prend le multiplicateur des
+transferts sociaux dans les deux sens, comme les règles d'indexation, l'assurance chômage et les
+retraites.
+
 ### Profil Temporel (DECAY_PROFILE Differencie v3.1)
 
 Les effets des multiplicateurs se dissipent dans le temps selon **3 profils differencies** (v3.1) ; depuis la v0.6.7, chaque impulsion porte le profil de son levier (plus de mélange à l'échelle du programme) :
@@ -537,22 +570,33 @@ La part est celle de l'expansion brute (hausses de dépenses et baisses de recet
 
 ---
 
-### 4. Croissance Potentielle Supply-Side (v3.1)
+### 4. Croissance Potentielle Supply-Side (v3.1, échelle en v0.8.0)
 
-**Sources** : Khan & Luintel 2006, Bom & Ligthart 2014, FMI 2015 (Fiscal Monitor), FMI 2020, Ramey 2019
+**Sources** : Bom & Ligthart 2014 (élasticité du PIB au capital public), INSEE comptes de patrimoine 2025
+(stock), FMI 2015 (efficience), Fieldhouse & Mertens 2024 (R&D publique), DG Trésor ThreeME 2026
+(rénovation), Khan & Luintel 2006 et FMI 2015/2020 (délais, dépréciations).
 
-**Mecanisme** : Les depenses d'investissement productif augmentent la croissance potentielle de maniere dynamique, avec des parametres differencies par canal. Chaque canal a son propre bonus marginal, delai d'activation et taux de depreciation.
+**Mecanisme** : Les depenses d'investissement productif augmentent la croissance potentielle de maniere
+dynamique, avec des parametres differencies par canal. **v0.8.0** : la pente est dérivée d'une élasticité
+du PIB au STOCK de capital divisée par ce stock — un flux Δ soutenu accroît le stock de Δ par an, donc la
+croissance potentielle de ε × Δ / K par an.
 
-| Canal | Bonus/Md EUR au-dessus du defaut | Delai | Depreciation/an | Source |
-|-------|----------------------------------|-------|-----------------|--------|
-| **Recherche publique** | +0,0025 pt | 5 ans | 15% | Khan & Luintel 2006 |
-| **Transition ecologique (investissement)** | +0,002 pt | 3 ans | 5% | FMI 2015, Bom & Ligthart 2014 |
-| **Transition ecologique (renovation)** | +0,001 pt | 2 ans | 3% | FMI 2020 |
-| **Education** | +0,001 pt | 15 ans (symbolique) | 5% | Litterature capital humain |
+| Canal | Pente : bonus par Md€/an d'écart au défaut | Délai | Dépréciation/an | Source de la pente |
+|---|---|---|---|---|
+| **Recherche publique** | +0,032 pt | 5 ans | 15 % | Fieldhouse & Mertens 2024 (0,06) ; stock de R&D des APU ≈ 187 Md€ (inventaire permanent, INSEE 2025) |
+| **Transition écologique (investissement)** | +0,005 pt | 3 ans | 5 % | Bom & Ligthart 2014 (0,106) ; FMI 2015 (efficience 87 %) ; INSEE 2025 (1 855 Md€ hors terrains) |
+| **Transition écologique (rénovation)** | **0** | 2 ans | 3 % | DG Trésor, Trésor-Éco n° 394 (2026), ThreeME : effet de demande seul |
+| **Éducation** | +0,0025 pt | 15 ans (hors horizon) | 5 % | convention v3.1 (moitié du capital public) |
+| **Investissement des collectivités** | +0,005 pt | 3 ans | 5 % | capital public, mêmes sources que l'investissement de l'État |
 
-**Rendements decroissants** : Le bonus est calcule via `ln(1 + x)` ou `x` est le montant additionnel en Md EUR au-dessus du niveau par defaut. Cela attenue les gains marginaux a mesure que l'investissement augmente (les premiers milliards sont plus productifs que les suivants).
+**Rendements decroissants** : la somme des contributions est saturée en douceur vers le plafond,
+`bonus = 0,20 pt × tanh(Σ / 0,20 pt)` — proportionnelle aux petits montants (1 Md€ vaut un dixième de
+10 Md€), mi-plafond vers 22 Md€/an de capital public, 90 % du plafond vers 60 Md€/an. Jusqu'à la v0.8.0,
+la forme `coeff × log2(1 + x)` atteignait le plafond dès 1 Md€ : 1 Md€ et 50 Md€ recevaient la même
+prime (corrigé, cf. METHODOLOGIE). (Cette page écrivait `ln(1 + x)` ; le code calculait `log2`.)
 
-**Cap total** : +0,20 pt maximum. La croissance potentielle peut passer de 1,0% a 1,2% maximum.
+**Cap total** : ±0,20 pt (convention), atteint asymptotiquement. La croissance potentielle peut dépasser
+d'au plus 0,20 pt son niveau sans effet d'offre.
 
 **Depreciation progressive** : Si les depenses sont reduites par rapport au niveau par defaut, le bonus acquis ne disparait pas instantanement. Il se deprecie graduellement au taux propre a chaque canal. La recherche publique (15%/an) se deprecie plus vite que la renovation (3%/an), refletant la peremption plus rapide du capital connaissance vs le capital physique.
 
@@ -747,7 +791,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 3. **DECAY_PROFILE differencie** : 3 profils — TAXES (somme 2,00), TRANSFERS (somme 1,77), INVEST (somme 1,98, pic decale Y2). Melange pondere par composition des mesures
 4. **Cicatrice austerite** : -0,10 x severite pour effort >3% PIB, cap -0,3%/an
 5. **Crowding-out differencie** : intensite de 0,002 (expansion 100 % investissement productif) a 0,008 (sans investissement productif), selon la part d'investissement de l'expansion brute ; aucune source publiee (METHODOLOGIE § Éviction)
-6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (recherche +0,0025pt/Md EUR, transition +0,002pt, renovation +0,001pt, education +0,001pt), delais et depreciation differencies, rendements decroissants ln(1+x), cap +0,20pt
+6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (v0.8.0 : recherche +0,032 pt/Md€, transition +0,005 pt, renovation 0, education +0,0025 pt — elasticites sourcees divisees par les stocks), delais et depreciation differencies, saturation douce vers le plafond ±0,20 pt
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
 9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe avec garde-fou BCE a 2,0%

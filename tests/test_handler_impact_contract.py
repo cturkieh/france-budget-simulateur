@@ -2,9 +2,11 @@
 
 Un typo d'une clé canonique dans un handler (ex. ``chomages`` au lieu de
 ``chomage``) serait silencieusement ignoré par l'agrégation macro = bug
-invisible. Ce test itère les 33 handlers, collecte les clés d'``ImpactsDict``
-émises sur 10 ans, et échoue si une clé sort de l'ensemble connu (canonique
-+ traçabilité allowlistée). L'allowlist est bâtie depuis la réalité ; toute
+invisible. Ce test itère les handlers LIVRÉS (42 au registre depuis la
+release E, moins ``constants.LEVIERS_NON_LIVRES``, squelettes qui refusent
+toute valeur non neutre), collecte les clés d'``ImpactsDict`` émises sur 10
+ans, et échoue si une clé sort de l'ensemble connu (canonique + traçabilité
+allowlistée). L'allowlist est bâtie depuis la réalité ; toute
 nouvelle clé légitime doit y être ajoutée consciemment. Contexte (LOW
 préventif, pas de durcissement des collecteurs) : REFACTOR_SPLIT_PLAN.md.
 """
@@ -18,8 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from budget_simulator.simulator import BudgetSimulatorV45
-from budget_simulator.constants import HANDLER_FAILED_KEY
-from tests.snapshots.coverage_scenarios import build_standalone_scenarios
+from budget_simulator.constants import HANDLER_FAILED_KEY, LEVIERS_NON_LIVRES
+from tests.snapshots.coverage_scenarios import annee_debut_mini, build_standalone_scenarios
 
 # Clés agrégées LUES par le moteur macro (cf handlers/_types.py).
 CANONICAL_KEYS = frozenset({
@@ -37,6 +39,7 @@ TRACEABILITY_KEYS = frozenset({
     'prevention_organisation', 'taux',
     'description',      # str — métadonnée libellé (_apply_asu)
     'rabot_details',    # dict — tolérance ImpactsDict documentée (_apply_rabot_uniforme)
+    'recettes_tva',     # Md€ — part TVA de fiscalite_indirecte, lue par le passage dans les prix
 })
 
 # Clés d'infrastructure (échec handler / message d'erreur) posées par
@@ -72,9 +75,14 @@ def _toggle_param_ids() -> dict[str, list[str]]:
     return toggles
 
 
+# Handlers câblés par ``measure_handlers`` : 33 jusqu'à v0.7.2, plus les 9
+# leviers à handler de la release E (les 2 autres sont des formules).
+NB_HANDLERS = 42
+
+
 @pytest.fixture(scope="module")
 def emitted_keys_by_handler():
-    """{handler_id: set(clés émises sur 10 ans)} pour les 33 handlers.
+    """{handler_id: set(clés émises sur 10 ans)} pour les handlers livrés.
 
     Les params toggle sont forcés à leur valeur activante (cf
     `_toggle_param_ids`) pour qu'AUCUN handler ne reste silencieux — sinon
@@ -89,7 +97,7 @@ def emitted_keys_by_handler():
         # soient ou non le param choisi par build_standalone_scenarios.
         for tparam in toggles.get(hid, []):
             mesures.setdefault(hid, {})[tparam] = 1
-        sim = BudgetSimulatorV45(periods=10, mesures=mesures)
+        sim = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=annee_debut_mini(hid))
         _, _, report = sim.simulate()
         keys = set()
         for year_block in report.get('measure_impacts_by_year', []):
@@ -105,11 +113,17 @@ def emitted_keys_by_handler():
     return result
 
 
-def test_all_33_handlers_covered(emitted_keys_by_handler):
-    """L'infra standalone active bien 33 handlers (garde-fou anti-régression)."""
-    assert len(emitted_keys_by_handler) == 33, (
-        f"Attendu 33 handlers couverts, obtenu {len(emitted_keys_by_handler)}. "
-        f"build_standalone_scenarios() a dérivé — vérifier policy_measures.json."
+def test_tous_les_handlers_livres_couverts(emitted_keys_by_handler):
+    """L'infra standalone active bien TOUS les handlers livrés (garde-fou
+    anti-régression) : les 42 de ``measure_handlers`` moins les leviers non
+    livrés de la release E, qui n'ont pas de mini-scénario tant qu'ils sont
+    listés (``constants.LEVIERS_NON_LIVRES``, vide avant tout tag)."""
+    handlers = set(BudgetSimulatorV45().measure_handlers)
+    assert len(handlers) == NB_HANDLERS
+    assert set(emitted_keys_by_handler) == handlers - LEVIERS_NON_LIVRES, (
+        f"Attendu {NB_HANDLERS - len(LEVIERS_NON_LIVRES)} handlers couverts, obtenu "
+        f"{len(emitted_keys_by_handler)}. build_standalone_scenarios() a dérivé — "
+        f"vérifier policy_measures.json."
     )
 
 
@@ -131,7 +145,7 @@ def test_every_handler_emits_at_least_one_key(emitted_keys_by_handler):
 
 
 def test_every_handler_exposes_household_channels(emitted_keys_by_handler):
-    """v0.6.8 : les 33 handlers exposent leurs canaux ménages (clé ``menages``,
+    """v0.6.8 : les handlers livrés exposent leurs canaux ménages (clé ``menages``,
     ``handlers/_types.canaux_menages``), à zéro s'ils n'en ont pas — c'est le
     contrat que lit l'indice de pouvoir d'achat RDB-moteur (engine/rdb.py).
     L'ancienne clé ``pouvoir_achat`` (coefficients forfaitaires) a disparu."""

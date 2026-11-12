@@ -66,6 +66,9 @@ from ..constants import (
     COEFF_COMPETITIVITE_NICHES_FISCALES_TGE,
     COEFF_COMPETITIVITE_NICHES_SOCIALES_TGE,
     COEFF_COMPETITIVITE_SUBVENTIONS_TGE,
+    IMPOTS_PRODUCTION_COMPET_PAR_MD,
+    IS_COMPET_PAR_MD,
+    IS_EXCEPTIONNEL_COMPET_PAR_MD,
     PHASING_NICHES_FISCALES_TGE,
 )
 from .._logging import _log_debug
@@ -324,7 +327,7 @@ class CompetitiviteMixin(_MixinBase):
         # est un montant positif), en INCRÉMENT à l'assiette de l'année (v0.7.0).
         params_is_taux = {'rate': rate}  # Seul le TAUX impacte la compétitivité
         def _effet_impot_societes_taux(p):
-            return -variation_recette_taux(p['rate']) * 0.015
+            return -variation_recette_taux(p['rate']) * IS_COMPET_PAR_MD
 
         competitivite = self._effet_ponctuel(
             'impot_societes_taux', params_is_taux, _effet_impot_societes_taux)
@@ -363,7 +366,7 @@ class CompetitiviteMixin(_MixinBase):
         # Recalibré pour refléter l'impact réel incluant délocalisation/investissement
         params_impots_prod = {'montant': montant}
         def _effet_impots_production(p):
-            return (montant_base - p['montant']) * 0.020
+            return (montant_base - p['montant']) * IMPOTS_PRODUCTION_COMPET_PAR_MD
 
         impact_competitivite = self._effet_ponctuel(  # ONE-TIME, en INCRÉMENT (v0.7.0)
             'impots_production', params_impots_prod, _effet_impots_production)
@@ -419,7 +422,7 @@ class CompetitiviteMixin(_MixinBase):
         # INCRÉMENT (v0.7.0).
         params_is_excep = {'montant': montant}
         def _effet_is_exceptionnel_tge(p):
-            return -(p['montant'] - montant_base) * 0.003
+            return -(p['montant'] - montant_base) * IS_EXCEPTIONNEL_COMPET_PAR_MD
 
         impact_competitivite = self._effet_ponctuel(
             'is_exceptionnel_tge', params_is_excep, _effet_is_exceptionnel_tge)

@@ -91,6 +91,8 @@ import pandas as pd
 from .._logging import _log_debug
 from ..constants import (
     CHARGES_INTERET_MD_EUR,
+    CROISSANCE_FILET_MAX,
+    CROISSANCE_FILET_MIN,
     GINI_CONVERGENCE_RATE,
     GINI_HARD_CEILING,
     GINI_IMPACT_SCALE,
@@ -100,6 +102,8 @@ from ..constants import (
     HANDLER_FAILED_KEY,
     PA_VARIATION_ANNUELLE_MAX,
     PLAFOND_IMPACT_TOTAL_PIB,
+    PLAFOND_TOTAL_MODE,
+    PLAFOND_TOTAL_MODES,
     conjoncture_observee,
 )
 from .cadre import (
@@ -153,8 +157,31 @@ def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
         return valeur, False
     return float(np.clip(valeur, -borne, borne)), True
 
-_BUDGET_KEYS = frozenset({'depenses', 'recettes'})
+# 'recettes_tva' : part TVA de la recette de ``fiscalite_indirecte`` (lue par le
+# passage dans les prix), réduite avec la recette dont elle fait partie.
+_BUDGET_KEYS = frozenset({'depenses', 'recettes', 'recettes_tva'})
 _ABSENT = object()
+
+
+def _avis_plafond_total(annees) -> str:
+    """Avis du plafond de l'impact total en mode 'avertissement' (release E,
+    W1, contrat § 5.4) : une ligne, les années au-delà du seuil."""
+    return (f"mesures au-delà de {PLAFOND_IMPACT_TOTAL_PIB * 100:g} % du PIB en "
+            f"{', '.join(str(a) for a in annees)} : hors du domaine de validité du modèle "
+            f"(effets supposés proportionnels à la taille des mesures), résultats à lire "
+            f"avec prudence")
+
+def _avis_filet_croissance(ecretages) -> str:
+    """Avis du filet de croissance (contre-vérification m6) : une ligne, chaque
+    année écrêtée avec la croissance calculée et la croissance retenue."""
+    def pct(x):
+        return f"{x * 100:.2f}".replace('.', ',').replace('-', '−')
+    annees = ' ; '.join(f"{annee} ({pct(brute)} % calculés, {pct(retenue)} % retenus)"
+                        for annee, brute, retenue in ecretages)
+    return (f"filet de croissance [{pct(CROISSANCE_FILET_MIN)} % ; {pct(CROISSANCE_FILET_MAX)} %] "
+            f"atteint : {annees} — hors du domaine de validité des multiplicateurs linéaires, "
+            f"croissance ramenée dans le filet ; résultats à lire avec prudence")
+
 
 # Ordre d'évaluation des trois mondes de la composition (lot C, v0.7.0) :
 # part héritée d'abord (état du moteur), puis le programme et le droit sur
@@ -330,7 +357,8 @@ class OrchestratorMixin:
         seule la répartition de l'écart de solde est inconnue."""
         etat = self._cadre.etat
         droit = etat.droit_par_annee.get(year, etat.mesures_droit)
-        vote = etat.droit_vote
+        # Budget voté DE L'ANNÉE (release E, W1) : valeurs datées comprises.
+        vote = etat.vote_de_l_annee(year)
         total = 0.0
         for levier in sorted(l for l in droit if droit[l] != vote.get(l)):
             try:
@@ -443,6 +471,9 @@ class OrchestratorMixin:
         - Plafonne les impacts à 5% PIB par mesure, 10% PIB total (FMI, 2010).
         Returns: (dépenses ajustées, recettes ajustées, dictionnaire des impacts).
         """
+        # Release E (socle) : PIB nominal de l'année, lu par l'indice d'assiette
+        # des impôts à taux (simulator._indice_pib_source).
+        self._pib_nominal_par_annee[year] = gdp
         delta_spending_total = 0
         delta_revenue_total = 0
         impacts = {}
@@ -477,8 +508,14 @@ class OrchestratorMixin:
             self._ecretages = {}
         for measure_id, parameters in self.mesures.items():
             if measure_id not in self.measure_registry:
-                _log_debug(self.debug_logs, f"⚠ Mesure {measure_id} inconnue - ignorée")
-                continue
+                # Release E (W1, contrat § 5.1) : la porte d'entrée
+                # (_param_domain.retirer_leviers_inconnus) refuse ou retire
+                # tout levier inconnu ; en arriver ici est un défaut du MOTEUR
+                # (porte contournée), jamais une faute de l'appelant. Avant :
+                # `continue` silencieux.
+                raise RuntimeError(
+                    f"levier inconnu {measure_id!r} après la porte d'entrée : défaut du "
+                    f"moteur (porte des leviers inconnus contournée)")
             measure = self.measure_registry[measure_id]
             delta_spending, delta_revenue = 0, 0
             # Bloc `null` = levier ABSENT : sauté, absent de `impacts` (≠ `{}` ;
@@ -684,9 +721,31 @@ class OrchestratorMixin:
                 f"{len(strict_failures)} handler(s) en échec en mode BUDGETLAB_STRICT",
                 strict_failures,
             )
-        # Plafonne l'impact total à 10% PIB (FMI, 2010)
+        # Plafond de l'impact total à 10% PIB (FMI, 2010). Release E (W1,
+        # contrat § 5.4) : la mesure est conservée dans les deux modes de
+        # PLAFOND_TOTAL_MODE (relu à chaque appel) et publiée dans
+        # cadre.plafond_total ; 'avertissement' (défaut, décision D6 du
+        # 12/11/2026) n'en fait aucune et pose un avis ; 'reduction' garde la
+        # réduction proportionnelle v0.7.2.
+        if PLAFOND_TOTAL_MODE not in PLAFOND_TOTAL_MODES:
+            raise RuntimeError(f"PLAFOND_TOTAL_MODE = {PLAFOND_TOTAL_MODE!r} hors de "
+                               f"{PLAFOND_TOTAL_MODES} (constants.py, bloc W1)")
         total_impact = abs(delta_spending_total) + abs(delta_revenue_total)
-        if total_impact > PLAFOND_IMPACT_TOTAL_PIB * gdp:
+        if hasattr(self, '_impact_total_par_annee'):
+            self._impact_total_par_annee[year] = total_impact / gdp * 100
+        if total_impact > PLAFOND_IMPACT_TOTAL_PIB * gdp and PLAFOND_TOTAL_MODE == 'avertissement':
+            if ('*', 'PLAFOND_10') not in self._domain_clamp_warned:
+                self._domain_clamp_warned.add(('*', 'PLAFOND_10'))
+                logger.warning(
+                    "PLAFOND 10%% PIB TOTAL Y%d : impact total %.1f Md€ > %.1f Md€ — "
+                    "avertissement, aucune réduction", year, total_impact,
+                    PLAFOND_IMPACT_TOTAL_PIB * gdp)
+            # Avis posé à la première année (ordre des avis) ; simulate() le
+            # récrit avec la liste complète des années (_avis_plafond_total).
+            self._avis.setdefault(('*', 'PLAFOND_10'), _avis_plafond_total([year]))
+            if hasattr(self, '_annees_plafond_total') and year not in self._annees_plafond_total:
+                self._annees_plafond_total.append(year)
+        elif total_impact > PLAFOND_IMPACT_TOTAL_PIB * gdp:
             scaling_factor = (PLAFOND_IMPACT_TOTAL_PIB * gdp) / total_impact
             # Plafond systémique (FMI 2010) : signal visible hors mode debug —
             # cohérent avec le CLIP 5 % PIB par mesure (un total >10 % PIB
@@ -775,25 +834,37 @@ class OrchestratorMixin:
         # Réinitialiser TOUT l'état mutable avant chaque simulation
         # Sans cela, un second appel démarre depuis l'état final du premier
         self._reset_state()
+        # Corrections lisibles par l'écran (release E, W1) : leviers inconnus et
+        # exclusions mutuelles, report.corrections ; même portée que
+        # self._corrections (une simulation).
+        self._corrections_regles = {}
         # Porte d'ENTRÉE (v0.6.7), cf. _entree_retablie. Objet identique si
         # tout est valide (golden master byte-identique).
         self.mesures = assainir_mesures(
             self.mesures, strict=_mode_strict(),
             warned=self._domain_clamp_warned,
             corrections=self._corrections, avis=self._avis,
-            ecretages=self._ecretages,
+            ecretages=self._ecretages, regles=self._corrections_regles,
+            connus=self.measure_registry,
         )
         # Cadre temporel (v0.7.0, engine/cadre.py) : mode, année de début, droit
         # en vigueur. Mode historique (annee_debut absent ou 2026) : le
-        # programme s'applique dès 2026, au bit près comme en v0.6.11.
+        # programme s'applique dès 2026, au bit près comme en v0.6.11. Profils
+        # temporels (release E, W1) : calendrier des montants, mode cadre.
         self._cadre = CadreTemporel.preparer(
-            self.mesures, self.annee_debut, rampe=self.rampe, strict=_mode_strict(),
+            self.mesures, self.annee_debut, rampe=self.rampe,
+            profils=getattr(self, 'profils', None), strict=_mode_strict(),
             warned=self._domain_clamp_warned, corrections=self._corrections,
             avis=self._avis)
         # Mondes de la composition des horloges (lot C) : mode cadre seulement.
         self._mondes = creer_mondes(self._cadre) if self._cadre.actif else None
-        # Années où le plafond de 10 % du PIB mord (rapport, v0.7.0).
+        # Années où le plafond de 10 % du PIB est dépassé, et impact total
+        # mesuré chaque année en % du PIB (rapport, v0.7.0 ; release E, W1).
         self._annees_plafond_total = []
+        self._impact_total_par_annee = {}
+        # Filet de croissance (contre-vérification m6) : (année, valeur calculée,
+        # valeur retenue) de chaque écrêtage, pour l'avis du rapport.
+        self._filet_croissance = []
         # Atterrissage (lot E) : années injectées DANS l'horizon simulé, journal
         # de la décomposition (une année simulée doit y être complète :
         # CadreTemporel.rapport_atterrissage).
@@ -888,6 +959,11 @@ class OrchestratorMixin:
                     for nom in ('programme', 'droit_debut'):
                         self._mondes[nom].origines = self._origines_courantes
                     self._mondes['programme'].mesures = self.mesures
+                    # Droit en vigueur DE L'ANNÉE (release E, W1, valeurs datées) :
+                    # le même objet chaque année sans valeur datée après le début.
+                    droit_annee = self._cadre.droit_en_vigueur_de(year)
+                    for nom in ('droit_2026', 'droit_debut'):
+                        self._mondes[nom].mesures = droit_annee
 
                 # Variables d'état
                 unemployment_gap = unemployment - self.base_params['chomage_nairu']
@@ -934,6 +1010,10 @@ class OrchestratorMixin:
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
                     'effort_budgetaire': self._budget_effort_prev,
+                    # Effort INTÉRIEUR (revue adverse de la release E) : lu par la
+                    # cicatrice d'austérité, effet de demande ; l'éviction garde
+                    # l'effort total (effet de financement).
+                    'effort_interieur': self._budget_effort_interieur_prev,
                     # Composition lue par l'éviction (v0.6.10, V2-01). L'ancienne
                     # « part_depenses » (|Δdép net| / (|Δdép net| + |Δrec net|))
                     # est retirée : son dernier lecteur, le repli du multiplicateur
@@ -970,7 +1050,11 @@ class OrchestratorMixin:
                 economic_state_inflation = {
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
-                    'effort_budgetaire': self._budget_effort_prev,
+                    # Terme d'effort de la Phillips = effet de DEMANDE : effort
+                    # INTÉRIEUR, net des flux vers un agent non résident
+                    # (revue adverse de la release E ; cf. bloc « Effort
+                    # budgétaire » ci-dessous).
+                    'effort_budgetaire': self._budget_effort_interieur_prev,
                     # Impacts de t−1 (_last_impacts) : les mesures de t ne sont
                     # pas encore calculées. Le gate temporel (one-shot à
                     # year == 2) vit dans calculate_inflation — source unique.
@@ -980,6 +1064,14 @@ class OrchestratorMixin:
                     # (index d'année 2 = 2027 en mode historique). Formule
                     # inchangée, seule l'année suit l'horloge du levier.
                     'annee_pass_through_tva': self._origine('tva_rate') - self.annee_base + 1,
+                    # TVA à taux réduits (revue adverse de la release E, puis
+                    # contre-vérification I1) : sa recette de t−1 en Md€ (part
+                    # TVA seule, les accises n'y passent pas) ; calculate_inflation
+                    # fait passer dans les prix son INCRÉMENT annuel, quel que
+                    # soit le calendrier du levier.
+                    'tva_reduite_recette_md': (self._last_impacts.get('fiscalite_indirecte', {})
+                                               .get('recettes_tva', 0)),
+                    'pib_nominal': gdp_nominal,
                 }
                 inflation = self.calculate_inflation(year_idx, economic_state_inflation)
                 # Atterrissage (lot E) : DÉFLATEUR du PIB sourcé, imposé s'il est
@@ -1075,6 +1167,20 @@ class OrchestratorMixin:
 
                 fiscal_impulse = delta_revenue - delta_spending
                 budget_effort = fiscal_impulse / gdp_nominal
+                # Effort INTÉRIEUR (revue adverse de la release E) : l'effort net
+                # des flux vers un agent non résident
+                # (MESURES_HORS_DEMANDE_INTERIEURE, solde Δrec − Δdép de leurs
+                # impacts appliqués), lu par les deux effets de DEMANDE qui lisent
+                # l'effort : le terme d'effort de la Phillips et la cicatrice
+                # d'austérité. Les taux d'intérêt et l'éviction (effets de
+                # financement) gardent l'effort total, comme la colonne publiée.
+                # Sans flux de ce type, la somme vaut 0 et les deux efforts sont
+                # égaux au bit.
+                flux_hors_demande = sum(
+                    float(impacts[m].get('recettes', 0) or 0) - float(impacts[m].get('depenses', 0) or 0)
+                    for m in sorted(self.MESURES_HORS_DEMANDE_INTERIEURE)
+                    if isinstance(impacts.get(m), dict))
+                budget_effort_interieur = (fiscal_impulse - flux_hors_demande) / gdp_nominal
 
                 # Composition de l'EXPANSION de l'année (v0.6.10, contre-audit
                 # externe V2-01) : part des hausses de dépenses et baisses de
@@ -1093,6 +1199,7 @@ class OrchestratorMixin:
                 # (lag standard d'un an, cf. en-tête du bloc REFONTE ci-dessus :
                 # growth/inflation de t+1 consommeront cet effort et cette part).
                 self._budget_effort_prev = budget_effort
+                self._budget_effort_interieur_prev = budget_effort_interieur
                 self._part_investissement_prev = part_investment
 
                 revenues = revenues_after
@@ -1485,6 +1592,12 @@ class OrchestratorMixin:
         # Les avis (bloc vide, plafond 5 % PIB du modèle) informent sans
         # invalider : l'entrée a été lue telle quelle.
         rabot_vivier = self._rabot_vivier_au_rapport(int(results_df['Année'].iloc[-1]))
+        # Avis du plafond en mode 'avertissement' (release E, W1) : complété
+        # avec toutes les années au-delà du seuil.
+        if ('*', 'PLAFOND_10') in self._avis:
+            self._avis[('*', 'PLAFOND_10')] = _avis_plafond_total(self._annees_plafond_total)
+        if self._filet_croissance:
+            self._avis[('*', 'FILET_CROISSANCE')] = _avis_filet_croissance(self._filet_croissance)
         corrections = list(self._corrections.values())
         trajectory_report['valid'] = not corrections
         trajectory_report['warnings'] = (
@@ -1501,6 +1614,13 @@ class OrchestratorMixin:
         trajectory_report['leviers_ecretes'] = (
             list(self._ecretages.values())
             + ([rabot_vivier] if rabot_vivier is not None else []))
+        # Corrections lisibles par l'écran (release E, W1, contrat § 4.1 et
+        # W5-15) : levier inconnu et exclusions mutuelles, une entrée par règle
+        # {regle, leviers_ignores, message} ; toujours présent, vide sans
+        # correction. Le message figure aussi dans `warnings` (« Entrée ou
+        # sortie corrigée »).
+        trajectory_report['corrections'] = [dict(e, leviers_ignores=list(e['leviers_ignores']))
+                                            for e in self._corrections_regles.values()]
 
         # NOUVEAU: Ajouter les impacts détaillés au rapport
         trajectory_report['measure_impacts_by_year'] = measure_impacts_by_year
@@ -1509,7 +1629,18 @@ class OrchestratorMixin:
         # Plafond de l'impact total (PLAFOND_IMPACT_TOTAL_PIB, inchangé) : il
         # porte sur les écarts AU DÉFAUT DU MOTEUR, pas au droit voté ; avis
         # existant exposé dans le bloc, années comprises.
+        # Release E (W1) : mode du plafond, impact maximal mesuré et son année
+        # (première année du maximum), publiés si le seuil est dépassé.
+        impact_max = None
+        if self._annees_plafond_total and self._impact_total_par_annee:
+            annee_max = None
+            for an in sorted(self._impact_total_par_annee):
+                if annee_max is None or self._impact_total_par_annee[an] > self._impact_total_par_annee[annee_max]:
+                    annee_max = an
+            impact_max = (annee_max, self._impact_total_par_annee[annee_max])
         trajectory_report['cadre'] = self._cadre.rapport(self._journal_atterrissage,
-                                                         self._annees_plafond_total)
+                                                         self._annees_plafond_total,
+                                                         impact_max=impact_max,
+                                                         filet_croissance=self._filet_croissance)
 
         return results_df, pd.DataFrame(results_detailed), trajectory_report

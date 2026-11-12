@@ -195,7 +195,13 @@ def test_m7_plafond_constante_nommee_valeur_inchangee():
     source = Path(orch.__file__).read_text(encoding='utf-8')
     assert '0.10 * gdp' not in source and source.count('PLAFOND_IMPACT_TOTAL_PIB * gdp') >= 2
     bloc = cadre.CadreTemporel.preparer({}, None).rapport(None, [2030])['plafond_total']
-    assert bloc == {'seuil_pct_pib': 10, 'reference': 'defauts_du_moteur', 'annees': [2030]}
+    # Release E (chantier W1, contrat § 5.4) : le bloc publie aussi le mode du
+    # plafond et l'impact maximal mesuré (sans objet ici) ; les trois champs
+    # v0.7.0 sont inchangés.
+    assert {k: bloc[k] for k in ('seuil_pct_pib', 'reference', 'annees')} == {
+        'seuil_pct_pib': 10, 'reference': 'defauts_du_moteur', 'annees': [2030]}
+    assert bloc['mode'] == C.PLAFOND_TOTAL_MODE
+    assert bloc['impact_max_pct_pib'] is None and bloc['annee_impact_max'] is None
 
 
 def test_m7_calcul_et_rapport_lisent_la_constante(monkeypatch):
@@ -207,7 +213,9 @@ def test_m7_calcul_et_rapport_lisent_la_constante(monkeypatch):
     rapport = simuler(PROGRAMME_MIXTE)[2]
     bloc = rapport['cadre']['plafond_total']
     assert bloc['seuil_pct_pib'] == 0.1 and bloc['annees'][0] == 2026
-    assert any('plafonné à 0.1 % du PIB' in w for w in rapport['warnings'])
+    # Avis du mode par défaut (« avertissement » depuis la décision D6 du
+    # 12/11/2026 ; « plafonné à » en mode « reduction ») : même seuil lu.
+    assert any('au-delà de 0.1 % du PIB' in w for w in rapport['warnings'])
 
 
 # ---------------------------------------------------------------------------
@@ -237,8 +245,11 @@ _MUTATEURS = frozenset({'update', 'setdefault', 'append', 'add', 'pop', 'clear',
 # Écrit pendant un handler, commun aux mondes PAR CONSTRUCTION et sans effet sur
 # le calcul : le journal de débogage (``_log_debug(self.debug_logs, …)``, jamais
 # relu par le moteur), et le journal des rabots du vivier (v0.7.2, revue passe 1 :
-# ``_noter_rabot_vivier``, rapport seulement, écrit pour le seul monde du programme).
-_PARTAGES_SANS_EFFET = frozenset({'debug_logs', '_rabots_vivier'})
+# ``_noter_rabot_vivier``, rapport seulement, écrit pour le seul monde du programme),
+# et les avis du rapport (release E, W4 : avis Z-ter de l'impôt plancher,
+# ``recettes_taux._noter_avis_z_ter``, rapport seulement, jamais relu par un
+# calcul, écrit pour le seul monde du programme et le mode historique).
+_PARTAGES_SANS_EFFET = frozenset({'debug_logs', '_rabots_vivier', '_avis'})
 
 
 def _attribut_de_self(noeud):
@@ -292,10 +303,9 @@ def test_m9_ecritures_des_handlers_statique():
     assert set(ecrits) == cadre.ETATS_PAR_MONDE             # la liste n'a pas d'entrée morte
 
 
-def test_m9_ecritures_des_handlers_dynamique(monkeypatch):
-    """Même garde à l'exécution, sur tous les programmes du harnais en mode
-    cadre (trois mondes) : attributs ajoutés, retirés, réassignés ou mutés au
-    premier niveau pendant un appel de handler."""
+def _ecrits_pendant_les_handlers(monkeypatch, programmes, annee_debut=DEBUT):
+    """Attributs de ``self`` ajoutés, retirés, réassignés ou mutés au premier
+    niveau pendant un appel de handler, sur ``programmes``."""
     vrai = BudgetSimulatorV45._apply_complex_measure
     ecrits = set()
 
@@ -315,9 +325,38 @@ def test_m9_ecritures_des_handlers_dynamique(monkeypatch):
                     ecrits.add(n)
 
     monkeypatch.setattr(BudgetSimulatorV45, '_apply_complex_measure', espion)
-    for nom in NOMS:
-        simuler(CAS[nom], annee_debut=DEBUT)
+    for mesures in programmes:
+        simuler(mesures, annee_debut=annee_debut)
+    monkeypatch.undo()
+    return ecrits
+
+
+def test_m9_ecritures_des_handlers_dynamique(monkeypatch):
+    """Même garde à l'exécution, sur tous les programmes du harnais en mode
+    cadre (trois mondes) : attributs ajoutés, retirés, réassignés ou mutés au
+    premier niveau pendant un appel de handler."""
+    ecrits = _ecrits_pendant_les_handlers(monkeypatch, [CAS[nom] for nom in NOMS])
     assert ecrits - _PARTAGES_SANS_EFFET == cadre.ETATS_PAR_MONDE
+
+
+@pytest.mark.parametrize('annee_debut', [None, DEBUT], ids=['historique', 'cadre2028'])
+def test_m9_avis_z_ter_seul_partage_ecrit_par_le_plancher(monkeypatch, annee_debut):
+    """Release E (W4, avis Z-ter) : un impôt plancher combiné à une hausse de
+    CSG fait écrire ``_avis`` PENDANT un handler (non vacuité : la garde
+    dynamique ci-dessus ne voit aucun programme du harnais qui le déclenche),
+    et c'est le seul état partagé ajouté ; ``_avis`` est sans effet sur le
+    calcul (trajectoire identique quand on vide les avis au fil de l'eau)."""
+    mesures = {'impot_plancher_patrimoine': {'taux': 0.02},
+               'csg': {'taux': DROIT['csg']['taux'] + 0.008, 'progressive': 0}}
+    ecrits = _ecrits_pendant_les_handlers(monkeypatch, [mesures], annee_debut)
+    assert '_avis' in ecrits, sorted(ecrits)
+    assert ecrits - _PARTAGES_SANS_EFFET <= cadre.ETATS_PAR_MONDE, sorted(ecrits)
+    df, detail, rapport = simuler(mesures, annee_debut=annee_debut)[:3]
+    assert any('impôt plancher' in w for w in rapport['warnings']), rapport['warnings']
+    from budget_simulator.handlers import recettes_taux
+    monkeypatch.setattr(recettes_taux, '_noter_avis_z_ter', lambda avis, monde: None)
+    df_sans, detail_sans = simuler(mesures, annee_debut=annee_debut)[:2]
+    assert df.equals(df_sans) and detail.equals(detail_sans)
 
 
 # ---------------------------------------------------------------------------

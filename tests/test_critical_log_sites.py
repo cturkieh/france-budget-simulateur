@@ -82,20 +82,36 @@ def test_clip_5pct_pib_per_measure_emits_warning(monkeypatch, caplog):
     assert any('CLIP 5% PIB' in m and 'fraude_fiscale' in m for m in msgs), msgs
 
 
-def test_clip_10pct_pib_total_emits_warning(monkeypatch, caplog):
-    """Total > 10 % PIB (3 mesures énormes) → warning CLIP 10% PIB TOTAL.
-
-    Ce warning a été AJOUTÉ en Lot E (le site n'émettait qu'un
-    ``_log_debug`` invisible hors BUDGET_DEBUG — angle mort d'observabilité).
-    """
+def _total_au_dela_de_10pct(monkeypatch, caplog):
     ids = ['fraude_fiscale', 'fraude_sociale', 'optimisation_dette']
     sim = BudgetSimulatorV45(periods=10, mesures={i: {} for i in ids})
     for i in ids:
         monkeypatch.setitem(sim.measure_handlers, i, _huge)
     with caplog.at_level(logging.WARNING, logger=_ORCHESTRATOR_LOGGER):
         sim.simulate()
-    msgs = _messages(caplog, _ORCHESTRATOR_LOGGER, logging.WARNING)
+    return _messages(caplog, _ORCHESTRATOR_LOGGER, logging.WARNING)
+
+
+def test_clip_10pct_pib_total_emits_warning(monkeypatch, caplog):
+    """Total > 10 % PIB (3 mesures énormes), mode « reduction » posé
+    explicitement → warning CLIP 10% PIB TOTAL.
+
+    Ce warning a été AJOUTÉ en Lot E (le site n'émettait qu'un
+    ``_log_debug`` invisible hors BUDGET_DEBUG — angle mort d'observabilité).
+    """
+    import budget_simulator.engine.orchestrator as orchestrateur
+    monkeypatch.setattr(orchestrateur, 'PLAFOND_TOTAL_MODE', 'reduction')
+    msgs = _total_au_dela_de_10pct(monkeypatch, caplog)
     assert any('CLIP 10% PIB TOTAL' in m for m in msgs), msgs
+
+
+def test_plafond_10pct_pib_total_mode_par_defaut_emits_warning(monkeypatch, caplog):
+    """Même total, mode par défaut « avertissement » (décision D6 du
+    12/11/2026) : aucune réduction, mais le site reste observable — warning
+    PLAFOND 10% PIB TOTAL, jamais muet."""
+    msgs = _total_au_dela_de_10pct(monkeypatch, caplog)
+    assert any('PLAFOND 10% PIB TOTAL' in m and 'aucune réduction' in m for m in msgs), msgs
+    assert not any('CLIP 10% PIB TOTAL' in m for m in msgs), msgs
 
 
 def test_handler_failure_absorbed_emits_error(monkeypatch, caplog):

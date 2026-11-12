@@ -9,7 +9,9 @@ Mesures couvertes (8 handlers) :
   (au-dessus de 160 950 €), effet Laffer via ETI tranche supérieure.
 - ``csg`` : taux global CSG (base 9,7 %) + option progressivité par décile
   (neutre recettes, forte réduction Gini). Recettes RÉCURRENTES, Gini one-time.
-- ``cotisations_salariales`` : baisse en points (0-5), -6 Md€/pt. Gini one-time.
+- ``cotisations_salariales`` : baisse en points (0 à la suppression totale de la
+  masse sourcée, release E), 1 % de la masse salariale brute 2025 par point
+  (≈ 11,57 Md€). Gini one-time.
 - ``elargissement_ir`` : % de foyers imposables cible (0,45 → 0,70). Recettes
   classes moyennes D4-D6.
 - ``fiscalite_patrimoine`` : IFI + succession + foncière regroupés, slider
@@ -57,10 +59,28 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    COUT_PAR_POINT_COTIS_SAL,
+    ETI_PLANCHER_FACTEUR,
     ETI_TRANCHE_SUPERIEURE,
+    GINI_COTIS_SAL_PAR_MD,
+    IR_GINI_DECOTE,
+    IR_GINI_PAR_5PTS,
+    IR_RECETTE_DECOTE,
+    ISF_COMPET_PAR_12MD,
+    ISF_GINI_PAR_12MD,
+    ISF_PHASAGE,
+    ISF_TAUX_MAX,
     PART_CONSOMMATION_MENAGES_TVA_TOTALE,
     PART_MENAGES_TAXE_FONCIERE,
+    PATRIMOINE_COMPET_PAR_10MD,
+    PATRIMOINE_GINI_PAR_10MD,
     POLICY_START_YEAR,
+    TVA_COMPET_PAR_2PTS,
+    TVA_ENERGIE_CONSO_ELECTRICITE_MD,
+    TVA_ENERGIE_CONSO_GAZ_MD,
+    TVA_ENERGIE_GINI_PAR_TAUX,
+    TVA_GINI_PAR_2PTS,
+    recette_tva_taux,
 )
 from .._logging import _log_debug
 from ._phasing import _one_time_level, _year_phasing
@@ -82,14 +102,10 @@ class FiscaliteMenagesMixin(_MixinBase):
 
     def _apply_tva_rate(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         rate = params.get('taux', 0.20)
-        consumption_base = 0.53 * gdp
-        base_elasticity = -0.2 if rate > 0.20 else -0.1
-        if unemployment > 0.10:
-            base_elasticity *= 1.2
-        adjusted_base = consumption_base * (1 + base_elasticity * (rate - 0.20))
-        delta_revenue = (rate - 0.20) * adjusted_base * 0.9
-        if rate > 0.22:
-            delta_revenue *= (1 - 0.2 * (rate - 0.22) / 0.03)
+        # Recette : fonction de constants.py, extraite au bit de ce handler
+        # (release E, socle) pour que les coefficients par Md€ de la TVA la
+        # LISENT au lieu de la recopier.
+        delta_revenue = recette_tva_taux(rate, gdp, unemployment)
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Impact ONE-TIME (changement structure fiscale), en INCRÉMENT
@@ -97,14 +113,14 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Gini : TVA = impôt RÉGRESSIF (touche + les pauvres)
         # Règle : TVA 20%→22% = +0.005 Gini (OFCE 2024)
         def _effet_tva_rate(p):
-            return 0.005 * (p['rate'] - 0.20) / 0.02
+            return TVA_GINI_PAR_2PTS * (p['rate'] - 0.20) / 0.02
 
         gini = self._effet_ponctuel('tva_rate', {'rate': rate}, _effet_tva_rate)
 
         # Compétitivité : Impact ONE-TIME (changement structure fiscale)
         # Règle : TVA +2% = -0.0005 compétitivité (CAE 2022, répercussion prix)
         def _effet_tva_rate_competitivite(p):
-            return -0.0005 * (p['rate'] - 0.20) / 0.02
+            return TVA_COMPET_PAR_2PTS * (p['rate'] - 0.20) / 0.02
 
         competitivite = self._effet_ponctuel('tva_rate_competitivite', {'rate': rate}, _effet_tva_rate_competitivite)
 
@@ -136,8 +152,8 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         # ===== CONSOMMATION ÉNERGIE =====
         # Base 2024 : électricité 60 Md€, gaz 60 Md€
-        conso_electricite = 60.0  # Md€
-        conso_gaz = 60.0  # Md€
+        conso_electricite = TVA_ENERGIE_CONSO_ELECTRICITE_MD  # Md€
+        conso_gaz = TVA_ENERGIE_CONSO_GAZ_MD  # Md€
 
         # ===== RECETTES TVA ACTUELLES (20%) =====
         recettes_actuelles_elec = conso_electricite * 0.20
@@ -163,7 +179,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Gini : léger effet positif (ménages modestes dépensent + en % pour énergie)
         # Baisse TVA énergie réduit inégalités (énergie = 15% budget classes populaires vs 7% classes aisées)
         # Impact appliqué UNE FOIS (changement structure prix relatifs)
-        impact_gini = _one_time_level(years_elapsed, delta_tva_moyen * 0.05 * phasing)
+        impact_gini = _one_time_level(years_elapsed, delta_tva_moyen * TVA_ENERGIE_GINI_PAR_TAUX * phasing)
 
         # Compétitivité : neutre (entreprises ont déjà TVA déductible)
         impact_competitivite = 0.0
@@ -210,12 +226,12 @@ class FiscaliteMenagesMixin(_MixinBase):
             delta_net_of_tax = (
                 (1 - taux_marginal_total_apres) - (1 - taux_marginal_total_avant)
             ) / (1 - taux_marginal_total_avant)
-            facteur_comportemental = max(0.5, 1 + ETI_TRANCHE_SUPERIEURE * delta_net_of_tax)
+            facteur_comportemental = max(ETI_PLANCHER_FACTEUR, 1 + ETI_TRANCHE_SUPERIEURE * delta_net_of_tax)
         else:
             facteur_comportemental = 1.0
 
         delta_taux = delta_taux_brut * facteur_comportemental
-        delta_decote = (1.0 - decote) * 7.5
+        delta_decote = (1.0 - decote) * IR_RECETTE_DECOTE
         delta_revenue = delta_taux + delta_decote
 
         # === IMPACTS MACROÉCONOMIQUES ===
@@ -224,7 +240,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Règle : Taux sup 45%→50% = -0.008 Gini (OFCE 2023)
         # Décote : Baisse décote = hausse impôt classes moyennes = +Gini
         def _effet_impot_revenu(p):
-            return -0.008 * (p['taux_sup'] - 0.45) / 0.05 + 0.003 * (1.0 - p['decote'])
+            return IR_GINI_PAR_5PTS * (p['taux_sup'] - 0.45) / 0.05 + IR_GINI_DECOTE * (1.0 - p['decote'])
 
         gini = self._effet_ponctuel(
             'impot_revenu', {'taux_sup': taux_sup, 'decote': decote}, _effet_impot_revenu)
@@ -354,24 +370,38 @@ class FiscaliteMenagesMixin(_MixinBase):
     def _apply_cotisations_salariales(self, measure: Dict, params: Dict, year: int,
                                       gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """
-        Baisse cotisations salariales (22% actuellement)
+        Baisse des cotisations sociales à la charge des salariés, hors CSG et
+        CRDS (classées en impôts dans les comptes nationaux ; curseur CSG).
 
         Paramètre:
-        - baisse_points (0-5): Baisse en points de cotisations
+        - baisse_points : baisse en points de cotisation, de 0 à
+          ``COTIS_SAL_POINTS_SUPPRESSION`` (release E, déplafonnement, contrat
+          du dépôt parent § 1.2-D) : au maximum, le levier retire exactement la
+          masse sourcée ``COTIS_SAL_MASSE_2025_MD`` (D613CE, Insee 2025), au
+          coût du point du moteur. La borne vit dans policy_measures.json et
+          est appliquée par les portes du moteur (écrêtage tracé en tolérant,
+          refus en strict) : le handler ne réécrête plus (l'ancien plafond de
+          5 points est retiré ; calcul identique au bit jusqu'à 5 points).
 
-        Impact: -1 point = 6 Md€ rendus aux salariés (canal prélèvements directs)
-        Sources: URSSAF 2024, DARES pouvoir d'achat, OFCE multiplicateurs
+        Impact: -1 point = COUT_PAR_POINT_COTIS_SAL Md€ rendus aux salariés
+        (canal prélèvements directs), loi linéaire sur tout le domaine. Le coût
+        du point est 1 % de la masse salariale brute 2025 (Insee, tableau
+        2.101, ligne D11) : le maximum est le taux moyen réel des cotisations
+        salariales (décision du mainteneur du 12/11/2026, constants.py).
         """
-        baisse_points = params.get('baisse_points', 0.0)  # 0.0 à 5.0
-        baisse_points = max(0, min(5, baisse_points))  # Clamp 0-5
+        baisse_points = params.get('baisse_points', 0.0)
 
-        if baisse_points == 0:
+        # Retour anticipé au neutre SEULEMENT si aucun effet ponctuel n'a été
+        # émis dans ce monde (contre-vérification m4, règle « Retour anticipé »
+        # des handlers de la release E) : une baisse qui revient à 0 (rampe vers
+        # 0 sous une valeur datée du droit) doit rendre son incrément de Gini.
+        if baisse_points == 0 and 'cotisations_salariales' not in self._measure_params_tracker:
             return 0.0, 0.0, {}
 
         # ===== COÛT BUDGÉTAIRE =====
-        # -1 point cotisations = -6 Md€ recettes sociales
-        COUT_PAR_POINT = 6.0  # Md€
-        delta_revenue = -baisse_points * COUT_PAR_POINT
+        # Un point de baisse = 1 % de la masse salariale brute 2025 rendu aux
+        # salariés (COUT_PAR_POINT_COTIS_SAL, constants.py).
+        delta_revenue = -baisse_points * COUT_PAR_POINT_COTIS_SAL
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         impacts = {
@@ -380,15 +410,14 @@ class FiscaliteMenagesMixin(_MixinBase):
             'menages': canaux_menages(prelevements_directs=delta_revenue),
         }
 
-        # Gini: Impact ONE-TIME au changement, en INCRÉMENT (v0.7.0)
-        # Gini: INÉGALITAIRE (bénéfice absolu croît avec revenu)
-        # Baisse cotis = MOINS de redistribution sociale → Gini AUGMENTE
-        # Mécanisme : -1 pt cotis → -6 Md€ sécu → moins de transferts progressifs
-        # Source: OFCE 2023 - Baisse uniforme 3 pts = +0.008 Gini
-        # Donc: -1 pt cotis = +0.0027 Gini (hausse inégalités)
-        # ATTENTION AU SIGNE : baisse_points POSITIF → Gini AUGMENTE (+)
+        # Gini : effet ONE-TIME au changement, en INCRÉMENT (v0.7.0). Une baisse
+        # proportionnelle au salaire profite davantage, en euros, aux hauts
+        # salaires : le Gini du niveau de vie AUGMENTE (baisse_points positif →
+        # Gini +). Coefficient PAR Md€ rendu aux salariés
+        # (GINI_COTIS_SAL_PAR_MD, estimation de France Budget, constants.py) :
+        # le Gini ne dépend pas de la convention du point.
         def _effet_cotisations_salariales(p):
-            return 0.0027 * p['baisse_points']
+            return GINI_COTIS_SAL_PAR_MD * (p['baisse_points'] * COUT_PAR_POINT_COTIS_SAL)
 
         impacts['gini'] = self._effet_ponctuel(
             'cotisations_salariales', {'baisse_points': baisse_points}, _effet_cotisations_salariales)
@@ -408,7 +437,7 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
                    f"Y{year}: Cotisations salariales -{baisse_points:.1f} pts - "
-                   f"Taux effectif {22-baisse_points:.1f}%, coût {delta_revenue:.1f}Md€")
+                   f"coût {delta_revenue:.1f}Md€")
 
         return 0, delta_revenue, impacts
 
@@ -523,7 +552,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
         # Fort effet redistributif si hausse (patrimoine concentré D9-D10)
         def _effet_fiscalite_patrimoine(p):
-            return -0.010 * ((TOTAL_BASE * p['intensite']) / 10.0)
+            return PATRIMOINE_GINI_PAR_10MD * ((TOTAL_BASE * p['intensite']) / 10.0)
 
         impacts['gini'] = self._effet_ponctuel(
             'fiscalite_patrimoine', {'intensite': intensite}, _effet_fiscalite_patrimoine)
@@ -532,7 +561,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Règle : Hausse 10 Md€ = -0.002 compétitivité (exil fiscal entrepreneurs)
         params_patrimoine_comp = {'intensite': intensite}
         def _effet_fiscalite_patrimoine_competitivite(p):
-            return -0.002 * ((TOTAL_BASE * p['intensite']) / 10.0)
+            return PATRIMOINE_COMPET_PAR_10MD * ((TOTAL_BASE * p['intensite']) / 10.0)
 
         impacts['competitivite'] = self._effet_ponctuel(
             'fiscalite_patrimoine_competitivite', params_patrimoine_comp, _effet_fiscalite_patrimoine_competitivite)
@@ -564,9 +593,9 @@ class FiscaliteMenagesMixin(_MixinBase):
             # IFI maintenu : aucun changement budgétaire vs la baseline (l'IFI
             # continue à y générer ses ~2 Md€/an).
             return 0, 0, {'recettes': 0}
-        seuil_entree = 1.3   # M€ (NFP)
-        taux_max = 0.01      # 1 % (NFP)
-        bonus_eco = 0.20 + 0.10  # abattement vert 30 % (NFP), écrit comme l'ancienne interpolation à l'intensité 1 : identité au bit
+        seuil_entree = 1.3   # M€ (barème du levier)
+        taux_max = ISF_TAUX_MAX      # 1 % (barème du levier)
+        bonus_eco = 0.20 + 0.10  # abattement vert 30 % (barème du levier), écrit comme l'ancienne interpolation à l'intensité 1 : identité au bit
 
         # Année de référence — horloge du levier (v0.7.0) : phasage et effets
         # d'entrée en vigueur.
@@ -580,7 +609,7 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         # ===== PHASING 2 ANS (cadastre fiscal) =====
         # 0.5 l'année de mise en place, 1.0 ensuite (plein effet)
-        phasing = _year_phasing(years_elapsed, (0.5, 1.0))
+        phasing = _year_phasing(years_elapsed, ISF_PHASAGE)
 
         # ===== NOMBRE DE FOYERS CONCERNÉS =====
         # Distribution patrimoniale française (IPP 2024) : 350k foyers au-dessus
@@ -632,11 +661,11 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         # Gini : -0.020 pour 12 Md€ (réduction forte inégalités via redistribution)
         # Impact appliqué UNE FOIS (changement structure revenus/patrimoine)
-        impact_gini = _one_time_level(years_elapsed, -0.020 * (recettes_nettes / 12) * phasing)
+        impact_gini = _one_time_level(years_elapsed, ISF_GINI_PAR_12MD * (recettes_nettes / 12) * phasing)
 
         # Compétitivité : -0.002 (risque exil entrepreneurs)
         # Impact appliqué UNE FOIS (changement structure productive)
-        impact_competitivite = _one_time_level(years_elapsed, -0.002 * (recettes_nettes / 12) * phasing)
+        impact_competitivite = _one_time_level(years_elapsed, ISF_COMPET_PAR_12MD * (recettes_nettes / 12) * phasing)
 
         impacts = {
             'recettes': delta_revenue,

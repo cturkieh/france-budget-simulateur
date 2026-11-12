@@ -44,7 +44,7 @@ import os
 import threading
 import time
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
@@ -55,7 +55,7 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 from budget_simulator import BudgetSimulatorV45, EntreeInvalide, load_default_values
-from budget_simulator.engine.cadre import RAMPE_LEVIERS_ELIGIBLES
+from budget_simulator.engine.cadre import PROFILS_ELIGIBLES, RAMPE_LEVIERS_ELIGIBLES
 
 load_dotenv()
 
@@ -256,7 +256,9 @@ class RampeRequete(BaseModel):
     paramètres listés, du droit en vigueur au programme, sur `annees` budgets à
     partir de `annee_debut`. Forme validée ici (entier strict, liste de textes,
     aucune autre clé : 422) ; domaine et éligibilité par le moteur (422 en
-    strict, correction tracée en tolérant)."""
+    strict, correction tracée en tolérant). Depuis la release E, comme un
+    profil « rampe », `annees` ≤ 2032 − `annee_debut` + 1 : la rampe finit au
+    plus tard en 2032 (au-delà, ramenée à la borne en tolérant)."""
     model_config = ConfigDict(extra='forbid')
     annees: int = Field(strict=True)
     # Taille bornée (revue de sécurité) : une entrée par levier éligible au plus,
@@ -265,11 +267,31 @@ class RampeRequete(BaseModel):
         max_length=len(RAMPE_LEVIERS_ELIGIBLES))
 
 
+class ProfilRequete(BaseModel):
+    """Calendrier d'un montant en Md€ (release E, chantier W1), d'un des
+    quatre taux et niveaux éligibles ou d'un des deux coefficients
+    d'indexation : `forme` `plein` (chaque année), `rampe` (montée progressive
+    jusqu'à la fin du mandat ; montants, taux et niveaux) ou `annee` (une seule
+    année, `annee` entière obligatoire ; montants et coefficients d'indexation,
+    pour un gel d'une année : l'écart de niveau reste ensuite). Forme
+    validée ici (littéral, entiers stricts, aucune autre clé : 422) ;
+    éligibilité de la clé, année dans le mandat et cohérence par le moteur
+    (422 en strict, correction tracée en tolérant)."""
+    model_config = ConfigDict(extra='forbid')
+    forme: Literal['plein', 'rampe', 'annee']
+    annee: int | None = Field(default=None, strict=True)
+    # Durée d'une rampe (compatibilité avec `rampe.annees`) ; facultative, au
+    # plus 2032 − annee_debut + 1 (la rampe finit au plus tard en 2032 ; borne
+    # vérifiée par le moteur).
+    annees: int | None = Field(default=None, strict=True)
+
+
 class SimulationRequest(BaseModel):
     """Requête de simulation avec validation stricte. Aucune clé hors
-    `mesures`, `periods`, `annee_debut` et `rampe` : 422 (v0.7.2, revue passe 1).
-    Avant, une faute de frappe (`annee_debu: 2030`) était ignorée en silence et
-    la simulation tournait en mode historique."""
+    `mesures`, `periods`, `annee_debut`, `rampe` et `profils` : 422 (v0.7.2,
+    revue passe 1 ; `profils` depuis la release E). Avant, une faute de frappe
+    (`annee_debu: 2030`) était ignorée en silence et la simulation tournait en
+    mode historique."""
     model_config = ConfigDict(extra='forbid')
     mesures: dict[str, Any] | None = Field(default_factory=dict)
     periods: int = Field(default=10, ge=1, le=PERIODS_MAX)
@@ -280,7 +302,14 @@ class SimulationRequest(BaseModel):
     # moteur (422 en strict, correction tracée en tolérant).
     annee_debut: int | None = Field(default=None, strict=True)
     # Rampe générique (v0.7.0) : mode cadre seulement ; défaut, aucune rampe.
+    # Alias, depuis la release E, d'un profil « rampe » sur chaque levier listé.
     rampe: RampeRequete | None = None
+    # Profils temporels (release E, chantier W1) : {"levier.parametre":
+    # {forme, annee?}}, mode cadre seulement. Taille bornée (une entrée par
+    # paramètre éligible au plus, des clés courtes) : au-delà, 422 avant le
+    # moteur.
+    profils: dict[Annotated[str, StringConstraints(max_length=64)], ProfilRequete] | None = Field(
+        default=None, max_length=len(PROFILS_ELIGIBLES))
 
     @field_validator('mesures')
     @classmethod
@@ -420,15 +449,63 @@ async def simulate(request: SimulationRequest):
       (texte, booléen, flottant) : 422 dans les
       deux modes ; hors [2026 ; 2032] : 422 en strict, ramené à la borne en
       tolérant (`report.valid` à `false`). `rampe` (facultative, mode cadre) :
-      `{"annees": 1-6, "leviers": ["levier.parametre", …]}`, montée en charge
-      linéaire du paramètre, de la valeur du droit en vigueur à celle du
-      programme ; leviers éligibles : budgets et dotations en Md€ et leviers
+      `{"annees": 1-6, "leviers": ["levier.parametre", …]}` (et au plus
+      2032 − `annee_debut` + 1 depuis la release E : la rampe finit au plus
+      tard en 2032), montée en charge linéaire du paramètre, de la valeur du
+      droit en vigueur à celle du programme ; leviers éligibles : budgets et dotations en Md€ et leviers
       fiscaux des grandes entreprises (`engine/cadre.py`,
       `RAMPE_LEVIERS_ELIGIBLES`) ; aucune rampe par défaut. La réponse porte
       un bloc `cadre` (mode, `annee_debut`, années de droit en vigueur,
       identifiant du droit en vigueur, leviers modifiés, mesures effectives
       à partir du début, rampe effective, atterrissage 2026, plafond de
-      l'impact total).
+      l'impact total, calendriers).
+    - **Profils temporels (release E)** : `profils` (facultatif, mode cadre)
+      `{"levier.parametre": {"forme": "plein" | "rampe" | "annee", "annee":
+      2030}}` règle le calendrier d'un montant en Md€ (et de quatre taux ou
+      niveaux, `PROFILS_TAUX_ET_NIVEAUX`, en `plein` ou `rampe` seulement ; et
+      des deux coefficients d'indexation des pensions et des prestations,
+      `PROFILS_INDEXATIONS`, en `plein` ou `annee` seulement : un gel d'une
+      année laisse un écart de niveau permanent, sans rattrapage) :
+      `plein` (défaut,
+      chaque année dès `annee_debut`), `rampe` (montée linéaire de la valeur
+      de référence — droit en vigueur de l'année, ou neutre d'un levier absent
+      du droit — à celle du programme, atteinte EXACTEMENT en 2032 ; avec
+      `annees` facultatif, au plus 2032 − `annee_debut` + 1, atteinte en
+      `annee_debut` + `annees` − 1, donc au plus tard en 2032 ; au-delà : 422 en
+      strict, durée ramenée à la borne en tolérant, comme `rampe`), `annee` (la valeur
+      du programme cette année-là seulement, la référence avant et après).
+      Paramètres éligibles : `engine/cadre.py`, `PROFILS_ELIGIBLES`. La
+      recette exceptionnelle n'admet que `annee` (défaut : `annee_debut`) et
+      est refusée en mode historique. Forme mal écrite : 422 dans les deux
+      modes ; clé non éligible, année hors de [`annee_debut` ; 2032], mode
+      historique, ou `rampe` et `profils` ensemble : 422 en strict, profil
+      ignoré (ou `profils` retenu) et `report.valid` à `false` en tolérant.
+      `rampe` reste accepté comme alias d'un profil `rampe`. Bloc
+      `cadre.profils` TOUJOURS émis (`{}` sans calendrier) : par clé, `forme`,
+      `annee` (forme `annee`), `origine` (première année où le levier s'écarte
+      du droit en vigueur) et `valeurs` (valeur appliquée chaque année du
+      mandat).
+    - **Corrections lisibles (release E)** : `report.corrections`, toujours
+      présent : une entrée `{"regle", "leviers_ignores", "message"}` par règle
+      déclenchée — `LEVIER_INCONNU` (moteur appelé comme bibliothèque ; l'API
+      refuse déjà en 422), `X1` (`droits_succession` avec une intensité de
+      `fiscalite_patrimoine` non nulle : `droits_succession` ignoré), `X2`
+      (`transferts_etranger` avec un `rabot_uniforme` qui n'exclut pas l'UE :
+      `transferts_etranger` ignoré). Les exclusions X1 et X2 : 422 en strict.
+    - **Plafond de l'impact total** : `cadre.plafond_total` porte aussi
+      `mode` (`avertissement`, défaut : aucune réduction, un « Avis » ;
+      `reduction` : réduction proportionnelle au-delà de 10 % du PIB,
+      comportement de v0.7.2),
+      `impact_max_pct_pib` (impact total maximal mesuré, avant toute
+      réduction) et `annee_impact_max` (`null` si le seuil n'est jamais
+      dépassé).
+    - **Filet de croissance (release E)** : bloc `cadre.filet_croissance`
+      TOUJOURS émis : `borne_min_pct` et `borne_max_pct` (filet de la
+      croissance réelle annuelle, en %), `annees` (années où il mord) et
+      `ecretages` (par année : `annee`, `croissance_calculee_pct`,
+      `croissance_retenue_pct`, en %) ; listes vides si le filet ne mord pas.
+      Même information que l'avis « filet de croissance » de
+      `report.warnings`, qui reste.
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
     """
     mesures = request.mesures or {}
@@ -437,7 +514,10 @@ async def simulate(request: SimulationRequest):
     try:
         sim = BudgetSimulatorV45(periods=request.periods, mesures=mesures,
                                  annee_debut=request.annee_debut,
-                                 rampe=request.rampe.model_dump() if request.rampe else None)
+                                 rampe=request.rampe.model_dump() if request.rampe else None,
+                                 profils=({cle: p.model_dump(exclude_none=True)
+                                           for cle, p in request.profils.items()}
+                                          if request.profils is not None else None))
     except Exception as e:
         logger.error("Échec instantiation moteur : %s", e, exc_info=True)
         raise HTTPException(

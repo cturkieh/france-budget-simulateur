@@ -45,7 +45,9 @@ import pandas as pd
 import pytest
 
 from budget_simulator.constants import HANDLER_FAILED_KEY, INTENSITE_DOMAINS, PARAM_DOMAINS
-from budget_simulator.engine._param_domain import validate_param_domains, valeur_brute
+from budget_simulator.engine._param_domain import appliquer_exclusions, validate_param_domains, valeur_brute
+from budget_simulator.engine._noms_parametres import MODES_EXCLUSIFS
+from budget_simulator.engine.cadre import LEVIERS_REFUSES_EN_MODE_HISTORIQUE
 from budget_simulator.simulator import BudgetSimulatorV45
 
 # `.absolute()` et non `.resolve()` : tests/ est un symlink depuis le parent.
@@ -92,7 +94,25 @@ def _base_toutes_actives():
             elif param in PARAM_DOMAINS.get(mesure, {}):
                 haut = PARAM_DOMAINS[mesure][param][1]
             base.setdefault(mesure, {})[param] = haut
-    return base
+    # Exclusions mutuelles (release E, constants.EXCLUSIONS_MUTUELLES) : deux
+    # leviers qui compteraient le même euro ne sont jamais actifs ensemble (X1 :
+    # successions et fiscalité du patrimoine) ; la base retire le levier que le
+    # moteur ignorerait, par sa propre règle (sinon le strict lèverait pour
+    # l'exclusion, pas pour null). Les leviers qu'une demande non neutre fait
+    # refuser en mode historique (recette d'une seule année : calendrier
+    # requis), mode de ce test, sont laissés à leur neutre pour la même raison.
+    for levier in LEVIERS_REFUSES_EN_MODE_HISTORIQUE:
+        base.pop(levier, None)
+    # Modes exclusifs (MODES_EXCLUSIFS, module généré) : quand la clé dominante
+    # est posée, les clés qu'elle masque ne le sont pas (le strict lèverait
+    # ParametreIgnore) ; la base suit le mode que le moteur retiendrait.
+    for levier, modes in MODES_EXCLUSIFS.items():
+        bloc = base.get(levier)
+        for dominante, masquees in modes.items():
+            if bloc and dominante in bloc:
+                for cle in masquees:
+                    bloc.pop(cle, None)
+    return appliquer_exclusions(base, strict=False, warned=set(), corrections={})
 
 
 PAIRES = _paires_mesure_param()

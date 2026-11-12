@@ -4,6 +4,271 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [v0.8.0] — non publiée (proposée) — release « E » : onze curseurs, déplafonnement des cotisations salariales, garde-fous, effet d'offre « échelle »
+
+**Ce qui change** : une équation (l'effet d'offre structurel, point 5) ; onze curseurs nouveaux et
+le plafond de 5 points des cotisations salariales retiré (points 2 à 4) ; des garde-fous d'entrée,
+un calendrier des montants et des valeurs datées du droit en vigueur (point 1). Le plafond de 10 %
+du PIB passe en mode « avertissement » par défaut (point 1.5, décision du mainteneur). Aucun scénario
+publié n'utilise encore les nouveaux curseurs.
+
+**Ce que cela déplace, prouvé au bit** (10 scénarios publiés × 2 modes × 2 portes, et les 33
+mini-scénarios de v0.7.2 × 2 portes, sérialisation exacte des sorties) : canal d'offre neutralisé et
+champs ajoutés au rapport retirés, la release est identique au bit à v0.7.2 dans les 106 cas. Avec
+le canal d'offre, les seuls cas qui bougent sont les 32 où ce canal agit : sept programmes publiés
+(dette 2032 en mode cadre : de 0 à +1,48 point ; dette 2035 en mode historique : de −0,25 à +4,13
+points) et les mini-scénarios d'investissement et de recherche. Les trois autres scénarios publiés,
+dont le scénario de référence « Budget 2026 (voté) », et le statu quo sont identiques au bit.
+
+**Corrections de la revue adverse, avant publication** (deux relecteurs : cohérence comptable,
+neutralité ; sur la branche d'intégration, un commit par point avec son test rouge et sa mutation) :
+revenus du capital (assiette sociale scindée, point 4.2), flux vers l'étranger hors du terme
+d'inflation et de la cicatrice (2.3), calendrier et valeurs datées (1.4), durée de rampe bornée à
+2032 (1.3), avis Z-ter complété (4), TVA à taux réduits dans les prix (3), investissement des
+collectivités dans l'effet d'offre (5), plafond de 10 % en avertissement (1.5, décision du
+mainteneur), calendriers de quatre taux et niveaux (1.3), domaines élargis (6), textes neutres et
+limites dites (6). Écarts au bit à la release avant revue, tous attribués : trois programmes publiés
+(investissement des collectivités), un programme (plafond), deux mini-scénarios (revenus du capital,
+TVA à taux réduits), et le champ `cadre.plafond_total.mode` de chaque réponse. **Au total, par
+rapport à v0.7.2**, arbitrages du mainteneur et contre-vérification compris (§ 7) : dette 2032 en mode
+cadre +1,48, +1,14, +1,04, +0,91, +0,89, +0,88 et +0,02 point pour sept programmes publiés, les trois
+autres et le statu quo inchangés au centième ; dette 2035 en mode historique de −0,25 à +4,04 points.
+
+### 1. Garde-fous et calendriers
+
+1. **Leviers inconnus refusés.** Un levier de premier niveau que le moteur ne connaît pas était
+   sauté en silence quand le moteur servait de bibliothèque (l'API le refusait déjà en 422). Mode
+   strict : `LevierInconnu` (422) ; mode tolérant : levier retiré, `report.valid = false` et une
+   entrée `{"regle": "LEVIER_INCONNU", "leviers_ignores": […], "message": …}` dans
+   `report.corrections` (liste toujours présente).
+2. **Exclusions mutuelles X1 et X2** (`constants.EXCLUSIONS_MUTUELLES`) : deux curseurs qui feraient
+   varier le même euro ne se cumulent pas. X1 : `droits_succession` est ignoré quand
+   `fiscalite_patrimoine.intensite` ≠ 0. X2 : `transferts_etranger` est ignoré quand le rabot
+   uniforme coupe la contribution à l'Union européenne (`exclure_ue = 0`). Strict :
+   `LeviersIncompatibles` (422) ; tolérant : levier jamais appliqué, entrée dans `report.corrections`.
+3. **Calendrier d'un montant** (champ de requête `profils`) : `plein` (défaut), `rampe` (montée
+   linéaire jusqu'en 2032, valeur exacte la dernière année) ou `annee` (une seule année du mandat).
+   36 paramètres éligibles : 32 montants en Md€ et, ouverts après revue adverse (calendrier écrit par
+   les programmes), quatre taux ou niveaux en « plein » ou « rampe » seulement (cotisations
+   salariales, cotisations patronales, salaires des enseignants, budget chômage en montant) ; les
+   autres taux et les durées basculent sans calendrier. Mode cadre
+   seulement. Les montées en charge internes d'un levier partent de la première année où il s'écarte
+   du droit en vigueur. Bloc `cadre.profils` toujours émis. La requête `rampe` de v0.7.0 en est un
+   alias : sorties identiques au bit. Une durée explicite `annees` dans `profils` est bornée pour que
+   la rampe finisse au plus tard en 2032 (corrigé après revue adverse : 6 ans dès 2028 finissaient en
+   2033).
+4. **Valeurs datées du droit en vigueur** (`valeurs_datees` de `droit_en_vigueur.json`) : le droit
+   de l'année prend la valeur du segment qui la contient ; une mesure votée pour un an ne se
+   reconduit pas, y compris comme référence d'un calendrier (la référence de chaque année est le
+   droit de cette année ; corrigé après revue adverse). La release est livrée sans aucune valeur
+   datée (mécanisme seul).
+5. **Plafond de 10 % du PIB : mesuré, avertissement par défaut.** La somme des écarts de
+   dépenses et de recettes au défaut du moteur est mesurée chaque année dans les deux modes ;
+   `cadre.plafond_total` publie `mode`, les années au-delà du seuil, l'impact maximal et son année.
+   Interrupteur `constants.PLAFOND_TOTAL_MODE` : `avertissement` (**défaut**, décision du mainteneur
+   du 12/11/2026 : aucune réduction, un avis) ou `reduction` (comportement v0.7.2, toujours
+   disponible). Sur le seul programme publié qui dépasse le seuil : écarts au mode réduction de 0,08
+   point de déficit et 0,20 point de dette au plus en mode cadre, 0,15 et 0,54 en mode historique ;
+   aucune valeur non finie, filet de chômage jamais touché ; le filet de croissance [−3,5 % ; +2,5 %]
+   mord sur une croissance plus forte (condition connue du mainteneur au moment de sa décision).
+6. **Signature de contrat** : une réponse du moteur porte `cadre.profils` (objet) et
+   `cadre.plafond_total.mode`. Registre généré : bloc `noms_parametres_admis` (noms admis de tous
+   les leviers, formules comprises).
+
+### 2. Dépenses publiques, prestations aux ménages, flux vers l'étranger
+
+**Trois curseurs de dépense en Md€ par an** (montant identique chaque année, en euros courants, non
+revalorisé ; neutre 0).
+
+1. **`depenses_publiques`** — crédits des ministères et des opérateurs (`credits_etat`, [−60 ; +20]),
+   moyens de soins de l'Assurance maladie (`ondam`, [−10 ; +10]), dotations en capital aux ménages
+   (`transferts_capital`, [−10 ; +10]). Formule : somme des trois montants. Multiplicateur d'une
+   dépense générique, comme le curseur de défense ; aucun effet direct sur le pouvoir d'achat, le
+   Gini ni la compétitivité.
+2. **`prestations_menages`** — prestations de solidarité (`solidarite`, [−35 ; +30]) et pensions en
+   montant (`pensions`, [−20 ; +10]). Le montant entre dans les dépenses et, au même montant, dans
+   le revenu des ménages. Multiplicateur des transferts. Gini une fois, à l'entrée en vigueur :
+   −0,0008 par Md€ de solidarité versé en plus, ≈ −0,00024 par Md€ de pensions.
+3. **`transferts_etranger`** — contribution au budget de l'Union européenne et aide publique au
+   développement (`montant`, [−32,009 ; +10] ; borne basse = somme sourcée des deux crédits de la loi
+   de finances 2026). **Multiplicateur intérieur nul** : le montant change le solde et la dette, pas
+   la demande intérieure. Le terme d'inflation lié à l'effort et la cicatrice d'austérité lisent
+   l'effort intérieur, net de ce flux ; les taux d'intérêt et l'éviction gardent l'effort total
+   (corrigé après revue adverse : une coupe de 32 Md€ baissait l'inflation de 0,12 point l'année
+   suivante). Aucun scénario publié ni mini-scénario n'utilise le curseur : sorties identiques au
+   bit.
+
+### 3. Recettes en Md€ sans comportement, déplafonnement des cotisations salariales
+
+- **`droits_succession.variation`** — [−21,2 ; +20] (borne basse : recette 2025) ; Gini et
+  compétitivité de la règle du levier « Fiscalité du patrimoine » par Md€.
+- **`fiscalite_indirecte.tva_ciblee`, `.accises_energie`** — [−15 ; +15] chacun ; coin de prix pour
+  les ménages ; Gini des règles de la TVA et de la TVA sur l'énergie. Une hausse de TVA à taux réduits
+  passe dans les prix l'année qui suit l'entrée en vigueur de son levier, par la règle du taux normal
+  (même effet sur l'inflation à recette égale ; corrigé après revue adverse) ; les accises non.
+- **`impot_revenu_cible.montant`** — [−15 ; +5] ; prélèvement direct ; Gini de la règle de la décote.
+- **`recette_exceptionnelle.montant`** — [0 ; 60], une seule année (calendrier « annee », à l'année
+  de début par défaut) ; refusée en mode historique.
+- **`cotisations_salariales.baisse_points`** — le plafond de 5 points est retiré ; la borne devient
+  la suppression totale de la masse sourcée : 138,2 Md€ (Insee, comptes de la Nation, D613CE, CSG et
+  CRDS exclues) ÷ 6 Md€ par point = 23,03 points. Libellé corrigé (l'ancien « taux actuel de 22 % »
+  comptait la CSG et la CRDS). Les scénarios publiés écrivent au plus 5 points : inchangés au bit.
+
+### 4. Impôts à taux avec comportement
+
+Le moteur calcule le rendement d'un taux sur une assiette sourcée, puis retire la seule réaction
+des contribuables visés (paramètre visible et réglable) ; les effets sur l'activité restent ceux du
+moteur, comptés une fois.
+
+1. **`impot_plancher_patrimoine`** — impôt minimum sur les patrimoines de plus de 100 M€ (taux
+   [0 ; 3 %]) ; recette = (1 − évitement) × 20 Md€ × taux / 2 % (Sénat, rapport n° 689, 2025), moins
+   ce que l'ISF prélève déjà, sur une assiette qui suit le PIB depuis 2025. **Évitement par défaut :
+   35 %**, milieu de la fourchette publiée de 15 % (Saez et Zucman, 2019, contrôle fort) à 55 %
+   environ (Jakobsen et al., Danemark), confiance faible ; à 2 %, ≈ 13 Md€ au PIB 2025. Aucun chiffre
+   non publié n'est utilisé.
+2. **`fiscalite_capital`** — part IR du prélèvement forfaitaire et prélèvements sociaux du capital,
+   avec la réaction des détenteurs (`elasticite`, 0,9, IPP 2019), ou un rendement en Md€. Assiette
+   sociale scindée : la part soumise au prélèvement forfaitaire (56,25 Md€) réagit au taux total, le
+   reste (134,75 Md€) aux seuls prélèvements sociaux. Au défaut, la recette de la part IR culmine
+   vers 54 % de taux total, dans la fourchette publiée de 43 à 57 % (Lefebvre, Lehmann et Sicsic,
+   2025). Corrigé après revue adverse : la première version appliquait la même réaction aux deux
+   assiettes, et relever la part IR faisait perdre de la recette et monter le Gini.
+3. **`multinationales`** — bénéfices récupérés (Md€ au taux d'IS de 25 %) et taxe sur les services
+   numériques avec érosion de son assiette, ou un rendement en Md€.
+4. **`operations_financieres`** — taxe sur les transactions financières avec baisse des volumes
+   (Colliard et Hoffmann, 2017), ou un rendement en Md€ ; rachats d'actions ; crypto-actifs.
+
+Un taux suit son assiette (part du PIB de son année source) ; un montant en Md€ est constant en euros
+courants. Un avis signale un impôt plancher combiné à la hausse d'un impôt qu'il déduit (revenus du
+capital, CSG, tranche supérieure de l'IR, fiscalité du patrimoine, IR ciblé ; les deux derniers
+ajoutés après revue adverse).
+
+### 5. Effet d'offre structurel : échelle
+
+**Constat** : le bonus de croissance potentielle d'un canal valait `coeff × log2(1 + |Δ|)`, somme
+écrêtée à ±0,20 pt : le plafond était atteint dès 1 Md€ d'écart (investissement de transition),
+0,74 Md€ (recherche) ou 3 Md€ (rénovation). Sept programmes publiés sur dix recevaient exactement le
+même bonus de +0,20 pt par an, quel que soit leur montant (un huitième, qui coupe la recherche, le
+plancher −0,20). Les sources de la v3.1 justifiaient des délais et des dépréciations, jamais la forme
+logarithmique ni les coefficients par Md€.
+
+**Canal ajouté après revue adverse** : l'investissement des collectivités (`collectivites.investissement`),
+capital public comme l'investissement de l'État (même pente, délai de 3 ans, dépréciation de 5 %). Il était
+exclu sur une prémisse fausse (« utilisé par aucun programme publié » : trois l'encodent). Effet : dette 2032
+en mode cadre −0,07 à −0,16 point, dette 2035 en mode historique −0,23 à −0,70 point sur ces trois programmes.
+
+**Forme retenue** : contribution linéaire dans le flux annuel par canal, `pente × Δ`, signée ; somme
+saturée en douceur : `bonus = 0,20 pt × tanh(Σ / 0,20 pt)`. Pentes = élasticité au stock de capital
+÷ stock : capital public +0,005 pt par Md€/an (Bom et Ligthart 2014 ; INSEE, comptes de patrimoine
+2025 ; FMI 2015), R&D publique +0,032 pt (Fieldhouse et Mertens 2024), rénovation 0 (DG Trésor,
+Trésor-Éco n° 394, 2026), éducation +0,0025 pt (convention, délai de 15 ans). Délais, dépréciations
+et plafond inchangés. Mêmes paramètres pour tous les programmes.
+
+**Ce que cela déplace** : chaque programme reçoit l'offre de son montant ; le sens est le même pour
+tous (prime d'offre moindre). Mode cadre, dette 2032 des sept programmes concernés : +1,48, +1,30,
++1,04, +0,98, +0,22 point, deux inchangés jusqu'en 2032 (canal R&D, délai de 5 ans). Mode historique,
+dette 2035 : +4,04, +4,13, +3,19, +2,88, +1,02, +0,25, −0,25 point. Gini et compétitivité inchangés.
+
+### 6. Intégration
+
+- Évitement par défaut de l'impôt plancher : 0,35 (constante unique dérivée de la fourchette
+  sourcée) ; l'ancien calage sur une note non publiée est retiré.
+- **Limites dites dans METHODOLOGIE, non corrigées** (revue adverse, décisions du mainteneur en attente) :
+  effet d'offre calculé sur le flux et non sur le stock (un investissement d'une seule année n'a aucun effet
+  d'offre, la recherche n'agit qu'après 5 ans) ; plafond de l'effet d'offre conventionnel ; Gini des
+  cotisations salariales prolongé au-delà de la plage de sa source ; assiette de `tva_rate` incluant les biens
+  aux taux réduits.
+- **Domaines élargis** (valeurs à encoder de la release de paramètres suivante ; règle « domaine =
+  union des bornes d'interface et des valeurs à encoder ») : `fonction_publique.effectifs` jusqu'à
+  +140 000 postes (60 000 avant ; une création ne puise pas dans le vivier, aucun plafond interne) ;
+  `chomage_alloc.montant` à partir de 24,85 Md€ (27,45 avant), la borne basse du taux de
+  remplacement en étant dérivée (≈ 40,7 %, 45 % avant) pour que les deux écritures exclusives
+  couvrent la même plage. Aucune valeur déjà admise ne change de résultat.
+- **Registre public aligné sur ces domaines** (`policy_measures.json`) : `chomage_alloc.montant` à
+  partir de 24,85 Md€ (27,5 avant, pas de 0,05) et `fonction_publique.effectifs` jusqu'à +140 000
+  (50 000 avant). Seul effet : le mini-scénario `fonction_publique` (valeur à mi-distance du défaut et
+  du maximum) passe de +25 000 à +70 000 postes ; son instantané est régénéré, et l'ancienne entrée
+  simulée sur le moteur de la release reproduit l'ancien instantané au bit (l'écart vient de l'entrée
+  seule). Aucun scénario publié ne change.
+- Registre des mesures régénéré avec les curseurs du simulateur de la release (niveau « curseurs »).
+- Une recette exceptionnelle, refusée en mode historique, est simulée en mode cadre par les outils
+  qui essaient chaque levier (mini-scénarios, balayage de discontinuités, tests d'éviction) :
+  `engine/cadre.LEVIERS_REFUSES_EN_MODE_HISTORIQUE`.
+- Instantanés régénérés une seule fois, après audit cellule par cellule : golden masters (sept
+  scénarios, effet d'offre), mini-scénarios (neuf ajoutés ; investissement, recherche et
+  cotisations salariales, dont la valeur médiane du domaine passe de 2,5 à 11,5 points), ancre des
+  écarts au statu quo.
+- **Rétrocompatibilité** : champs de réponse ajoutés (`report.corrections`, `cadre.profils`,
+  `cadre.plafond_total.mode`, `impact_max_pct_pib`, `annee_impact_max`, `cadre.filet_croissance`) ;
+  un levier inconnu est désormais refusé aussi hors de l'API ; sorties des sept programmes à canal
+  d'offre actif déplacées (point 5).
+
+### 7. Arbitrages du mainteneur du 12/11/2026 et contre-vérification adverse des corrections
+
+Un commit par point sur la branche d'intégration, chacun avec son test rouge et sa mutation.
+
+1. **Cotisations salariales : coût du point.** Un point vaut 1 % de la masse salariale brute 2025
+   (Insee, comptes de la Nation, tableau 2.101, ligne D11 : 1 157,166 Md€), soit 11,57 Md€, calculé
+   (`SALAIRES_BRUTS_2025_MD / 100`) ; jusque-là 6 Md€, sans source. Le maximum du curseur devient
+   le taux moyen réel des cotisations salariales, 11,94 points (D613CE / 1 % de D11), au lieu de
+   23,03. Infobulle : « 1 point = 1 % de la masse salariale brute 2025 (11,6 Md€) ». Les deux
+   programmes publiés écrits en points (2,5 points) voient leur montant presque doubler : dette 2032
+   +0,91 et +0,89 point (mode cadre) ; ils seront reconvertis depuis leurs Md€ à la release de
+   paramètres.
+2. **Cotisations salariales : effet sur le Gini.** +0,0001 de Gini par Md€ rendu
+   (`GINI_COTIS_SAL_PAR_MD`), estimation de France Budget (quintiles de niveau de vie Insee 2025,
+   incertitude d'un facteur 2, valable pour une baisse uniforme de quelques points), au lieu de
+   +0,0027 par point attribué à une source introuvable (retirée). Gini des deux programmes : −0,001.
+3. **Gel d'une année des pensions et des prestations.** Calendrier « une seule année » ouvert sur
+   `retraites.indexation` et `prestations_indexation.taux_indexation` (pas la rampe) ; chaque
+   revalorisation garde le coefficient de son année : l'écart de niveau d'un gel reste, revalorisé
+   avec la masse, sans rattrapage (avant : un retour à 1 effaçait l'économie). Au statu quo, un gel
+   total des deux en 2028 rend 6,1 Md€ en 2028, puis 6,3 / 6,5 / 6,7 / 6,9 Md€ de 2029 à 2032.
+   **Gini proportionnel à l'écart de niveau accumulé** (relecture adverse finale, I-1) : l'effet est
+   émis en entier l'année du gel (convention de ces leviers, comme un gel permanent) ; au retour à la
+   référence du calendrier — le droit en vigueur de l'année, quelle que soit sa valeur — après k
+   revalorisations au coefficient gelé, le levier garde min(k, N)/N de l'effet émis au-delà de la
+   référence (N = 7 pour les pensions, `RETRAITES_EROSION_PLATEAU_ANS` ; 10 pour les prestations,
+   `PRESTATIONS_REVALORISATIONS_MAX`, nommée) et rend le reste. Jusque-là, il gardait tout, et ne
+   reconnaissait le retour qu'à l'égalité au littéral 1,0 (droit en vigueur à 0,9999 : presque tout
+   rendu). Gel total des deux en 2028, Gini publié en 2032 : +0,0027 au lieu de +0,0165 (+0,0065
+   l'année du gel, +0,0021 en 2035, vers +0,0019) ; continu en fonction du droit (1,0 et 0,9999 :
+   +0,0027 ; 0,9 : +0,0025). À euros égaux en 2032, il émet 3,6 fois le Gini du même montant en
+   `prestations_menages` (35 fois avant), moitié moins que la sous-indexation permanente (7,2 fois,
+   écart des règles par Md€, antérieur). Coefficient constant : convention inchangée, aucune sortie
+   publiée ne bouge.
+4. **Droits de succession** : borne haute +25 Md€ par an (+20 non sourcée), aucune décote ;
+   infobulle avec un avertissement sourcé (taux effectif ≈ 10 % au sommet contre 45 % affichés ;
+   part évitée non chiffrable pour une forte hausse).
+5. **Prévention en santé** : quatre références fausses corrigées et un rapport dit introuvable rétabli
+   (code, tests, infobulle, METHODOLOGIE) ; infobulle : le curseur borne la dépense de prévention à
+   11,2 Md€, un effort supplémentaire se saisit en dépense de soins (curseur « Moyens de soins de
+   l'Assurance maladie »), sans retour modélisé (relecture adverse finale, m-b) ; retour de 50 % =
+   hypothèse haute. Base 7,5 et borne 11,2 inchangées.
+6. **TVA à taux réduits** (contre-vérification I1, m1) : passage dans les prix sur l'incrément annuel
+   positif de la recette, chaque marche plafonnée, retrait symétrique ; seules les hausses
+   s'additionnent avec le taux normal avant le plafond commun ; `tva_rate` inchangé au bit.
+7. **Mineurs** : référence d'un calendrier du budget chômage en montant convertie du taux du droit
+   (m2) ; retour anticipé des cotisations salariales conditionné au traqueur (m4) ; alias `rampe`
+   v0.7.0 borné à 2032 (m5) ; filet de croissance [−3,5 % ; +2,5 %] signalé par un avis, année et
+   valeur avant écrêtage (m6 : un programme publié, une année par mode), et publié aussi en bloc
+   structuré `cadre.filet_croissance` (bornes, années, croissance calculée et retenue ; toujours émis,
+   sorties inchangées au bit) ; limites dites (m3, m7, m9).
+   Relecture adverse finale (m-c) : une durée de rampe trop longue est ramenée à la borne et tracée en
+   tolérant pour un profil « rampe » comme pour l'alias (avant : profil ignoré, programme en plein dès
+   le début) ; en strict, le refus dit le domaine, sans « ramenée à ».
+8. **Entrée invalide servie en 500** (relecture adverse finale ; antérieur à la passe) : un entier
+   géant sur `fonction_publique_reforme.fusion_agences` ou `digitalisation`, en mode cadre, faisait
+   lever le lecteur latéral du vivier des effectifs (conversion en flottant) ; l'API répondait 500 en
+   strict au lieu de 422. Ce lecteur traite désormais une valeur non finie ou hors des flottants comme
+   la clé absente, ce que fait déjà la porte des valeurs : 422 en strict, 200 et rapport invalide en
+   tolérant. Les 82 paramètres du registre à ±10⁴⁰⁰ et 10³⁰, en strict, dans les deux modes : aucun 5xx.
+
+Empreinte au bit (206 cas, deux modes du plafond) : 16 cas diffèrent de la tête précédente, tous
+attribués (points 1-2 : deux programmes et le mini-scénario des cotisations ; m6 : rapport seul d'un
+programme). Instantanés régénérés une fois, après audit cellule par cellule.
+
+
 ## [v0.7.2] — 2026-11-08 — paramètres : borne des effectifs, écrêtage visible, dette de départ
 
 **Ce qui change** : paramètres, bornes, un champ de réponse additif et de la documentation.
