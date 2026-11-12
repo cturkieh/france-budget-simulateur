@@ -1,0 +1,216 @@
+"""Release P (v0.8.1) — calendrier « valeurs » (forme de profil) : le montant de chaque année, du début à une année
+≤ 2032, sans lacune ; ensuite la valeur du programme (décision du mainteneur du 12/11/2026 : un objectif écrit en part
+du PIB ou du RNB se compte, après l'année visée, par un montant qui suit la richesse nationale). Les handlers lisent ces
+valeurs comme celles d'une rampe (même chemin : ``_mesures_profilees``) ; aucune équation ne change, ce que prouve
+l'égalité AU BIT avec une rampe aux mêmes valeurs. Réservé aux montants en Md€ (ni taux, ni coefficient d'indexation,
+ni recette d'une seule année) ; chaque valeur est dans le domaine du paramètre. Strict : 422 (``ProfilInvalide``) ;
+tolérant : entrée ignorée, correction tracée. Données de test : aucune n'est un programme publié.
+"""
+import copy
+import math
+from pathlib import Path
+
+import pytest
+
+import budget_simulator.constants as C
+import budget_simulator.engine.cadre as cadre
+
+from cadre_harness import egalite_bit_a_bit, impacts_par_annee, simuler
+
+RACINE = Path(__file__).absolute().parent.parent
+DEBUT = C.ANNEE_PREMIER_BUDGET_MANDAT
+FIN = C.ANNEE_FIN_MANDAT
+
+CLES_MONTANTS = sorted(cadre.PROFILS_ELIGIBLES - cadre.PROFILS_TAUX_ET_NIVEAUX
+                       - cadre.PROFILS_INDEXATIONS - {cadre.CLE_RECETTE_EXCEPTIONNELLE})
+CLES_SANS_VALEURS = sorted(cadre.PROFILS_TAUX_ET_NIVEAUX | cadre.PROFILS_INDEXATIONS
+                           | {cadre.CLE_RECETTE_EXCEPTIONNELLE})
+# Données de test (aucune n'est un programme publié).
+CLE = 'recherche_publique.budget'
+VALEURS = {'2028': 12.5, '2029': 15.0, '2030': 17.5, '2031': 17.9, '2032': 18.3}
+P = 18.3
+
+
+def _programme(cle, valeur):
+    levier, param = cle.split('.')
+    return {levier: {param: valeur}}
+
+
+def _valeur(c, cle, annee):
+    levier, param = cle.split('.')
+    return c.mesures_de_l_annee(annee)[levier][param]
+
+
+def _preparer(profils, programme=None, debut=DEBUT, strict=True, corrections=None):
+    return cadre.CadreTemporel.preparer(programme if programme is not None else _programme(CLE, P),
+                                        debut, profils=profils, strict=strict, warned=set(),
+                                        corrections=corrections)
+
+
+def test_forme_valeurs_admise_pour_les_montants_seulement():
+    assert 'valeurs' in cadre.FORMES_PROFIL
+    for cle in CLES_MONTANTS:
+        assert 'valeurs' in cadre.FORMES_ADMISES.get(cle, cadre.FORMES_PROFIL), cle
+    for cle in CLES_SANS_VALEURS:
+        assert 'valeurs' not in cadre.FORMES_ADMISES[cle], cle
+    assert {'recherche_publique.budget', 'transferts_etranger.montant',
+            'depenses_publiques.credits_etat'} <= set(CLES_MONTANTS)
+
+
+@pytest.mark.parametrize('cle', CLES_SANS_VALEURS)
+def test_forme_valeurs_refusee_hors_montants(cle):
+    with pytest.raises(cadre.ProfilInvalide, match='valeurs'):
+        _preparer({cle: {'forme': 'valeurs', 'valeurs': {'2028': 1.0}}}, programme=_programme(cle, 1.0))
+
+
+@pytest.mark.parametrize('debut', [2027, 2028, 2030])
+def test_valeurs_appliquees_chaque_annee_puis_la_valeur_du_programme(debut):
+    valeurs = {str(a): 11.0 + (a - debut) * 1.5 for a in range(debut, FIN + 1)}
+    p = 30.0
+    c = _preparer({CLE: {'forme': 'valeurs', 'valeurs': valeurs}}, programme=_programme(CLE, p),
+                  debut=debut)
+    for an in range(debut, 2036):
+        attendu = valeurs[str(an)] if an <= FIN else p
+        assert _valeur(c, CLE, an) == attendu, an
+    publie = c.rapport_profils()[CLE]
+    assert publie['forme'] == 'valeurs'
+    assert publie['valeurs'] == {str(a): valeurs[str(a)] for a in range(debut, FIN + 1)}
+    assert publie['origine'] == debut
+
+
+def test_valeurs_jusqu_a_une_annee_anterieure_a_2032():
+    c = _preparer({CLE: {'forme': 'valeurs', 'valeurs': {'2028': 12.0, '2029': 14.0}}},
+                  programme=_programme(CLE, 16.0))
+    assert [_valeur(c, CLE, a) for a in range(2028, 2034)] == [12.0, 14.0, 16.0, 16.0, 16.0, 16.0]
+
+
+def test_cles_d_annee_entieres_acceptees_comme_le_texte():
+    a = _preparer({CLE: {'forme': 'valeurs', 'valeurs': VALEURS}})
+    b = _preparer({CLE: {'forme': 'valeurs', 'valeurs': {int(k): v for k, v in VALEURS.items()}}})
+    assert [_valeur(a, CLE, y) for y in range(2028, 2036)] == [_valeur(b, CLE, y) for y in range(2028, 2036)]
+
+
+def test_valeurs_sans_effet_si_la_valeur_du_programme_egale_la_reference():
+    """Règle de tous les calendriers : un paramètre que le programme laisse à sa référence n'a
+    rien à étaler (avis « calendrier sans effet »), même si des montants datés l'accompagnent."""
+    avis = {}
+    c = cadre.CadreTemporel.preparer(_programme('transferts_etranger.montant', 0.0), DEBUT,
+                                     profils={'transferts_etranger.montant': {
+                                         'forme': 'valeurs', 'valeurs': {'2028': 1.0, '2029': 2.0}}},
+                                     strict=True, warned=set(), avis=avis)
+    for an in range(DEBUT, 2036):
+        assert 'transferts_etranger' not in c.mesures_de_l_annee(an), an
+    assert avis
+
+
+@pytest.mark.parametrize('cle,p', [('recherche_publique.budget', 36.0),
+                                   ('transferts_etranger.montant', 10.0),
+                                   ('depenses_publiques.credits_etat', 26.0)])
+def test_egal_au_bit_a_une_rampe_aux_memes_valeurs(cle, p):
+    """Aucune équation nouvelle : un calendrier « valeurs » aux valeurs d'une rampe donne les
+    mêmes résultats AU BIT que la rampe (mêmes mesures de chaque année, même chemin)."""
+    programme = _programme(cle, p)
+    rampe = simuler(programme, annee_debut=DEBUT, profils={cle: {'forme': 'rampe'}}, strict=True)
+    appliquees = rampe[2]['cadre']['profils'][cle]['valeurs']
+    datees = simuler(programme, annee_debut=DEBUT, strict=True,
+                     profils={cle: {'forme': 'valeurs', 'valeurs': appliquees}})
+    assert datees[2]['cadre']['profils'][cle]['valeurs'] == appliquees
+    egalite_bit_a_bit(rampe, datees, libelle=cle)
+
+
+def test_effet_direct_de_chaque_annee_egal_au_montant_date():
+    _, _, rapport, _ = simuler(_programme(CLE, P), annee_debut=DEBUT, strict=True,
+                               profils={CLE: {'forme': 'valeurs', 'valeurs': VALEURS}})
+    impacts = impacts_par_annee(rapport)
+    for an in range(DEBUT, 2036):
+        attendu = (VALEURS[str(an)] if an <= FIN else P) - 10
+        assert impacts[an]['recherche_publique']['depenses'] == pytest.approx(attendu, abs=1e-9), an
+
+
+DEFAUTS = {
+    'valeurs absentes': {'forme': 'valeurs'},
+    'valeurs non objet': {'forme': 'valeurs', 'valeurs': [12.0, 13.0]},
+    'valeurs vides': {'forme': 'valeurs', 'valeurs': {}},
+    'première année après le début': {'forme': 'valeurs', 'valeurs': {'2029': 12.0}},
+    'année manquante': {'forme': 'valeurs', 'valeurs': {'2028': 12.0, '2030': 13.0}},
+    'année après 2032': {'forme': 'valeurs', 'valeurs': {str(a): 12.0 for a in range(2028, 2034)}},
+    'année illisible': {'forme': 'valeurs', 'valeurs': {'2028': 12.0, 'deux-mille': 13.0}},
+    'année décimale': {'forme': 'valeurs', 'valeurs': {'2028': 12.0, '2029.5': 13.0}},
+    'année en double': {'forme': 'valeurs', 'valeurs': {'2028': 12.0, 2028: 12.0}},
+    'valeur texte': {'forme': 'valeurs', 'valeurs': {'2028': '12'}},
+    'valeur booléenne': {'forme': 'valeurs', 'valeurs': {'2028': True}},
+    'valeur non finie': {'forme': 'valeurs', 'valeurs': {'2028': math.inf}},
+    'valeur NaN': {'forme': 'valeurs', 'valeurs': {'2028': math.nan}},
+    'valeur au-dessus du domaine': {'forme': 'valeurs', 'valeurs': {'2028': 37.5}},
+    'valeur sous le domaine': {'forme': 'valeurs', 'valeurs': {'2028': -0.5}},
+    'trop de valeurs': {'forme': 'valeurs', 'valeurs': {str(a): 12.0 for a in range(2020, 2033)}},
+    'année avec valeurs': {'forme': 'valeurs', 'annee': 2028, 'valeurs': {'2028': 12.0}},
+    'durée avec valeurs': {'forme': 'valeurs', 'annees': 2, 'valeurs': {'2028': 12.0}},
+    'valeurs sur une rampe': {'forme': 'rampe', 'valeurs': {'2028': 12.0}},
+    'valeurs sur plein': {'forme': 'plein', 'valeurs': {'2028': 12.0}},
+}
+
+
+@pytest.mark.parametrize('nom', sorted(DEFAUTS))
+def test_defaut_refuse_en_strict_ignore_et_trace_en_tolerant(nom):
+    profil = DEFAUTS[nom]
+    with pytest.raises(cadre.ProfilInvalide):
+        _preparer({CLE: copy.deepcopy(profil)})
+    corrections = {}
+    c = _preparer({CLE: copy.deepcopy(profil)}, strict=False, corrections=corrections)
+    assert corrections, nom
+    assert CLE not in c.etat.profils
+    assert [_valeur(c, CLE, a) for a in range(2028, 2033)] == [P] * 5   # programme plein
+
+
+def test_mode_historique_refuse_les_valeurs_comme_tout_calendrier():
+    with pytest.raises(cadre.ProfilInvalide):
+        cadre.CadreTemporel.preparer(_programme(CLE, P), None, strict=True,
+                                     profils={CLE: {'forme': 'valeurs', 'valeurs': VALEURS}})
+
+
+def _client():
+    import importlib.util
+    from fastapi.testclient import TestClient
+    spec = importlib.util.spec_from_file_location('api_objectifs_part', RACINE / 'api.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return TestClient(module.app, raise_server_exceptions=False)
+
+
+def test_api_accepte_les_valeurs_et_les_publie(monkeypatch):
+    monkeypatch.setenv('BUDGETLAB_STRICT', '1')
+    r = _client().post('/simulate', json={
+        'periods': 10, 'annee_debut': DEBUT, 'mesures': _programme(CLE, P),
+        'profils': {CLE: {'forme': 'valeurs', 'valeurs': VALEURS}}})
+    assert r.status_code == 200, r.text[:500]
+    publie = r.json()['cadre']['profils'][CLE]
+    assert publie['forme'] == 'valeurs' and publie['valeurs'] == VALEURS
+
+
+@pytest.mark.parametrize('profil', [
+    {'forme': 'valeurs', 'valeurs': [12.0]},
+    {'forme': 'valeurs', 'valeurs': {'2028': 'douze'}},
+    {'forme': 'valeurs', 'valeurs': {'2028': 12.0, '2030': 13.0}},
+    {'forme': 'valeurs', 'valeurs': {'2028': 99.0}},
+    {'forme': 'rampe', 'valeurs': {'2028': 12.0}},
+])
+def test_api_refuse_les_valeurs_mal_formees_en_strict(profil, monkeypatch):
+    monkeypatch.setenv('BUDGETLAB_STRICT', '1')
+    r = _client().post('/simulate', json={'periods': 10, 'annee_debut': DEBUT,
+                                          'mesures': _programme(CLE, P), 'profils': {CLE: profil}})
+    assert r.status_code == 422, r.text[:500]
+
+
+def test_generateur_des_parametres_publie_les_montants_dates():
+    """Le bloc généré des paramètres des scénarios (docs/SCENARIOS_POLITIQUES.md) écrit chaque montant daté."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('generateur_params_p', RACINE / 'scripts' / 'generate_scenario_params.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    texte = module._texte_calendrier(CLE, {'forme': 'valeurs', 'valeurs': VALEURS})
+    assert texte.startswith('montant fixé pour chaque année') and texte.endswith('(valeurs)')
+    for an, v in VALEURS.items():
+        assert f'{an} : {module._format_value(v)}' in texte, an
+    with pytest.raises(RuntimeError):
+        module._texte_calendrier(CLE, {'forme': 'valeurs'})

@@ -292,7 +292,20 @@ Champ de requête `profils`, à côté de `mesures`, en mode cadre seulement :
   borne, correction tracée et `report.valid = false` en tolérant (relecture adverse finale, m-c :
   jusque-là, un profil trop long était ignoré, le programme s'appliquant en plein dès le début) ;
 - `annee` : la valeur du programme l'année choisie seulement (dans [début ; 2032]), la référence
-  avant et après.
+  avant et après ;
+- `valeurs` (v0.8.1, montants en Md€ seulement) : `{"forme": "valeurs", "valeurs": {"2028": 12.8,
+  "2029": 15.7, …}}`, le montant de CHAQUE année du début à une année ≤ 2032, sans lacune ni doublon,
+  chacun dans le domaine du paramètre (une valeur datée ne contourne jamais la borne d'un curseur) ;
+  après la dernière année écrite, la valeur du programme. Motif : un objectif écrit en part du PIB ou
+  du RNB se compte, après l'année visée, par un montant qui suit la richesse nationale (décision du
+  mainteneur du 12/11/2026) ; aucune autre forme ne l'écrit. Les mesures de chaque année passent par le
+  chemin des autres calendriers : **aucune équation ne change**, ce que prouve l'égalité au bit avec
+  une rampe aux mêmes valeurs (`tests/test_release_p_calendrier_valeurs.py`). Interdite aux quatre taux
+  et niveaux, aux deux coefficients d'indexation et à la recette d'une seule année (`FORMES_ADMISES`).
+  Défaut (année manquante ou en trop, montant non fini ou hors domaine, plus d'entrées que d'années
+  du mandat) : 422 en strict, entrée ignorée et correction tracée en tolérant (le programme
+  s'applique alors chaque année). Un premier montant égal à la référence retarde l'origine d'horloge
+  du levier, comme « une seule année ».
 
 Référence : la valeur du droit en vigueur de l'année (celle du début, sauf valeur datée qui change
 ensuite) ; pour un levier absent du droit, son neutre ;

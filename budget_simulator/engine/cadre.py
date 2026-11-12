@@ -68,6 +68,7 @@ from ..constants import (
     CROISSANCE_FILET_MIN,
     EXCLUSIONS_MUTUELLES,
     NEUTRES_RELEASE_E,
+    PARAM_DOMAINS,
     PLAFOND_IMPACT_TOTAL_PIB,
     PLAFOND_TOTAL_MODE,
     POLICY_START_YEAR,
@@ -280,8 +281,16 @@ PROFILS_ELIGIBLES = RAMPE_LEVIERS_ELIGIBLES | PROFILS_TAUX_ET_NIVEAUX | PROFILS_
     'fiscalite_indirecte.tva_ciblee', 'fiscalite_indirecte.accises_energie',
     'impot_revenu_cible.montant', 'recette_exceptionnelle.montant',
 })
-FORMES_PROFIL = ('plein', 'rampe', 'annee')
-_PROFIL_CLES = frozenset({'forme', 'annee', 'annees'})
+# Forme « valeurs » (release P, v0.8.1 ; décision du mainteneur du 12/11/2026 sur
+# les objectifs écrits en part du PIB ou du RNB) : le montant de CHAQUE année,
+# du début à une année ≤ ANNEE_FIN_MANDAT, sans lacune ; ensuite la valeur du
+# programme. Les mesures de chaque année passent par le même chemin qu'une
+# rampe (``_mesures_profilees``) : aucune équation ne change (égalité au bit
+# avec une rampe aux mêmes valeurs, tests/test_release_p_calendrier_valeurs.py).
+# Réservée aux montants en Md€ : les taux et niveaux, les coefficients
+# d'indexation et la recette d'une seule année ont leurs formes (FORMES_ADMISES).
+FORMES_PROFIL = ('plein', 'rampe', 'annee', 'valeurs')
+_PROFIL_CLES = frozenset({'forme', 'annee', 'annees', 'valeurs'})
 # Une recette exceptionnelle ne s'applique qu'UNE année : seule la forme
 # « annee » est admise, et c'est son défaut, à l'année de début (règle 4.2-k du
 # plan consolidé) ; en mode historique (aucun calendrier), elle est refusée.
@@ -306,6 +315,9 @@ class Profil:
     forme: str
     annee: Optional[int] = None
     annees: Optional[int] = None
+    # Forme « valeurs » : ((année, montant), …), du début à la dernière année
+    # écrite, sans lacune (``_lire_valeurs``).
+    valeurs: Optional[Tuple[Tuple[int, float], ...]] = None
 
     def publier(self) -> Dict:
         out = {'forme': self.forme}
@@ -313,11 +325,63 @@ class Profil:
             out['annee'] = self.annee
         if self.annees is not None:
             out['annees'] = self.annees
+        if self.valeurs is not None:
+            out['valeurs'] = {str(an): v for an, v in self.valeurs}
         return out
 
 
 def _entier(v) -> bool:
     return isinstance(v, numbers.Integral) and not isinstance(v, bool)
+
+
+def _annee_de_cle(c) -> Optional[int]:
+    """Année d'une clé de ``valeurs`` : entier, ou texte de quatre chiffres
+    (clé d'un objet JSON) ; ``None`` sinon."""
+    if _entier(c):
+        return int(c)
+    if isinstance(c, str) and re.fullmatch(r'\d{4}', c):
+        return int(c)
+    return None
+
+
+def _lire_valeurs(cle: str, brut, debut: int):
+    """Montants d'une forme « valeurs » : ``((année, montant), …)`` validés, ou
+    le texte (borné) du défaut. Années du début à une année ≤
+    ``ANNEE_FIN_MANDAT``, sans lacune ni doublon ; montants finis, dans le
+    domaine du paramètre (``PARAM_DOMAINS`` : une valeur datée ne contourne
+    jamais la borne d'un curseur). TAILLE BORNÉE (parité avec la rampe, revue
+    de sécurité) : au plus ``ANNEE_FIN_MANDAT − début + 1`` entrées, sinon refus
+    sans parcourir."""
+    if not isinstance(brut, dict) or not brut:
+        return (f"{cle} : valeurs = objet {{\"année\": montant}} non vide attendu, reçu "
+                f"{_apercu(brut)}")
+    n_max = ANNEE_FIN_MANDAT - debut + 1
+    if len(brut) > n_max:
+        return (f"{cle} : {len(brut)} valeurs pour {n_max} années au plus (de {debut} à "
+                f"{ANNEE_FIN_MANDAT})")
+    levier, param = cle.split('.')
+    domaine = (PARAM_DOMAINS.get(levier) or {}).get(param)
+    if domaine is None:
+        return f"{cle} : domaine du paramètre inconnu, valeurs refusées"
+    lues = {}
+    for c, v in brut.items():
+        an = _annee_de_cle(c)
+        if an is None:
+            return f"{cle} : valeurs, année {_apercu(c)} illisible (quatre chiffres attendus)"
+        if an in lues:
+            return f"{cle} : valeurs, année {an} en double"
+        if not _nombre(v) or not _est_fini(v):
+            return f"{cle} : valeurs, montant {_apercu(v)} de {an} : nombre fini attendu"
+        if not domaine[0] <= v <= domaine[1]:
+            return (f"{cle} : valeurs, montant {_apercu(v)} de {an} hors du domaine "
+                    f"[{domaine[0]:g} ; {domaine[1]:g}]")
+        lues[an] = float(v)
+    annees = sorted(lues)
+    attendues = list(range(debut, annees[-1] + 1))
+    if annees != attendues or annees[-1] > ANNEE_FIN_MANDAT:
+        return (f"{cle} : valeurs, années {_resume([str(a) for a in annees])} : chaque année de "
+                f"{debut} à une année ≤ {ANNEE_FIN_MANDAT} attendue, sans lacune")
+    return tuple((an, lues[an]) for an in annees)
 
 
 def _annees_hors_borne(annees: int, annees_max: int):
@@ -349,7 +413,7 @@ def _lire_profil(cle, brut, debut: int):
         return f"{cle} : clé(s) inconnue(s) {_resume(inconnues)}"
     forme = brut.get('forme')
     if not isinstance(forme, str) or forme not in FORMES_PROFIL:
-        return f"{cle} : forme {_apercu(forme)} inconnue (plein, rampe ou annee)"
+        return f"{cle} : forme {_apercu(forme)} inconnue (plein, rampe, annee ou valeurs)"
     if cle == CLE_RECETTE_EXCEPTIONNELLE and forme != 'annee':
         return (f"{cle} : seule la forme « annee » est admise pour une recette d'une seule année "
                 f"(reçu « {forme} »)")
@@ -391,8 +455,15 @@ def _lire_profil(cle, brut, debut: int):
         hors_borne = _annees_hors_borne(int(annees), annees_max)
         if hors_borne is not None:
             annees = hors_borne[1]
+    valeurs = None
+    if forme == 'valeurs':
+        valeurs = _lire_valeurs(cle, brut.get('valeurs'), debut)
+        if isinstance(valeurs, str):
+            return valeurs
+    elif 'valeurs' in brut:
+        return f"{cle} : valeurs interdites pour la forme « {forme} » (seulement pour « valeurs »)"
     profil = Profil(forme=forme, annee=int(annee) if forme == 'annee' else None,
-                    annees=None if annees is None else int(annees))
+                    annees=None if annees is None else int(annees), valeurs=valeurs)
     return profil if hors_borne is None else (profil, f"{cle} : {hors_borne[0]}")
 
 
@@ -1310,11 +1381,14 @@ def valeur_du_profil(profil: Profil, p_ref, p, annee: int, debut: int):
       début + 1`` ; année ``a`` de rang ``k = a − début + 1 < n`` :
       ``p_ref + (p − p_ref) × k / n`` (arithmétique de la rampe v0.7.0) ;
       ensuite la valeur EXACTE ``p``, jamais ``p_ref + (p − p_ref) × 1`` ;
-    - ``annee`` : ``p`` l'année choisie, ``p_ref`` toutes les autres."""
+    - ``annee`` : ``p`` l'année choisie, ``p_ref`` toutes les autres ;
+    - ``valeurs`` : le montant écrit pour l'année, ``p`` après la dernière."""
     if profil.forme == 'plein':
         return p
     if profil.forme == 'annee':
         return p if annee == profil.annee else p_ref
+    if profil.forme == 'valeurs':
+        return dict(profil.valeurs).get(annee, p)
     n = profil.annees if profil.annees is not None else ANNEE_FIN_MANDAT - debut + 1
     k = annee - debut + 1
     return p if k >= n else p_ref + (p - p_ref) * k / n
@@ -1324,6 +1398,8 @@ def _derniere_annee_variable(profil: Profil, debut: int) -> int:
     """Dernière année où le profil s'écarte de son régime final."""
     if profil.forme == 'annee':
         return profil.annee + 1
+    if profil.forme == 'valeurs':
+        return profil.valeurs[-1][0] + 1
     if profil.forme == 'rampe':
         n = profil.annees if profil.annees is not None else ANNEE_FIN_MANDAT - debut + 1
         return debut + n - 1
@@ -1411,7 +1487,9 @@ def _mesures_profilees(programme: Dict, effectif: Dict, droit: Dict,
     # Origine d'horloge : première année où le levier s'écarte du droit de
     # l'année, pour les leviers qu'un calendrier « une seule année » ou une
     # valeur datée peut retarder ; les autres leviers modifiés partent au début.
-    a_dater = {levier for levier, _, _, _, profil in actifs.values() if profil.forme == 'annee'}
+    # Forme « valeurs » : un premier montant égal à la référence retarde l'origine.
+    a_dater = {levier for levier, _, _, _, profil in actifs.values()
+               if profil.forme in ('annee', 'valeurs')}
     if droit_apres_debut:
         a_dater |= set(programme)
     origines = {}

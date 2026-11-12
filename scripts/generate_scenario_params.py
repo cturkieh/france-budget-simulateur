@@ -125,8 +125,8 @@ def build_block(data: dict) -> str:
 
 # Profils temporels (release E du moteur, contrat § 2.3) : le calendrier d'un
 # montant en Md€, champ facultatif `profils` d'un scénario, même forme que
-# l'API ({"levier.parametre": {"forme": "plein" | "rampe" | "annee", "annee"?,
-# "annees"?}}). Publié sous le tableau, une ligne par paramètre profilé ; sans
+# l'API ({"levier.parametre": {"forme": "plein" | "rampe" | "annee" | "valeurs",
+# "annee"?, "annees"?, "valeurs"?}}). Publié sous le tableau, une ligne par paramètre profilé ; sans
 # profils, le bloc est inchangé.
 def _texte_calendrier(cle: str, profil) -> str:
     if not isinstance(profil, dict):
@@ -140,7 +140,14 @@ def _texte_calendrier(cle: str, profil) -> str:
         return "montée progressive jusqu'à la fin du mandat (rampe)"
     if forme == "annee":
         return f"une seule année, {_format_value(profil.get('annee'))} (annee)"
-    raise RuntimeError(f"profil {cle!r} : forme {forme!r} inconnue (plein, rampe ou annee)")
+    if forme == "valeurs":
+        # Moteur v0.8.1 : le montant de chaque année, du début à une année ≤ 2032.
+        valeurs = profil.get("valeurs")
+        if not isinstance(valeurs, dict) or not valeurs:
+            raise RuntimeError(f"profil {cle!r} : forme 'valeurs' sans montants datés")
+        textes = ", ".join(f"{an} : {_format_value(valeurs[an])}" for an in sorted(valeurs))
+        return f"montant fixé pour chaque année, {textes} (valeurs)"
+    raise RuntimeError(f"profil {cle!r} : forme {forme!r} inconnue (plein, rampe, annee ou valeurs)")
 
 
 def _lignes_calendrier(data: dict, scenario_ids: list) -> list[str]:

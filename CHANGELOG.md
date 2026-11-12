@@ -7,7 +7,8 @@ l'historique antérieur est décrit dans les messages de tags et dans
 ## [v0.8.1] — non publiée (proposée) — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
 
 **Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, un
-champ de `GET /health` (point 4) et trois bornes de curseur (point 5). (1) Le droit en
+champ de `GET /health` (point 4), trois bornes de curseur (point 5) et une forme de calendrier qui étend
+le contrat `/simulate` (point 6). (1) Le droit en
 vigueur (`budget_simulator/data/droit_en_vigueur.json`) porte sa première valeur datée : la surtaxe
 d'IS des grandes entreprises (`is_exceptionnel_tge.montant`), 7,3 Md€ en 2026 dans le fichier (réajustée à
 6,8 Md€ en 2026 par l'atterrissage, inchangé), **0 dès 2027** : contribution due au titre des deux
@@ -22,9 +23,9 @@ lus dans le `scenarios.json` du dépôt parent, sont ré-encodés sur leurs sour
 10 scénarios, un retiré, un ajouté, une source par paramètre dans `scenariosSources.json`).
 (4) **Version publiée** : `GET /health` publie `moteur_version` (« v0.8.1 »), lu dans
 `budget_simulator.__version__`, source unique du numéro ; la première entrée de ce CHANGELOG doit porter
-le même (`tests/test_version_publiee.py`). Deux versions peuvent servir le même contrat `/simulate` (une
-release de paramètres n'en change pas la forme) : un déploiement qui attend une version précise la lit
-ici. Avant v0.8.1, le champ est absent.
+le même (`tests/test_version_publiee.py`). Un déploiement qui attend une version précise la lit ici ;
+depuis le point 6, un site qui envoie la forme de calendrier « valeurs » exige v0.8.1 (v0.8.0 la refuse
+en 422). Avant v0.8.1, le champ est absent.
 (5) **Bornes hautes sourcées** (décision du mainteneur du 12/11/2026 : les objectifs de dépense qu'un
 programme publié écrit en part du PIB ou du RNB sont comptés pour tous ; même règle que
 `DMTG_VARIATION_MAX_MD`) : `recherche_publique.budget` 20 → 37 (`RECHERCHE_BUDGET_MAX_MD`),
@@ -37,6 +38,15 @@ administrations 0,646 % en 2024, Eurostat COFOG 08.2, en plus de 14,6 Md€ de c
 bornes de la première version (20, 10 et 20) n'étaient pas sourcées. Aucun calcul ne change (chaque Md€
 du curseur reste un Md€ de dépense, vérifié jusqu'à la borne) ; les bornes basses sont inchangées.
 METHODOLOGIE, § « Bornes hautes relevées (v0.8.1) ».
+(6) **Calendrier « valeurs »** (`profils`, montants en Md€ seulement) : `{"forme": "valeurs",
+"valeurs": {"2028": …, "2029": …}}`, le montant de chaque année du début à une année ≤ 2032, sans lacune,
+chacun dans le domaine du paramètre ; la valeur du programme ensuite. Motif : un objectif en part du PIB
+se compte, après l'année visée, par un montant qui suit la richesse nationale ; aucune autre forme ne
+l'écrit. Mêmes mesures de l'année que les autres calendriers (`_mesures_profilees`) : aucune équation ne
+change, égalité au bit avec une rampe aux mêmes valeurs (`tests/test_release_p_calendrier_valeurs.py`).
+Refusée aux taux et niveaux, aux coefficients d'indexation et à la recette d'une seule année ; défaut :
+422 en strict, entrée ignorée et correction tracée en tolérant. API : `ProfilRequete.valeurs`
+(nombres finis stricts, six entrées au plus).
 
 **Ce que cela déplace, prouvé** (instantanés régénérés une seule fois, `BUDGETLAB_REGEN=1 make
 snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :

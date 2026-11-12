@@ -56,7 +56,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 
 from budget_simulator import BudgetSimulatorV45, EntreeInvalide, load_default_values
 from budget_simulator import __version__ as VERSION_MOTEUR
-from budget_simulator.engine.cadre import PROFILS_ELIGIBLES, RAMPE_LEVIERS_ELIGIBLES
+from budget_simulator.engine.cadre import PROFILS_ELIGIBLES, RAMPE_ANNEES_MAX, RAMPE_LEVIERS_ELIGIBLES
 
 load_dotenv()
 
@@ -272,19 +272,27 @@ class ProfilRequete(BaseModel):
     """Calendrier d'un montant en Md€ (release E, chantier W1), d'un des
     quatre taux et niveaux éligibles ou d'un des deux coefficients
     d'indexation : `forme` `plein` (chaque année), `rampe` (montée progressive
-    jusqu'à la fin du mandat ; montants, taux et niveaux) ou `annee` (une seule
+    jusqu'à la fin du mandat ; montants, taux et niveaux), `annee` (une seule
     année, `annee` entière obligatoire ; montants et coefficients d'indexation,
-    pour un gel d'une année : l'écart de niveau reste ensuite). Forme
-    validée ici (littéral, entiers stricts, aucune autre clé : 422) ;
-    éligibilité de la clé, année dans le mandat et cohérence par le moteur
-    (422 en strict, correction tracée en tolérant)."""
+    pour un gel d'une année : l'écart de niveau reste ensuite) ou, depuis la
+    v0.8.1, `valeurs` (montants seulement : `valeurs` = {"année": montant} de
+    chaque année, du début à une année ≤ 2032, sans lacune ; ensuite la valeur
+    du programme). Forme validée ici (littéral, entiers stricts, nombres
+    finis, aucune autre clé : 422) ; éligibilité de la clé, années, domaine des
+    montants et cohérence par le moteur (422 en strict, correction tracée en
+    tolérant)."""
     model_config = ConfigDict(extra='forbid')
-    forme: Literal['plein', 'rampe', 'annee']
+    forme: Literal['plein', 'rampe', 'annee', 'valeurs']
     annee: int | None = Field(default=None, strict=True)
     # Durée d'une rampe (compatibilité avec `rampe.annees`) ; facultative, au
     # plus 2032 − annee_debut + 1 (la rampe finit au plus tard en 2032 ; borne
     # vérifiée par le moteur).
     annees: int | None = Field(default=None, strict=True)
+    # Montants datés de la forme `valeurs` ; taille bornée (une année du mandat
+    # par entrée au plus) : au-delà, 422 avant le moteur.
+    valeurs: dict[Annotated[str, StringConstraints(max_length=4)],
+                  Annotated[float, Field(strict=True, allow_inf_nan=False)]] | None = Field(
+        default=None, max_length=RAMPE_ANNEES_MAX)
 
 
 class SimulationRequest(BaseModel):
@@ -461,7 +469,7 @@ async def simulate(request: SimulationRequest):
       à partir du début, rampe effective, atterrissage 2026, plafond de
       l'impact total, calendriers).
     - **Profils temporels (release E)** : `profils` (facultatif, mode cadre)
-      `{"levier.parametre": {"forme": "plein" | "rampe" | "annee", "annee":
+      `{"levier.parametre": {"forme": "plein" | "rampe" | "annee" | "valeurs", "annee":
       2030}}` règle le calendrier d'un montant en Md€ (et de quatre taux ou
       niveaux, `PROFILS_TAUX_ET_NIVEAUX`, en `plein` ou `rampe` seulement ; et
       des deux coefficients d'indexation des pensions et des prestations,
@@ -473,7 +481,10 @@ async def simulate(request: SimulationRequest):
       du droit — à celle du programme, atteinte EXACTEMENT en 2032 ; avec
       `annees` facultatif, au plus 2032 − `annee_debut` + 1, atteinte en
       `annee_debut` + `annees` − 1, donc au plus tard en 2032 ; au-delà : 422 en
-      strict, durée ramenée à la borne en tolérant, comme `rampe`), `annee` (la valeur
+      strict, durée ramenée à la borne en tolérant, comme `rampe`), `valeurs`
+      (v0.8.1, montants seulement : `"valeurs": {"2028": 12.8, …}`, le montant de
+      chaque année du début à une année ≤ 2032, sans lacune, chacun dans le domaine
+      du paramètre ; la valeur du programme ensuite), `annee` (la valeur
       du programme cette année-là seulement, la référence avant et après).
       Paramètres éligibles : `engine/cadre.py`, `PROFILS_ELIGIBLES`. La
       recette exceptionnelle n'admet que `annee` (défaut : `annee_debut`) et
