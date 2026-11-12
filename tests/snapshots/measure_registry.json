@@ -963,7 +963,7 @@
       "sliders": [
         {
           "id": "recherche_budget",
-          "max": 20,
+          "max": 37,
           "min": 0,
           "param": "budget",
           "step": 1

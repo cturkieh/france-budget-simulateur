@@ -4,10 +4,10 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
-## [v0.8.1] — non publiée (proposée) — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics
+## [v0.8.1] — non publiée (proposée) — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
 
-**Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, et un
-champ de `GET /health` (point 4). (1) Le droit en
+**Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, un
+champ de `GET /health` (point 4) et trois bornes de curseur (point 5). (1) Le droit en
 vigueur (`budget_simulator/data/droit_en_vigueur.json`) porte sa première valeur datée : la surtaxe
 d'IS des grandes entreprises (`is_exceptionnel_tge.montant`), 7,3 Md€ en 2026 dans le fichier (réajustée à
 6,8 Md€ en 2026 par l'atterrissage, inchangé), **0 dès 2027** : contribution due au titre des deux
@@ -25,6 +25,18 @@ lus dans le `scenarios.json` du dépôt parent, sont ré-encodés sur leurs sour
 le même (`tests/test_version_publiee.py`). Deux versions peuvent servir le même contrat `/simulate` (une
 release de paramètres n'en change pas la forme) : un déploiement qui attend une version précise la lit
 ici. Avant v0.8.1, le champ est absent.
+(5) **Bornes hautes sourcées** (décision du mainteneur du 12/11/2026 : les objectifs de dépense qu'un
+programme publié écrit en part du PIB ou du RNB sont comptés pour tous ; même règle que
+`DMTG_VARIATION_MAX_MD`) : `recherche_publique.budget` 20 → 37 (`RECHERCHE_BUDGET_MAX_MD`),
+`transferts_etranger.montant` 10 → 10,5 (`TRANSFERTS_ETRANGER_MAX_MD`), `depenses_publiques.credits_etat`
+20 → 28 (`CREDITS_ETAT_MAX_MD`) : le plus haut objectif publié au PIB de 2032 de la référence, arrondi au
+pas du curseur supérieur (recherche du secteur public à 1,5 % du PIB, niveau 0,75 % en 2024, MESR-SIES ;
+aide publique au développement à 0,7 % du RNB, niveau 0,42 % en 2025, document de politique
+transversale annexé au PLF 2027 ; dépense publique culturelle à 1 % du PIB, services culturels des
+administrations 0,646 % en 2024, Eurostat COFOG 08.2, en plus de 14,6 Md€ de crédits annoncés). Les
+bornes de la première version (20, 10 et 20) n'étaient pas sourcées. Aucun calcul ne change (chaque Md€
+du curseur reste un Md€ de dépense, vérifié jusqu'à la borne) ; les bornes basses sont inchangées.
+METHODOLOGIE, § « Bornes hautes relevées (v0.8.1) ».
 
 **Ce que cela déplace, prouvé** (instantanés régénérés une seule fois, `BUDGETLAB_REGEN=1 make
 snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :

@@ -1883,6 +1883,26 @@ assiette.
 - **Exclusion** : avec le rabot uniforme appliqué sans exclure la contribution européenne, le
   curseur est ignoré (le rabot coupe déjà cette contribution ; règle X2, § « Garde-fous d'entrée (v0.8.0) »). Avec le rabot hors contribution européenne, les deux s'additionnent.
 
+#### Bornes hautes relevées (v0.8.1) : objectifs écrits en part du PIB ou du RNB
+
+Décision du mainteneur du 12/11/2026 : un objectif de dépense qu'un programme publié écrit en part du
+PIB ou du revenu national brut est compté, pour tous, par une seule convention (écart entre l'objectif
+et le dernier niveau officiel, multiplié par le PIB de l'année visée dans la référence du moteur). Trois
+bornes, que la première version ne sourçait pas, sont relevées jusqu'au plus haut de ces objectifs, au
+PIB de 2032 de la référence (3 565,1 Md€ ; mesures vides, début 2028), arrondi au pas du curseur
+supérieur ; la garde `tests/test_release_p_bornes_objectifs.py` recalcule l'objectif sur la référence et
+vérifie qu'il est sous la borne, à moins d'un pas :
+
+| Paramètre | Avant → après | Plus haut objectif publié | Dernier niveau officiel |
+|---|---|---|---|
+| `recherche_publique.budget` | 20 → 37 | 1,5 % du PIB pour la recherche du secteur public en 2032 : base 10 + 0,75 point × 3 565,1 = 36,74 | 0,75 % du PIB en 2024 : « L’effort de recherche des administrations représente 0,75 % du PIB en 2024 » (MESR-SIES, note flash n° 2026-16) |
+| `transferts_etranger.montant` | 10 → 10,5 | aide publique au développement à 0,7 % du RNB : 0,28 point × 3 565,1 × 1,0172 = 10,15 | « 0,42 % du revenu national brut (RNB) » en 2025 (document de politique transversale « Politique française en faveur du développement », annexe au projet de loi de finances pour 2027) ; RNB/PIB 2025 = 3 042 365 / 2 991 055,9 (Eurostat) |
+| `depenses_publiques.credits_etat` | 20 → 28 | dépense publique culturelle à 1 % du PIB, en plus de 14,6 Md€ de crédits annoncés (plus haut montant écrit) : 14,6 + 0,354 point × 3 565,1 = 27,22 | services culturels de toutes les administrations, 18 963,0 M€ en 2024, soit 0,646 % du PIB (Eurostat, COFOG 08.2) |
+
+Aucune borne ne change un calcul : chaque Md€ du curseur reste un Md€ de dépense (vérifié par test
+jusqu'à la borne). Un euro d'aide publique au développement, agrégat de l'OCDE (dons, prêts comptés en
+équivalent-don, frais d'accueil des réfugiés), est compté comme un euro de dépense publique.
+
 #### Repères mesurés (dépenses, budget 2026 reconduit, mode cadre 2027-2032)
 
 Écart au budget 2026 reconduit, un curseur à la fois (moteur v0.8.0, banc d'intégration) :

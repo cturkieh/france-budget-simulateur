@@ -2468,6 +2468,36 @@ DMTG_2025_MD = 21.2
 # dérogatoires (dossier du dépôt parent
 # docs/plans/evitement-successions-sources-2026-11.md) ; l'infobulle le dit.
 DMTG_VARIATION_MAX_MD = 25.0
+# Bornes hautes de trois montants (Md€ par an), décision du mainteneur du
+# 12/11/2026 : les objectifs de dépense qu'un programme publié écrit en part du
+# PIB ou du revenu national brut (RNB) sont comptés pour tous ; chaque borne est
+# relevée jusqu'au plus haut de ces objectifs, au PIB de 2032 de la référence du
+# moteur (3 565,1 Md€ ; mesures vides, début 2028), arrondi au pas du curseur
+# supérieur (les bornes de la première version, 20, 10 et 20, n'étaient pas
+# sourcées). Écart à l'objectif = objectif − dernier niveau officiel. Aucune
+# borne ne change un calcul : chaque Md€ du curseur reste un Md€ de dépense.
+# Garde : tests/test_release_p_bornes_objectifs.py (l'objectif recalculé sur la
+# référence est sous la borne, à moins d'un pas).
+# - Recherche publique : base 10 Md€ + (1,5 − 0,75) point de PIB = 36,74 → 37.
+#   1,5 % du PIB pour la recherche du secteur public en 2032 (le plus haut
+#   objectif publié) ; 0,75 % du PIB en 2024 : « L’effort de recherche des
+#   administrations représente 0,75 % du PIB en 2024 » (MESR-SIES, note flash
+#   n° 2026-16, révisée en octobre 2026).
+RECHERCHE_BUDGET_MAX_MD = 37.0
+# - Aide extérieure : (0,7 − 0,42) point de RNB = 10,15 → 10,5. Aide publique
+#   au développement à 0,7 % du RNB (objectif publié) ; « 0,42 % du revenu
+#   national brut (RNB) » en 2025 (document de politique transversale
+#   « Politique française en faveur du développement », annexe au projet de
+#   loi de finances pour 2027) ; RNB = PIB × 3 042 365 / 2 991 055,9 (Eurostat,
+#   2025, M€). Un euro d'aide est compté comme un euro de dépense publique.
+TRANSFERTS_ETRANGER_MAX_MD = 10.5
+# - Crédits des ministères : 14,6 Md€ de crédits annoncés (plus haut montant
+#   écrit par un programme publié) + (1 − 0,646) point de PIB = 27,22 → 28.
+#   Dépense publique culturelle à 1 % du PIB (objectif publié) ; services
+#   culturels de toutes les administrations, 18 963,0 M€ en 2024 pour un PIB de
+#   2 935 236,2 M€ (Eurostat, dépenses des administrations publiques par
+#   fonction, COFOG 08.2).
+CREDITS_ETAT_MAX_MD = 28.0
 # Prélèvement sur recettes au profit de l'Union européenne, 28 440 M€, et
 # crédits de paiement de la mission « Aide publique au développement »,
 # 3 569 M€ (loi de finances pour 2026). Leur somme est la borne basse SOURCÉE

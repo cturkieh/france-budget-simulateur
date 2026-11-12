@@ -448,10 +448,13 @@ POLICY_JSON = RACINE / 'policy_measures.json'
 
 # Contrat § 1.1 : (valeur neutre ou None pour un mode exclusif « absent », min, max).
 DOMAINES_E = {
-    'depenses_publiques': {'credits_etat': (0, -60, 20), 'ondam': (0, -10, 10),
+    # Bornes hautes de credits_etat et de transferts_etranger : objectifs publiés en part du PIB ou
+    # du RNB (décision du mainteneur du 12/11/2026, v0.8.1 ; 20 et 10 au contrat, non sourcées).
+    'depenses_publiques': {'credits_etat': (0, -60, C.CREDITS_ETAT_MAX_MD), 'ondam': (0, -10, 10),
                            'transferts_capital': (0, -10, 10)},
     'prestations_menages': {'solidarite': (0, -35, 30), 'pensions': (0, -20, 10)},
-    'transferts_etranger': {'montant': (0, -(C.PSR_UE_2026_MD + C.APD_MISSION_2026_MD), 10)},
+    'transferts_etranger': {'montant': (0, -(C.PSR_UE_2026_MD + C.APD_MISSION_2026_MD),
+                                        C.TRANSFERTS_ETRANGER_MAX_MD)},
     # Borne haute : +25 (décision du mainteneur du 12/11/2026 ; +20 au contrat, non sourcée).
     'droits_succession': {'variation': (0, -C.DMTG_2025_MD, C.DMTG_VARIATION_MAX_MD)},
     'impot_plancher_patrimoine': {'taux': (0, 0, 0.03),

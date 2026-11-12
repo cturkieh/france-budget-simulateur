@@ -297,7 +297,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - paramètres lus par le handler :
   - `budget` (défaut : `10`)
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
-  - `recherche_budget` → param `budget` [0–20, pas 1]
+  - `recherche_budget` → param `budget` [0–37, pas 1]
 
 ## `retraites` — Réforme des retraites
 - type : `fonction` · catégorie : `social`
