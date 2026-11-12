@@ -4,7 +4,7 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
-## [v0.8.1] — non publiée (proposée) — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
+## [v0.8.1] — 2026-11-12 — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
 
 **Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, un
 champ de `GET /health` (point 4), trois bornes de curseur (point 5) et une forme de calendrier qui étend
@@ -165,7 +165,7 @@ change ; golden masters, deltas de référence et standalone identiques au bit, 
   ajoutés pour les trois cas. Non traité (conception, noté) : en tolérant, un seul montant fautif fait
   ignorer tout le calendrier.
 
-## [v0.8.0] — non publiée (proposée) — release « E » : onze curseurs, déplafonnement des cotisations salariales, garde-fous, effet d'offre « échelle »
+## [v0.8.0] — 2026-11-12 — release « E » : onze curseurs, déplafonnement des cotisations salariales, garde-fous, effet d'offre « échelle »
 
 **Ce qui change** : une équation (l'effet d'offre structurel, point 5) ; onze curseurs nouveaux et
 le plafond de 5 points des cotisations salariales retiré (points 2 à 4) ; des garde-fous d'entrée,
