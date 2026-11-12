@@ -159,7 +159,10 @@ def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
 
 # 'recettes_tva' : part TVA de la recette de ``fiscalite_indirecte`` (lue par le
 # passage dans les prix), réduite avec la recette dont elle fait partie.
-_BUDGET_KEYS = frozenset({'depenses', 'recettes', 'recettes_tva'})
+# 'depenses_investissement' : part d'investissement productif de la dépense d'un
+# levier à formule (INVESTISSEMENT_PRODUCTIF_PARTIEL, contre-vérification I2),
+# réduite avec la dépense par les plafonds.
+_BUDGET_KEYS = frozenset({'depenses', 'recettes', 'recettes_tva', 'depenses_investissement'})
 _ABSENT = object()
 
 
@@ -585,6 +588,14 @@ class OrchestratorMixin:
                     # Fall back to ASTEVAL formula (évaluation : _evaluer_formule)
                     delta_spending, delta_revenue, measure_impacts = self._evaluer_formule(
                         measure, parameters, year, gdp, inflation, unemployment)
+                    # Part d'investissement productif de la dépense (release E,
+                    # contre-vérification I2) : publiée seulement si non nulle,
+                    # lue par les impulsions et l'éviction (engine/growth.py).
+                    param_inv = self.INVESTISSEMENT_PRODUCTIF_PARTIEL.get(measure_id)
+                    if param_inv is not None and isinstance(parameters, dict):
+                        part_inv = parameters.get(param_inv, 0)
+                        if isinstance(part_inv, (int, float)) and not isinstance(part_inv, bool) and part_inv:
+                            measure_impacts['depenses_investissement'] = float(part_inv)
                     # Contrat v0.6.8 (revue passe 1, L2) : une formule ne pose
                     # aucun canal ménages. Côté dépenses, zéro effet direct est
                     # l'arbitrage 2 ; côté recettes, l'indice compterait la taxe
@@ -638,6 +649,9 @@ class OrchestratorMixin:
                 delta_spending, delta_revenue = clip_dep, clip_rec
                 # Propager le clip aux measure_impacts (sinon multiplicateur calculé sur valeur
                 # non-clip mais budget appliqué sur valeur clip → incohérence interne)
+                if 'depenses_investissement' in measure_impacts and clip_dep != measure_impacts['depenses']:
+                    measure_impacts['depenses_investissement'] *= (
+                        clip_dep / measure_impacts['depenses'] if measure_impacts['depenses'] else 0.0)
                 measure_impacts['depenses'] = delta_spending
                 measure_impacts['recettes'] = delta_revenue
                 delta_spending_total += delta_spending

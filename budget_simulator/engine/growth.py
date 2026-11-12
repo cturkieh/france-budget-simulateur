@@ -169,6 +169,12 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
     (``FiscalMultipliers.MESURES_MULTIPLICATEUR_NET``) : un seul flux
     ``(levier, 'solde')`` = Δrec − Δdép. Un levier en échec porte 0/0
     (``HANDLER_FAILED_KEY``) : flux nuls, comme dans le budget de l'année.
+
+    Part d'investissement productif d'une dépense (release E,
+    contre-vérification I2 ; clé ``depenses_investissement`` posée par
+    l'orchestrateur, ``INVESTISSEMENT_PRODUCTIF_PARTIEL``) : flux distinct
+    ``(levier, 'investissement')`` = −part, le reste de la dépense restant dans
+    ``(levier, 'depenses')``. Sans cette clé, rien ne change.
     """
     flux: Dict[Tuple[str, str], float] = {}
     for m_id, m_impact in impacts.items():
@@ -180,7 +186,12 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
             flux[(m_id, 'solde')] = rec - dep
         else:
             flux[(m_id, 'recettes')] = rec
-            flux[(m_id, 'depenses')] = -dep
+            inv = float(m_impact.get('depenses_investissement', 0) or 0)
+            if inv:
+                flux[(m_id, 'depenses')] = -(dep - inv)
+                flux[(m_id, 'investissement')] = -inv
+            else:
+                flux[(m_id, 'depenses')] = -dep
     return flux
 
 
@@ -220,7 +231,7 @@ def part_investissement_expansion(impacts: Dict, mesures_investissement: frozens
     for (m_id, canal), montant in flux_par_levier(impacts, mesures_nettes).items():
         if montant < 0:
             expansion += -montant
-            if canal == 'depenses' and m_id in mesures_investissement:
+            if (canal == 'depenses' and m_id in mesures_investissement) or canal == 'investissement':
                 investissement += -montant
     return investissement / expansion if expansion > 0 else 0.0
 
@@ -456,6 +467,7 @@ class GrowthMixin:
                 if delta == 0.0:
                     continue
                 sens = 'consolidation' if debut + fin > 0 else 'expansion'
+                profil = self._get_decay_profile(m_id)
                 if canal == 'depenses':
                     # 'transferts' (v0.6.7, lot 3b) : une COUPE de transfert prend le
                     # multiplicateur des transferts, comme la hausse (symétrie par
@@ -463,14 +475,20 @@ class GrowthMixin:
                     composition = {'depenses': 1.0, 'recettes': 0.0,
                                    'investissement': 1.0 if m_id in self.INVESTMENT_CORE_MEASURES else 0.0,
                                    'transferts': 1.0 if m_id in self.TRANSFER_MEASURES else 0.0}
+                elif canal == 'investissement':
+                    # Part d'investissement productif d'une dépense (release E,
+                    # contre-vérification I2) : classe et persistance de
+                    # l'investissement productif de l'État.
+                    composition = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 1.0,
+                                   'transferts': 0.0}
+                    profil = self.DECAY_PROFILE_INVEST
                 else:
                     composition = compositions[canal]
                 # La matrice porte le signe de l'effet (négatif en
                 # consolidation) ; ici le signe vient de l'impulsion, la
                 # matrice n'en donne que l'amplitude.
                 k = abs(self.multipliers.get_multiplier(sens, composition, eco_state, year, m_id))
-                self._fiscal_impulses[(year, m_id, canal, sens)] = (
-                    delta, k, self._get_decay_profile(m_id))
+                self._fiscal_impulses[(year, m_id, canal, sens)] = (delta, k, profil)
                 if abs(delta) > 0.0005:
                     _log_debug(self.debug_logs,
                         f"Y{year}: [IMPULSION] {m_id}/{canal} {sens} "

@@ -244,24 +244,24 @@ impact maximal mesuré (avant toute réduction) et son année. Ce qui se passe a
   sont réduits au prorata, avec l'avis « plafonné » dans `report.warnings`. Le résultat d'un
   programme concerné n'est alors pas la somme de ses mesures.
 
-Banc d'intégration sur le moteur de la release (corrections de la revue adverse comprises) : un seul
-programme publié dépasse le seuil (impact maximal 10,92 % du PIB en 2030 en mode cadre, 11,26 % en
-2028 en mode historique). Sans réduction, ses écarts restent faibles (déficit 0,08 point et dette
-0,20 point au plus en mode cadre, 0,15 et 0,54 en mode historique), aucune valeur n'est non finie et
-le filet de chômage n'est jamais touché ; le filet de croissance [−3,5 % ; +2,5 %], qui mord déjà
-une année avec la réduction, mord sur une croissance plus forte (2,59 → 2,67 % en mode cadre,
-2,64 → 2,80 % en mode historique). Le mainteneur a tranché en connaissance de cette condition :
-l'avertissement est le défaut.
+Banc d'intégration sur le moteur de la release (corrections des revues adverses et classe de
+l'investissement des collectivités comprises) : un seul programme publié dépasse le seuil (impact
+maximal 10,93 % du PIB en 2030 en mode cadre, 11,27 % en 2028 en mode historique). Sans réduction,
+ses écarts restent faibles (déficit 0,08 point et dette 0,25 point au plus en mode cadre, 0,15 et
+0,48 en mode historique), aucune valeur n'est non finie et le filet de chômage n'est jamais touché ;
+le filet de croissance [−3,5 % ; +2,5 %], qui mord déjà une année avec la réduction, mord sur une
+croissance plus forte (2,79 → 2,87 % en mode cadre, 2,84 → 3,01 % en mode historique). Le mainteneur
+a tranché en connaissance de cette condition : l'avertissement est le défaut.
 
 **Filet de croissance : avis (v0.8.0, contre-vérification m6).** Le filet [−3,5 % ; +2,5 %] de la
 croissance réelle annuelle (`CROISSANCE_FILET_MIN`, `CROISSANCE_FILET_MAX`, valeurs inchangées : borne
 de validité des multiplicateurs linéaires) ne laissait qu'un journal de débogage. Quand il mord, un avis
 le dit désormais dans `report.warnings`, avec chaque année et la croissance calculée avant écrêtage
-(« filet de croissance [−3,50 % ; 2,50 %] atteint : 2030 (2,67 % calculés, 2,50 % retenus) — … ») ;
+(« filet de croissance [−3,50 % ; 2,50 %] atteint : 2030 (2,87 % calculés, 2,50 % retenus) — … ») ;
 comme tout avis, il n'invalide pas le rapport. La même information est publiée sans phrase à analyser
 dans le bloc `cadre.filet_croissance` (bornes en %, années, et pour chaque année la croissance calculée
 et la croissance retenue), toujours présent, vide quand le filet ne mord pas. Seul programme publié concerné : une année dans chaque
-mode (2,67 % en 2030 en mode cadre, 2,80 % en 2028 en mode historique) ; sorties inchangées. Lever le
+mode (2,87 % en 2030 en mode cadre, 3,01 % en 2028 en mode historique) ; sorties inchangées. Lever le
 filet au profit d'un avertissement seul suppose que le moteur sache représenter une crise de
 financement (passe dédiée « réalisme du financement »).
 
@@ -2441,7 +2441,7 @@ intensité    = 0,002 + (1 − part_{t−1}) × 0,006                    (0,002 
 part_{t−1}   = Σ_{m ∈ invest.} max(Δdép_m, 0)  /  Σ_{flux f} max(−f, 0)   (budget de t−1)   ∈ [0 ; 1] par construction
 ```
 
-Les flux f sont ceux des impulsions keynésiennes, levier par levier (Δrec et −Δdép ; un seul flux Δrec − Δdép pour le SMIC et la fraude fiscale, multipliés sur leur effet net) ; invest. = éducation, recherche publique, transition écologique (`INVESTMENT_CORE_MEASURES`, leurs seules dépenses). La part répond à « de quoi est faite la relance ? » : le dénominateur est l'expansion brute (hausses de dépenses, baisses de recettes), le numérateur sa partie investissement productif. Les consolidations (coupes, hausses d'impôts) financent l'expansion au prorata de ses composantes — aucun levier n'est réputé financé en premier — et réduisent l'éviction par l'effort net, pas par la composition : une coupe d'investissement n'est pas une part d'investissement de la relance. Coefficients `EVICTION_SEUIL_DETTE`, `EVICTION_INTENSITE_INVESTISSEMENT`, `EVICTION_SURCROIT_NON_PRODUCTIF` (`constants.py`) : **aucune source publiée** (calibration v3.0 du 27/03/2026) — ordre de grandeur déclaré, pas une estimation. Verrouillé par `tests/test_eviction_composition_v0610.py`.
+Les flux f sont ceux des impulsions keynésiennes, levier par levier (Δrec et −Δdép ; un seul flux Δrec − Δdép pour le SMIC et la fraude fiscale, multipliés sur leur effet net) ; invest. = éducation, recherche publique, transition écologique (`INVESTMENT_CORE_MEASURES`, leurs seules dépenses), plus la part `investissement` des collectivités (flux distinct de leur dotation, `INVESTISSEMENT_PRODUCTIF_PARTIEL`, v0.8.0). La part répond à « de quoi est faite la relance ? » : le dénominateur est l'expansion brute (hausses de dépenses, baisses de recettes), le numérateur sa partie investissement productif. Les consolidations (coupes, hausses d'impôts) financent l'expansion au prorata de ses composantes — aucun levier n'est réputé financé en premier — et réduisent l'éviction par l'effort net, pas par la composition : une coupe d'investissement n'est pas une part d'investissement de la relance. Coefficients `EVICTION_SEUIL_DETTE`, `EVICTION_INTENSITE_INVESTISSEMENT`, `EVICTION_SURCROIT_NON_PRODUCTIF` (`constants.py`) : **aucune source publiée** (calibration v3.0 du 27/03/2026) — ordre de grandeur déclaré, pas une estimation. Verrouillé par `tests/test_eviction_composition_v0610.py`.
 
 > **Corrigé en v0.6.10 (contre-audit externe, V2-01)** : jusqu'en v0.6.9, la part divisait des flux BRUTS par levier (Σ |Δdép| des leviers d'investissement) par des flux NETS agrégés (|Δdép net| + |Δrec net|) — ce n'était pas une part. +20 Md€ d'investissement financés pour moitié par −10 Md€ de dotations donnaient 2,0 : l'intensité devenait négative et l'« éviction » soutenait l'expansion (+0,0013 pt de croissance en 2027) ; IM Compétitivité atteignait 2,605. La part est désormais définie sur une seule convention, dans [0 ; 1] par construction, sans bornage (que l'auditeur écartait comme justification). Convention retenue entre deux candidates : flux bruts au numérateur et au dénominateur (écartée : une coupe d'investissement y comptait comme investissement, et les consolidations diluaient la part) et part de l'expansion (retenue). Elle supprime aussi une marche : quand l'effort net s'annulait, l'ancienne part divergeait et la croissance sautait (+0,002 pt en 2027 pour 10 Md€ d'investissement financés par −10 Md€ de dotations) ; elle est désormais continue. Les écarts suivent la composition réelle des relances : la part baisse pour RN (0,37 à 0,81 sur l'horizon, gonflée par un dénominateur net qui se réduisait ; désormais 0,19 à 0,23) et Renaissance (0,21-0,49 → 0,21-0,22), elle monte pour LFI, le PS et les Écologistes (0,20-0,36 → 0,40-0,50). Dette 2035, mesurée sur v0.6.9 : RN +0,05, LFI −0,03, Renaissance +0,02, PS −0,02, IM Compétitivité +0,01 pt, Écologistes < 0,001 ; Budget 2026 voté, Horizons, LR, IM Rabot et statu quo identiques au bit ; contre-exemple de l'auditeur 145,13 → 145,18 %.
 
@@ -2462,7 +2462,19 @@ Les flux f sont ceux des impulsions keynésiennes, levier par levier (Δrec et �
 l'utilisait ; trois programmes l'encodent (8 à 15 Md€). À montant égal, il reçoit désormais exactement l'offre de
 l'investissement de l'État (vérifié par test). Effet mesuré sur les trois programmes concernés : dette 2032 en
 mode cadre −0,07 à −0,16 point, dette 2035 en mode historique −0,23 à −0,70 point ; les sept autres programmes
-publiés sont identiques au bit. Il garde la classe de multiplicateur d'une dépense générique (non modifiée ici).
+publiés sont identiques au bit.
+
+**Classe de multiplicateur et d'éviction (v0.8.0, contre-vérification I2).** Le canal d'offre ne suffisait pas : à
+montant égal, 10 Md€ par an d'investissement local faisaient MONTER la dette 2032 (+0,20 point en mode cadre, +0,64
+en 2035 en mode historique) quand 10 Md€ d'investissement de l'État la faisaient baisser (−0,40 et −0,71), parce
+que le levier `collectivites` (une formule, dotation + investissement) prenait en entier la classe de la dépense
+générique. Désormais, sa seule part `investissement` est publiée dans son impact (`depenses_investissement`) et
+forme un flux distinct, `(collectivites, investissement)` (`INVESTISSEMENT_PRODUCTIF_PARTIEL`), multiplié, lu par
+l'éviction et réparti dans le temps comme l'investissement productif de l'État (classe `investissement`, profil de
+persistance de l'investissement) ; la dotation garde la classe de la dépense générique. 10 Md€ par an : −0,37
+point de dette 2032 (mode cadre) contre −0,40 pour l'État, −0,63 contre −0,71 en 2035 (mode historique) ; le reste
+d'écart est la recette propre du levier de l'État. Trois programmes publiés bougent (dette 2032 en mode cadre
+−0,31 à −0,48 point, dette 2035 en mode historique −0,63 à −0,98) ; les sept autres sont identiques au bit.
 
 **Forme (v0.8.0, échelle)** : la contribution de chaque canal est **linéaire dans le flux annuel** —
 `pente × (valeur − défaut)`, signée —, puis la somme est saturée en douceur vers le plafond :

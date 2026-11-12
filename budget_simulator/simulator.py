@@ -432,6 +432,19 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         'education', 'transition_ecologique', 'recherche_publique',
     ])
 
+    # Release E (contre-vérification adverse I2) : leviers dont UNE PART de la
+    # dépense est de l'investissement public productif, {levier : paramètre en
+    # Md€ de cette part}. L'orchestrateur publie cette part dans l'impact du
+    # levier (clé ``depenses_investissement``) ; elle forme un flux distinct,
+    # ``(levier, 'investissement')``, qui prend la classe de multiplicateur,
+    # d'éviction et de persistance de l'investissement productif (celle de
+    # INVESTMENT_CORE_MEASURES), le reste de la dépense gardant la sienne. Ainsi
+    # un même euro d'investissement public a le même ordre d'effet, porté par
+    # l'État ou par les collectivités (avant : +0,20 contre −0,40 point de dette
+    # 2032 pour 10 Md€, mode cadre). La dotation des collectivités reste une
+    # dépense générique.
+    INVESTISSEMENT_PRODUCTIF_PARTIEL = {'collectivites': 'investissement'}
+
     # Mesures de transfert direct (decay rapide)
     # Release E (socle) : ``prestations_menages`` (prestations de solidarité et
     # pensions en montant) prend le multiplicateur des transferts dans les deux

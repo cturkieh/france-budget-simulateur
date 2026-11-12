@@ -32,7 +32,8 @@ limites dites (6). Écarts au bit à la release avant revue, tous attribués : t
 TVA à taux réduits), et le champ `cadre.plafond_total.mode` de chaque réponse. **Au total, par
 rapport à v0.7.2**, arbitrages du mainteneur et contre-vérification compris (§ 7) : dette 2032 en mode
 cadre +1,48, +1,14, +1,04, +0,91, +0,89, +0,88 et +0,02 point pour sept programmes publiés, les trois
-autres et le statu quo inchangés au centième ; dette 2035 en mode historique de −0,25 à +4,04 points.
+autres et le statu quo inchangés au centième ; dette 2035 en mode historique de −0,25 à +4,04 points. Le
+§ 8 (investissement des collectivités, soumis au mainteneur) s'y ajoute, avec son propre tableau.
 
 ### 1. Garde-fous et calendriers
 
@@ -68,9 +69,11 @@ autres et le statu quo inchangés au centième ; dette 2035 en mode historique d
    Interrupteur `constants.PLAFOND_TOTAL_MODE` : `avertissement` (**défaut**, décision du mainteneur
    du 12/11/2026 : aucune réduction, un avis) ou `reduction` (comportement v0.7.2, toujours
    disponible). Sur le seul programme publié qui dépasse le seuil : écarts au mode réduction de 0,08
-   point de déficit et 0,20 point de dette au plus en mode cadre, 0,15 et 0,54 en mode historique ;
+   point de déficit et 0,25 point de dette au plus en mode cadre, 0,15 et 0,48 en mode historique ;
    aucune valeur non finie, filet de chômage jamais touché ; le filet de croissance [−3,5 % ; +2,5 %]
-   mord sur une croissance plus forte (condition connue du mainteneur au moment de sa décision).
+   mord sur une croissance plus forte (2,87 % calculés au lieu de 2,79 en mode cadre, 3,01 au lieu de
+   2,84 en mode historique ; condition connue du mainteneur au moment de sa décision). Chiffres
+   mesurés avec le § 8.
 6. **Signature de contrat** : une réponse du moteur porte `cadre.profils` (objet) et
    `cadre.plafond_total.mode`. Registre généré : bloc `noms_parametres_admis` (noms admis de tous
    les leviers, formules comprises).
@@ -264,10 +267,31 @@ Un commit par point sur la branche d'intégration, chacun avec son test rouge et
    la clé absente, ce que fait déjà la porte des valeurs : 422 en strict, 200 et rapport invalide en
    tolérant. Les 82 paramètres du registre à ±10⁴⁰⁰ et 10³⁰, en strict, dans les deux modes : aucun 5xx.
 
-Empreinte au bit (206 cas, deux modes du plafond) : 16 cas diffèrent de la tête précédente, tous
+Empreinte au bit (206 cas, deux modes du plafond) : 24 cas diffèrent de la tête précédente, tous
 attribués (points 1-2 : deux programmes et le mini-scénario des cotisations ; m6 : rapport seul d'un
-programme). Instantanés régénérés une fois, après audit cellule par cellule.
+programme ; § 8 : trois programmes). Instantanés régénérés une fois, après audit cellule par cellule.
 
+### 8. Investissement des collectivités : classe de l'investissement productif (contre-vérification I2 ; soumis au mainteneur)
+
+Le canal d'offre de l'investissement des collectivités était déjà celui de l'État ; leur classe de
+multiplicateur et d'éviction ne l'était pas : à montant égal, 10 Md€ par an d'investissement local faisaient
+monter la dette 2032 (+0,20 point en mode cadre) quand ceux de l'État la faisaient baisser (−0,40). Désormais, la
+seule part `investissement` du levier `collectivites` est publiée dans son impact (`depenses_investissement`) et
+forme un flux distinct `(collectivites, investissement)` (`INVESTISSEMENT_PRODUCTIF_PARTIEL`), multiplié, lu par
+l'éviction et réparti dans le temps comme l'investissement productif de l'État ; la dotation garde la classe de la
+dépense générique. 10 Md€ : −0,37 point de dette 2032 (mode cadre) contre −0,40 pour l'État ; −0,63 contre −0,71
+en 2035 (mode historique). Effet isolé sur les scénarios publiés (empreinte au bit : seuls trois programmes
+bougent, les sept autres et le statu quo sont identiques au bit) :
+
+| Programme | Dette 2032, mode cadre | Déficit 2032, mode cadre | Dette 2035, mode historique |
+|---|---|---|---|
+| A (15 Md€ d'investissement local) | −0,31 | +0,11 | −0,63 |
+| B (8 Md€) | −0,48 | +0,12 | −0,98 |
+| C (8 Md€) | −0,47 | +0,12 | −0,91 |
+
+Le premier programme gagne moins que les deux autres malgré un montant plus élevé : le filet de croissance
+mord sur sa trajectoire (§ 7). Variante écartée : la classe sans le profil de persistance de l'investissement
+(−0,53 point pour 10 Md€ en 2032, au-delà de l'État). Ce point est réversible par un seul commit.
 
 ## [v0.7.2] — 2026-11-08 — paramètres : borne des effectifs, écrêtage visible, dette de départ
 
