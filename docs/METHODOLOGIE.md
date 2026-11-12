@@ -3255,13 +3255,13 @@ PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
 | Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) | Ecart moteur v0.7.0 (cadre 2027-2032, dette 2032) | Ecart au 12/11/2026 (moteur v0.8.0 et release de parametres P, dette 2032) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 | -0,2 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +4,5 |
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 | -0,3 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +6,2 |
 | `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 |
 | `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 |
 | `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,6 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +0,4 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +1,6 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +1,7 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +2,6 |
 | `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 |
 | `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — |
 | `nouvelle_energie_2027` | — | — | — | — | — | — | — | — | — | — | +5,2 |
@@ -3356,8 +3356,12 @@ leurs encodages, pas d'une équation commune ; le paramétrage de chacun est dan
 `docs/SCENARIOS_POLITIQUES.md`. Valeurs du moteur v0.8.1 sur les scénarios de la release P, après la
 relecture du 12/11/2026 qui a mis à jour sept paramètres de deux programmes, puis de la
 contre-relecture qui a mis à jour sept paramètres de quatre programmes (les écarts concernés bougent
-de zéro à quatre dixièmes ; les scénarios dont l'encodage est inchangé sont identiques au bit) ; le précalcul servi par
-le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
+de zéro à quatre dixièmes), puis de la dernière passe du même jour : les objectifs de dépense écrits
+en part du PIB ou du RNB comptés pour tous par une seule convention (§ « Bornes hautes relevées
+(v0.8.1) » ; sept paramètres de quatre programmes, calendrier « valeurs ») et deux montants sans
+calendrier écrit passés en rampe (un programme) ; l'écart de dette 2032 à la référence de ces quatre
+programmes bouge de −0,03 à 1,74 point. Les scénarios dont l'encodage est inchangé sont identiques au
+bit ; le précalcul servi par le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,

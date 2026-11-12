@@ -167,7 +167,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | csg | progressive | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | csg | taux | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.108039 | 0.098039 | 0.098039 |
 | defense | budget | 58 | 58 | 58 | 58 | 58 | 58.1 | 58 | 58 | 58 | 58 |
-| depenses_publiques | credits_etat | — | 3.24 | 14.6 | 10 | — | -58.4145 | 2.6 | 3 | — | — |
+| depenses_publiques | credits_etat | — | 3.24 | 27.22 | 10 | — | -58.4145 | 2.6 | 3 | — | — |
 | depenses_publiques | ondam | — | — | 2.4 | — | — | -5.9861 | 9.6 | — | — | 0.75 |
 | depenses_publiques | transferts_capital | — | — | — | 0.66 | — | — | — | — | — | — |
 | droits_succession | variation | — | — | 20 | — | — | — | 25 | — | — | — |
@@ -215,7 +215,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | rabot_uniforme | exclure_ue | — | — | — | — | — | — | — | — | 1 | — |
 | rabot_uniforme | taux_reduction | — | — | — | — | — | — | — | — | 0.08 | — |
 | recette_exceptionnelle | montant | — | — | 5 | — | — | — | 50 | — | — | — |
-| recherche_publique | budget | 10 | 19.65 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| recherche_publique | budget | 10 | 20.7 | 36.74 | 10 | 10 | 10 | 18.91 | 10 | 10 | 10 |
 | retraites | age_depart | — | — | 60 | — | 65 | 65 | 62 | 62 | — | — |
 | retraites | duree_cotisation | 42.5 | 42.5 | 40 | 42.5 | 45 | 42.5 | 43 | 42.5 | 42.5 | 42.5 |
 | retraites | indexation | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 |
@@ -227,7 +227,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | smic | montant_brut | 1800 | 1800 | 2180 | 1800 | 1800 | 1800 | 2180 | 2000 | 1800 | 1800 |
 | subventions_tge | montant | 33 | 33 | 33 | 33 | 14.67 | 28.6464 | 33 | 33 | 33 | 33 |
 | taxe_superprofits | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| transferts_etranger | montant | — | -9 | — | — | — | -3.8094 | 0.5 | — | — | — |
+| transferts_etranger | montant | — | -9 | 10.15 | — | — | -3.8094 | 10.15 | 10.15 | — | — |
 | transition_ecologique | investissement | 0 | 0 | 6.36 | 0 | 1.02 | 0 | 20 | 7 | 0 | 0 |
 | transition_ecologique | renovation | 0 | 0 | 7.05 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | transition_ecologique | taxe_carbone | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 |
@@ -235,8 +235,11 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | tva_rate | taux | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 | 0.2 |
 
 - Calendrier, Programme RN Le Pen 2027, `depenses_publiques.credits_etat` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme RN Le Pen 2027, `recherche_publique.budget` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme RN Le Pen 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 12.61, 2029 : 15.21, 2030 : 17.82, 2031 : 20.43, 2032 : 20.7 (valeurs)
+- Calendrier, Programme LFI Mélenchon 2027, `depenses_publiques.credits_etat` : montant fixé pour chaque année, 2028 : 17.12, 2029 : 19.65, 2030 : 22.17, 2031 : 24.7, 2032 : 27.22 (valeurs)
 - Calendrier, Programme LFI Mélenchon 2027, `recette_exceptionnelle.montant` : une seule année, 2028 (annee)
+- Calendrier, Programme LFI Mélenchon 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 15.35, 2029 : 20.7, 2030 : 26.04, 2031 : 31.39, 2032 : 36.74 (valeurs)
+- Calendrier, Programme LFI Mélenchon 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
 - Calendrier, Programme Renaissance Attal 2027, `impots_production.montant` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Renaissance Attal 2027, `prestations_indexation.taux_indexation` : une seule année, 2028 (annee)
 - Calendrier, Programme Renaissance Attal 2027, `retraites.indexation` : une seule année, 2028 (annee)
@@ -254,14 +257,18 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 - Calendrier, Programme LR Retailleau 2027, `prestations_menages.solidarite` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `subventions_tge.montant` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme LR Retailleau 2027, `transferts_etranger.montant` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme PS 2027, `collectivites.dotation` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme PS 2027, `depenses_publiques.ondam` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme PS 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme PS 2027, `recette_exceptionnelle.montant` : une seule année, 2028 (annee)
+- Calendrier, Programme PS 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 12.82, 2029 : 15.65, 2030 : 18.47, 2031 : 18.69, 2032 : 18.91 (valeurs)
 - Calendrier, Programme PS 2027, `sante.prevention_budget` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme PS 2027, `transferts_etranger.montant` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme PS 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `cotisations_patronales.taux` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `depenses_publiques.credits_etat` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `prestations_menages.solidarite` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme Les Écologistes Tondelier 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `transition_ecologique.investissement` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Nouvelle Énergie Lisnard 2027, `cotisations_salariales.baisse_points` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Nouvelle Énergie Lisnard 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)

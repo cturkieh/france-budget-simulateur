@@ -71,6 +71,17 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   premier chiffre cumule les quatre paramètres du même programme, reste d'interaction ≤ 0,02) ; seul
   instantané hors golden masters déplacé : le delta de référence d'un des trois scénarios qu'il suit
   (0,01 à 0,02 point), et celui d'un deuxième sur une cellule (0,01) ; standalone identique au bit ;
+  dernière passe (objectifs de dépense écrits en part du PIB ou du RNB comptés pour tous, points 5 et 6 :
+  sept paramètres de quatre programmes en calendrier « valeurs », `recherche_publique.budget` pour trois
+  programmes, `transferts_etranger.montant` pour trois, `depenses_publiques.credits_etat` pour un ; et,
+  pour un programme, deux montants sans calendrier écrit passés en rampe, `collectivites.dotation` et
+  `education.salaires`). Écarts 2032 attribués de même, par programme : déficit −0,97, −0,50, −0,37 et
+  +0,02 point, dette +1,74, +1,28, +1,05 et −0,03 point. Le premier cumule trois objectifs (recherche
+  −0,38 et +0,30, dépense culturelle −0,27 et +0,42, aide au développement −0,37 et +1,04) ; le deuxième
+  deux objectifs et deux rampes (aide au développement −0,36 et +0,99, recherche −0,08 et +0,01, rampes
+  −0,01 et +0,14, −0,07 et +0,13) ; reste d'interaction ≤ 0,05 point. Delta de référence : deux des trois
+  scénarios suivis bougent (jusqu'à +7,61 points de dette 2035 en mode historique pour l'un, ≤ 0,04 pour
+  l'autre) ; standalone identique au bit ;
   l'ancien encodage rejoué sur cet arbre redonne les instantanés précédents au bit ; la référence passe de −7,17 à −7,34 % de déficit 2032 et de 138,04 à 138,52 %
   de dette ; en 2027, statu quo à −5,86 % de déficit (−5,63 avant) ;
 - **valeur datée seule** (scénarios d'avant P, mode cadre) : de −0,01 à −0,03 point de déficit 2032 et
@@ -79,8 +90,9 @@ snapshot-baseline` et `capture_scenario_deltas.py`, après audit) :
   bouge ;
 - **garde-fou du pouvoir d'achat 2029** : valeurs re-figées après audit dans
   `tests/snapshots/pa_2029_figes.json` (données figées, jamais régénérées par un script ; elles
-  quittent le code du test), y compris les encodages mis à jour par la relecture (−0,1 et +0,2 point)
-  puis par la contre-relecture (−0,1 et −0,2 point).
+  quittent le code du test), y compris les encodages mis à jour par la relecture (−0,1 et +0,2 point),
+  par la contre-relecture (−0,1 et −0,2 point) puis par la dernière passe (+1,3, +0,3, −0,1 et +0,1
+  point).
 
 **Conséquences à connaître** :
 - **Mode historique** (sans `annee_debut`) : la référence porte le droit de 2028 dès 2026 (surtaxe à
