@@ -116,7 +116,8 @@ def test_meme_ordre_d_effet_que_l_investissement_de_l_etat(annee_debut, annee):
     presque pas : à cet état du moteur, seule l'assertion d'écart absolu tenait.
     Lot 1, retrait de l'éviction : les deux effets s'écartent de zéro (−0,08 et −0,18
     point en 2035, mode historique) et le rapport revient dans l'intervalle (0,444 ;
-    0,727 en 2032, mode cadre). Les deux assertions sont donc gardées."""
+    0,727 en 2032, mode cadre ; 0,800 après le recalage du coefficient des transferts).
+    Les deux assertions sont donc gardées."""
     d0, _ = _simuler({}, annee_debut)
     local, _ = _simuler({'collectivites': {'investissement': 10}}, annee_debut)
     etat, _ = _simuler({'transition_ecologique': {'investissement': 10}}, annee_debut)

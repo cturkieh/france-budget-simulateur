@@ -4,6 +4,35 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — paramètres du lot 1 : coefficient des transferts recalé
+
+**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc
+« équations » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
+
+**Coefficient des transferts recalé.** `MULT_TRANSFERTS` 0,71 → 0,688. Le 0,71 était calé sur une relance
+100 % transferts sous éviction ; l'éviction retirée, il donnait 0,672 à 4 ans au lieu de la cible de 0,65
+(Gechert 2015). Bissection sur le banc de `tests/test_multiplicateurs_centraux_v067.py`, moteur sans les
+trois mécanismes retirés : 0,6882 ; hausse et coupe de transferts à 0,650 ; tolérance de la famille
+resserrée de 5 % à 1 % (rouge à 0,71). Un calage fait avant le retrait du terme d'effort de l'inflation
+(éviction seule neutralisée) donnait 0,684 ; sur l'état final, 0,684 ne donne que 0,646. Aucun autre
+paramètre ne bouge, la pente de Phillips notamment. Effet (mode cadre 2028, dix scénarios publiés, par
+rapport au bloc « équations ») : dette 2032 de −0,06 à +0,39 point ; deux programmes s'échangent les 2ᵉ et
+3ᵉ rangs de croissance moyenne (écart 0,002 point). Portée déclarée : en expansion, ce coefficient vaut
+pour toute dépense hors investissement, alors qu'une coupe de dépense courante prend
+`MULT_COUPE_DEPENSES` (0,80 à 4 ans) : asymétrie de signe antérieure au lot, signalée, non traitée.
+Valeurs V2-03 re-déclarées ; chiffres liés à la mesure (tableau des familles, investissement local,
+encadré d'effet d'offre, banc de prix de l'encadré d'inflation) mis à jour ; pouvoir d'achat 2029 figé
+non modifié.
+
+**Cumul des deux blocs** (équations puis paramètres ; mode cadre 2028, dix scénarios publiés, par rapport
+à v0.8.1) : dette 2032 de −2,70 à +1,33 point, déficit 2032 de −0,18 à +0,36, croissance moyenne 2028-2032
+de −0,009 à +0,075 point, dette 2035 de −5,73 à +2,66 ; Gini et compétitivité inchangés. Rangs : trois
+rangs de dette 2032 changent entre trois scénarios qui se tiennent en 0,26 point ; deux rangs de
+croissance s'échangent ; déficit et Gini inchangés. Preuve d'équivalence : les trois mécanismes
+neutralisés en mémoire dans la v0.8.1, avec ce coefficient, donnent des sorties identiques au bit au
+code de ce commit. Les trois mécanismes retirés étaient asymétriques : deux pénalisaient les programmes
+qui consolident (inflation, cicatrice), un ceux qui relancent (éviction) ; le premier domine.
+
 ## [non publiée — proposée] — équations du lot 1 : mécanismes macro sans source retirés
 
 **Statut** : proposée, non publiée, sans numéro de version (la version du code reste v0.8.1 tant que

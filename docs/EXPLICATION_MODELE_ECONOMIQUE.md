@@ -785,8 +785,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,45% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 129,27% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,32% PIB en statu quo NU ; 151,36% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,29% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 151,41% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

@@ -72,7 +72,11 @@ def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
     base, cas = mesures
     niveau_4 = _niveaux(base, cas[famille])[5]
     cible = MULT_CIBLE_NIVEAU_4ANS[famille]
-    tolerance = 0.10 if famille == 'investissement' else 0.05   # investissement : non retouché (1,41 vs 1,5)
+    # Investissement : non retouché (1,41 vs 1,5). Transferts : recalés au lot 1 (release de
+    # paramètres, 15/11/2026) une fois l'éviction retirée — le coefficient 0,71 compensait
+    # l'éviction d'une relance 100 % transferts (0,672 sans elle, +3,4 %) : tolérance resserrée à
+    # 1 %, comme la symétrie coupe/hausse (tests/test_symetrie_transferts_v067.py).
+    tolerance = {'investissement': 0.10, 'transferts': 0.01}.get(famille, 0.05)
     assert niveau_4 == pytest.approx(cible, rel=tolerance), (
         f'{famille} : niveau à 4 ans {niveau_4:.3f} vs cible centrale {cible}')
 

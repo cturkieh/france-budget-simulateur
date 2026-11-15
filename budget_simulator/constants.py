@@ -427,7 +427,13 @@ MULT_CIBLE_NIVEAU_4ANS = {
 MULT_INVESTISSEMENT = 1.2     # inchangé : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %)
 MULT_COUPE_DEPENSES = 0.74    # 0,60 → 0,81 (÷1,10 « confiance ») → 0,74 sans ce facteur : 0,58 → 0,80
                               # (0,7963 → 0,8004). k = 0,81/1,10 sans le facteur : 44 cas au bit.
-MULT_TRANSFERTS = 0.71        # 0,50 → 0,71 : 0,44 → 0,65
+MULT_TRANSFERTS = 0.688       # 0,50 → 0,71 : 0,44 → 0,65 ; 0,71 → 0,688 (lot 1, release de paramètres,
+                              # 15/11/2026) : le 0,71 était calé sur une relance 100 % transferts
+                              # SOUS éviction ; éviction retirée, il donnait 0,672 (+3,4 %). Recalé par
+                              # bissection sur le banc de tests/test_multiplicateurs_centraux_v067.py
+                              # (0,6882) : hausse 0,650, coupe 0,650 à 4 ans. Un calage fait avant le
+                              # retrait du terme d'effort de l'inflation (éviction seule neutralisée)
+                              # donnait 0,684 ; sur l'état sans les trois mécanismes, 0,684 donne 0,646.
 MULT_HAUSSE_IMPOTS = 0.615    # 0,50 → 0,615 : 0,52 → 0,65
 MULT_BAISSE_IMPOTS = 0.615    # 0,35 → 0,455 → 0,63 → 0,615 (= k hausse) : 0,33 → 0,45 → 0,65.
                               # Lot 1 (15/11/2026) : le 0,63 compensait l'éviction, qui ne
