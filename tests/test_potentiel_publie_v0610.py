@@ -81,9 +81,13 @@ def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
     # Les chiffres du contre-audit se reproduisent (6 décimales publiées), re-déclarés
     # en v0.7.2 (dette de départ 115,7 %, tendanciel dérivé +0,0005 pt) : croissance
     # 1,093783 → 1,093757, potentiel consommé 1,048206 → 1,048180, gap inchangé.
-    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.093757, abs=5e-7)
-    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.200243, abs=5e-7)
-    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.048180, abs=5e-7)
+    # Lot 1 (15/11/2026, terme d'effort de l'inflation retiré : la relance a
+    # moins d'inflation, donc plus de dette et de traînée de dette sur le
+    # potentiel) : croissance 1,093757 → 1,093171, gap 0,200243 → 0,200526,
+    # potentiel consommé 1,048180 → 1,047454.
+    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.093171, abs=5e-7)
+    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.200526, abs=5e-7)
+    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.047454, abs=5e-7)
 
     # La colonne publiée est le potentiel consommé, pas celui préparé pour 2031.
     assert detail.loc[ANNEE_AUDIT, 'Croissance_Potentielle_Totale %'] == pytest.approx(

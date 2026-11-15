@@ -86,7 +86,7 @@ Growth = Potentiel + Debt Drag + Multiplicateur fiscal + Effets second ordre
 
 **Formule generale (v4.1) — courbe ANCREE :**
 ```
-Inflation = (1 - Inertie) x (Tendancielle + Pente x Output gap) + Inertie x Inflation precedente + Ajustements
+Inflation = (1 - Inertie) x (Tendancielle + Pente x Output gap) + Inertie x Inflation precedente + Passage TVA
 ```
 Le gap est DANS l'ancrage : pour un gap constant, le point fixe vaut exactement `Tendancielle + Pente x gap`.
 
@@ -102,6 +102,7 @@ Le gap est DANS l'ancrage : pour un gap constant, le point fixe vaut exactement 
   - Output gap < 0 (sous-utilisation) -> Inflation en baisse
   - **A declarer** : 0,20 est un choix de calibration ENCADRE (BdF *Rue de la Banque* n° 56 ~0,40 ; BCE WP n° 3133 ~0,065), PAS une estimation France — il n'en existe aucune sur l'output gap
   - Niveau de depart : **gap initial de -0,7%** sur l'annee de base (RAA 2026 Tableau n° 2 p. 20 / avis HCFP n° 2026-3 ; variante FMI -0,4), puis `gap(t) = 0,8 x gap(t-1) + 0,2 x (croissance - potentiel)`
+- **Effort budgetaire** : aucun effet direct sur l'inflation. Le terme `-0,12 x effort` (consolidation) / `+0,08 x |effort|` (expansion) est RETIRE au lot 1 (15/11/2026) : non source (aucun modele institutionnel, Mesange, ThreeME ni modeles du SEBC, n'en a), asymetrique, en double compte avec l'output gap, et il faisait deriver le niveau des prix sans fin. Le budget agit sur les prix par l'output gap et par le passage de la TVA. Limite declaree : une etude de la BCE (Checherita-Westphal & Pesso, WP 2996, 2024) trouve une reponse des prix aux relances amplifiee quand la dette est haute ; le moteur ne la modelise pas, ce qui sous-estime probablement l'inflation des relances
 - **Garde-fou BCE haut** : Si inflation > 2,0% (cible BCE), freinage monetaire (blend 50/50 vers la cible) — garde-fou de SURCHAUFFE, inactif en statu quo
 - **Garde-fou BCE bas** : Si inflation < 0,8%, politique accommodante tiree vers la TENDANCIELLE 1,6% (blend 70/30). Inactif en statu quo depuis la v4.1 — il se declenchait en annee 1 auparavant
 
@@ -438,9 +439,9 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 ou prélevé, sur la demande des agents résidents. Un versement dont la contrepartie directe est non
 résidente (contribution au budget de l'Union, aide extérieure) ne passe pas par cette demande : son
 multiplicateur intérieur est nul. Le moteur n'enregistre donc aucune impulsion pour le curseur
-`transferts_etranger` (`MESURES_HORS_DEMANDE_INTERIEURE`), et les deux autres effets de demande qui
-lisent l'effort budgétaire (terme d'inflation, cicatrice d'austérité) lisent l'effort intérieur, net de
-ce flux. Le flux garde ses effets de financement : solde, dette, traînée de dette sur la croissance,
+`transferts_etranger` (`MESURES_HORS_DEMANDE_INTERIEURE`), et la cicatrice d'austérité, seul autre
+effet de demande qui lise l'effort budgétaire depuis le retrait du terme d'inflation (lot 1), lit
+l'effort intérieur, net de ce flux. Le flux garde ses effets de financement : solde, dette, traînée de dette sur la croissance,
 prime de taux, éviction pour une hausse.
 
 **Prestations en montant (v0.8.0).** Le curseur `prestations_menages` prend le multiplicateur des

@@ -1347,6 +1347,9 @@ def test_w2_15_t1_b_mutation_sans_la_garde(monkeypatch, annee_debut):
 # l'effort et la cicatrice d'austérité sont des effets de DEMANDE ; ils lisent
 # l'effort INTÉRIEUR, net des flux vers un agent non résident. Les taux
 # d'intérêt et l'éviction (effets de financement) gardent l'effort total.
+# Lot 1 (15/11/2026) : le terme d'inflation lié à l'effort est RETIRÉ
+# (engine/inflation.py, « RETIRÉ ») ; (e) reste vrai a fortiori, (f) ne vérifie
+# plus que la cicatrice.
 
 # Consolidation générique, sans flux vers l'étranger, qui porte l'effort
 # au-delà du seuil de la cicatrice (3 % du PIB) dans les deux modes.
@@ -1358,9 +1361,10 @@ CONSOLIDATION_SEVERE = {'depenses_publiques': {'credits_etat': -60.0, 'ondam': -
 @pytest.mark.parametrize('x', [-32.009, -5.0, 10.0], ids=['borne', 'coupe', 'hausse'])
 def test_w2_15_e_inflation_de_t_plus_1_inchangee(annee_debut, x):
     """W2-15 (e) : le flux vers l'étranger entre dans l'effort total de t (non
-    vacuité) mais pas dans l'inflation de t+1 : le terme d'effort de la Phillips
-    lit l'effort intérieur. Écart d'inflation de t+1 ≤ 1e-12 point (arrondi des
-    sommes en Md€ ; ≈ −0,12 point pour −32 Md€ avant la correction)."""
+    vacuité) mais pas dans l'inflation de t+1. Écart d'inflation de t+1 ≤ 1e-12
+    point (arrondi des sommes en Md€ ; ≈ −0,12 point pour −32 Md€ avant la
+    correction). Depuis le lot 1, l'inflation ne lit plus aucun effort : la
+    propriété tient par construction et reste gardée."""
     t = _debut(annee_debut)
     r_ref, d_ref = (s.set_index('Année') for s in _sim({}, annee_debut)[:2])
     r, d = (s.set_index('Année') for s in _sim({'transferts_etranger': {'montant': x}}, annee_debut)[:2])
@@ -1389,10 +1393,12 @@ def _etats_macro(monkeypatch, mesures, annee_debut):
 def test_w2_15_f_cicatrice_et_inflation_lisent_l_effort_interieur(monkeypatch, annee_debut):
     """W2-15 (f) : sur une consolidation sévère, ajouter la borne basse du flux
     vers l'étranger laisse l'effort INTÉRIEUR lu par la croissance (cicatrice)
-    et par l'inflation identique (≤ 1e-15) ; l'effort TOTAL (taux d'intérêt,
-    éviction, colonne publiée) le contient. Non-vacuité : l'effort total avec le
-    flux dépasse le seuil de la cicatrice, et l'écart entre effort total et
-    effort intérieur vaut le flux rapporté au PIB (≈ 1 point)."""
+    identique (≤ 1e-15) ; l'effort TOTAL (taux d'intérêt, éviction, colonne
+    publiée) le contient. Non-vacuité : l'effort total avec le flux dépasse le
+    seuil de la cicatrice, et l'écart entre effort total et effort intérieur
+    vaut le flux rapporté au PIB (≈ 1 point). Lot 1 (15/11/2026) : l'inflation
+    ne reçoit plus aucun effort (terme retiré) ; ses deux assertions sont
+    retirées avec lui."""
     x = -32.009
     mesures = {**CONSOLIDATION_SEVERE, 'transferts_etranger': {'montant': x}}
     base = _etats_macro(monkeypatch, CONSOLIDATION_SEVERE, annee_debut)
@@ -1403,14 +1409,11 @@ def test_w2_15_f_cicatrice_et_inflation_lisent_l_effort_interieur(monkeypatch, a
     # scénarios est encore le même : effort intérieur identique.
     g0, g1 = base['croissance'][t + 1], avec['croissance'][t + 1]
     assert abs(g1['effort_interieur'] - g0['effort_interieur']) <= 1e-15
-    assert abs(avec['inflation'][t + 1]['effort_budgetaire']
-               - base['inflation'][t + 1]['effort_budgetaire']) <= 1e-15
     # Chaque année : effort total − effort intérieur = flux de l'année
-    # précédente rapporté à son PIB (le flux vers l'étranger, lui seul), et
-    # l'inflation lit l'effort intérieur.
+    # précédente rapporté à son PIB (le flux vers l'étranger, lui seul).
     for annee in range(t + 1, DERNIERE_ANNEE + 1):
-        g1, i1 = avec['croissance'][annee], avec['inflation'][annee]
-        assert i1['effort_budgetaire'] == g1['effort_interieur'], annee
+        g1 = avec['croissance'][annee]
+        assert not {c for c in avec['inflation'][annee] if 'effort' in c}, annee
         ecart = g1['effort_budgetaire'] - g1['effort_interieur']
         assert ecart == pytest.approx(-x / pib[annee - 1], rel=1e-9), annee
         assert g1['effort_budgetaire'] > 0.03, ('NON_VACUITE : cicatrice', annee)

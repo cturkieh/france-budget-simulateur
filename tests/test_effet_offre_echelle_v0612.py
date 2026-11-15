@@ -358,20 +358,62 @@ def test_2_md_eur_d_investissement_ne_sont_plus_un_plafond():
     assert (d2 - d0) == pytest.approx(2 * (d1 - d0), rel=0.25)  # proportionnel
 
 
+def _fr(x, signe=False):
+    """Format des documents : virgule décimale, signe moins typographique."""
+    t = f'{x:+.2f}' if signe else f'{x:.2f}'
+    return t.replace('-', '\u2212').replace('.', ',')
+
+
 def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     """Budget 2026 voté, curseur d'investissement vert tiré seul : l'effet sur la
     dette 2035 par Md€/an est borné (|Δ| ≤ 0,15 pt par Md€, contre 5,4 pt pour le
     premier Md€ en v0.6.11) et le rendement marginal décroît avec le montant
     (saturation). Le SIGNE n'est pas verrouillé : au central de la littérature
     (élasticité 0,106, FMI WP 15/95 : « the public-debt-to-GDP ratio may actually
-    decline »), le ratio baisse encore légèrement — dit dans METHODOLOGIE."""
+    decline »), le ratio baisse encore légèrement pour les petits montants — dit
+    dans METHODOLOGIE.
+
+    Lot 1 (15/11/2026) : la décroissance se lit sur l'effet SIGNÉ par Md€ (la
+    baisse de dette par Md€ diminue avec le montant), plus sur sa valeur
+    absolue. Le terme d'effort de l'inflation, retiré, faisait baisser le ratio
+    de toute relance par le dénominateur ; sans lui, l'effet change de signe
+    entre 20 et 50 Md€ (mesure du moteur actuel : −0,13 point à 20 Md€, +0,96 à 50 Md€) et la
+    valeur absolue remonte alors que le rendement, lui, décroît toujours. Les deux
+    chiffres de cette docstring sont recalculés ci-dessous : ils ne peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)
     d0 = _dette_2035(sc, 'transition_ecologique', 'investissement', 0)
     effets = {x: _dette_2035(sc, 'transition_ecologique', 'investissement', x) - d0 for x in (1, 5, 20, 50)}
     for x, e in effets.items():
         assert abs(e) <= 0.15 * x, effets
-    par_md = {x: abs(e) / x for x, e in effets.items()}
-    assert par_md[50] < par_md[20] < par_md[5] <= par_md[1] * 1.02, par_md
+    par_md = {x: e / x for x, e in effets.items()}
+    assert par_md[1] < 0, par_md   # le premier Md€ baisse encore le ratio
+    assert par_md[1] * 1.02 <= par_md[5] < par_md[20] < par_md[50], par_md
+    attendu = (f"mesure du moteur actuel : {_fr(effets[20])} point à 20 Md€, "
+               f"{_fr(effets[50], signe=True)} à 50 Md€")
+    doc = ' '.join(test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert.__doc__.split())
+    assert attendu in doc, attendu
+
+
+def test_chiffres_publies_de_l_encadre_lies_a_la_mesure():
+    """Lot 1 (15/11/2026) : les chiffres de l'encadré « échelle » de METHODOLOGIE sur
+    le curseur d'investissement vert tiré seul (droit en vigueur, mode historique,
+    dette 2035) sont recalculés ici et cherchés tels quels : 0 → 10 Md€/an,
+    0 → 50 Md€/an, et 50 Md€/an sans le canal d'offre de ce levier ; le passage du gain
+    au coût « entre 20 et 30 Md€/an » est vérifié sur la même mesure. Le droit en
+    vigueur est livré avec le moteur : la garde tourne aussi sans ``scenarios.json``,
+    donc en CI publique. Un chiffre qui cesse de reproduire fait rougir la CI (il était
+    resté à l'état d'un commit intermédiaire)."""
+    d = {x: _dette_2035(DROIT, 'transition_ecologique', 'investissement', x) for x in (0, 10, 20, 30, 50)}
+    assert d[20] < d[0] < d[30], d   # « Entre 20 et 30 Md€/an, le coût l'emporte »
+    sans_offre = {k: v for k, v in GrowthMixin.SUPPLY_EFFECTS.items() if k != 'transition_invest'}
+    with patch.object(GrowthMixin, 'SUPPLY_EFFECTS', sans_offre):
+        d50_sans = _dette_2035(DROIT, 'transition_ecologique', 'investissement', 50)
+    texte = (RACINE / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
+    texte = ' '.join(re.sub(r'\n>\s?', ' ', texte).split())
+    for attendu in (f"{_fr(d[0])} → {_fr(d[10])} à 10 Md€/an",
+                    "Entre 20 et 30 Md€/an, le coût l'emporte",
+                    f"0 → 50 Md€/an, {_fr(d[0])} → {_fr(d[50])} (canal d'offre coupé : {_fr(d50_sans)})"):
+        assert attendu in texte, attendu
 
 
 # ===========================================================================

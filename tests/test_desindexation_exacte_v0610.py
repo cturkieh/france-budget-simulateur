@@ -54,8 +54,8 @@ def test_v2_03_dix_revalorisations_a_2_pourcent_ecart_exact():
 
 
 @pytest.mark.parametrize('mesures, dette_2035', [
-    pytest.param({'retraites': {'indexation': 0.0}}, 148.20, id='gel_pensions'),
-    pytest.param({'prestations_indexation': {'taux_indexation': 0.0}}, 150.36,
+    pytest.param({'retraites': {'indexation': 0.0}}, 146.35, id='gel_pensions'),
+    pytest.param({'prestations_indexation': {'taux_indexation': 0.0}}, 149.83,
                  id='gel_prestations'),
 ])
 def test_v2_03_dette_2035_des_gels_totaux(mesures, dette_2035):
@@ -64,7 +64,9 @@ def test_v2_03_dette_2035_des_gels_totaux(mesures, dette_2035):
     règles conservées (part indexée comprise) : 148,06 et 150,21, au centième.
     Chiffres de la trajectoire v0.6.9 : un lot d'équation ultérieur qui déplace la
     dette du statu quo re-déclare ces deux valeurs en acte. v0.7.2 (dette de départ
-    115,6 → 115,7 %, Insee Première n° 2106) : 148,06 → 148,20 et 150,21 → 150,36."""
+    115,6 → 115,7 %, Insee Première n° 2106) : 148,06 → 148,20 et 150,21 → 150,36.
+    Lot 1 (15/11/2026, terme d'effort de l'inflation retiré : un gel est une
+    consolidation, que ce terme désinflait) : 148,20 → 146,35 et 150,36 → 149,83."""
     df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
     dette = df.loc[df['Année'] == 2035, 'Dette/PIB %'].iloc[0]
     assert dette == pytest.approx(dette_2035, abs=0.005)

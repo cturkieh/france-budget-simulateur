@@ -15,6 +15,8 @@ forme un flux distinct, ``(collectivites, investissement)``, multiplié et lu
 par l'éviction comme l'investissement productif de l'État, avec son profil de
 persistance ; la dotation garde la classe de la dépense générique.
 """
+from pathlib import Path
+
 import pytest
 
 from budget_simulator.engine.growth import flux_par_levier, part_investissement_expansion
@@ -108,12 +110,46 @@ def test_meme_ordre_d_effet_que_l_investissement_de_l_etat(annee_debut, annee):
     """10 Md€ d'investissement public par an : même signe d'effet sur la dette
     (une baisse du ratio) et même ordre de grandeur, qu'ils soient portés par
     l'État ou par les collectivités (avant : +0,20 contre −0,40 point en 2032,
-    mode cadre). Le reste d'écart vient de la recette propre du levier de
-    l'État (transition écologique)."""
+    mode cadre, soit 0,06 point par Md€ d'écart). Le reste d'écart vient de la
+    recette propre du levier de l'État (transition écologique).
+
+    « Même ordre de grandeur » : écart absolu d'au plus 0,02 point de dette par
+    Md€ (l'ancien défaut en donnait 0,06). Jusqu'à v0.8.1, aussi un rapport
+    local / État dans [0,4 ; 1,6]. Lot 1, retrait du terme d'effort de
+    l'inflation (15/11/2026) : ce terme donnait à toute relance un bonus de
+    dénominateur commun aux deux leviers ; sans lui, les deux effets sont proches
+    de zéro (−0,06 et −0,16 point en 2035, mode historique) et le rapport tombe à
+    0,375, hors de l'intervalle, alors que l'écart (−0,08 → −0,10 point) ne bouge
+    presque pas. À cet état du moteur, seule l'assertion d'écart absolu tient."""
     d0, _ = _simuler({}, annee_debut)
     local, _ = _simuler({'collectivites': {'investissement': 10}}, annee_debut)
     etat, _ = _simuler({'transition_ecologique': {'investissement': 10}}, annee_debut)
     dl = local.at[annee, 'Dette/PIB %'] - d0.at[annee, 'Dette/PIB %']
     de = etat.at[annee, 'Dette/PIB %'] - d0.at[annee, 'Dette/PIB %']
     assert dl < 0 and de < 0, (dl, de)
-    assert 0.4 <= dl / de <= 1.6, (dl, de)
+    assert abs(dl - de) <= 0.02 * 10, (dl, de)
+
+
+def _fr(x):
+    return f'{x:.2f}'.replace('-', '\u2212').replace('.', ',')
+
+
+def test_chiffres_publies_lies_a_la_mesure():
+    """Lot 1 (15/11/2026) : les quatre valeurs que METHODOLOGIE publie pour 10 Md€ par
+    an d'investissement local et de l'État (« Mesure du moteur actuel », § Classe de
+    multiplicateur) sont recalculées ici et cherchées telles quelles. Le chiffre 2035
+    était juste en v0.8.1 et il était devenu faux d'un facteur 4 à 8 sans qu'aucun
+    test rougisse."""
+    ecarts = {}
+    for annee_debut, annee in ((DEBUT_CADRE, 2032), (None, 2035)):
+        d0, _ = _simuler({}, annee_debut)
+        for nom, mesures in (('local', {'collectivites': {'investissement': 10}}),
+                             ('etat', {'transition_ecologique': {'investissement': 10}})):
+            df, _ = _simuler(mesures, annee_debut)
+            ecarts[(nom, annee)] = df.at[annee, 'Dette/PIB %'] - d0.at[annee, 'Dette/PIB %']
+    attendu = (f"Mesure du moteur actuel, 10 Md€ par an : {_fr(ecarts[('local', 2032)])} point de dette 2032 "
+               f"(mode cadre) contre {_fr(ecarts[('etat', 2032)])} pour l'État, {_fr(ecarts[('local', 2035)])} "
+               f"contre {_fr(ecarts[('etat', 2035)])} en 2035 (mode historique)")
+    texte = ' '.join((Path(__file__).resolve().parent.parent / 'docs' / 'METHODOLOGIE.md')
+                     .read_text(encoding='utf-8').split())
+    assert attendu in texte, attendu

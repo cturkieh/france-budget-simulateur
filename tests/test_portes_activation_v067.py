@@ -44,6 +44,10 @@ def _inflation(year=3, **etat):
 
 @pytest.mark.parametrize('seuil', [0.001, -0.001])
 def test_inflation_continue_en_effort(seuil):
+    # Lot 1 (15/11/2026) : le terme d'effort de l'inflation est RETIRÉ ; la
+    # continuité est désormais une invariance (au bit), verrouillée par
+    # tests/test_inflation_sans_terme_d_effort.py. Gardé : il rougirait si une
+    # porte d'activation revenait avec un terme.
     assert abs(_inflation(effort_budgetaire=seuil + D) - _inflation(effort_budgetaire=seuil - D)) < 1e-6
 
 

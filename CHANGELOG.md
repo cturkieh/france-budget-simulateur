@@ -4,6 +4,52 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 1 : mécanismes macro sans source retirés
+
+**Statut** : proposée, non publiée, sans numéro de version (la version du code reste v0.8.1 tant que
+l'arbitrage du mainteneur n'a pas fixé la publication). Ce bloc regroupe les commits d'ÉQUATION du lot ;
+les paramètres recalés en conséquence forment un bloc distinct (release de paramètres). Règle suivie :
+un mécanisme reste s'il est conforme à la littérature et non redondant. Chaque retrait est un commit
+distinct, avec son test de propriété (rouge sur l'état d'avant, vert après), ses instantanés régénérés
+une fois et un contrôle « golden master isolé » : seuls bougent les scénarios où le mécanisme jouait.
+Preuve d'équivalence, pour chaque retrait : le mécanisme neutralisé en mémoire sur la v0.8.1 donne des
+sorties identiques au bit à celles du code du commit (dix scénarios publiés, deux modes).
+
+**(1) Inflation : terme d'effort budgétaire retiré.** `calculate_inflation` ajoutait −0,12 × effort
+(consolidation) ou +0,08 × |effort| (expansion), chaque année tant que l'effort durait. Dette déclarée
+depuis v0.6.1 (I18) : non sourcé, asymétrique, en double compte avec l'écart de production et, appliqué
+à un niveau d'effort, il faisait dériver le niveau des prix sans fin (choc permanent d'un point de PIB :
+écart d'inflation de +0,12 à −0,19 point à 20 ans). Aucun des modèles institutionnels lus (Mésange,
+ThreeME, quinze modèles du SEBC) n'a de terme direct de l'effort global sur les prix. Les études
+empiriques lues mesurent un effet total ; l'une (BCE, document de travail 2996, 2024) trouve une réponse
+des prix aux relances amplifiée quand la dette est haute : le moteur ne la modélise pas, limite déclarée
+(inflation des relances probablement sous-estimée), que l'ancien terme, indépendant de la dette, ne
+représentait pas non plus. Retiré sans remplacement : le budget ne touche plus les prix que par l'écart
+de production et le passage de la TVA ; l'état transmis à `calculate_inflation` ne porte plus d'effort.
+Limite déclarée : à 5 ans, le moteur répond en prix moins que les deux modèles français publiés (un peu
+plus de la moitié de ThreeME, un tiers environ de Mésange, pour un point de PIB de dépense) ; l'effet
+des budgets sur les prix est donc probablement sous-estimé, dans les deux sens. La pente de la courbe de
+Phillips, qui porte désormais seule cette réponse, est à instruire séparément (release de paramètres).
+Test : `tests/test_inflation_sans_terme_d_effort.py` (chiffres du banc de prix de METHODOLOGIE liés à la
+mesure). Mesuré (mode cadre 2028, dix scénarios publiés) :
+dette 2032 de −1,89 à +1,24 point, déficit 2032 au plus ±0,16 point, croissance moyenne 2028-2032 au plus
++0,011 point, Gini et compétitivité inchangés ; trois rangs de dette 2032 changent entre trois scénarios
+qui se tiennent en 0,26 point. Sensibilité des curseurs : dans le scénario publié en forte consolidation,
+1 Md€ de défense de plus augmente la dette 2035 de 0,072 point au lieu de 0,031 (mode cadre, pleine
+précision) ; le terme désinflait les consolidations et y compensait une partie de toute dépense
+supplémentaire. Instantanés :
+les dix scénarios des deux modes et 41 des 42 mini-scénarios bougent (tous ceux où l'effort n'était pas
+nul), aucune colonne Gini ni compétitivité. Tests re-déclarés (motif daté dans chacun) : valeurs V2-03
+(gels totaux) et V2-02 (potentiel 2030) ; effet d'offre « échelle » (décroissance lue sur l'effet signé
+par Md€, chiffres de sa docstring et de l'encadré de METHODOLOGIE liés à la mesure, sur le droit en
+vigueur livré avec le moteur : la garde tourne aussi en CI publique) ; investissement
+local (écart absolu ; le rapport de deux effets proches de zéro sort de son intervalle à cet état ;
+chiffres publiés liés à la mesure) ; W2-15 (f) ; trois tests unitaires d'inflation ; tableau des
+familles de multiplicateurs lié à la mesure ; garde de discontinuités étendue à tous les scénarios
+publiés, avec une contre-épreuve sur un scénario synthétique (elle ne dépend plus d'aucun programme
+publié et tourne aussi en CI publique) ; delta de référence régénéré. Le pouvoir d'achat 2029 figé
+(`pa_2029_figes.json`, revue humaine) n'est pas modifié : sa tolérance absorbe l'écart.
+
 ## [v0.8.1] — 2026-11-12 — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
 
 **Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, un

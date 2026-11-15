@@ -54,9 +54,11 @@ structure (source unique, pas de littéral dupliqué) et le résultat mesuré.
 --------------------------------------------------------------------------
 4. CE QUE CE LOT NE FAIT PAS (I18) — à ne pas « réparer » par mégarde
 --------------------------------------------------------------------------
-- Les termes ``effort_budgetaire`` (−0,12 / +0,08) restent en place : non
+- Les termes ``effort_budgetaire`` (−0,12 / +0,08) restaient en place : non
   sourcés, asymétriques et en double-comptage partiel avec le canal output
-  gap — trois défauts réels, donc une instruction à eux seuls (v0.6.2).
+  gap — trois défauts réels, donc une instruction à eux seuls. Instruits et
+  RETIRÉS au lot 1 des corrections d'équations (15/11/2026, garde
+  ``tests/test_inflation_sans_terme_d_effort.py``).
 - Aucune non-linéarité en L inversé : elle est sourcée mais **asymétrique par
   construction** (plate en bas, raide en haut), donc elle retirerait la
   désinflation aux programmes de consolidation tout en facturant le surcoût
@@ -83,7 +85,7 @@ from budget_simulator.simulator import BudgetSimulatorV45
 
 _ETAT_NEUTRE = {
     'unemployment_gap': 0.0,   # neutralise les deux régimes défla/inflationnistes
-    'effort_budgetaire': 0.0,  # neutralise les termes I18 laissés en place
+    'effort_budgetaire': 0.0,  # sans effet depuis le lot 1 (termes I18 retirés)
     'tva_impact': 0.0,
 }
 

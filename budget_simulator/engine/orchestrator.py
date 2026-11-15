@@ -1064,11 +1064,10 @@ class OrchestratorMixin:
                 economic_state_inflation = {
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
-                    # Terme d'effort de la Phillips = effet de DEMANDE : effort
-                    # INTÉRIEUR, net des flux vers un agent non résident
-                    # (revue adverse de la release E ; cf. bloc « Effort
-                    # budgétaire » ci-dessous).
-                    'effort_budgetaire': self._budget_effort_interieur_prev,
+                    # Aucun effort budgétaire (lot 1) : le terme d'effort de la
+                    # Phillips est retiré (engine/inflation.py, « RETIRÉ ») ; le
+                    # budget n'agit sur les prix que par l'écart de production et
+                    # par le passage de la TVA.
                     # Impacts de t−1 (_last_impacts) : les mesures de t ne sont
                     # pas encore calculées. Le gate temporel (one-shot à
                     # year == 2) vit dans calculate_inflation — source unique.
@@ -1184,10 +1183,11 @@ class OrchestratorMixin:
                 # Effort INTÉRIEUR (revue adverse de la release E) : l'effort net
                 # des flux vers un agent non résident
                 # (MESURES_HORS_DEMANDE_INTERIEURE, solde Δrec − Δdép de leurs
-                # impacts appliqués), lu par les deux effets de DEMANDE qui lisent
-                # l'effort : le terme d'effort de la Phillips et la cicatrice
-                # d'austérité. Les taux d'intérêt et l'éviction (effets de
-                # financement) gardent l'effort total, comme la colonne publiée.
+                # impacts appliqués), lu par le seul effet de DEMANDE qui lit
+                # encore l'effort : la cicatrice d'austérité (le terme d'effort
+                # de la Phillips est retiré, lot 1). Les taux d'intérêt et
+                # l'éviction (effets de financement) gardent l'effort total,
+                # comme la colonne publiée.
                 # Sans flux de ce type, la somme vaut 0 et les deux efforts sont
                 # égaux au bit.
                 flux_hors_demande = sum(

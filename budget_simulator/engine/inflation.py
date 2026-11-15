@@ -2,9 +2,11 @@
 
 Méthode couverte :
 - ``calculate_inflation`` : inflation de l'année à partir de l'état
-  économique (output gap, unemployment gap, impact TVA, effort
-  budgétaire), avec rappel de politique monétaire BCE. Déterministe
-  (bruit tiré retiré en v0.6.7).
+  économique (output gap, unemployment gap, impact TVA), avec rappel de
+  politique monétaire BCE. Déterministe (bruit tiré retiré en v0.6.7).
+  La politique budgétaire n'y entre que par l'écart de production et par
+  le passage de la TVA dans les prix (terme d'effort retiré, lot 1 :
+  voir « RETIRÉ » ci-dessous).
 
 Forme retenue : Phillips augmentée en ``output_gap`` uniquement (pas
 de terme ``unemployment_gap`` direct, déjà corrélé via Okun → évite le
@@ -100,12 +102,31 @@ c'est précisément ce que la règle du projet exige : dire dans quel sens joue
 chaque choix, sous peine d'être pire que le silence.
 
 --------------------------------------------------------------------------
-DETTE CONNUE, HORS PÉRIMÈTRE v0.6.1 (I18)
+RETIRÉ (lot 1 des corrections d'équations, 15/11/2026) : terme d'effort (I18)
 --------------------------------------------------------------------------
-Les termes ``effort_budgetaire`` ci-dessous (−0,12 à la consolidation,
-+0,08 à l'expansion) sont NON SOURCÉS, ASYMÉTRIQUES et en double-comptage
-partiel avec le canal output gap. Trois défauts réels — donc une
-instruction à eux seuls (v0.6.2), pas un effet de bord de la recalibration.
+Jusqu'à v0.8.1, l'inflation recevait en plus un effet DIRECT de l'effort
+budgétaire de t−1 : −0,12 × effort pour une consolidation, +0,08 × |effort|
+pour une expansion, chaque année tant que l'effort durait. Dette déclarée
+dès v0.6.1 (I18) : non sourcé, asymétrique, en double compte avec l'écart
+de production. Revue des sources de novembre 2026 : aucun des modèles
+institutionnels lus (Mésange, ThreeME, modèles du SEBC, Kilponen et al.
+2019) n'a de terme direct de l'effort global sur les prix ; l'effet y passe
+par la demande, ce que fait déjà la Phillips. Les études empiriques lues
+mesurent un effet TOTAL, sans séparer effet direct et effet de demande :
+Auerbach & Gorodnichenko 2017 (réponse du niveau des prix non significative)
+et Checherita-Westphal & Pesso (BCE WP 2996, 2024), dont le résumé conclut
+que « high debt levels tend to amplify the inflation response to fiscal
+expansions ». Le moteur ne modélise pas cette amplification : limite
+déclarée, dont le sens probable est une sous-estimation de l'inflation des
+relances à la dette française. L'ancien terme ne la représentait pas : il
+ne dépendait pas de la dette et il était plus fort pour les consolidations.
+Appliqué à un NIVEAU d'effort, il faisait de plus dériver le niveau des prix
+sans fin : un choc permanent d'un point de PIB laissait un écart d'inflation
+de +0,12 à −0,19 point à 20 ans, l'écart de production refermé. Retiré sans
+remplacement ; les seuls effets directs documentés sont propres à des
+instruments (TVA, modélisée ci-dessous ; prix administrés de l'énergie).
+Garde : ``tests/test_inflation_sans_terme_d_effort.py``. Ne pas réintroduire,
+même symétrisé (la dérive resterait).
 Aucune non-linéarité en L inversé n'est introduite : elle est sourcée mais
 asymétrique par construction (plate en bas, raide en haut), ce qui en fait
 une décision de neutralité et non un réglage.
@@ -216,9 +237,6 @@ class InflationMixin:
         output_gap = economic_state['output_gap']
         unemployment_gap = economic_state['unemployment_gap']
         tva_impact = economic_state.get('tva_impact', 0)
-        # Effort de DEMANDE : l'orchestrateur passe ici l'effort INTÉRIEUR, net
-        # des flux vers un agent non résident (revue adverse de la release E).
-        effort_budgetaire = economic_state.get('effort_budgetaire', 0)
 
         # Phillips ANCRÉE (forme output_gap uniquement, évite le double-comptage
         # output_gap/unemployment_gap corrélés via Okun) :
@@ -239,20 +257,6 @@ class InflationMixin:
             (1 - inertia) * point_fixe_phillips_ancree(output_gap) +
             inertia * self.inflation_precedente
         )
-
-        # v0.6.7 (lot 3b) : plus de porte à 0,1 % du PIB — l'effet, proportionnel
-        # à l'effort, vaut déjà 0 en 0 (la porte créait un saut de 0,012 pt).
-        if effort_budgetaire != 0:
-            if effort_budgetaire > 0:
-                inflation_impact = -0.12 * effort_budgetaire
-                inflation += inflation_impact
-                if abs(inflation_impact) > 0.002:
-                    _log_debug(self.debug_logs, f"Y{year}: Impact déflationniste: {inflation_impact*100:.2f}%")
-            else:
-                inflation_impact = 0.08 * abs(effort_budgetaire)
-                inflation += inflation_impact
-                if abs(inflation_impact) > 0.002:
-                    _log_debug(self.debug_logs, f"Y{year}: Impact inflationniste: {inflation_impact*100:.2f}%")
 
         # Régimes déflation (×0,80 : gap < −2,5 % ET écart de chômage > 1 pt) et
         # tensions (×1,08 plafonné à 3 % : gap > 2 % ET écart < −1 pt), à

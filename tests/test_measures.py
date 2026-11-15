@@ -248,21 +248,21 @@ def test_calculate_inflation_deflation(simulator):
     }
     simulator.inflation_precedente = 0.01
     inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
-    # v0.6.1 lot 8 — forme ANCRÉE, π* = 1,6 %, κ_LR = 0,20 :
+    # Forme ANCRÉE (v0.6.1 lot 8), π* = 1,6 %, κ_LR = 0,20, ρ = 0,33 (v0.6.3) :
     #   ancrage = 0.016 + 0.20*(-0.03)               = 0.0100
-    #   base    = 0.5*0.0100 + 0.5*0.01              = 0.0100
-    #   effort consolidation -0.12*0.02 (-0.0024)    = 0.0076
-    #   pressions déflationnistes, poids 0,75        = 0.00646
+    #   base    = 0.67*0.0100 + 0.33*0.01            = 0.0100
+    #   pressions déflationnistes, poids 0,75        = 0.0085
     #     (v0.6.7, lot 3b : transition CONTINUE — gap −3 % est à 0,5 pt au-delà
     #     du seuil −2,5 %, zone ±1 pt ; écart +2 pts au plein régime ;
-    #     facteur 1 − 0,2 × 0,75 = 0,85. Avant : ×0,80 plein, 0,00608)
-    #   accommodant (<0,8 %) 0.70*0.00646+0.30*0.016 = 0.009322
-    # Le déplacement vs v0.6.0 (0,0023) vient de la pente : à un gap de
-    # -3 pt, l'ancienne pente effective 0,70 retirait 2,1 pt d'inflation,
-    # la nouvelle en retire 0,6 — le régime ne plonge plus au plancher.
+    #     facteur 1 − 0,2 × 0,75 = 0,85)
+    #   plancher accommodant, transition continue autour de 0,8 % (poids 5/12) :
+    #     0.0085 + 5/12 × (0.30*0.016 − 0.30*0.0085)  = 0.0094375
+    # Lot 1 (15/11/2026) : le terme d'effort (−0,12 × 0,02 = −0,0024) est
+    # RETIRÉ (engine/inflation.py, « RETIRÉ ») ; la clé effort_budgetaire de
+    # l'état ci-dessus n'est plus lue (tests/test_inflation_sans_terme_d_effort.py).
     # v0.6.7 : plus de bruit tiré (l'ancien patch à −0,002 n'a plus d'objet).
-    expected = 0.009322
-    assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
+    expected = 0.0094375
+    assert abs(inflation - expected) < 1e-9, f"Expected ~{expected:.7f}, got {inflation:.7f}"
     assert any("Y1: Pressions déflationnistes" in s for s in simulator.debug_logs), "Log déflation attendu manquant"
 
 def test_simulate_multiple_measures(default_simulator):
@@ -286,16 +286,17 @@ def test_calculate_inflation_restrictive(simulator):
     }
     simulator.inflation_precedente = 0.02
     inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
-    # v0.6.1 lot 8 — forme ANCRÉE, π* = 1,6 %, κ_LR = 0,20 :
+    # Forme ANCRÉE (v0.6.1 lot 8), π* = 1,6 %, κ_LR = 0,20, ρ = 0,33 (v0.6.3) :
     #   ancrage = 0.016 + 0.20*0.03                  = 0.0220
-    #   base    = 0.5*0.0220 + 0.5*0.02              = 0.0210
-    #   effort expansion +0.08*0.02 (+0.0016)        = 0.0226
-    #   tensions inflationnistes min(×1.08 ; 3 %)    = 0.024408
-    #   rappel BCE (>2 %) 0.50*0.024408+0.50*0.020   = 0.022204
+    #   base    = 0.67*0.0220 + 0.33*0.02            = 0.02134
+    #   tensions inflationnistes min(×1.08 ; 3 %)    = 0.0230472
+    #   rappel BCE (>2 %) 0.50*0.0230472+0.50*0.020  = 0.0215236
     # Le rappel BCE joue ici, et c'est son rôle : gap de +3 pt et chômage
     # sous le NAIRU = surchauffe, pas statu quo.
-    expected = 0.0222
-    assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
+    # Lot 1 (15/11/2026) : le terme d'effort (+0,08 × 0,02 = +0,0016) est RETIRÉ ;
+    # la clé effort_budgetaire de l'état ci-dessus n'est plus lue.
+    expected = 0.0215236
+    assert abs(inflation - expected) < 1e-9, f"Expected ~{expected:.7f}, got {inflation:.7f}"
     assert any("Y1: Tensions inflationnistes" in s for s in simulator.debug_logs), "Log tensions manquant"
 
 def test_apply_subventions_entreprises(simulator):
@@ -350,17 +351,21 @@ def test_calculate_inflation_deflation_forte(simulator):
     # v0.6.7 : sans bruit tiré, l'ancien état (gap −6 %, effort 6 %, π−1 = 0)
     # donne +0,23 % : il n'atteignait le plancher que grâce au tirage patché
     # à −0,6 pt. L'état ci-dessous l'atteint par le modèle seul.
+    # Lot 1 (15/11/2026) : le terme d'effort est RETIRÉ. L'état d'avant (gap
+    # −15 %, effort 10 % du PIB) n'atteignait le plancher qu'avec ses −1,2 point
+    # et le journal « Impact déflationniste », assertion retirée avec le terme.
+    # Gap −25 % : le plancher est atteint par la seule courbe (ancrage −3,4 %,
+    # ×0,80 de déflation, plancher accommodant 0,7 × π + 0,3 × π* = −0,56 %).
     economic_state = {
-        'output_gap': -0.15,  # Déflation très forte
+        'output_gap': -0.25,  # Déflation extrême (essai du filet, pas un état plausible)
         'unemployment_gap': 0.05,
-        'effort_budgetaire': 0.10,  # Consolidation très forte
         'tva_impact': 0
     }
     simulator.inflation_precedente = -0.003  # Déjà au plancher
     inflation = simulator.calculate_inflation(year=1, economic_state=economic_state)
     expected = -0.003  # Clip à min
-    assert abs(inflation - expected) < 0.001, f"Expected ~{expected:.4f}, got {inflation:.4f}"
-    assert any("Y1: Impact déflationniste" in s for s in simulator.debug_logs), "Log déflation forte manquant"
+    assert abs(inflation - expected) < 1e-12, f"Expected ~{expected:.4f}, got {inflation:.4f}"
+    assert any("Y1: Pressions déflationnistes" in s for s in simulator.debug_logs), "Log déflation forte manquant"
 
 def test_simulate_domar_crisis(default_simulator, monkeypatch):
     """Uses default_simulator fixture which has all base_params."""

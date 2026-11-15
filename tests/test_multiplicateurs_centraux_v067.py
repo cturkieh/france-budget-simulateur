@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from budget_simulator import constants
 from budget_simulator.constants import MULT_CIBLE_NIVEAU_4ANS, TAUX_PRELEVEMENTS_AUTOFINANCEMENT
 from budget_simulator.simulator import BudgetSimulatorV45
 
@@ -83,15 +84,16 @@ def test_choc_investissement_de_calibrage_ne_s_autofinance_pas_dans_le_banc(mesu
     Trois notions distinctes (contre-audit externe V2-06) :
     - autofinancement BUDGÉTAIRE, deux mesures distinctes : (a) part du coût
       brut récupérée par le SOLDE public (intérêts compris), solde NET des
-      recettes induites (+458 Md EUR, qui dépassent seules le coût de 395) et
-      des dépenses induites hors impulsion (+405 : indexation, intérêts) —
-      mesurée 0,13 (v0.6.10) ; (b) en volume, sans prix ni intérêts :
+      recettes induites et des dépenses induites hors impulsion (indexation,
+      intérêts) — mesurée 0,13 en v0.6.10, 0,08 depuis le lot 1 (terme d'effort
+      de l'inflation retiré) ; (b) en volume, sans prix ni intérêts :
       multiplicateur cumulé (Ramey, ΣΔY/ΣΔG sur 10 ans) × taux de
-      prélèvements = 0,47 < 1 ;
+      prélèvements < 1 ;
     - dette NOMINALE : plus haute que le statu quo en fin d'horizon ;
-    - ratio dette/PIB : non vérifié année par année (un PIB NOMINAL plus haut,
-      surtout par les prix, peut le faire passer sous le statu quo sans
-      rembourser le coût : −0,05 pt en 2030, −0,01 pt en 2031) ; seule sa
+    - ratio dette/PIB : non vérifié année par année (un PIB NOMINAL plus haut
+      peut le faire passer sous le statu quo sans rembourser le coût : c'était
+      le cas jusqu'à v0.8.1, −0,05 pt en 2030, quand le terme d'effort de
+      l'inflation gonflait les prix d'une relance) ; seule sa
       valeur de fin d'horizon est bornée ici. Les chiffres publiés sont liés à
       la mesure par test_chiffres_publies_du_banc_lies_a_la_mesure."""
     base, cas = mesures
@@ -165,6 +167,46 @@ def test_chiffres_publies_du_banc_lies_a_la_mesure(mesures):
     manquants = [f'{nom} : « {chaine} »' for nom, chaine in attendus.items() if chaine not in texte]
     assert not manquants, ('METHODOLOGIE ne publie plus la mesure du banc (moteur ou doc à '
                            'réaligner) :\n' + '\n'.join(manquants))
+
+
+# Dernière colonne du tableau « Recalibrage central des familles » de METHODOLOGIE
+# (lot 1, 15/11/2026) : l'état du moteur, recalculé ici.
+LIGNES_DU_TABLEAU = {
+    'investissement': '| Investissement public (INVEST) |',
+    'coupe_depenses': '| Coupe de dépenses générique (TAXES) |',
+    'transferts': '| Transferts (TRANSFERS) |',
+    'hausse_impots': "| Hausse d'impôts (TAXES) |",
+    'baisse_impots': "| Baisse d'impôts (TAXES) |",
+}
+COEFFICIENT_DE_LA_FAMILLE = {
+    'investissement': 'MULT_INVESTISSEMENT', 'coupe_depenses': 'MULT_COUPE_DEPENSES',
+    'transferts': 'MULT_TRANSFERTS', 'hausse_impots': 'MULT_HAUSSE_IMPOTS',
+    'baisse_impots': 'MULT_BAISSE_IMPOTS',
+}
+
+
+def cellule_moteur_actuel(base, cas, famille):
+    """« 4 ans (k) ; 10 ans niveau / cumulé 10 ans (Ramey) », au format du document."""
+    n = _niveaux(base, cas)
+    k = f'{getattr(constants, COEFFICIENT_DE_LA_FAMILLE[famille]):g}'.replace('.', ',')
+    return f"{_fr(n[5], 2)} (k = {k}) ; {_fr(n[11], 2)} / {_fr(sum(n[2:12]) / 10, 2)}"
+
+
+def test_tableau_des_familles_lie_a_la_mesure(mesures):
+    """Lot 1 (15/11/2026) : la colonne « Moteur actuel » du tableau des familles est
+    recalculée sur ce banc et doit figurer telle quelle. Les colonnes « Moteur après »
+    et « 10 ans » datent de la v0.6.7 ; la colonne « 10 ans » était restée à l'état
+    de la v0.8.1 quand le paragraphe au-dessus, lié à la mesure, avait changé."""
+    base, cas = mesures
+    lignes = METHODO.read_text(encoding='utf-8').splitlines()
+    ecarts = {}
+    for famille, debut in LIGNES_DU_TABLEAU.items():
+        ligne = next(l for l in lignes if l.startswith(debut))
+        publie = ligne.rstrip().rstrip('|').rsplit('|', 1)[-1].strip()
+        attendu = cellule_moteur_actuel(base, cas[famille], famille)
+        if publie != attendu:
+            ecarts[famille] = (publie, attendu)
+    assert not ecarts, ecarts
 
 
 def test_le_statu_quo_ne_depend_pas_des_multiplicateurs():
