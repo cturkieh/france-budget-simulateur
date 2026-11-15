@@ -142,7 +142,7 @@ def test_investissement_massif_pas_dautofinancement_magique(baseline_df):
     gratuit — mais peut RÉDUIRE le ratio dette/PIB (dénominateur : FMI WEO
     oct. 2014 ch. 3 — l'investissement public en creux conjoncturel financé
     par dette peut améliorer le ratio ; effet borné). La dépense NON
-    productive (défense +70 Md€, multiplicateur transfert), elle, dégrade
+    productive (défense +70 Md€, dépense courante), elle, dégrade
     AUSSI le ratio."""
     df_base = baseline_df
 

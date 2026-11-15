@@ -303,6 +303,31 @@ def test_la_sensibilite_a_l_inertie_sur_la_fenetre_du_brief_est_publiee():
         f"annonçait 0,02 et demandait < 0,05)")
 
 
+def test_la_marge_a_declarer_publiee_est_celle_du_moteur():
+    """Lot 5 (15/11/2026) : les cinq chiffres de la « Marge a declarer » de METHODOLOGIE (scénario
+    servi : déflateur moyen 2026-2030 à ρ servi, marge au plancher, sensibilité à ρ entre 0,25 et
+    0,50, moyenne à ρ = 0,50, écart de dette 2030 à la mission) sont recalculés ici et cherchés tels
+    quels. Le corridor de dette y était resté à son chiffre du lot 1 à côté de tableaux re-mesurés."""
+    from test_calibration_mission_v060 import CIBLE_DETTE
+    mesures = _mesures_publiees()
+    if mesures is None:
+        pytest.skip("scenarios.json introuvable (fork moteur public seul)")
+    servi = _moyenne_deflateur_2026_2030(constants.INFLATION_INERTIE, mesures)
+    a_050 = _moyenne_deflateur_2026_2030(0.50, mesures)
+    sensibilite = abs(_moyenne_deflateur_2026_2030(0.25, mesures) - a_050)
+    df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
+    corridor = abs(df.set_index('Année').at[2030, 'Dette/PIB %'] - CIBLE_DETTE[-1])
+
+    def fr(x, n):
+        return f'{x:.{n}f}'.replace('.', ',')
+    attendu = (f"moyenne du scenario servi {fr(servi, 3)} %, a {fr(servi - _FOURCHETTE_DEFLATEUR[0], 3)} pt "
+               f"du plancher ; sensibilite a `rho` entre 0,25 et 0,50 : {fr(sensibilite, 3)} pt ; a `rho` = "
+               f"0,50, {fr(a_050, 3)} %, au-dessus du plancher ; corridor de dette a {fr(corridor, 2)} pt en 2030")
+    texte = ' '.join((pathlib.Path(__file__).resolve().parent.parent / 'docs' / 'METHODOLOGIE.md')
+                     .read_text(encoding='utf-8').split())
+    assert attendu in texte, attendu
+
+
 # --- I13/R2 — la pente ----------------------------------------------------
 
 def test_pente_dans_la_fourchette_encadree_et_declaree_non_estimee():

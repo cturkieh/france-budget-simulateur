@@ -26,6 +26,9 @@ FAMILLES = {
     'hausse_impots': ('tva_rate', 'recettes', +1),
     'baisse_impots': ('tva_rate', 'recettes', -1),
     'coupe_depenses': ('collectivites', 'depenses', -1),
+    # Lot 5 : la hausse de la même dépense courante, même cible et même tolérance que la coupe
+    # (symétrie par instrument, tests/test_symetrie_depense_courante.py).
+    'hausse_depenses': ('collectivites', 'depenses', +1),
 }
 
 
@@ -178,12 +181,14 @@ def test_chiffres_publies_du_banc_lies_a_la_mesure(mesures):
 LIGNES_DU_TABLEAU = {
     'investissement': '| Investissement public (INVEST) |',
     'coupe_depenses': '| Coupe de dépenses générique (TAXES) |',
+    'hausse_depenses': '| Hausse de dépense courante (TAXES) |',
     'transferts': '| Transferts (TRANSFERS) |',
     'hausse_impots': "| Hausse d'impôts (TAXES) |",
     'baisse_impots': "| Baisse d'impôts (TAXES) |",
 }
 COEFFICIENT_DE_LA_FAMILLE = {
     'investissement': 'MULT_INVESTISSEMENT', 'coupe_depenses': 'MULT_COUPE_DEPENSES',
+    'hausse_depenses': 'MULT_COUPE_DEPENSES',   # lot 5 : même coefficient que la coupe
     'transferts': 'MULT_TRANSFERTS', 'hausse_impots': 'MULT_HAUSSE_IMPOTS',
     'baisse_impots': 'MULT_BAISSE_IMPOTS',
 }

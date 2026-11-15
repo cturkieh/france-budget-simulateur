@@ -392,8 +392,11 @@ class GrowthMixin:
                 profil = self._get_decay_profile(m_id)
                 if canal == 'depenses':
                     # 'transferts' (v0.6.7, lot 3b) : une COUPE de transfert prend le
-                    # multiplicateur des transferts, comme la hausse (symétrie par
-                    # instrument, Gechert 2015) — cf. FiscalMultipliers.get_multiplier.
+                    # multiplicateur des transferts, comme la hausse (convention du
+                    # mainteneur : même instrument, même coefficient) — cf.
+                    # FiscalMultipliers.get_multiplier.
+                    # Sans investissement ni transfert, c'est de la dépense courante :
+                    # même coefficient en hausse et en baisse (lot 5).
                     composition = {'depenses': 1.0, 'recettes': 0.0,
                                    'investissement': 1.0 if m_id in self.INVESTMENT_CORE_MEASURES else 0.0,
                                    'transferts': 1.0 if m_id in self.TRANSFER_MEASURES else 0.0}

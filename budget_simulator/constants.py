@@ -405,6 +405,8 @@ REGIME_DEMI_LARGEUR_INFLATION = 0.003
 MULT_CIBLE_NIVEAU_4ANS = {
     'investissement': 1.5,   # WEO 2014 ch. 3 (1,5 à 4 ans) ; Gechert ≈ 1 + 0,5
     'coupe_depenses': 0.8,   # Ramey 2019 : milieu de 0,6-1 (Gechert ≈ 1 : borne prudente) — sans facteur « confiance »
+    'hausse_depenses': 0.8,  # = coupe (lot 5) : convention du mainteneur, pas d'asymétrie de signe retenue
+                             # (même instrument, même coefficient ; Gechert 2015 ne teste pas le signe)
     'transferts': 0.65,      # Gechert 2015 : ≈ 1 − 0,35
     'hausse_impots': 0.65,   # Gechert 2015 : ≈ 1 − 0,35
     'baisse_impots': 0.65,   # = hausse : aucune asymétrie de signe sourcée (cf. ci-dessous)
@@ -427,6 +429,9 @@ MULT_CIBLE_NIVEAU_4ANS = {
 MULT_INVESTISSEMENT = 1.2     # inchangé : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %)
 MULT_COUPE_DEPENSES = 0.74    # 0,60 → 0,81 (÷1,10 « confiance ») → 0,74 sans ce facteur : 0,58 → 0,80
                               # (0,7963 → 0,8004). k = 0,81/1,10 sans le facteur : 44 cas au bit.
+                              # Lot 5 (15/11/2026) : vaut aussi pour une HAUSSE de dépense courante
+                              # (nom historique) ; elle prenait MULT_TRANSFERTS (0,74 à 4 ans au
+                              # banc, contre 0,79 pour la coupe). Valeur inchangée.
 MULT_TRANSFERTS = 0.688       # 0,50 → 0,71 : 0,44 → 0,65 ; 0,71 → 0,688 (lot 1, release de paramètres,
                               # 15/11/2026) : le 0,71 était calé sur une relance 100 % transferts
                               # SOUS éviction ; éviction retirée, il donnait 0,672 (+3,4 %). Recalé par

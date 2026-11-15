@@ -60,9 +60,9 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
 | Deficit 2026 | -5,30 % | **-5,45 %** (loi votee : -5,0 % ; surtaxe IS 2026 non comptee, voir ci-dessous) |
-| Dette 2030 | 129,23 % | **129,29 %** (mission IGF : 130,5) |
-| Dette 2035 | 151,32 % | **151,41 %** |
-| Deficit 2035 | -9,06 % | **-9,04 %** |
+| Dette 2030 | 129,23 % | **129,23 %** (mission IGF : 130,5) |
+| Dette 2035 | 151,32 % | **151,29 %** |
+| Deficit 2035 | -9,06 % | **-9,03 %** |
 
   Chiffres re-mesures le 30/08/2026 (passe v0.6.3 : fin du double comptage de la duree
   d'indemnisation, monotonie fraude sociale, cout perenne du non-recours ASU, graine 2025
@@ -231,7 +231,7 @@ porté en recettes et persiste. Sans ce rebasage, l'écart disparaîtrait en 202
 rebondirait sans aucune mesure. Avec lui, le budget 2026 exécuté, reconduit à droit constant hors
 mesures votées pour une durée limitée (la surtaxe d'IS votée pour 2026 s'arrête en 2027, v0.8.1),
 donne en 2027 un **déficit de
-−5,86 %** du PIB et une **dette de 122,09 %**. La croissance 2027, 1,33 %, est le rebond du
+−5,85 %** du PIB et une **dette de 122,06 %**. La croissance 2027, 1,34 %, est le rebond du
 modèle : elle n'est jamais forcée. Une année injectée ne peut pas être l'année de début d'un
 programme : l'atterrissage écrase des niveaux (422 en mode strict).
 
@@ -1863,13 +1863,14 @@ assiette.
 
 - **Calcul** : dépense = `credits_etat + ondam + transferts_capital`, chaque année
   d'application.
-- **Croissance** : multiplicateur d'une dépense générique (coupe générique en consolidation,
-  transferts en expansion, par construction de la table du moteur) et profil de décroissance
-  des impôts, comme le curseur de défense : `credits_etat = x` donne les mêmes résultats que la
-  défense relevée de x (vérifié par test en mode historique, et en mode cadre pour x > 0 ; en
-  mode cadre, une coupe de crédits est lue comme une consolidation alors qu'une défense ramenée
-  sous son niveau du droit en vigueur mais au-dessus du défaut du moteur reste une expansion
-  moindre).
+- **Croissance** : multiplicateur d'une dépense générique (celui de la coupe de dépense
+  courante, en hausse comme en baisse depuis le lot 5 ; jusque-là, celui des transferts en
+  hausse) et profil de décroissance des impôts, comme le curseur de défense : `credits_etat = x`
+  donne les mêmes résultats que la défense relevée de x, vérifié par test dans les deux modes et
+  dans les deux sens. En mode cadre, une coupe de crédits est lue comme une consolidation alors
+  qu'une défense ramenée sous son niveau du droit en vigueur, mais au-dessus du défaut du
+  moteur, reste une expansion moindre : jusqu'au lot 5, les deux sens n'avaient pas le même
+  coefficient et les résultats différaient ; ils sont désormais identiques.
 - **Pas d'effet direct** sur le pouvoir d'achat, le Gini ni la compétitivité (règle des
   dépenses publiques du moteur). `transferts_capital` est une somme versée une fois en capital,
   hors revenu courant ; limite dite : il prend le multiplicateur d'une dépense générique.
@@ -2243,10 +2244,11 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 |------|--------|--------|--------|
 | Consolidation fiscale (anticipee) | **-0,615** | v0.6.7 : calé « central » (tableau ci-dessous) | -0,50 (v0.6.6), -0,92 (v2.0) |
 | Consolidation depenses generique | **-0,74** (v0.6.7, calé « central », sans atténuation « confiance » ; -0,81 ÷ 1,10 avant, -0,60 en v0.6.6) | Ramey 2019 (« 0,6 to 1 », milieu) ; Gechert & Rannenberg 0,4-0,7 | -0,40 (v3.0-v5.1, sous le consensus) |
-| Coupe d'investissement public | **-1,20** | SYMETRIQUE de la hausse (Gechert 2015 et Mesange : linearite en signe ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) |
+| Coupe d'investissement public | **-1,20** | SYMETRIQUE de la hausse (convention du mainteneur : pas d'asymetrie de signe retenue ; Mesange : multiplicateurs identiques a la hausse et a la baisse ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) |
 | Expansion investissement | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) |
-| Expansion transferts | **0,71** | v0.6.7 : calé « central » | 0,50 (v0.6.6), 0,80 (v2.0) |
-| Expansion baisses impots | **0,63** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie | 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) |
+| Expansion depense courante | **0,74** | lot 5 : même coefficient que la coupe de dépense courante (convention du mainteneur : pas d'asymétrie de signe retenue, même instrument, même coefficient ; limite : encadré du lot 5) | 0,688 (coefficient des transferts, jusqu'au lot 5) |
+| Expansion transferts | **0,688** | v0.6.7 : calé « central » ; recalé au lot 1 (release de paramètres) | 0,71 (v0.6.7), 0,50 (v0.6.6), 0,80 (v2.0) |
+| Expansion baisses impots | **0,615** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie ; = hausse depuis le lot 1 | 0,63 (v0.6.7), 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
 
@@ -2261,6 +2263,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 |---|---|---|---|---|---|---|
 | Investissement public (INVEST) | 1,5 | FMI WEO oct. 2014 ch. 3 : « +0,4 % la même année, +1,5 % quatre ans après » ; Gechert 2015 : dépenses ≈ 1, investissement ≈ +0,5 — borne haute de lecture : Banque mondiale, GEP juin 2024 ch. 3, niveau ≈ 1,1 à 5 ans (≤ 1,6), économies émergentes et en développement | 1,41 (k = 1,2) | **inchangé** (−6 %) | 0,40 / 0,92 | 1,41 (k = 1,2) ; 0,37 / 0,92 |
 | Coupe de dépenses générique (TAXES) | 0,8 | Ramey 2019 JEP : « 0.6 to 1 for spending multipliers » (milieu) ; Gechert ≈ 1 | 0,58 (k = 0,60 ÷ 1,10) | 0,80 (k = 0,74, sans facteur « confiance » ; 0,79 à k = 0,81 ÷ 1,10) | 0,15 / 0,56 | 0,79 (k = 0,74) ; 0,09 / 0,54 |
+| Hausse de dépense courante (TAXES) | 0,8 | la même que la coupe : même instrument (lot 5) | non mesurée (coefficient des transferts) | non mesurée (coefficient des transferts ; 0,74 au lot 1, k = 0,688) | — | 0,79 (k = 0,74) ; 0,08 / 0,54 |
 | Transferts (TRANSFERS) | 0,65 | Gechert 2015 : « 0.3 to 0.4 units » sous les dépenses (≈ 1) | 0,44 (k = 0,50) | 0,65 (k = 0,71) | 0,01 / 0,43 | 0,65 (k = 0,688) ; 0,00 / 0,43 |
 | Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 | 0,65 (k = 0,615) ; 0,00 / 0,42 |
 | Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 | 0,65 (k = 0,615) ; 0,01 / 0,42 |
@@ -2275,13 +2278,76 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > n'est pas touchée). Ce qui bouge (mode cadre 2028, dix scénarios publiés, par rapport à l'équation 3) : dette
 > 2032 de −0,06 à +0,39 point, d'autant plus que les hausses de transferts ou de dépense courante du programme
 > sont fortes (chacune vaut désormais 0,65 à 4 ans, au lieu de 0,67) ; deux programmes s'échangent les 2ᵉ et 3ᵉ
-> rangs de croissance moyenne 2028-2032 (1,334 contre 1,336 %) ; dette, déficit et Gini : aucun rang ne change. **Portée à déclarer** : en expansion, `get_multiplier` (`simulator.py`) donne ce
-> coefficient à TOUTE dépense hors investissement (part « transferts » = dépense − investissement), dépense
-> courante comprise, alors qu'une COUPE de dépense courante prend `MULT_COUPE_DEPENSES` (0,80 à 4 ans) : une
-> asymétrie de signe pour la dépense courante (0,65 en hausse, 0,80 en baisse), antérieure au lot 1, signalée,
-> non traitée ici.
+> rangs de croissance moyenne 2028-2032 (1,334 contre 1,336 %) ; dette, déficit et Gini : aucun rang ne change. **Portée déclarée, traitée au lot 5**
+> (encadré suivant) : en expansion, `get_multiplier` (`simulator.py`) donnait ce coefficient à TOUTE dépense hors
+> investissement (part « transferts » = dépense − investissement), dépense courante comprise, alors qu'une COUPE
+> de dépense courante prend `MULT_COUPE_DEPENSES` : une asymétrie de signe pour la dépense courante (0,74 en hausse,
+> 0,79 en baisse à 4 ans au banc), antérieure au lot 1.
+
+> **Dépense courante symétrique en signe (lot 5, équation, 15/11/2026, non publiée).** Convention du mainteneur
+> (v0.6.7, « pas prouvé = valeur centrale ») : pas d'asymétrie de signe retenue — même instrument, même
+> coefficient, en hausse comme en baisse. La méta-analyse citée pour les valeurs (Gechert 2015) classe les
+> multiplicateurs par instrument ; elle ne teste pas le signe : l'égalité des deux sens est une convention, pas un
+> résultat de cette source. Elle valait pour les transferts, les impôts et
+> l'investissement, pas pour la dépense courante, c'est-à-dire toute dépense qui n'est ni de l'investissement
+> productif ni un transfert : défense, dotations des collectivités, postes et point d'indice, réforme de l'État,
+> crédits des ministères, moyens de soins, santé, subventions aux grandes entreprises, aide médicale de l'État et
+> intégration. Sa baisse prenait `MULT_COUPE_DEPENSES` ; sa hausse, `MULT_TRANSFERTS`, parce que la branche
+> « expansion » de `get_multiplier` versait toute dépense hors investissement dans la case des transferts. Pour un
+> point de PIB permanent (banc ci-dessus) : 0,74 point de PIB à 4 ans en hausse, 0,79 en baisse. Désormais la
+> hausse prend le coefficient de la baisse, `MULT_COUPE_DEPENSES` (k = 0,74, valeur inchangée) : 0,79 dans les deux
+> sens. L'autre voie, abaisser la coupe au niveau des transferts, a été écartée par le mainteneur. **Limite
+> déclarée** : une étude par signe (Barnichon, Debortoli & Matthes, *Review of Economic Studies* 89(1), 2022,
+> « Understanding the Size of the Government Spending Multiplier: It's in the Sign ») trouve, sur données
+> américaines, un multiplicateur d'une baisse de dépense au-dessus de 1 et celui d'une hausse nettement en
+> dessous de 1 : une asymétrie que le moteur ne représente pas. L'ancien écart (0,79 contre 0,74) ne la
+> représentait pas non plus : il venait d'un trou de classement, pour la seule dépense courante. La question
+> d'une asymétrie de signe sourcée, pour toutes les familles, relève d'une instruction séparée. Aucun
+> coefficient ne change, et un programme sans hausse de dépense courante est identique au bit. Le coefficient des
+> transferts, calé sur un banc de transferts, ne bouge pas (hausse et coupe à 0,650). La fourchette ×0,75 / ×1,25
+> des fiches multiplie la même constante dans les deux sens. Test : `tests/test_symetrie_depense_courante.py`
+> (leviers : chaque levier dont une hausse est de la dépense courante, dérivé du registre des paramètres et non
+> d'une liste — défense, dotations des collectivités, crédits des ministères et moyens de soins, postes et point
+> d'indice, réforme de l'État, aide médicale de l'État et intégration, santé, subventions —, plus un levier
+> synthétique ; chaque levier de dépense du registre rangé dans une famille gardée par un test ; hausse et baisse
+> permanentes d'un point de PIB en miroir sur le PIB réel à 1 % près, à 1, 2, 3, 4, 5 et 6 ans, dans cinq états :
+> banc historique, mode cadre 2028, dette à 160 % du PIB, écarts de production à −3 % et à +1,5 % ; aucune
+> non-linéarité neutralisée ; rouge avant : rapport de 1,05 à 1,10, vert après : écart au plus 0,7 % ; la première
+> année, même miroir à 0,1 % près pour une dette à 180 % ou à 85 % du PIB et pour un choc de 2 points de PIB ; même
+> miroir par le curseur de défense ; coefficient lu par les seules hausses de dépense courante), et famille
+> « hausse de dépense courante » du banc des multiplicateurs, à la cible et à la tolérance de la coupe. Le miroir
+> porte sur le PIB, pas sur la dette (limite 8 de « Limites et Precautions »). **Ce qui bouge** : en
+> mode cadre, le droit en vigueur de 2026-2027 relève la défense au-dessus du défaut du moteur (budget 2026
+> voté) ; toute simulation en mode cadre porte donc une hausse de dépense courante, la référence sans programme
+> comprise, et les dix programmes publiés en portent une dans les deux modes (la défense à 58 Md€ au moins). Mode
+> cadre 2028, dix scénarios publiés, par rapport au lot 1 : dette 2032 de −0,61 à −0,09 point (−0,09 environ
+> pour les quatre dont la seule hausse de dépense courante est la défense, autant que la référence sans
+> programme), déficit 2032 de +0,01 à +0,12 point, croissance moyenne 2028-2032 au plus +0,023 point, chômage
+> 2032 au plus −0,04 point, inflation 2032 au plus +0,03 point ; Gini inchangé à la précision publiée (au plus
+> 1e-7, par un levier de coupe dont l'effet sur les inégalités dépend de dépenses qui suivent l'économie), compétitivité
+> au plus 0,0003 point d'indice (par deux leviers fiscaux dont l'effet émis suit le PIB). Rangs : deux programmes échangent les 2ᵉ et 3ᵉ rangs de croissance moyenne
+> (1,356 contre 1,336 %), deux autres les 5ᵉ et 6ᵉ rangs de chômage 2032 (7,71 contre 7,72 %) ; dette, déficit et
+> Gini : aucun rang ne change. **Classement à arbitrer, non modifié** (soumis au mainteneur ; un changement
+> ferait l'objet d'un commit d'équation distinct, avec son test) :
+> - **le point d'indice de la fonction publique**, le plus gros enjeu. Le moteur se contredit : le revenu des
+>   ménages (`engine/rdb.py`) traite une hausse du point d'indice comme un revenu versé aux agents, à l'égal
+>   d'une prestation, alors que la croissance la range en dépense courante, avec les embauches. Mesuré (mode
+>   cadre 2028, pleine précision), le point d'indice seul pris au coefficient des transferts, profil inchangé,
+>   relèverait la dette 2032 des deux programmes publiés qui le relèvent de 0,28 et 0,29 point (0,52 et 0,53
+>   avec aussi le profil des transferts) : 47 % et 73 % de ce que le lot 5 leur fait gagner ; aucun autre
+>   programme ne bouge ;
+> - l'Ondam et l'aide médicale de l'État (prestations en nature pour l'essentiel, avec des indemnités
+>   journalières versées en espèces dans l'Ondam), les transferts en capital aux ménages, les subventions aux
+>   entreprises, la dotation des collectivités (un transfert entre administrations) ;
+> - **la même dépense de santé n'a pas la même dynamique selon le levier qui la porte** (préexistant) : `sante`
+>   suit le profil de persistance de l'investissement (`INVESTMENT_FLOW_MEASURES`), les moyens de soins de
+>   `depenses_publiques` celui des impôts. Pour un point de PIB permanent (banc historique), 0,31 contre 0,62
+>   point de PIB la première année, 0,85 contre 0,79 à 4 ans.
+>
+> Le lot 5 rend chaque classe symétrique ; il ne change aucun de ces classements.
 
 **Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée jusqu'à v0.8.1** : en moteur complet, la coupe coûtait encore 4,4 % de plus que la hausse ne rapportait ; c'était l'éviction (« crowding-out »), qui réduisait l'effet des seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Éviction retirée au lot 1 (15/11/2026) : 0,1 %, verrouillé à 1 % par `tests/test_symetrie_transferts_v067.py`.
+(Correction du lot 5 : la symétrie de signe n'est pas un résultat de Gechert 2015, qui classe par instrument et ne teste pas le signe ; c'est une convention du mainteneur, pour toutes les familles. Limite déclarée : encadré « Dépense courante symétrique en signe ».)
 
 **Baisse d'impôts symétrique de la hausse (v0.6.7 — arbitrage du mainteneur du 07/10/2026 : « pas prouvé = valeur centrale »).** Jusqu'ici une baisse d'impôts valait 0,7 fois une hausse (k 0,455 contre 0,615 ; « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », un héritage sans source) : rendre 1 point de PIB d'impôts rapportait 0,45 point de PIB à 4 ans quand le prélever en coûtait 0,65 — 0,2 point de PIB d'écart défavorable, mécanique, par point de PIB pour tout programme qui baisse un impôt. Vérification en ligne du 07/10/2026 : les études de référence estiment UN coefficient pour les deux signes (Romer & Romer 2010, *AER* 100(3), 763-801, chocs narratifs : « tax increases are highly contractionary », modèle linéaire ; Mertens & Ravn 2013, *AER* 103(4), 1212-47, impôts sur le revenu et sur les sociétés, « short run output effects of tax shocks are large » ; méta-analyse Gechert 2015, *Oxford Economic Papers* 67(3), qui classe par instrument) ; les seules estimations d'une asymétrie de signe se contredisent : aux États-Unis c'est la BAISSE qui l'emporte (Hussain & Malik 2016, *Journal of Economic Dynamics and Control* 69, 268-300 : « the output response to a tax increase is statistically insignificant, but output shows a significantly positive and permanent increase following a tax decrease » ; Jones, Olson & Wohar 2015, *Journal of Macroeconomics* 43, 38-48 : « in the U.S. positive tax shocks—tax increases—do not affect output while negative tax shocks—tax cuts—have large, positive effects »), au Royaume-Uni la HAUSSE (même article : « In the U.K., tax increases substantially reduce output while tax cuts have no significant effect »). Aucune asymétrie n'est établie dans un sens : la baisse prend la valeur centrale de la hausse, 0,65 d'effet de niveau à 4 ans. Le coefficient d'impact était un peu plus haut (k = 0,63 contre 0,615) parce que l'éviction du moteur (« crowding-out ») ne frappait que les expansions au-delà de 100 % du PIB de dette : à k égal, la baisse n'aurait valu que 0,631 (−3 %) ; éviction neutralisée, k égaux donnaient un rapport 1,001. Éviction retirée au lot 1 (15/11/2026) : k = 0,615 dans les deux sens. Déplace les seuls scénarios qui baissent un impôt (dette 2035 : LR −2,84 pt, Horizons −2,72, RN −1,70, Renaissance −1,58, IM Compétitivité −1,05, LFI −0,88, PS −0,77, Budget 2026 voté −0,03) et 5 cas isolés du golden master ; les 31 autres cas, dont le statu quo, Écologistes et IM Rabot, sont identiques au bit. Verrouillé par `tests/test_symetrie_impots_v067.py` (trois leviers fiscaux, rapport baisse/hausse à 4 ans à ±3 %).
 
@@ -2485,7 +2551,9 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 > Banc (choc permanent d'un point de PIB de dépense courante, hausse puis baisse, statu quo, mode historique ; écart
 > du niveau des prix, le déflateur, au statu quo) : en v0.8.1, avec le terme, +1,05 / −1,33 % à 5 ans et
 > +3,53 / −4,69 % à 20 ans, écart d'inflation résiduel de +0,12 à −0,19 point à 20 ans ; sans lui (mesure du moteur
-> actuel) : +0,51 / −0,54 % à 5 ans, +1,26 / −1,34 % à 20 ans, écart d'inflation ≤ 0,02 point à 20 ans.
+> actuel) : +0,55 / −0,54 % à 5 ans, +1,36 / −1,34 % à 20 ans, écart d'inflation ≤ 0,02 point à 20 ans
+> (lot 5 : la hausse de dépense courante prend le coefficient de sa baisse ; +0,51 et +1,26 avant, la hausse au
+> coefficient des transferts).
 > **Limite déclarée** : à 5 ans, le moteur répond en prix moins que les deux modèles français publiés pour un choc
 > comparable, un peu plus de la moitié de ThreeME (0,89 %) et un tiers environ de Mésange (1,3 à 1,5 %) ; sens :
 > l'effet des budgets sur les prix est probablement sous-estimé, pour une relance comme pour une consolidation. Les
@@ -2533,7 +2601,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
 - L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference `plf_2026`** : 1,34 / 1,44 / 1,50 / 1,53 / 1,54%, ecart annuel <= 0,18 pt, **moyenne 2026-2030 = 1,470%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
-- **Marge a declarer** : (re-mesure le 15/11/2026, lot 1, terme d'effort de l'inflation et eviction retires, coefficient des transferts recale : moyenne du scenario servi 1,470 %, a 0,070 pt du plancher ; sensibilite a `rho` entre 0,25 et 0,50 : 0,054 pt (0,056 avant le retrait de l'eviction) ; a `rho` = 0,50, 1,428 %, au-dessus du plancher ; corridor de dette a 1,21 pt en 2030. Re-mesure du 12/11/2026, release P, moteur v0.8.1 : 1,474 %, 0,074 pt, 0,052 pt, 1,436 %, 1,28 pt. La suite du paragraphe date de la v0.6.7.) La moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
+- **Marge a declarer** : (re-mesure le 15/11/2026, lot 5, hausse de depense courante au coefficient de sa coupe : moyenne du scenario servi 1,470 %, a 0,070 pt du plancher ; sensibilite a `rho` entre 0,25 et 0,50 : 0,058 pt ; a `rho` = 0,50, 1,428 %, au-dessus du plancher ; corridor de dette a 1,27 pt en 2030 ; chiffres lies a la mesure par `tests/test_phillips_v061.py`. Lot 1, terme d'effort de l'inflation et eviction retires, coefficient des transferts recale : 1,470 %, 0,070 pt, 0,054 pt (0,056 avant le retrait de l'eviction), 1,428 %, 1,21 pt. Re-mesure du 12/11/2026, release P, moteur v0.8.1 : 1,474 %, 0,074 pt, 0,052 pt, 1,436 %, 1,28 pt. La suite du paragraphe date de la v0.6.7.) La moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -2655,8 +2723,10 @@ l'éviction jusqu'à son retrait au lot 1) et réparti dans le temps comme l'inv
 persistance de l'investissement) ; la dotation garde la classe de la dépense générique. 10 Md€ par an, mesuré en
 v0.8.0 : −0,37 point de dette 2032 (mode cadre) contre −0,40 pour l'État, −0,63 contre −0,71 en 2035 (mode
 historique) ; le reste d'écart est la recette propre du levier de l'État. Mesure du moteur actuel, 10 Md€ par an :
-−0,08 point de dette 2032 (mode cadre) contre −0,10 pour l'État, −0,08 contre −0,18 en 2035 (mode historique)
+−0,08 point de dette 2032 (mode cadre) contre −0,11 pour l'État, −0,08 contre −0,18 en 2035 (mode historique)
 (lot 1 : le terme d'effort de l'inflation, retiré, faisait baisser le ratio de toute relance par le dénominateur ;
+lot 5 : la hausse de défense du droit en vigueur, présente dans toute simulation en mode cadre, prend le coefficient
+de la coupe de dépense courante ;
 chiffre lié à la mesure par `tests/test_release_e_investissement_local.py`). Trois programmes publiés bougent (dette 2032 en mode cadre
 −0,31 à −0,48 point, dette 2035 en mode historique −0,63 à −0,98) ; les sept autres sont identiques au bit.
 
@@ -2721,10 +2791,10 @@ non ré-audité) n'agit qu'en 2033 et le capital public (délai 3 ans) en 2031 e
 > mode cadre : de 0 à +1,48 pt ; le scénario de référence, les deux autres programmes et le statu quo sont
 > identiques au bit. Le sens est le même pour tous : chaque programme reçoit l'offre de son montant. **Le curseur
 > d'investissement tiré seul fait encore baisser le ratio de dette 2035 pour les petits montants** (droit en
-> vigueur, c'est-à-dire le budget 2026 voté tel que le moteur le tient, mode historique : 149,23 → 149,07 à
+> vigueur, c'est-à-dire le budget 2026 voté tel que le moteur le tient, mode historique : 149,14 → 148,97 à
 > 10 Md€/an ; mesure du moteur actuel) — ce n'est plus un artefact d'échelle mais ce qu'implique l'élasticité
 > centrale (FMI WP 15/95 : « the public-debt-to-GDP ratio may actually decline »). Entre 20 et 30 Md€/an, le coût
-> l'emporte : 0 → 50 Md€/an, 149,23 → 150,07 (canal d'offre coupé : 154,73). Jusqu'à v0.8.1, le terme d'effort de
+> l'emporte : 0 → 50 Md€/an, 149,14 → 149,97 (canal d'offre coupé : 154,62). Jusqu'à v0.8.1, le terme d'effort de
 > l'inflation (retiré au lot 1) faisait baisser le ratio de toute relance par le dénominateur (149,91 → 148,25 à
 > 50 Md€/an ; 152,87 sans le canal d'offre ; mesuré en v0.8.1). Dit, non verrouillé en signe, verrouillé en
 > échelle et en forme (rendement par Md€ décroissant) par `tests/test_effet_offre_echelle_v0612.py`, qui
@@ -3192,22 +3262,22 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 | Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
 |---|---|---|---|---|---|---|
 | 2026 | 118,22 | 118,4 | −0,18 | −5,45 | −5,00 | 0,37 % |
-| 2027 | 120,61 | 121,4 | −0,79 | −5,55 | −5,88 | 0,40 % |
-| 2028 | 123,23 | 124,2 | −0,97 | −5,75 | −6,21 | 0,25 % |
-| 2029 | 126,10 | 127,3 | −1,20 | −6,03 | −6,57 | 0,26 % |
-| 2030 | 129,29 | 130,5 | −1,21 | −6,39 | −6,76 | 0,25 % |
+| 2027 | 120,59 | 121,4 | −0,81 | −5,54 | −5,88 | 0,41 % |
+| 2028 | 123,19 | 124,2 | −1,01 | −5,74 | −6,21 | 0,27 % |
+| 2029 | 126,05 | 127,3 | −1,25 | −6,02 | −6,57 | 0,28 % |
+| 2030 | 129,23 | 130,5 | −1,27 | −6,38 | −6,76 | 0,27 % |
 
-Re-mesurées le 12/11/2026 (release de paramètres P, moteur v0.8.1) : la référence ne compte plus la surtaxe d'IS votée pour 2026 seulement (0 dès 2027, valeur datée ; en mode historique, 0 dès 2026). Re-mesurées le 15/11/2026 (lot 1 : terme d'effort de l'inflation et éviction retirés, coefficient des transferts recalé ; 2027-2030 seulement, 2026 identique). Lecture : le PIB nominal est désormais honnête (niveau 2030 à +0,25 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,21 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
+Re-mesurées le 12/11/2026 (release de paramètres P, moteur v0.8.1) : la référence ne compte plus la surtaxe d'IS votée pour 2026 seulement (0 dès 2027, valeur datée ; en mode historique, 0 dès 2026). Re-mesurées le 15/11/2026 (lot 1 : terme d'effort de l'inflation et éviction retirés, coefficient des transferts recalé ; 2027-2030 seulement, 2026 identique), puis au lot 5 (la hausse de défense du scénario prend le coefficient de la coupe de dépense courante ; 2027-2030 seulement). Lecture : le PIB nominal est désormais honnête (niveau 2030 à +0,27 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,27 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
 | Deficit | **-5,45 %** PIB | 2026, scenario de reference `plf_2026` (mission : -5,00 par hypothese ; statu quo NU : -5,30 ; v0.8.1 : surtaxe IS 2026 non comptee en mode historique) |
-| Dette | **129,29 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,21 pt (lot 1 : terme d'effort de l'inflation et eviction retires, coefficient des transferts recale ; -1,28 en v0.8.1 : surtaxe IS arretee ; -1,69 en v0.7.2 : dette de depart 115,7 % et reencodage du 08/11/2026 ; -1,86 avant) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
+| Dette | **129,23 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,27 pt (lot 5 : hausse de depense courante au coefficient de sa coupe ; -1,21 au lot 1 : terme d'effort de l'inflation et eviction retires, coefficient des transferts recale ; -1,28 en v0.8.1 : surtaxe IS arretee ; -1,69 en v0.7.2 : dette de depart 115,7 % et reencodage du 08/11/2026 ; -1,86 avant) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
 | Dette | **129,23 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
-| Dette | **151,32 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 151,41) |
-| Deficit | **-9,06 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -9,04) |
+| Dette | **151,32 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 151,29) |
+| Deficit | **-9,06 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -9,03) |
 | Croissance potentielle | tendanciel 1,2285 % ; potentiel TOTAL du statu quo 1,1% a la dette 2025 | Derive (v0.6.7) : potentiel officiel 1,1 % (mission IGF 07/2026, 1,2/1,2/1,0/1,0) + traînée de la dette heritee 0,1285 pt (-0,005 x (115,7 - 90) %, dette fin 2025 de l'Insee Premiere n° 2106, mai 2026 ; 0,128 pt sur 115,6 avant v0.7.2) — la traînee supplementaire due a la dette qui monte ensuite reste un effet du modele |
 | Chomage NAIRU | ~7,5% | Structurel |
 | Inflation tendancielle | 1,6% = point fixe Phillips (`INFLATION_STRUCTURELLE`), deflateur du PIB | Effective statu quo ~1,2-1,5% (output gap negatif) |
@@ -3376,6 +3446,8 @@ diffère du droit en vigueur pour plusieurs leviers. Garde exécutable :
 6. **Stochasticite** : Aucune. Le moteur est deterministe depuis la v0.6.7 : les tirages N(0 ; 0,3 %) sur la croissance et N(0 ; 0,05 %) sur l'inflation (graine 42, les memes nombres pour tous les scenarios) ont ete retires. Avec l'output gap en niveau, le premier devenait un choc de demande persistant (+0,6 % de PIB en 2029) qui sortait a lui seul le scenario de reference du corridor de la mission (dette 2029 -2,26 pt ; sans lui -0,39). Une incertitude se publie en variante, pas en tirage cache dans la trajectoire centrale. Verrouille par `tests/test_deterministe_v067.py` (aucun acces au generateur aleatoire, sur les 44 cas).
 7. **Reproductibilite de la suite de tests** : son verdict ne depend ni de la machine (locale) ni de la structure interne d'une dependance.
    > **Corrigé en v0.6.10 (contre-audit externe, V2-05)** : sous Windows sans `PYTHONUTF8=1`, des snapshots JSON etaient relus avec l'encodage de la locale (cp1252) : les colonnes accentuees (« Déficit/PIB % », « Chômage % ») devenaient illisibles et le golden master standalone echouait, moteur intact. Tout fichier texte est desormais ouvert en UTF-8 explicite, et tout interpreteur Python enfant est lance par un lanceur commun (`tests/sous_processus.py`) qui fixe sa sortie standard en UTF-8 des deux cotes du tube, verrouille par `tests/test_encodage_portable.py` (gardes statiques sur tout le depot + rejeux des lecteurs de snapshots et des tests a sous-processus sous une locale cp1252 simulee). Et `tests/test_api_safety.py` lisait la table de routage interne de FastAPI : avec fastapi 0.142.2, version permise par `requirements.txt`, il annoncait a tort l'absence de `GET /scenarios` et `POST /simulate`, et ne voyait plus un endpoint interdit ajoute au routeur ; il teste desormais le contrat publie (`/openapi.json`) et appelle chaque endpoint. Aucun chiffre du moteur ne change.
+
+8. **Symetrie hausse/baisse verifiee sur le PIB, pas sur la dette** (preexistant, toutes familles) : les tests de symetrie comparent l'effet sur le PIB reel, et la dette d'une hausse et d'une baisse de meme ampleur n'est plus en miroir quand la prime de taux atteint son plafond de malus (0,60 point), une relance n'y coutant plus de prime quand une coupe en regagne (mesure, mode cadre 2028, ±1 point de PIB de depense courante, dette 2032 : +1,80 / -2,04 point dans un programme publie au plafond, 13,5 % d'ecart contre 2 % sur le PIB et 1 % plafond leve ; 3 % pour la reference sans programme ; 11 % pour les transferts).
 
 ---
 

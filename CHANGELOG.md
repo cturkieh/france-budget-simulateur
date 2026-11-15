@@ -4,6 +4,89 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 5 : dépense courante symétrique en signe
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des deux blocs du lot 1
+ci-dessous, qu'il suppose appliqués. Aucun coefficient ne change.
+
+**Le défaut.** Convention du mainteneur (v0.6.7) : pas d'asymétrie de signe retenue — même instrument, même
+coefficient, en hausse comme en baisse. C'est une convention, pas un résultat de la méta-analyse citée pour les
+valeurs (Gechert 2015, qui classe par instrument et ne teste pas le signe). Elle valait pour
+les transferts, les impôts et l'investissement, pas pour la dépense courante (ni investissement productif, ni
+levier de transfert : défense, dotations des collectivités, postes et point d'indice, réforme de l'État, crédits
+des ministères, moyens de soins, santé, subventions aux grandes entreprises, aide médicale de l'État et
+intégration). Sa baisse prenait `MULT_COUPE_DEPENSES` ; sa hausse, `MULT_TRANSFERTS`, parce que la branche
+« expansion » de `FiscalMultipliers.get_multiplier` versait toute dépense hors investissement dans la case des
+transferts. Pour un point de PIB permanent : 0,74 point de PIB à 4 ans en hausse, 0,79 en baisse. L'asymétrie
+était déclarée au lot 1 (encadré « Portée à déclarer »).
+
+**La correction.** La branche « expansion » reprend la partition de la branche « consolidation » : la part
+« transferts » est celle que la composition déclare, le reste de la dépense hors investissement est de la
+dépense courante, au coefficient de sa coupe (`base_multipliers['expansion']['spending_based']` =
+`MULT_COUPE_DEPENSES`, k = 0,74). La voie inverse, abaisser la coupe au niveau des transferts, a été écartée par le
+mainteneur. Transferts, impôts, investissement, coefficients propres (SMIC, fraude fiscale) et profils de
+décroissance ne changent pas ; la fourchette ×0,75 / ×1,25 des fiches multiplie la même constante dans les deux
+sens. Limite déclarée : une étude par signe (Barnichon, Debortoli & Matthes, Review of Economic Studies 89(1),
+2022) trouve, sur données américaines, un multiplicateur d'une baisse de dépense au-dessus de 1 et celui d'une
+hausse nettement en dessous de 1 ; le moteur ne représente pas cette asymétrie, et l'ancien écart (0,79 contre
+0,74) ne la représentait pas non plus : il venait d'un trou de classement, pour la seule dépense courante. Une
+asymétrie de signe sourcée, pour toutes les familles, relève d'une instruction séparée.
+
+- Test rouge puis vert : `tests/test_symetrie_depense_courante.py` (nouveau). Ce qu'il garde, vérifiable dans le
+  fichier :
+  - **leviers** : tous ceux dont une hausse est de la dépense courante, dérivés du registre des paramètres
+    (`PARAM_DOMAINS` et `INTENSITE_DOMAINS`, chaque paramètre porté seul à chaque borne) et non d'une liste :
+    défense, dotations des collectivités, crédits des ministères et moyens de soins, postes et point d'indice,
+    réforme de l'État, aide médicale de l'État et intégration, santé, subventions aux grandes entreprises, plus un
+    levier synthétique absent de toute liste ; un test vérifie que chaque levier de dépense du registre est rangé
+    dans une famille gardée par un test (investissement, transferts, coefficient propre, hors demande intérieure,
+    dépense courante) ;
+  - **miroir** : hausse et baisse permanentes d'un point de PIB, effet sur le PIB réel à 1 % près, à 1, 2, 3, 4, 5
+    et 6 ans, dans cinq états (banc historique, mode cadre 2028, dette à 160 % du PIB, écarts de production à −3 %
+    et à +1,5 %), sans neutraliser aucune non-linéarité : écart de 5 à 10 % avant, au plus 0,7 % après ; au-delà de
+    6 ans le niveau revient vers zéro et le rapport n'est plus une mesure. La première année, miroir à 0,1 % près
+    pour une dette à 180 % ou à 85 % du PIB et pour un choc de 2 points de PIB. Même miroir par le curseur de
+    défense (±10 Md€ ; 1,089 et 1,031 avant, 1,007 après) ;
+  - **aucun autre chemin** : sans hausse de dépense courante, donner une autre valeur au nouveau coefficient laisse
+    toutes les sorties identiques au bit (transferts, impôts, investissement, coupes, dans les deux sens) ; pendant
+    des simulations complètes, il entre dans un appel si et seulement si l'appel est une hausse de dépense
+    courante ; à la table, hausse = coupe pour chaque levier de dépense courante, dans quatre régimes.
+  Banc des multiplicateurs : famille « hausse de dépense courante », cible et tolérance de la coupe (0,735 avant,
+  rouge ; 0,795 après). Le miroir porte sur le PIB, pas sur la dette (limite déclarée dans METHODOLOGIE).
+- Golden master isolé : l'état d'avant, instrumenté, liste les cas où une hausse de dépense courante est active ;
+  seuls ceux-là bougent, les autres sont identiques au bit en pleine précision. En mode cadre, le droit en vigueur
+  de 2026-2027 relève la défense : toute simulation en mode cadre est concernée, la référence sans programme
+  comprise. Bougent : les dix scénarios publiés des deux modes et 4 mini-scénarios sur 42 (3 à la précision des
+  instantanés : le quatrième bouge de 0,0002 point de dette) ; restent identiques au bit : 38 mini-scénarios et
+  le statu quo du mode historique. Colonnes : dette, déficit, croissance, chômage, inflation, pouvoir d'achat ;
+  Gini (au plus 1e-7, aucun instantané) et compétitivité (au plus 0,0003 point d'indice, un instantané par
+  arrondi) par des effets émis qui suivent l'économie. Delta de référence (`scenario_deltas_baseline.json`)
+  régénéré, comme au lot 1 (statu quo du mode historique identique au bit ; les écarts des trois scénarios
+  bougent, jusqu'à −1,02 point de dette 2035).
+- Effet (mode cadre 2028, dix scénarios publiés, par rapport au lot 1) : dette 2032 de −0,61 à −0,09 point,
+  déficit 2032 de +0,01 à +0,12, croissance moyenne 2028-2032 au plus +0,023 point, chômage 2032 au plus −0,04,
+  inflation 2032 au plus +0,03. Rangs : deux programmes échangent les 2ᵉ et 3ᵉ rangs de croissance moyenne, deux
+  autres les 5ᵉ et 6ᵉ rangs de chômage 2032 ; dette, déficit et Gini inchangés.
+- Tests re-déclarés : W2-11 (crédits des ministères ≡ défense) — l'écart documenté pour une baisse en mode cadre
+  venait de cette asymétrie ; l'équivalence vaut désormais dans les deux sens et les deux modes. Chiffres liés à
+  la mesure mis à jour : tableau des familles (nouvelle ligne), cadre temporel (2027), scénario de référence et
+  corridor de la mission, investissement local, effet d'offre « échelle » (encadré et docstring), banc de prix de
+  l'encadré d'inflation, « Marge à déclarer » du déflateur (corridor de dette 1,27 pt, resté à 1,21 ; désormais lié
+  à la mesure par `tests/test_phillips_v061.py`). Docstrings de trois tests qui décrivaient l'ancienne règle.
+  Pouvoir d'achat 2029 figé (revue humaine) non modifié : sa tolérance absorbe l'écart (au plus 0,3 point).
+- Docs : METHODOLOGIE (encadré du lot 1 marqué traité, nouvel encadré, tableau des familles, table de base —
+  dont deux valeurs restées à leur état d'avant le lot 1, 0,71 et 0,63, remises à 0,688 et 0,615 —,
+  `depenses_publiques`, limite 8 : symétrie vérifiée sur le PIB, pas sur la dette, qui n'est plus en miroir quand
+  la prime de taux est plafonnée, préexistant, toutes familles), EXPLICATION (table et note en français courant).
+  La symétrie de signe n'est plus attribuée à la méta-analyse citée, y compris dans les lignes antérieures sur les
+  transferts et l'investissement. Classements à arbitrer, non modifiés (soumis au mainteneur ; un changement
+  ferait l'objet d'un commit d'équation distinct) : le point d'indice de la fonction publique, que le revenu des
+  ménages traite comme un revenu versé aux agents et la croissance comme de la dépense courante — pris seul au
+  coefficient des transferts, il relèverait de 0,28 et 0,29 point la dette 2032 (mode cadre) des deux programmes
+  publiés qui le relèvent ; l'Ondam, l'aide médicale de l'État, les transferts en capital aux ménages, les
+  subventions aux entreprises, la dotation des collectivités ; et la dynamique de la santé, qui diffère selon le
+  levier qui la porte (profil de l'investissement pour `sante`, des impôts pour les moyens de soins).
+
 ## [non publiée — proposée] — paramètres du lot 1 : coefficient des transferts recalé
 
 **Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc

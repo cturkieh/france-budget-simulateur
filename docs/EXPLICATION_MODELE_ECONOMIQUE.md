@@ -429,8 +429,9 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 | Coupe d'investissement public | **-1,20** | symetrique de la hausse |
 | **Expansion** | | |
 | Investissement public | **1,20** (effet 1,41) | FMI WEO oct. 2014 (1,5 a 4 ans) |
-| Transferts sociaux | **0,71** (effet 0,65), meme coefficient pour une coupe | Gechert 2015 |
-| Baisses impots | **0,63** (effet 0,65, comme la hausse) | aucune asymetrie de signe etablie (v0.6.7) |
+| Depense courante (defense, dotations, postes, credits, sante) | **0,74** (effet 0,8), meme coefficient que la coupe (lot 5) | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
+| Transferts sociaux | **0,688** (effet 0,65), meme coefficient pour une coupe | Gechert 2015 |
+| Baisses impots | **0,615** (effet 0,65, comme la hausse) | aucune asymetrie de signe etablie (v0.6.7) |
 | **Cas speciaux** | | |
 | SMIC | **0,15** | Kramarz & Philippon 2001 (quasi-zero) |
 | Fraude fiscale | **-0,40** | Enforcement, pas nouvelle taxe |
@@ -447,6 +448,19 @@ prime de taux (l'éviction d'une hausse est retirée au lot 1).
 **Prestations en montant (v0.8.0).** Le curseur `prestations_menages` prend le multiplicateur des
 transferts sociaux dans les deux sens, comme les règles d'indexation, l'assurance chômage et les
 retraites.
+
+**Dépense courante, même effet dans les deux sens (lot 5, 15/11/2026, non publié).** Jusqu'ici, une
+dépense qui n'est ni de l'investissement ni une prestation (défense, dotations des collectivités,
+postes, crédits des ministères, santé) n'avait pas le même effet selon qu'on l'augmentait ou qu'on la
+réduisait : un point de PIB de moins coûtait 0,79 point de PIB au bout de 4 ans, un point de PIB de
+plus n'en rapportait que 0,74, parce que la hausse prenait le coefficient des prestations. Le moteur
+applique désormais à la hausse le coefficient de la baisse, comme il le fait déjà pour les impôts, les
+prestations et l'investissement : 0,79 dans les deux sens. C'est une convention (même instrument, même
+coefficient), pas un résultat établi : une étude américaine qui sépare les deux sens trouve qu'une baisse de
+dépense publique pèse plus sur l'activité qu'une hausse ne la soutient, ce que le moteur ne représente pas ;
+l'ancien écart ne le représentait pas non plus, il venait d'un oubli de classement. Tous les programmes publiés sont concernés,
+parce que tous relèvent la défense ; en mode cadre, leur dette 2032 baisse de 0,09 à 0,61 point (METHODOLOGIE,
+encadré « Dépense courante symétrique en signe »).
 
 ### Profil Temporel (DECAY_PROFILE Differencie v3.1)
 
@@ -785,8 +799,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,45% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 129,29% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,32% PIB en statu quo NU ; 151,41% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,23% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 151,29% pour le scenario de reference. Deficit 2035 : -9,06% / -9,03%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

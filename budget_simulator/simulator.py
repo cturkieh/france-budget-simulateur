@@ -234,16 +234,19 @@ class FiscalMultipliers:
                                          # (Ramey 2019 JEP « 0.6 to 1 »), sans atténuation « confiance »
                                          # depuis v0.6.7. v0.5.1 : -0.40, sous le consensus.
                 'transferts': -MULT_TRANSFERTS,  # v0.6.7 (lot 3b) : coupe de TRANSFERT, symétrique de la hausse
-                                         # (Gechert 2015 classe par instrument, pas par signe ; avant :
+                                         # (convention du mainteneur : même instrument, même coefficient ; avant :
                                          #  coefficient « coupe générique » ÷1,10, +8 % à 4 ans).
                 'investissement': -MULT_INVESTISSEMENT,  # Coupe d'investissement public, SYMÉTRIQUE de la hausse
-                                         # (Gechert 2015 et Mésange : linéarité en signe ; FMI WEO
+                                         # (convention du mainteneur ; Mésange : linéarité en signe ; FMI WEO
                                          #  oct.2010 ch.3 : coupes d'investissement au haut de
                                          #  l'échelle de coût). v0.5.1 : canal ABSENT (audit 08/2026).
             },
             'expansion': {
                 'tax_cuts': MULT_BAISSE_IMPOTS,        # Baisses impôts : effectif = hausse (v0.6.7, symétrie en signe)
                 'transferts': MULT_TRANSFERTS,      # Transferts sociaux (IMF: 0.3-0.6)
+                'spending_based': MULT_COUPE_DEPENSES,  # Lot 5 : HAUSSE de dépense courante, symétrique de la coupe
+                                         # (même instrument, même coefficient ; jusque-là versée dans
+                                         #  'transferts' : 0,74 à 4 ans en hausse contre 0,79 en coupe).
                 'investissement': MULT_INVESTISSEMENT,   # Investissement public (IMF: 0.9-1.5, OFCE: 1.0-1.3)
             }
         }
@@ -326,7 +329,7 @@ class FiscalMultipliers:
             part_rev = composition.get('recettes', 0)
             part_dep = composition.get('depenses', 0)
             # Transferts (v0.6.7, lot 3b) : hors de la coupe GÉNÉRIQUE — même
-            # coefficient que la hausse (symétrie par instrument, Gechert 2015).
+            # coefficient que la hausse (convention du mainteneur : même instrument, même coefficient).
             part_transferts = min(composition.get('transferts', 0), max(0, part_dep - part_inv))
             part_gen = max(0, part_dep - part_inv - part_transferts)
             total = part_inv + part_transferts + part_gen + part_rev
@@ -349,12 +352,20 @@ class FiscalMultipliers:
             part_inv = composition.get('investissement', 0)
             part_rev = composition.get('recettes', 0)
             part_dep = composition.get('depenses', 0)
-            part_transfers = max(0, part_dep - part_inv)
-            total = part_inv + part_transfers + part_rev
+            # Même partition que la consolidation (lot 5, symétrie par instrument) :
+            # la part « transferts » est celle que la composition déclare, le reste de
+            # la dépense hors investissement est de la dépense courante, au coefficient
+            # de sa coupe. Jusqu'ici toute dépense hors investissement était un
+            # transfert en expansion : 0,74 point de PIB à 4 ans pour une hausse de
+            # dépense courante, 0,79 pour sa baisse (tests/test_symetrie_depense_courante.py).
+            part_transferts = min(composition.get('transferts', 0), max(0, part_dep - part_inv))
+            part_gen = max(0, part_dep - part_inv - part_transferts)
+            total = part_inv + part_transferts + part_gen + part_rev
             if total > 0:
                 mult_base = (
                     (part_inv / total) * self.base_multipliers['expansion']['investissement'] +
-                    (part_transfers / total) * self.base_multipliers['expansion']['transferts'] +
+                    (part_transferts / total) * self.base_multipliers['expansion']['transferts'] +
+                    (part_gen / total) * self.base_multipliers['expansion']['spending_based'] +
                     (part_rev / total) * self.base_multipliers['expansion']['tax_cuts']
                 )
             else:

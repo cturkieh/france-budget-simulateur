@@ -1134,7 +1134,8 @@ def _ecart_max(sortie_a, sortie_b, exclure=()):
 @pytest.mark.parametrize('annee_debut, d0, x', [
     (None, D0_HISTORIQUE, +10.0), (None, D0_HISTORIQUE, -5.0),
     (MODES['cadre2028'], D0_CADRE, +5.0), (MODES['cadre2028'], D0_CADRE, +10.0),
-], ids=['historique+10', 'historique-5', 'cadre+5', 'cadre+10'])
+    (MODES['cadre2028'], D0_CADRE, -5.0),
+], ids=['historique+10', 'historique-5', 'cadre+5', 'cadre+10', 'cadre-5'])
 def test_w2_11_f4_credits_equivalents_a_la_defense(annee_debut, d0, x):
     """W2-11 (F4) : ``credits_etat = x`` ≡ ``defense.budget = d₀ + x`` à 1e-9 sur
     toutes les colonnes. ``d₀`` est LU : défaut du moteur au registre en mode
@@ -1142,7 +1143,9 @@ def test_w2_11_f4_credits_equivalents_a_la_defense(annee_debut, d0, x):
     ``droit_en_vigueur.json`` + réajustement de l'atterrissage, lu par le
     moteur). Mode cadre : la colonne de journal ``Multiplicateur`` est exclue
     (rapport pondéré par l'effort brut, sensible à la seule décomposition entre
-    leviers) et remplacée par son numérateur, Σ(−k·Δ) par année, égal à 1e-12."""
+    leviers) et remplacée par son numérateur, Σ(−k·Δ) par année, égal à 1e-12.
+    Lot 5 (15/11/2026) : le cas « cadre-5 », écart documenté jusque-là, rejoint
+    l'équivalence (test suivant)."""
     credits = _sim({'depenses_publiques': {'credits_etat': x}}, annee_debut)
     defense = _sim({'defense': {'budget': d0 + x}}, annee_debut)
     exclure = (COLONNE_JOURNAL,) if annee_debut else ()
@@ -1154,12 +1157,16 @@ def test_w2_11_f4_credits_equivalents_a_la_defense(annee_debut, d0, x):
         assert effet_c[an] == pytest.approx(effet_d[an], abs=1e-12), an
 
 
-def test_w2_11_f4_ecart_documente_coupe_en_mode_cadre():
-    """W2-11, x < 0 en mode cadre : l'équivalence n'est PAS requise. Les
-    impulsions se lisent levier par levier contre le défaut du moteur : une
-    coupe de ``credits_etat`` (de 0 à −5) est une CONSOLIDATION, alors qu'une
-    défense ramenée de 58 à 53 reste au-dessus de son défaut (50) : une
-    EXPANSION moindre. Ce test documente l'écart et sa cause."""
+def test_w2_11_f4_coupe_en_mode_cadre_sens_differents_meme_effet():
+    """W2-11, x < 0 en mode cadre. Les impulsions se lisent levier par levier
+    contre le défaut du moteur : une coupe de ``credits_etat`` (de 0 à −5) est une
+    CONSOLIDATION, alors qu'une défense ramenée de 58 à 53 reste au-dessus de son
+    défaut (50) : une EXPANSION moindre. Jusqu'au lot 5, les deux sens n'avaient
+    pas le même coefficient (coupe de dépense courante contre transferts) : ce
+    test documentait l'écart et sa cause. Lot 5 (15/11/2026) : une dépense
+    courante prend le même coefficient dans les deux sens ; les sens diffèrent
+    toujours (vérifié ici), les résultats sont identiques (cas « cadre-5 » du test
+    précédent)."""
     debut, x = MODES['cadre2028'], -5.0
     credits = _sim({'depenses_publiques': {'credits_etat': x}}, debut)
     defense = _sim({'defense': {'budget': D0_CADRE + x}}, debut)
@@ -1170,7 +1177,7 @@ def test_w2_11_f4_ecart_documente_coupe_en_mode_cadre():
     sens_c = {s for (a, m, _c, s) in credits[3]._fiscal_impulses if m == 'depenses_publiques' and a > rang}
     sens_d = {s for (a, m, _c, s) in defense[3]._fiscal_impulses if m == 'defense' and a == rang + 1}
     assert sens_c == {'consolidation'} and sens_d == {'expansion'}
-    assert _ecart_max(credits, defense, (COLONNE_JOURNAL,))[0] > 1e-6
+    assert _ecart_max(credits, defense, (COLONNE_JOURNAL,))[0] <= 1e-9
 
 
 # ---------------------------------------------------------------------------
@@ -1238,9 +1245,10 @@ def test_w2_13_mutation_hors_des_transferts(monkeypatch):
 def test_w2_depenses_publiques_multiplicateur_generique_profil_taxes(x, sens):
     """§ 1.2-1 : ``depenses_publiques`` n'est ni un investissement productif ni
     un transfert : multiplicateur d'une dépense GÉNÉRIQUE (composition sans
-    canal transferts ni investissement : coupe générique en consolidation,
-    transferts en expansion par construction de la matrice), profil de
-    décroissance des impôts, comme ``defense``."""
+    canal transferts ni investissement : coefficient de la coupe générique dans
+    les deux sens depuis le lot 5 ; jusque-là, transferts en expansion par
+    construction de la matrice), profil de décroissance des impôts, comme
+    ``defense``."""
     assert 'depenses_publiques' not in BudgetSimulatorV45.TRANSFER_MEASURES
     assert 'depenses_publiques' not in BudgetSimulatorV45.INVESTMENT_CORE_MEASURES
     vus, sortie = _compositions_multiplicateur({'depenses_publiques': {'credits_etat': x}},

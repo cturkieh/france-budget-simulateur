@@ -154,8 +154,9 @@ def test_balayage_education_monotone_et_directionnel(monkeypatch):
 
 
 def test_balayage_defense_direction():
-    """Curseur NON-investissement (défense, multiplicateur transfert) : plus
-    de dépense = plus de dette, en ratio ET en euros."""
+    """Curseur NON-investissement (défense : dépense courante, coefficient de la
+    coupe générique dans les deux sens depuis le lot 5 ; celui des transferts en
+    hausse jusque-là) : plus de dépense = plus de dette, en ratio ET en euros."""
     df_base, _, _ = BudgetSimulatorV45(periods=10, mesures={}).simulate()
     df_def, _, _ = BudgetSimulatorV45(periods=10, mesures={'defense': {'budget': 70}}).simulate()
     assert df_def['Dette/PIB %'].iloc[-1] > df_base['Dette/PIB %'].iloc[-1] + 1.5
