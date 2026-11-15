@@ -1347,9 +1347,9 @@ def test_w2_15_t1_b_mutation_sans_la_garde(monkeypatch, annee_debut):
 # l'effort et la cicatrice d'austérité sont des effets de DEMANDE ; ils lisent
 # l'effort INTÉRIEUR, net des flux vers un agent non résident. Les taux
 # d'intérêt et l'éviction (effets de financement) gardent l'effort total.
-# Lot 1 (15/11/2026) : le terme d'inflation lié à l'effort est RETIRÉ
-# (engine/inflation.py, « RETIRÉ ») ; (e) reste vrai a fortiori, (f) ne vérifie
-# plus que la cicatrice.
+# Lot 1 (15/11/2026) : le terme d'inflation lié à l'effort puis la cicatrice
+# d'austérité sont RETIRÉS, l'effort intérieur avec eux ; (e) reste vrai a
+# fortiori, (f) est re-déclaré sur la croissance elle-même.
 
 # Consolidation générique, sans flux vers l'étranger, qui porte l'effort
 # au-delà du seuil de la cicatrice (3 % du PIB) dans les deux modes.
@@ -1373,66 +1373,46 @@ def test_w2_15_e_inflation_de_t_plus_1_inchangee(annee_debut, x):
         r.at[t + 1, 'Inflation %'] - r_ref.at[t + 1, 'Inflation %'])
 
 
-def _etats_macro(monkeypatch, mesures, annee_debut):
-    """{'croissance'|'inflation': {année: état économique reçu}} d'une
-    simulation (espions sans effet sur le calcul)."""
-    journal = {'croissance': {}, 'inflation': {}}
-    for methode, cle in (('calculate_growth', 'croissance'), ('calculate_inflation', 'inflation')):
-        original = getattr(BudgetSimulatorV45, methode)
-
-        def espion(self, year, economic_state, _original=original, _cle=cle):
-            journal[_cle][self.annee_base + year] = dict(economic_state)
-            return _original(self, year, economic_state)
-        monkeypatch.setattr(BudgetSimulatorV45, methode, espion)
-    _simuler_brut(mesures, annee_debut)
-    monkeypatch.undo()
-    return journal
-
-
 @pytest.mark.parametrize('annee_debut', list(MODES.values()), ids=list(MODES))
-def test_w2_15_f_cicatrice_et_inflation_lisent_l_effort_interieur(monkeypatch, annee_debut):
-    """W2-15 (f) : sur une consolidation sévère, ajouter la borne basse du flux
-    vers l'étranger laisse l'effort INTÉRIEUR lu par la croissance (cicatrice)
-    identique (≤ 1e-15) ; l'effort TOTAL (taux d'intérêt, éviction, colonne
-    publiée) le contient. Non-vacuité : l'effort total avec le flux dépasse le
-    seuil de la cicatrice, et l'écart entre effort total et effort intérieur
-    vaut le flux rapporté au PIB (≈ 1 point). Lot 1 (15/11/2026) : l'inflation
-    ne reçoit plus aucun effort (terme retiré) ; ses deux assertions sont
-    retirées avec lui."""
+def test_w2_15_f_consolidation_severe_le_flux_n_agit_que_par_la_dette(annee_debut):
+    """W2-15 (f), re-déclaré au lot 1 (15/11/2026). Jusque-là : sur une
+    consolidation sévère, ajouter la borne basse du flux vers l'étranger laissait
+    l'effort INTÉRIEUR, lu par la cicatrice d'austérité et par le terme d'effort
+    de l'inflation, identique. Ces deux effets sont retirés, l'effort intérieur
+    avec eux (sans lecteur). La propriété qu'ils servaient se vérifie désormais
+    sur la croissance elle-même : le flux ne change la croissance de t+1 que par
+    la traînée de dette (résidu ≤ 1e-12, comme le test (c)). Non-vacuité : l'effort
+    total avec le flux dépasse 3 % du PIB, le seuil de l'ancienne cicatrice."""
     x = -32.009
-    mesures = {**CONSOLIDATION_SEVERE, 'transferts_etranger': {'montant': x}}
-    base = _etats_macro(monkeypatch, CONSOLIDATION_SEVERE, annee_debut)
-    avec = _etats_macro(monkeypatch, mesures, annee_debut)
-    pib = _simuler_brut(mesures, annee_debut)[0].set_index('Année')['PIB']
     t = _debut(annee_debut)
-    # t+1 lit l'effort de t, année où le flux entre et où le PIB des deux
-    # scénarios est encore le même : effort intérieur identique.
-    g0, g1 = base['croissance'][t + 1], avec['croissance'][t + 1]
-    assert abs(g1['effort_interieur'] - g0['effort_interieur']) <= 1e-15
-    # Chaque année : effort total − effort intérieur = flux de l'année
-    # précédente rapporté à son PIB (le flux vers l'étranger, lui seul).
-    for annee in range(t + 1, DERNIERE_ANNEE + 1):
-        g1 = avec['croissance'][annee]
-        assert not {c for c in avec['inflation'][annee] if 'effort' in c}, annee
-        ecart = g1['effort_budgetaire'] - g1['effort_interieur']
-        assert ecart == pytest.approx(-x / pib[annee - 1], rel=1e-9), annee
-        assert g1['effort_budgetaire'] > 0.03, ('NON_VACUITE : cicatrice', annee)
+    with droit_sans_valeurs_datees():
+        ref = _simuler_brut(CONSOLIDATION_SEVERE, annee_debut)
+        avec = _simuler_brut({**CONSOLIDATION_SEVERE, 'transferts_etranger': {'montant': x}}, annee_debut)
+    r_ref, r_avec = ref[0].set_index('Année'), avec[0].set_index('Année')
+    d_avec = avec[1].set_index('Année')
+    assert d_avec.at[t, 'Effort_Budgétaire %'] > 3.0, 'NON_VACUITE : effort total sous 3 % du PIB'
+    ratio_ref, ratio_avec = r_ref.at[t, 'Dette/PIB %'] / 100, r_avec.at[t, 'Dette/PIB %'] / 100
+    assert min(ratio_ref, ratio_avec) > C.DEBT_DRAG_SEUIL
+    canal_dette = C.DEBT_DRAG_COEFF * (ratio_avec - ratio_ref)
+    ecart = (r_avec.at[t + 1, 'Croissance %'] - r_ref.at[t + 1, 'Croissance %']) / 100
+    assert abs(ecart - canal_dette) <= 1e-12, (ecart, canal_dette)
 
 
-def test_w2_15_f_la_cicatrice_lit_l_effort_interieur():
-    """W2-15 (f), au niveau de ``calculate_growth`` : en consolidation (aucune
-    éviction), la croissance ne dépend de l'effort que par la cicatrice, qui lit
-    ``effort_interieur`` : effort total 4,5 % et intérieur 2,5 % donnent la
-    croissance d'un effort de 2,5 % ; un effort intérieur de 4,5 % la réduit."""
+def test_w2_15_f_la_croissance_ne_lit_plus_l_effort_interieur():
+    """W2-15 (f), au niveau de ``calculate_growth``, re-déclaré au lot 1
+    (15/11/2026). Jusque-là : effort total 4,5 % et intérieur 2,5 % donnaient la
+    croissance d'un effort de 2,5 %, et un effort intérieur de 4,5 % la réduisait
+    (cicatrice). Cicatrice retirée : en consolidation, la croissance ne dépend
+    plus d'aucun effort, total ou intérieur."""
     def croissance(**effort):
         sim = BudgetSimulatorV45(periods=1)
         sim._reset_state()
         etat = {'output_gap': 0.0, 'unemployment_gap': 0.0, 'part_investissement': 0.0,
                 'debt_ratio': 1.1, 'unemployment': 0.075, 'deficit_ratio': -0.05, **effort}
         return sim.calculate_growth(1, etat)
-    g = croissance(effort_budgetaire=0.045, effort_interieur=0.025)
-    assert g == croissance(effort_budgetaire=0.025, effort_interieur=0.025)
-    assert croissance(effort_budgetaire=0.045, effort_interieur=0.045) < g
+    g = croissance(effort_budgetaire=0.025, effort_interieur=0.025)
+    assert croissance(effort_budgetaire=0.045, effort_interieur=0.025) == g
+    assert croissance(effort_budgetaire=0.045, effort_interieur=0.045) == g
 
 
 # ---------------------------------------------------------------------------

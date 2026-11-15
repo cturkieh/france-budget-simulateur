@@ -67,8 +67,10 @@ def test_calculate_growth_austerity(simulator):
         'tva_rate': {'depenses': 0.0, 'recettes': 0.39 * 0.034 * 3000},
     }
     growth = simulator.calculate_growth(year=1, economic_state=economic_state)
-    # potentiel + traînée de dette + multiplicateurs (dette > 110 % : ×0,95)
-    # + cicatrice (effort > 3 %).
+    # potentiel + traînée de dette + multiplicateurs (dette > 110 % : ×0,95).
+    # Lot 1 (15/11/2026) : la cicatrice d'austérité (−0,10 × (effort − 3 %),
+    # ici −0,04 point) est RETIRÉE (tests/test_cicatrice_retiree.py) ; l'effort
+    # de 3,4 % du PIB n'agit plus que par les impulsions.
     # v0.6.7 B3 : la traînée de dette est DANS le potentiel total (offre), et la
     # croissance corrige 20 % de l'output gap de t−1 (rappel, +0,2 × 1,5 %).
     pot = simulator.croissance_potentielle_totale()
@@ -78,8 +80,7 @@ def test_calculate_growth_austerity(simulator):
     # récession (−3 % → −1 %) : poids 0,25 → ×(1 + 0,15 × 0,25).
     keynes = (-0.95 * (MULT_COUPE_DEPENSES * 0.61 + MULT_HAUSSE_IMPOTS * 0.39) * 0.034 * 0.90
               * (1 + 0.15 * 0.25))
-    cicatrice = max(-0.10 * (0.034 - 0.03), -0.003)
-    expected = pot + 0.2 * 0.015 + keynes + cicatrice
+    expected = pot + 0.2 * 0.015 + keynes
     assert abs(growth - expected) < 1e-12, f"{growth:.6f} vs {expected:.6f}"
     assert any("[IMPULSION]" in s and "consolidation" in s for s in simulator.debug_logs), \
         "Log consolidation manquant"
@@ -198,13 +199,15 @@ def test_calculate_interest_rate(simulator):
     expected = 0.0265 + 0.0076
     assert abs(rate - expected) < 0.001, f"Expected ~0.0191, got {rate:.4f}"
 
-# Test pour calculate_growth en consolidation sévère (debt drag + cicatrice austérité activés)
+# Test pour calculate_growth en consolidation sévère (debt drag activé ; cicatrice retirée au lot 1)
 def test_calculate_growth_significant_recession(simulator):
     # Recalibré : multiplicateurs moins négatifs (-0.56 base vs ancien -0.92) et effort
     # plafonné à 2% PIB → la branche stricte "Récession profonde < -0.025" n'est plus
     # déclenchable avec ces seuils (couvert par test_calculate_growth_zlb au year>3).
-    # Ce test couvre la consolidation sévère significative : debt drag + cicatrice + croissance
-    # nettement négative (delta -2.5pt vs potentiel +0.01).
+    # Ce test couvre la consolidation sévère significative : debt drag + croissance
+    # nettement négative (delta -2.5pt vs potentiel +0.01). Lot 1 (15/11/2026) : la
+    # cicatrice d'austérité est RETIRÉE ; l'assertion sur son journal l'est avec elle,
+    # remplacée par son absence (la consolidation de 8 % du PIB l'aurait déclenchée).
     economic_state = {
         'output_gap': -0.05,  # < -0.02 → déclenche recession adjustment
         'unemployment_gap': -0.01,  # Négatif → contribution -0.004
@@ -235,8 +238,8 @@ def test_calculate_growth_significant_recession(simulator):
     assert growth < -0.015, f"Récession significative attendue, got {growth:.4f}"
     assert any("Debt drag" in s for s in simulator.debug_logs), \
         "Debt drag activé (debt_ratio 2.0 > 0.9)"
-    assert any("Cicatrice austérité" in s for s in simulator.debug_logs), \
-        "Cicatrice austérité activée (effort_budgetaire 0.08 > 0.03)"
+    assert not any("Cicatrice" in s for s in simulator.debug_logs), \
+        "Cicatrice d'austérité retirée au lot 1 : aucun journal attendu"
 
 # Test pour validate_year avec taux au-delà du plafond de stress (source unique TAUX_PLAFOND_ABSOLU = 8 %)
 def test_validate_year_high_interest():

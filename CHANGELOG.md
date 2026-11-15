@@ -50,6 +50,35 @@ publiés, avec une contre-épreuve sur un scénario synthétique (elle ne dépen
 publié et tourne aussi en CI publique) ; delta de référence régénéré. Le pouvoir d'achat 2029 figé
 (`pa_2029_figes.json`, revue humaine) n'est pas modifié : sa tolérance absorbe l'écart.
 
+**(2) Croissance : cicatrice d'austérité retirée.** `calculate_growth` ôtait 0,10 × (effort intérieur
+− 3 % du PIB), plafonné à 0,3 point par an, aux seules consolidations. Le seuil avait été choisi pour
+que l'utilisateur trouve toujours une solution viable. Les deux sources citées (DeLong & Summers 2012,
+Fatás & Summers 2016-2018) décrivent un effet de niveau sur le potentiel, proportionnel à l'impulsion,
+propre aux économies déprimées à la borne zéro des taux : ni seuil, ni plafond, ni sens unique. Elle
+doublait les multiplicateurs, calés sur l'effet de niveau à 4 ans mesuré. Retirée sans remplacement ;
+l'effort intérieur, qui n'avait plus d'autre lecteur, est retiré avec elle (le principe qu'il portait
+reste tenu par les impulsions : un flux vers un agent non résident n'en stocke aucune). L'hystérèse du
+potentiel (`update_potential_growth`) n'est pas touchée. Test : `tests/test_cicatrice_retiree.py`
+(croissance invariante au niveau de consolidation ; linéaire dans l'impulsion ; multiplicateur effectif
+constant à 2 % près de 1 % à 8 % du PIB, deux non-linéarités légitimes neutralisées et déclarées dans le
+test, et de 1 % à 6,5 % du PIB sans aucune neutralisation ; rouge sur l'état d'avant : +5 à +6 % dès
+3,5 %, et une cicatrice réintroduite par un autre chemin avec un seuil de 3,5 %, 4 % ou 5 %, ou réservée
+aux économies déprimées avec un seuil de 2 % à 5 %, le fait rougir aussi ; limite déclarée du harnais :
+le choc est injecté après `apply_measures`). Effet isolé sur v0.8.1 (mode cadre 2028) : un
+scénario publié bouge en 2032 (dette −0,92 point, déficit +0,23, croissance moyenne +0,067), un second en
+2035 seulement (−0,17) ; les huit autres sont identiques au bit ; aucun rang ne change. Preuve
+d'équivalence : l'effort intérieur borné à 3 % en mémoire dans la v0.8.1 donne des sorties identiques au
+bit à la v0.8.1 privée de ce seul bloc, et au code de ce commit (après le commit précédent).
+Sensibilité des curseurs : dans le scénario publié en forte consolidation, 1 Md€ de défense de plus
+augmente la dette 2035 de 0,124 point au lieu de 0,072 (mode cadre, pleine précision ; 0,031 en v0.8.1) :
+une dépense de plus n'y est plus compensée en grande partie par la cicatrice ; elle coûte désormais à
+peine moins que dans les neuf autres programmes publiés (de 0,129 à 0,179 point, même mesure).
+Instantanés : deux scénarios dans chaque mode, un mini-scénario.
+Tests re-déclarés : deux tests de croissance du simulateur ; les deux tests W2-15 (f) (le flux vers
+l'étranger ne change la croissance de t+1 que par la traînée de dette, même sur une consolidation sévère).
+Docs : la phrase de `SCENARIOS_POLITIQUES.md` qui citait des « effets de confiance plafonnés »
+(inexistants depuis v0.6.0) et la cicatrice est corrigée.
+
 ## [v0.8.1] — 2026-11-12 — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
 
 **Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, un

@@ -5,9 +5,9 @@ Méthodes couvertes :
   potentielle + écart de chômage + debt drag, puis multiplicateur
   keynésien à profils temporels différenciés (v0.6.7 : une impulsion par
   levier, par flux et par année où son effort varie, profil du levier
-  INVEST/TRANSFERS/TAXES — ``_stocker_impulsions``), cicatrice austérité,
-  crowding-out, clamp [-3,5 % ; +2,5 %]. Déterministe (bruit tiré
-  retiré en v0.6.7).
+  INVEST/TRANSFERS/TAXES — ``_stocker_impulsions``), crowding-out, clamp
+  [-3,5 % ; +2,5 %]. Déterministe (bruit tiré retiré en v0.6.7 ; cicatrice
+  d'austérité retirée au lot 1, voir son commentaire dans ``calculate_growth``).
 - ``update_potential_growth`` : ajuste la croissance POTENTIELLE
   (hystérèse conjoncturelle + effet d'offre structurel ``SUPPLY_EFFECTS``,
   release E, W6 : contributions linéaires par Md€/an, sourcées dans
@@ -569,26 +569,20 @@ class GrowthMixin:
         # consolidation → prime plus basse → charge d'intérêts plus faible.
         # Ne PAS réintroduire de bonus sur le taux de croissance, même réduit.
 
-        # CICATRICE AUSTÉRITÉ (DeLong & Summers 2012, Fatas & Summers 2018)
-        # Seule l'austérité TRÈS sévère (>3% PIB) cause des dommages structurels.
-        # Les réformes graduelles (retraites, santé, fusion) ne déclenchent pas
-        # de cicatrice car elles améliorent l'offre à long terme.
-        # Seuil relevé à 3% PIB et coefficient réduit pour éviter le piège
-        # où l'utilisateur ne peut trouver aucune solution viable.
-        # Effet de DEMANDE : il lit l'effort INTÉRIEUR, net des flux vers un
-        # agent non résident (revue adverse de la release E) ; un appelant qui
-        # ne le fournit pas n'a pas de tel flux (effort intérieur = effort
-        # total). L'éviction, effet de financement, garde l'effort total.
-        effort_interieur = economic_state.get('effort_interieur', effort_budgetaire)
-        if effort_interieur > 0.03:
-            severity = effort_interieur - 0.03
-            scarring = -0.10 * severity  # Pas de duration_factor (simplifié)
-            scarring = max(scarring, -0.003)  # Cap à -0.3% max par an
-            croissance += scarring
-            _log_debug(self.debug_logs,
-                f"Y{year}: Cicatrice austérité {scarring*100:.2f}% "
-                f"(sévérité {severity*100:.1f}%)"
-            )
+        # CICATRICE D'AUSTÉRITÉ : RETIRÉE (lot 1 des corrections d'équations,
+        # 15/11/2026). Elle ôtait 0,10 × (effort intérieur − 3 % du PIB),
+        # plafonné à 0,3 point par an, aux seules consolidations. Le seuil avait
+        # été choisi « pour éviter le piège où l'utilisateur ne peut trouver
+        # aucune solution viable » ; les deux sources citées (DeLong & Summers,
+        # BPEA 2012 ; Fatás & Summers, NBER WP 22374) décrivent un effet de NIVEAU
+        # sur le potentiel, proportionnel à l'impulsion (ΔY^f = ηµΔG chez DeLong
+        # & Summers), propre aux économies déprimées à la borne zéro des taux :
+        # ni seuil, ni plafond, ni sens unique. Elle doublait les multiplicateurs,
+        # calés sur l'effet de niveau à 4 ans mesuré, et contredisait le rappel
+        # vers le potentiel pour un seul programme. Une hystérèse symétrique sur
+        # l'écart de production serait un autre modèle, à instruire à part. Ne pas
+        # réintroduire de pénalité à seuil sur l'effort (garde :
+        # tests/test_cicatrice_retiree.py).
 
         # Stabilisateurs automatiques : les escaliers v0.5.1 (+0,5 pt si
         # chômage > 9 %, +0,1 pt si déficit < −4 %) sont SUPPRIMÉS en v0.6.0.

@@ -563,7 +563,6 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # l'année courante (lag standard d'un an — refonte 2026-06, étape 1 du
         # bloc REFONTE de simulate()).
         self._budget_effort_prev = 0.0
-        self._budget_effort_interieur_prev = 0.0
         self._part_investissement_prev = 0.0
 
         # Sauvegarde de la baseline initiale pour reset entre simulations.
@@ -837,7 +836,6 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._spending_factors = {cat: 1.0 for cat in self.spending_categories_base}
         self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
         self._budget_effort_prev = 0.0
-        self._budget_effort_interieur_prev = 0.0
         self._part_investissement_prev = 0.0
 
         # --- Attributs créés dynamiquement pendant la simulation ---

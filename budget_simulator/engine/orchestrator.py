@@ -1024,10 +1024,8 @@ class OrchestratorMixin:
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
                     'effort_budgetaire': self._budget_effort_prev,
-                    # Effort INTÉRIEUR (revue adverse de la release E) : lu par la
-                    # cicatrice d'austérité, effet de demande ; l'éviction garde
-                    # l'effort total (effet de financement).
-                    'effort_interieur': self._budget_effort_interieur_prev,
+                    # Effort INTÉRIEUR : retiré au lot 1 avec son dernier lecteur,
+                    # la cicatrice d'austérité (engine/growth.py, « RETIRÉE »).
                     # Composition lue par l'éviction (v0.6.10, V2-01). L'ancienne
                     # « part_depenses » (|Δdép net| / (|Δdép net| + |Δrec net|))
                     # est retirée : son dernier lecteur, le repli du multiplicateur
@@ -1180,21 +1178,13 @@ class OrchestratorMixin:
 
                 fiscal_impulse = delta_revenue - delta_spending
                 budget_effort = fiscal_impulse / gdp_nominal
-                # Effort INTÉRIEUR (revue adverse de la release E) : l'effort net
-                # des flux vers un agent non résident
-                # (MESURES_HORS_DEMANDE_INTERIEURE, solde Δrec − Δdép de leurs
-                # impacts appliqués), lu par le seul effet de DEMANDE qui lit
-                # encore l'effort : la cicatrice d'austérité (le terme d'effort
-                # de la Phillips est retiré, lot 1). Les taux d'intérêt et
-                # l'éviction (effets de financement) gardent l'effort total,
-                # comme la colonne publiée.
-                # Sans flux de ce type, la somme vaut 0 et les deux efforts sont
-                # égaux au bit.
-                flux_hors_demande = sum(
-                    float(impacts[m].get('recettes', 0) or 0) - float(impacts[m].get('depenses', 0) or 0)
-                    for m in sorted(self.MESURES_HORS_DEMANDE_INTERIEURE)
-                    if isinstance(impacts.get(m), dict))
-                budget_effort_interieur = (fiscal_impulse - flux_hors_demande) / gdp_nominal
+                # Effort INTÉRIEUR (revue adverse de la release E : l'effort net des
+                # flux vers un agent non résident) : RETIRÉ au lot 1. Ses deux
+                # lecteurs, effets de demande, l'ont été avant lui (terme d'effort
+                # de la Phillips, cicatrice d'austérité). Le principe qu'il portait
+                # reste tenu là où la demande est modélisée : un flux de
+                # MESURES_HORS_DEMANDE_INTERIEURE ne stocke aucune impulsion
+                # keynésienne (engine/growth.py, _stocker_impulsions).
 
                 # Composition de l'EXPANSION de l'année (v0.6.10, contre-audit
                 # externe V2-01) : part des hausses de dépenses et baisses de
@@ -1213,7 +1203,6 @@ class OrchestratorMixin:
                 # (lag standard d'un an, cf. en-tête du bloc REFONTE ci-dessus :
                 # growth/inflation de t+1 consommeront cet effort et cette part).
                 self._budget_effort_prev = budget_effort
-                self._budget_effort_interieur_prev = budget_effort_interieur
                 self._part_investissement_prev = part_investment
 
                 revenues = revenues_after

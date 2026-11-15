@@ -1893,10 +1893,10 @@ assiette.
   suivante, vérifié par test) ; une hausse entre aussi dans l'effet d'éviction, et l'effort total
   nourrit la prime de taux : effets de financement et non de demande.
 - **Hors des deux autres effets de demande** : le terme d'inflation lié à l'effort budgétaire et
-  la cicatrice d'austérité (effort au-delà de 3 % du PIB) lisent l'effort INTÉRIEUR, net de ce
+  la cicatrice d'austérité (effort au-delà de 3 % du PIB) lisaient l'effort INTÉRIEUR, net de ce
   flux (inflation de l'année suivante inchangée, vérifié par test). Depuis le lot 1 (15/11/2026),
-  le terme d'inflation est retiré : l'inflation ne lit plus aucun effort, seule la cicatrice lit
-  encore l'effort intérieur. **Corrigé avant
+  les deux sont retirés, l'effort intérieur avec eux : le flux ne change la croissance de l'année
+  suivante que par la traînée de dette, y compris sur une consolidation sévère (vérifié par test). **Corrigé avant
   publication** (revue adverse de la release) : la première version les laissait lire l'effort
   total ; une coupe de 32 Md€ baissait l'inflation de 0,12 point l'année suivante, et sur un
   programme déjà au-delà de 3 % d'effort, la coupe déclenchait la cicatrice.
@@ -2493,7 +2493,7 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 
 ```
 (1) définition : (1 + gap_t) = (1 + gap_{t−1}) × (1 + g_t) / (1 + g*_t)        [écart du PIB réel à son potentiel, BCE/OCDE/FMI/CE]
-(2) croissance : g_t = clip[−3,5 % ; +2,5 %]( g*_t − λ × gap_{t−1} + effets de demande (multiplicateurs, éviction, cicatrice) ) + c_t,  λ = OUTPUT_GAP_RAPPEL = 0,2
+(2) croissance : g_t = clip[−3,5 % ; +2,5 %]( g*_t − λ × gap_{t−1} + effets de demande (multiplicateurs, éviction) ) + c_t,  λ = OUTPUT_GAP_RAPPEL = 0,2
     c_t = CHOCS_DEMANDE_OBSERVES[t] (v0.6.9) : choc de demande observé, 0 si l'année est absente de la table, ajouté APRÈS l'écrêtage
 ```
 
@@ -2523,9 +2523,32 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 
 ### Mecanismes de Second Ordre
 
+> **Cicatrice d'austérité retirée (lot 1, 15/11/2026, non publié).** Le seuil de 3 % du PIB avait été choisi
+> « pour éviter le piège où l'utilisateur ne peut trouver aucune solution viable », pas d'après une source ; la
+> pénalité s'ajoutait chaque année tant que l'effort durait, au lieu d'un recul ponctuel du niveau du PIB, et
+> n'avait aucun pendant pour une relance. Sources rouvertes : DeLong & Summers, « Fiscal Policy in a Depressed
+> Economy », BPEA printemps 2012 (effet de niveau sur le potentiel proportionnel à l'impulsion, « ΔY^f = ηµΔG », η
+> entre 0 et 0,2, en économie déprimée à la borne zéro des taux) ; Fatás & Summers, NBER WP 22374 (2016), JIE 112
+> (2018) (régression linéaire sur la baisse du PIB due à la politique budgétaire, consolidations de 2010-2011,
+> « much smaller effects » hors crise) ; ni seuil, ni plafond, ni sens unique dans aucune des deux ; Gechert, Horn & Paetz (Oxford
+> Bulletin 2019) et Girardi, Paternesi Meloni & Stirati (Cambridge Journal of Economics 2020) : effets de long
+> terme pour les deux signes, l'« hystérèse inversée » des relances. Redondance : les multiplicateurs sont calés sur
+> l'effet de niveau à 4 ans mesuré, persistance comprise ; la cicatrice le relevait pour un seul programme, au-delà
+> de la cible de 0,8 qui vaut pour tous, et contredisait le rappel vers le potentiel (λ = 0,2). Retirée sans
+> remplacement : une hystérèse symétrique sur l'écart de production serait un autre modèle (aucune valeur publiée
+> pour la France hors crise), à instruire à part, avec l'hystérèse du potentiel existante (`update_potential_growth`,
+> bornes −0,4 / +0,1 point et rebond après l'an 3 : asymétrique elle aussi, non touchée ici). Ce qui bouge (mode
+> cadre 2028) : un seul des dix scénarios publiés en 2032, celui dont l'effort intérieur dépassait 3 % du PIB
+> (effet isolé sur v0.8.1 : dette 2032 −0,92 point, déficit 2032 +0,23, croissance moyenne 2028-2032 +0,067 ;
+> −0,87, +0,22 et +0,066 après le retrait du terme d'effort de l'inflation) ; un second en 2035 seulement (dette
+> −0,17, puis −0,15) ; les huit autres sont identiques au bit ; aucun rang ne change. L'effort intérieur (net des flux vers
+> un agent non résident), qui n'avait plus d'autre lecteur, est retiré avec elle. Garde :
+> `tests/test_cicatrice_retiree.py` (croissance invariante au niveau de consolidation, multiplicateur effectif constant
+> de 1 % à 8 % du PIB, et de 1 % à 6,5 % dans le moteur complet sans aucune neutralisation).
+
 | Mecanisme | Formule | Source |
 |-----------|---------|--------|
-| Cicatrice austerite | -0,10 x severite si effort >3% PIB, cap -0,3%/an | DeLong & Summers 2012 |
+| Cicatrice austerite | **RETIRÉE (lot 1, 15/11/2026)** — était : −0,10 × (effort − 3 % du PIB) aux seules consolidations, plafond −0,3 pt/an | Citée jusqu'à v0.8.1 comme « DeLong & Summers 2012 » : à tort. DeLong & Summers (BPEA 2012) et Fatás & Summers (NBER WP 22374, 2016) décrivent un effet de niveau sur le potentiel, proportionnel à l'impulsion, propre aux économies déprimées à la borne zéro ; ni seuil, ni plafond, ni sens unique. Encadré ci-dessus |
 | ~~Confiance Alesina~~ | **SUPPRIME** : bonus de croissance retire en v0.6.0 ; attenuation ÷1,10 des coupes retiree en v0.6.7 (§ Multiplicateurs) | Alesina 2010, conteste IMF 2012 |
 | Crowding-out (éviction) | intensité × effort si effort < 0 et dette > 100 % ; intensité 0,002 (relance 100 % investissement productif) à 0,008 (0 %) — § Éviction ci-dessous | **Aucune source publiée** (calibration v3.0, déclarée) |
 | Boost potentiel supply-side (v3.1, échelle en v0.8.0) | Par canal, linéaire dans le flux (élasticité / stock), délais et dépréciation différenciés, plafond ±0,20 pt atteint asymptotiquement | Bom & Ligthart 2014 ; INSEE comptes de patrimoine 2025 ; FMI 2015 ; Fieldhouse & Mertens 2024 ; DG Trésor ThreeME 2026 ; Khan & Luintel 2006 (délais) |
@@ -3199,8 +3222,8 @@ inchangee », la trajectoire est insoutenable.
 
 - **Blanchard & Leigh 2013** : Multiplicateurs fiscaux en periode de consolidation
 - **Alesina & Ardagna 2010** : Effets confiance de l'austerite (conteste IMF 2012)
-- **DeLong & Summers 2012** : Cicatrices d'austerite (hysteresis)
-- **Fatas & Summers 2018** : Couts permanents de la consolidation
+- **DeLong & Summers 2012** : hysteresis en economie deprimee a la borne zero (effet de niveau sur le potentiel proportionnel a l'impulsion budgetaire) ; citee jusqu'a v0.8.1 pour une « cicatrice d'austerite » a seuil, plafonnee et a sens unique, qu'elle ne contient pas (retiree au lot 1)
+- **Fatas & Summers 2018** : couts permanents des consolidations de 2010-2011 (regression lineaire, en crise) ; meme remarque
 - **Bom & Ligthart 2014** : Elasticite output du capital public (stock model)
 - **Kramarz & Philippon 2001** : Effets du salaire minimum sur l'emploi
 - **Herndon, Ash & Pollin 2014** : Critique Reinhart-Rogoff (seuil 90%)

@@ -33,7 +33,7 @@ Le simulateur modelise les interactions entre 4 blocs principaux :
 
 Ces blocs sont interconnectes par des boucles de retroaction qui capturent les effets de second ordre des politiques economiques.
 
-**Nouveaute v3.0** : Le modele utilise desormais un systeme de multiplicateurs keynesiens **par mesure** (weighted blend), un profil temporel de decroissance (DECAY_PROFILE) calibre sur la litterature empirique, et plusieurs mecanismes de second ordre (cicatrice d'austerite, crowding-out differencie, boost investissement sur la croissance potentielle).
+**Nouveaute v3.0** : Le modele utilise desormais un systeme de multiplicateurs keynesiens **par mesure** (weighted blend), un profil temporel de decroissance (DECAY_PROFILE) calibre sur la litterature empirique, et plusieurs mecanismes de second ordre (cicatrice d'austerite — retiree au lot 1, 15/11/2026 —, crowding-out differencie, boost investissement sur la croissance potentielle).
 
 **Nouveaute v3.1** : Le DECAY_PROFILE est desormais **differencie** en 3 profils (TAXES, TRANSFERS, INVEST) melanges selon la composition des mesures. La croissance potentielle beneficie d'un nouveau mecanisme **supply-side** dynamique par canal (recherche, transition ecologique, education) avec delais, depreciation et rendements decroissants.
 
@@ -73,7 +73,7 @@ Growth = Potentiel + Debt Drag + Multiplicateur fiscal + Effets second ordre
 - Dette haute -> Croissance basse (via debt drag)
 - Chomage haut -> Croissance basse (main d'oeuvre inactive)
 - Rigueur budgetaire -> Croissance basse (multiplicateur fiscal)
-- Austerite severe (>3% PIB) -> Cicatrice structurelle (DeLong & Summers 2012)
+- (Cicatrice d'austerite au-dela de 3 % du PIB : RETIREE au lot 1, 15/11/2026 — voir « Mecanismes de second ordre »)
 
 **Influences DE la croissance :**
 - Croissance -> PIB reel en hausse
@@ -439,9 +439,9 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 ou prélevé, sur la demande des agents résidents. Un versement dont la contrepartie directe est non
 résidente (contribution au budget de l'Union, aide extérieure) ne passe pas par cette demande : son
 multiplicateur intérieur est nul. Le moteur n'enregistre donc aucune impulsion pour le curseur
-`transferts_etranger` (`MESURES_HORS_DEMANDE_INTERIEURE`), et la cicatrice d'austérité, seul autre
-effet de demande qui lise l'effort budgétaire depuis le retrait du terme d'inflation (lot 1), lit
-l'effort intérieur, net de ce flux. Le flux garde ses effets de financement : solde, dette, traînée de dette sur la croissance,
+`transferts_etranger` (`MESURES_HORS_DEMANDE_INTERIEURE`). Les deux autres effets de demande qui
+lisaient l'effort budgétaire (terme d'inflation, cicatrice d'austérité) sont retirés au lot 1, et l'effort
+intérieur, net de ce flux, avec eux. Le flux garde ses effets de financement : solde, dette, traînée de dette sur la croissance,
 prime de taux, éviction pour une hausse.
 
 **Prestations en montant (v0.8.0).** Le curseur `prestations_menages` prend le multiplicateur des
@@ -515,20 +515,11 @@ Les mecanismes suivants ont ete retires car sans base empirique suffisante :
 
 ## Mecanismes de Second Ordre
 
-### 1. Cicatrice d'Austerite (Austerity Scarring)
+### 1. Cicatrice d'Austerite (Austerity Scarring) — RETIREE (lot 1, 15/11/2026)
 
-**Source** : DeLong & Summers 2012, Fatas & Summers 2018
+**Ce qu'elle faisait jusqu'a v0.8.1** : au-dela d'un effort de consolidation de 3 % du PIB, la croissance perdait chaque annee 0,10 point par point de PIB d'effort supplementaire, plafonne a 0,3 point par an. Aucun pendant pour une relance.
 
-**Mecanisme** : L'austerite tres severe (effort >3% PIB) cause des dommages structurels permanents.
-
-```
-Si effort_budgetaire > 3% PIB :
-  severite = effort - 0.03
-  cicatrice = -0.10 x severite
-  cap = -0.30% par an maximum
-```
-
-**Interpretation** : Les reformes graduelles (retraites, sante, fusion) ne declenchent PAS de cicatrice car elles ameliorent l'offre a long terme. Seule l'austerite brutale est penalisee.
+**Pourquoi elle est retiree** : les deux sources citees (DeLong & Summers 2012, Fatas & Summers 2018) ne contiennent ni seuil, ni plafond, ni sens unique ; elles decrivent un effet de niveau sur le potentiel, proportionnel a l'impulsion budgetaire et propre aux economies deprimees a la borne zero des taux. Le seuil de 3 % avait ete choisi pour que l'utilisateur trouve toujours une solution viable. La cicatrice doublait en outre les multiplicateurs, deja cales sur l'effet mesure a 4 ans. Une hysterese symetrique fondee sur l'ecart de production serait un autre modele, a instruire a part (METHODOLOGIE, « Mecanismes de second ordre »).
 
 ---
 
@@ -765,7 +756,6 @@ re-mesures le 08/11/2026 (v0.7.2 : dette de depart recalee a 115,7 %).
 - Pouvoir d'achat : baisse (gel prestations) — chiffres a jour : METHODOLOGIE
 - Gini : +0,02 (hausse inegalites)
 - Competitivite : +0,5% (baisse charges)
-- Risque cicatrice d'austerite si effort cumule > 3% PIB
 
 **Trade-off** : Rigueur budgetaire vs acceptabilite sociale
 
@@ -791,7 +781,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 1. **Debt drag** : -0,005 pt par % au-dessus de 90% (compromis Reinhart-Rogoff / Herndon)
 2. **Multiplicateurs per-measure** : Weighted blend par mesure, pas de multiplicateur global
 3. **DECAY_PROFILE differencie** : 3 profils — TAXES (somme 2,00), TRANSFERS (somme 1,77), INVEST (somme 1,98, pic decale Y2). Melange pondere par composition des mesures
-4. **Cicatrice austerite** : -0,10 x severite pour effort >3% PIB, cap -0,3%/an
+4. **Cicatrice austerite** : RETIREE au lot 1 (15/11/2026) — sans source pour son seuil de 3 % ni pour son sens unique
 5. **Crowding-out differencie** : intensite de 0,002 (expansion 100 % investissement productif) a 0,008 (sans investissement productif), selon la part d'investissement de l'expansion brute ; aucune source publiee (METHODOLOGIE § Éviction)
 6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (v0.8.0 : recherche +0,032 pt/Md€, transition +0,005 pt, renovation 0, education +0,0025 pt — elasticites sourcees divisees par les stocks), delais et depreciation differencies, saturation douce vers le plafond ±0,20 pt
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
