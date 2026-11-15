@@ -426,7 +426,8 @@ def test_calculate_growth_zlb(simulator):
     }
     growth = simulator.calculate_growth(year=1, economic_state=economic_state)
     # v0.6.7, forme fermée : potentiel − traînée de dette + flux par flux
-    # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (dette = 100 %, seuil strict).
+    # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (retirée au lot 1 ; elle ne jouait
+    # pas non plus ici : dette = 100 %, seuil strict).
     from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT
     keynes = 1.15 * 1.3 * (MULT_INVESTISSEMENT * 0.004 * 0.45 + MULT_BAISSE_IMPOTS * 0.006 * 0.90)
     # v0.6.7 B3 : traînée de dette dans le potentiel total, rappel +0,2 × 3 %.
@@ -442,7 +443,7 @@ def test_calculate_growth_zlb(simulator):
     #   effect = 0.8767 * 0.01 * 0.9 = 0.00789
     # v0.6.0 : stabilisateurs en escalier SUPPRIMÉS (jouaient sur la croissance,
     # erreur de nature — cf. tests/test_asymetries_v060.py).
-    # Crowding-out (effort < 0, debt_ratio >= 1.0):
+    # Crowding-out (effort < 0, debt_ratio >= 1.0) — retiré au lot 1 (15/11/2026) :
     #   intensity = 0.002 + (1-0.4)*0.006 = 0.0056, effect = 0.0056*(-0.01) = -0.000056
     # Total ≈ 0.01 + 0.008 - 0.0008 + 0.00789 - 0.000056 ≈ 0.0250 (≈ clip 0.025)
     # (v0.6.7 : le mélange ci-dessus est remplacé par la somme flux par flux.)

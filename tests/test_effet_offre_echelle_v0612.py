@@ -377,7 +377,7 @@ def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     baisse de dette par Md€ diminue avec le montant), plus sur sa valeur
     absolue. Le terme d'effort de l'inflation, retiré, faisait baisser le ratio
     de toute relance par le dénominateur ; sans lui, l'effet change de signe
-    entre 20 et 50 Md€ (mesure du moteur actuel : −0,13 point à 20 Md€, +0,96 à 50 Md€) et la
+    entre 20 et 50 Md€ (mesure du moteur actuel : −0,17 point à 20 Md€, +0,84 à 50 Md€) et la
     valeur absolue remonte alors que le rendement, lui, décroît toujours. Les deux
     chiffres de cette docstring sont recalculés ci-dessous : ils ne peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)

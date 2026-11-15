@@ -1264,7 +1264,8 @@ def _residu_t_plus_1(annee_debut, x):
     l'écart de PIB réel de t+1 et sa valeur attendue par ce canal. Droit
     constant (release P : l'arrêt en 2027 de la surtaxe votée pour 2026 rend
     l'effort de la référence légèrement négatif en 2028, donc une éviction
-    dans la référence ; le canal testé ici est celui du levier)."""
+    dans la référence jusqu'au lot 1, qui l'a retirée ; le canal testé ici est
+    celui du levier)."""
     t = _debut(annee_debut)
     with droit_sans_valeurs_datees():
         ref = _simuler_brut({}, annee_debut)
@@ -1292,8 +1293,8 @@ def test_w2_15_t1_a_aucune_impulsion_stockee(annee_debut, x):
 
 @pytest.mark.parametrize('annee_debut', list(MODES.values()), ids=list(MODES))
 def test_w2_15_t1_c_coupe_sans_effet_de_demande_canal_dette_nomme(annee_debut):
-    """W2-15 (c) : avec la garde, une coupe de 5 Md€ (consolidation : ni
-    éviction ni cicatrice, sous 3 % du PIB) ne laisse en t+1 qu'UN canal, nommé
+    """W2-15 (c) : avec la garde, une coupe de 5 Md€ (consolidation ; ni
+    éviction ni cicatrice, toutes deux retirées au lot 1) ne laisse en t+1 qu'UN canal, nommé
     et chiffré : la traînée de dette (moindre dette → potentiel moins freiné).
     Résidu de croissance hors ce canal ≤ 1e-12 ; écart de PIB réel de t+1 =
     PIB réel de t × ``DEBT_DRAG_COEFF`` × Δ(dette/PIB) à 1e-9 Md€."""
@@ -1304,33 +1305,27 @@ def test_w2_15_t1_c_coupe_sans_effet_de_demande_canal_dette_nomme(annee_debut):
 
 
 @pytest.mark.parametrize('annee_debut', list(MODES.values()), ids=list(MODES))
-def test_w2_15_t1_d_hausse_effort_et_eviction_conserves(annee_debut):
-    """W2-15 (d), arbitrage du contrat (§ 1.2-3 et § 8 : « éviction conservée,
-    effet de financement ») : une HAUSSE de 5 Md€ entre dans l'effort
-    budgétaire (Δeffort de t = −x / PIB de t, exactement) et, sans impulsion de
-    demande, ne laisse en t+1 que deux canaux nommés : traînée de dette et
-    éviction (``effet_eviction`` du moteur, part d'investissement nulle : le
-    flux n'est pas un investissement productif). Mode historique : seul levier,
-    l'éviction mord (|·| > 1e-9) ; mode cadre : l'effort net du droit en vigueur
-    reste une consolidation, éviction nulle dans les deux scénarios."""
-    from budget_simulator.engine.growth import effet_eviction
+def test_w2_15_t1_d_hausse_dans_l_effort_seul_canal_dette(annee_debut):
+    """W2-15 (d), re-déclaré au lot 1 (15/11/2026). Jusque-là (arbitrage du contrat,
+    § 1.2-3 et § 8 : « éviction conservée, effet de financement ») : une HAUSSE de
+    5 Md€ laissait en t+1 deux canaux, traînée de dette et éviction. L'éviction est
+    retirée (option C du 21/10/2026, tests/test_eviction_retiree.py) : la hausse
+    entre toujours dans l'effort budgétaire (Δeffort de t = −x / PIB de t,
+    exactement ; il nourrit la prime de taux) et ne laisse plus en t+1 qu'un canal,
+    la traînée de dette, comme la coupe du test (c)."""
     x, t = 5.0, _debut(annee_debut)
     with droit_sans_valeurs_datees():          # droit constant : voir _residu_t_plus_1
         ref = _simuler_brut({}, annee_debut)
         avec = _simuler_brut({'transferts_etranger': {'montant': x}}, annee_debut)
-    r_ref, r_avec = ref[0].set_index('Année'), avec[0].set_index('Année')
+    r_ref = ref[0].set_index('Année')
     d_ref, d_avec = ref[1].set_index('Année'), avec[1].set_index('Année')
     eff_ref = d_ref.at[t, 'Effort_Budgétaire %'] / 100
     eff_avec = d_avec.at[t, 'Effort_Budgétaire %'] / 100
     assert eff_avec - eff_ref == pytest.approx(-x / r_ref.at[t, 'PIB'], abs=1e-15)
-    assert eff_ref >= 0  # aucune éviction dans la référence
-    ratio_ref, ratio_avec = r_ref.at[t, 'Dette/PIB %'] / 100, r_avec.at[t, 'Dette/PIB %'] / 100
-    canal_dette = C.DEBT_DRAG_COEFF * (ratio_avec - ratio_ref)
-    eviction = effet_eviction(eff_avec, ratio_avec, 0.0) - effet_eviction(eff_ref, ratio_ref, 0.0)
-    if annee_debut is None:
-        assert abs(eviction) > 1e-9
-    ecart = (r_avec.at[t + 1, 'Croissance %'] - r_ref.at[t + 1, 'Croissance %']) / 100
-    assert abs(ecart - canal_dette - eviction) <= 1e-12
+    residu, ecart_pib, attendu = _residu_t_plus_1(annee_debut, x)
+    assert abs(residu) <= 1e-12, residu
+    assert ecart_pib == pytest.approx(attendu, abs=1e-9)
+    assert ecart_pib < 0  # le canal nommé a le bon signe (hausse → plus de dette)
 
 
 @pytest.mark.parametrize('annee_debut', list(MODES.values()), ids=list(MODES))

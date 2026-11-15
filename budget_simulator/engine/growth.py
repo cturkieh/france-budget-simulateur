@@ -5,9 +5,9 @@ Méthodes couvertes :
   potentielle + écart de chômage + debt drag, puis multiplicateur
   keynésien à profils temporels différenciés (v0.6.7 : une impulsion par
   levier, par flux et par année où son effort varie, profil du levier
-  INVEST/TRANSFERS/TAXES — ``_stocker_impulsions``), crowding-out, clamp
-  [-3,5 % ; +2,5 %]. Déterministe (bruit tiré retiré en v0.6.7 ; cicatrice
-  d'austérité retirée au lot 1, voir son commentaire dans ``calculate_growth``).
+  INVEST/TRANSFERS/TAXES — ``_stocker_impulsions``), clamp [-3,5 % ;
+  +2,5 %]. Déterministe (bruit tiré retiré en v0.6.7 ; cicatrice d'austérité et
+  éviction retirées au lot 1, voir leurs commentaires dans ``calculate_growth``).
 - ``update_potential_growth`` : ajuste la croissance POTENTIELLE
   (hystérèse conjoncturelle + effet d'offre structurel ``SUPPLY_EFFECTS``,
   release E, W6 : contributions linéaires par Md€/an, sourcées dans
@@ -117,9 +117,6 @@ from ..constants import (
     CROISSANCE_FILET_MIN,
     DEBT_DRAG_SEUIL,
     DEPRECIATION_RD_PUBLIQUE,
-    EVICTION_INTENSITE_INVESTISSEMENT,
-    EVICTION_SEUIL_DETTE,
-    EVICTION_SURCROIT_NON_PRODUCTIF,
     HYSTERESE_POTENTIEL_ECART_BAS,
     HYSTERESE_POTENTIEL_ECART_HAUT,
     HYSTERESE_POTENTIEL_MARGE_BASSE,
@@ -160,10 +157,9 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
     EFFORT : positif = consolidation (hausse de recettes, baisse de dépense),
     négatif = expansion (hausse de dépense, baisse de recettes).
 
-    UNE convention pour les deux canaux de demande qui lisent la composition
-    d'un budget (v0.6.10, contre-audit externe V2-01) : les impulsions
-    keynésiennes (``_stocker_impulsions``) et l'éviction
-    (``part_investissement_expansion``). Chaque levier compte FLUX PAR FLUX —
+    Convention des impulsions keynésiennes (``_stocker_impulsions`` ; v0.6.10,
+    contre-audit externe V2-01, qui l'imposait aussi à la composition de
+    l'éviction, retirée au lot 1). Chaque levier compte FLUX PAR FLUX —
     ``(levier, 'recettes')`` = Δrec, ``(levier, 'depenses')`` = −Δdép —, sauf
     les leviers calibrés sur leur effet NET
     (``FiscalMultipliers.MESURES_MULTIPLICATEUR_NET``) : un seul flux
@@ -193,80 +189,6 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
             else:
                 flux[(m_id, 'depenses')] = -dep
     return flux
-
-
-def part_investissement_expansion(impacts: Dict, mesures_investissement: frozenset,
-                                  mesures_nettes: frozenset) -> float:
-    """Part de l'EXPANSION budgétaire de l'année qui finance de
-    l'investissement public productif — composition lue par l'éviction
-    (``effet_eviction``) de l'année suivante. Dans [0 ; 1] par construction.
-
-        part = Σ_{m ∈ invest.} max(Δdép_m, 0)  /  Σ_{flux f} max(−f, 0)
-
-    Les flux f sont ceux de ``flux_par_levier`` (convention des impulsions
-    keynésiennes) ; le dénominateur est l'expansion BRUTE — hausses de
-    dépenses et baisses de recettes, levier par levier —, le numérateur la
-    partie de ces mêmes termes portée par un levier d'investissement productif
-    (``INVESTMENT_CORE_MEASURES``) : un sous-ensemble du dénominateur, d'où
-    part ≤ 1, y compris en flottants (les deux sommes sont accumulées dans le
-    même ordre : chaque somme partielle du numérateur reste sous celle du
-    dénominateur). Sans expansion, 0 : l'éviction ne joue alors pas (l'effort
-    net ne peut être négatif sans flux expansionniste). La part saute quand
-    l'expansion naît, mais l'éviction n'en a pas de marche : bornée par
-    0,008 × expansion / PIB, elle s'annule continûment avec elle.
-
-    Sens économique : l'éviction ne s'applique qu'à un effort NET négatif ; la
-    question est « de quoi est faite la relance ? ». Les flux de consolidation
-    (coupes, hausses d'impôts) financent l'expansion au prorata de ses
-    composantes — aucune n'est réputée financée en premier, traitement
-    identique de tous les leviers —, et ils réduisent l'éviction par l'effort
-    net, pas par sa composition. Une COUPE d'investissement n'est donc pas une
-    part d'investissement de la relance. Jusqu'en v0.6.9 :
-    Σ |Δdép| des leviers d'investissement / (|Δdép net| + |Δrec net|),
-    numérateur brut sur dénominateur net — 2,000 pour +20 Md€
-    d'investissement et −10 Md€ de dotations, et l'éviction soutenait alors
-    l'expansion.
-    """
-    expansion = investissement = 0.0
-    for (m_id, canal), montant in flux_par_levier(impacts, mesures_nettes).items():
-        if montant < 0:
-            expansion += -montant
-            if (canal == 'depenses' and m_id in mesures_investissement) or canal == 'investissement':
-                investissement += -montant
-    return investissement / expansion if expansion > 0 else 0.0
-
-
-def intensite_eviction(part_investissement: float) -> float:
-    """Intensité de l'éviction : EVICTION_INTENSITE_INVESTISSEMENT (0,002) pour
-    une expansion 100 % investissement productif, plus
-    EVICTION_SURCROIT_NON_PRODUCTIF (0,006) × la part non productive — 0,008
-    pour 0 % (constants.py, valeurs sans source publiée). Contrat : part dans
-    [0 ; 1] (``part_investissement_expansion`` le garantit par construction) ;
-    hors de ce domaine l'intensité peut devenir négative et l'éviction
-    soutenir l'expansion — défaut du moteur, pas de l'entrée : RuntimeError
-    (l'API répond 500 et journalise une ERROR), jamais un bornage silencieux.
-    """
-    if not 0.0 <= part_investissement <= 1.0:
-        raise RuntimeError(
-            f"part d'investissement de l'expansion hors [0 ; 1] : "
-            f"{part_investissement!r} (défaut du moteur, cf. part_investissement_expansion)")
-    return EVICTION_INTENSITE_INVESTISSEMENT + (1 - part_investissement) * EVICTION_SURCROIT_NON_PRODUCTIF
-
-
-def effet_eviction(effort_budgetaire: float, debt_ratio: float,
-                   part_investissement: float) -> float:
-    """Éviction (« crowding-out ») de l'année, en taux de croissance :
-    intensité × effort quand l'effort NET est une expansion (effort < 0) et
-    que la dette dépasse EVICTION_SEUIL_DETTE ; 0 sinon. Toujours ≤ 0 :
-    l'éviction ne soutient jamais une expansion (intensité > 0, contrat de
-    ``intensite_eviction``, vérifié à chaque appel). Continue en l'effort
-    (nulle en 0). Le seuil de dette reste une marche (antérieure à v0.6.10),
-    franchie par aucun scénario publié — garde :
-    ``tests/test_eviction_composition_v0610.py::test_scenarios_publies``."""
-    intensite = intensite_eviction(part_investissement)
-    if effort_budgetaire < 0 and debt_ratio > EVICTION_SEUIL_DETTE:
-        return intensite * effort_budgetaire
-    return 0.0
 
 
 class GrowthMixin:
@@ -418,8 +340,8 @@ class GrowthMixin:
         sans quoi la même compensation se reproduirait à l'intérieur d'un levier
         à deux flux. Exception : les leviers dont le coefficient est calibré sur
         l'effet NET (``FiscalMultipliers.MESURES_MULTIPLICATEUR_NET``) sont
-        multipliés sur leur solde. Décomposition : ``flux_par_levier``, la même
-        que lit l'éviction (v0.6.10). Profil : celui du levier
+        multipliés sur leur solde. Décomposition : ``flux_par_levier``.
+        Profil : celui du levier
         (``_get_decay_profile``), pour ses deux flux.
 
         Sens (consolidation / expansion) : celui du NIVEAU du flux par rapport
@@ -498,7 +420,6 @@ class GrowthMixin:
     def calculate_growth(self, year: int, economic_state: Dict) -> float:
         output_gap = economic_state['output_gap']
         unemployment_gap = economic_state['unemployment_gap']
-        effort_budgetaire = economic_state['effort_budgetaire']
         debt_ratio = economic_state['debt_ratio']
         unemployment = economic_state.get('unemployment', 0.076)
         deficit_ratio = economic_state.get('deficit_ratio', -0.054)
@@ -594,23 +515,26 @@ class GrowthMixin:
         # dépenses chômage indexées) ; contrat vérifié en CI :
         # SEMI_ELASTICITE_SOLDE_PIB_FRANCE (constants.py) ∈ [0,50 ; 0,60].
 
-        # ÉVICTION (crowding-out) d'une expansion nette au-delà de 100 % du PIB
-        # de dette, renforcée pour la dépense non productive : l'investissement
-        # productif (éducation, R&D, transition) génère des retours → faible
-        # éviction ; transferts et baisses d'impôts ne créent pas de capacité
-        # productive → forte éviction. Capture : hausse des taux, éviction de
-        # l'investissement privé, perte de compétitivité coût. Composition =
-        # part de l'EXPANSION de t−1 (part_investissement_expansion, dans
-        # [0 ; 1] par construction depuis v0.6.10, contre-audit V2-01). Entrée
-        # OBLIGATOIRE, comme l'effort qu'elle qualifie : un repli à 0 prendrait
-        # l'intensité maximale sans bruit (KeyError → 500 + ERROR côté API).
-        part_inv = economic_state['part_investissement']
-        crowding_effect = effet_eviction(effort_budgetaire, debt_ratio, part_inv)
-        if crowding_effect:
-            croissance += crowding_effect
-            _log_debug(self.debug_logs,
-                f"Y{year}: Crowding-out {crowding_effect*100:.3f}% "
-                f"(intensité {intensite_eviction(part_inv):.3f}, inv={part_inv:.0%})")
+        # ÉVICTION (« crowding-out ») : RETIRÉE (lot 1 des corrections
+        # d'équations, 15/11/2026 ; arbitrage du mainteneur du 21/10/2026,
+        # « option C »). Elle ôtait intensité × effort net de t−1 aux seules
+        # EXPANSIONS au-delà de 100 % du PIB de dette, intensité 0,002 (relance
+        # 100 % investissement productif) à 0,008 (0 %), coefficients déclarés
+        # sans source. La littérature lue (Huidrom et al. 2020, Ilzetzki et al.
+        # 2013, Nickel & Tudyka 2014) trouve un multiplicateur plus faible quand la
+        # dette est haute, avec des modèles linéaires dans le signe du choc ; aucune
+        # étude lue ne réserve l'effet aux relances. Ce qui reste : le facteur
+        # ×0,95 des multiplicateurs au-delà de 110 % de dette
+        # (FiscalMultipliers.adjustments['high_debt']). Dans tout le domaine
+        # publié, la dette lue dépasse ce seuil : le facteur s'applique à tous les
+        # appels et il est absorbé par la calibration des coefficients d'impact.
+        # Aucune réduction des multiplicateurs liée au niveau de dette n'est donc
+        # modélisée dans le domaine publié ; la dette agit par la traînée sur le
+        # potentiel et par la prime de taux (engine/debt.py). Le facteur reste une
+        # marche à 110 %, inerte dans ce domaine : dette de modèle déclarée. La
+        # croissance ne lit plus ni l'effort net ni la composition de l'expansion
+        # (gardes : tests/test_eviction_retiree.py, dont celle qui rougit le jour
+        # où un scénario publié lit une dette sous 110 %).
 
         # NB v0.6.1 : le « volet emploi seniors » (COR, séance plénière du
         # 26 mars 2026, Document n° 2 — consensus des trois équipes :

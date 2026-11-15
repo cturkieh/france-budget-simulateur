@@ -25,13 +25,12 @@ import math
 
 import pytest
 
-from budget_simulator.constants import EVICTION_INTENSITE_INVESTISSEMENT
-from budget_simulator.engine.growth import part_investissement_expansion
-from budget_simulator.simulator import BudgetSimulatorV45, FiscalMultipliers
+from budget_simulator.simulator import BudgetSimulatorV45
 
 PIB = 3000.0
-# Banc de l'auditeur : dette < 100 % → ni éviction (crowding-out), ni
-# ajustement « dette élevée » ; gap −0,5 % → pas de régime récession.
+# Banc de l'auditeur : dette < 110 % → pas d'ajustement « dette élevée »
+# (l'éviction, retirée au lot 1, ne jouait pas non plus sous 100 %) ; gap −0,5 %
+# → pas de régime récession.
 ETAT = dict(output_gap=-0.005, unemployment_gap=0.0,
             debt_ratio=0.95, unemployment=0.076, deficit_ratio=-0.05,
             interest_rate=0.03)
@@ -56,13 +55,11 @@ def _effets(impacts_par_annee, etat=ETAT):
         sim.pib_nominal = PIB
         out = []
         for t, impacts in enumerate(seq, start=1):
-            net = sum(v.get('recettes', 0) - v.get('depenses', 0) for v in impacts.values())
             sim._last_impacts = impacts
-            # Effort ET composition du même budget, comme dans l'orchestrateur.
-            part = part_investissement_expansion(impacts, sim.INVESTMENT_CORE_MEASURES,
-                                                 FiscalMultipliers.MESURES_MULTIPLICATEUR_NET)
-            out.append(sim.calculate_growth(t, dict(etat, effort_budgetaire=net / PIB,
-                                                    part_investissement=part)))
+            # Lot 1 (15/11/2026) : la croissance ne lit plus ni l'effort net ni la
+            # composition de l'expansion (éviction retirée) ; seules les impulsions,
+            # tirées de _last_impacts, portent le budget.
+            out.append(sim.calculate_growth(t, dict(etat)))
         return out
     avec, sans = suite(impacts_par_annee), suite([{}] * len(impacts_par_annee))
     return [(a - b) * 100 for a, b in zip(avec, sans)]
@@ -99,21 +96,20 @@ def test_effet_d_un_programme_mixte_est_la_somme_signee(impots, attendu, v066):
     assert joint == pytest.approx(separe, abs=1e-9)
 
 
-def test_banc_du_bloc_A_dette_116_seule_l_eviction_reste_non_additive():
-    """Banc du bloc A (dette 116 % : ajustement « dette élevée » ×0,95 et
-    éviction) — v0.6.6 : 0,235 joint contre 0,388 séparé. Le canal keynésien
-    est désormais exactement additif ; le seul terme non additif restant est
-    l'éviction, qui porte À DESSEIN sur le déficit NET du programme
-    (``effort_budgetaire``) et non levier par levier."""
+def test_banc_du_bloc_A_dette_116_strictement_additif():
+    """Banc du bloc A (dette 116 % : ajustement « dette élevée » ×0,95) — v0.6.6 :
+    0,235 joint contre 0,388 séparé. Jusqu'au lot 1, le seul terme non additif
+    restant était l'éviction, qui portait sur le déficit NET du programme (joint
+    0,398 = keynésien + éviction). Lot 1 (15/11/2026, éviction retirée) : le
+    programme est STRICTEMENT additif, joint = somme keynésienne = somme des
+    leviers séparés, propriété plus forte que la précédente."""
     etat = dict(ETAT, debt_ratio=1.16)
     joint = _effets([{**INV(40.0), **TAX(20.0)}], etat)[0]
+    separe = _effets([INV(40.0)], etat)[0] + _effets([TAX(20.0)], etat)[0]
     keynes = 100 * 0.95 * (1.2 * 40 / PIB * P_INV[0] - 0.5 * 20 / PIB * P_TAX[0])
-    # Relance 100 % investissement (40 d'investissement, 20 de HAUSSE d'impôts) :
-    # part 1, intensité basse (v0.6.10, V2-01). Jusqu'ici l'état omettait la part
-    # et l'éviction prenait l'intensité maximale 0,008 (joint 0,394).
-    eviction = 100 * EVICTION_INTENSITE_INVESTISSEMENT * (-20 / PIB)
-    assert joint == pytest.approx(keynes + eviction, abs=1e-9)
-    assert joint == pytest.approx(0.398, abs=5e-4)
+    assert joint == pytest.approx(keynes, abs=1e-9)
+    assert joint == pytest.approx(separe, abs=1e-9)
+    assert joint == pytest.approx(0.399, abs=5e-4)
 
 
 # ---------------------------------------------------------------------------

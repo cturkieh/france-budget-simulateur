@@ -149,7 +149,7 @@ def droit_sans_valeurs_datees():
     (une mesure votée pour une durée limitée s'arrête, contrat de la release E
     § 5.3). Les tests d'un MÉCANISME qui suppose un droit constant (tables
     d'atterrissage vides, élasticité unitaire des recettes, lecteurs latéraux,
-    rampe, éviction nulle de la référence…) s'exécutent dans ce bloc ; la règle
+    rampe, éviction nulle de la référence jusqu'au lot 1…) s'exécutent dans ce bloc ; la règle
     des valeurs datées a ses propres tests (``test_release_e_w1.py``, W1-7) et
     les sorties publiées passent par le droit livré. Même mécanisme que
     ``atterrissage`` : fichier temporaire, validé par le moteur."""

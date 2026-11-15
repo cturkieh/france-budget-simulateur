@@ -79,6 +79,45 @@ l'étranger ne change la croissance de t+1 que par la traînée de dette, même 
 Docs : la phrase de `SCENARIOS_POLITIQUES.md` qui citait des « effets de confiance plafonnés »
 (inexistants depuis v0.6.0) et la cicatrice est corrigée.
 
+**(3) Croissance : éviction (« crowding-out ») retirée** (arbitrage du mainteneur du 21/10/2026,
+« option C », appliqué après deux reports). `calculate_growth` ôtait intensité × effort net de t−1 aux
+seules relances au-delà de 100 % du PIB de dette (intensité 0,002 à 0,008 selon la part
+d'investissement productif de la relance ; coefficients déclarés sans source). La littérature lue
+trouve un multiplicateur plus faible quand la dette est haute, avec des modèles linéaires dans le signe
+du choc ; aucune étude lue ne réserve l'effet aux relances. Retirés : `effet_eviction`,
+`intensite_eviction`, `part_investissement_expansion`, les trois constantes `EVICTION_*`, et la
+plomberie devenue sans lecteur (effort net et part d'investissement transmis à la croissance, états
+`_budget_effort_prev` et `_part_investissement_prev`) ; l'effort de l'année reste calculé pour la prime
+de taux et la colonne publiée. **Ce que fait le ×0,95 « dette élevée » restant (inchangé)** : dans tout
+le domaine publié (dix scénarios, deux modes, banc de calibrage), la dette lue dépasse son seuil de
+110 % ; le facteur s'applique donc à tous les appels et il est absorbé par la calibration des
+coefficients. Après ce retrait, aucune réduction des multiplicateurs liée au niveau de dette n'est
+modélisée dans le domaine publié ; la dette agit par la traînée sur le potentiel et par la prime de
+taux. Le facteur reste une marche à 110 %, inerte dans ce domaine : dette de modèle déclarée, gardée par
+un test qui rougit le jour où un scénario publié lit une dette sous le seuil. **Paramètre admis dans ce
+commit d'équation** : `MULT_BAISSE_IMPOTS` 0,63 → 0,615 (= hausse). Le 0,63 compensait l'éviction d'une
+relance 100 % baisse d'impôts ; sans elle, la baisse valait 3,6 % de plus que la hausse et le test de
+symétrie à ±3 % rougissait ; appliqué avant le retrait, il le faisait rougir dans l'autre sens (0,964) :
+aucun ordre de commits ne l'évite. **Les deux effets, séparés** (mode cadre 2028, dix scénarios
+publiés, dette 2032, par rapport au point (2)) : le retrait de l'éviction seul, de −0,15 à −0,00 point ;
+le coefficient seul, de +0,02 à +0,22 ; la somme, de −0,10 à +0,14 (déficit 2032 au plus ±0,03,
+croissance moyenne au plus ±0,007 point ; aucun rang ne change). Pour sept scénarios sur dix, le
+coefficient pèse plus que le retrait, et en sens inverse. En mode historique (dette 2035), le retrait
+seul va jusqu'à −1,06 point, le coefficient seul jusqu'à +0,33. Preuve d'équivalence : l'éviction
+neutralisée en mémoire dans la v0.8.1 (intensités nulles, coefficient 0,615) donne des sorties
+identiques au bit à la v0.8.1 privée de ce seul retrait, et au code de ce commit. Asymétrie coupe/hausse
+de transferts : 0,1 % (3,8 % avant). Test : `tests/test_eviction_retiree.py` (croissance invariante à
+l'effort net ; coupe et hausse de transferts de même ampleur à 1 % près, dette au-delà de 100 % ; aucun
+symbole de l'éviction dans le moteur ; dette lue au-dessus du seuil du ×0,95 au banc, garde publique, et
+dans le domaine publié, garde privée par nature, sautée sans les scénarios publiés). Instantanés : tous les scénarios publiés (chacun a une relance ou une baisse d'impôts),
+16 mini-scénarios sur 42. Tests re-déclarés : `test_eviction_composition_v0610.py` (acte : la part et
+l'éviction n'existent plus ; restent les flux du contre-exemple, la convention de flux des impulsions et
+l'absence de marche au changement de signe de l'effort ; programme figé
+`programme_fige_eviction_v0610.json` retiré avec ses deux tests), banc d'additivité à dette 116 %
+(strictement additif), symétrie des transferts (un seul test, à 1 %), W2-15 (d) (une hausse du flux
+vers l'étranger n'agit plus que par la traînée de dette), investissement local (le rapport local/État
+revient dans son intervalle : les deux assertions sont gardées), valeurs V2-02.
+
 ## [v0.8.1] — 2026-11-12 — release de paramètres « P » : droit en vigueur daté, instantanés régénérés, textes publics, objectifs en part du PIB
 
 **Ce qui change** : des données et des textes, aucune équation ni constante de calcul du moteur, un

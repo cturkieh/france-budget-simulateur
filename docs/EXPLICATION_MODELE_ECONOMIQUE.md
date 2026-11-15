@@ -33,7 +33,7 @@ Le simulateur modelise les interactions entre 4 blocs principaux :
 
 Ces blocs sont interconnectes par des boucles de retroaction qui capturent les effets de second ordre des politiques economiques.
 
-**Nouveaute v3.0** : Le modele utilise desormais un systeme de multiplicateurs keynesiens **par mesure** (weighted blend), un profil temporel de decroissance (DECAY_PROFILE) calibre sur la litterature empirique, et plusieurs mecanismes de second ordre (cicatrice d'austerite — retiree au lot 1, 15/11/2026 —, crowding-out differencie, boost investissement sur la croissance potentielle).
+**Nouveaute v3.0** : Le modele utilise desormais un systeme de multiplicateurs keynesiens **par mesure** (weighted blend), un profil temporel de decroissance (DECAY_PROFILE) calibre sur la litterature empirique, et plusieurs mecanismes de second ordre (cicatrice d'austerite et crowding-out differencie — tous deux retires au lot 1, 15/11/2026 —, boost investissement sur la croissance potentielle).
 
 **Nouveaute v3.1** : Le DECAY_PROFILE est desormais **differencie** en 3 profils (TAXES, TRANSFERS, INVEST) melanges selon la composition des mesures. La croissance potentielle beneficie d'un nouveau mecanisme **supply-side** dynamique par canal (recherche, transition ecologique, education) avec delais, depreciation et rendements decroissants.
 
@@ -442,7 +442,7 @@ multiplicateur intérieur est nul. Le moteur n'enregistre donc aucune impulsion 
 `transferts_etranger` (`MESURES_HORS_DEMANDE_INTERIEURE`). Les deux autres effets de demande qui
 lisaient l'effort budgétaire (terme d'inflation, cicatrice d'austérité) sont retirés au lot 1, et l'effort
 intérieur, net de ce flux, avec eux. Le flux garde ses effets de financement : solde, dette, traînée de dette sur la croissance,
-prime de taux, éviction pour une hausse.
+prime de taux (l'éviction d'une hausse est retirée au lot 1).
 
 **Prestations en montant (v0.8.0).** Le curseur `prestations_menages` prend le multiplicateur des
 transferts sociaux dans les deux sens, comme les règles d'indexation, l'assurance chômage et les
@@ -501,7 +501,13 @@ Ohnsorge, « Why do fiscal multipliers depend on fiscal positions? », *Journal 
 are fiscal multipliers? », *Journal of Monetary Economics* 60(2), 2013, p. 239-254 : multiplicateurs
 negatifs dans les pays tres endettes). Le SEUIL (110 %) et l'AMPLITUDE (-5 %) sont des choix du
 moteur, qu'aucune de ces deux sources ne fournit : elles decrivent un effet plus fort (multiplicateur
-de long terme nul ou negatif en position faible), d'ou le qualificatif de calibration prudente.
+de long terme nul ou negatif en position faible), d'ou le qualificatif de calibration prudente. **Mesure
+(lot 1, 15/11/2026)** : dans tout le domaine publie (dix scenarios, deux modes, banc de calibrage), la dette
+lue depasse 110 % a chaque appel ; le facteur s'applique donc partout et il est absorbe par la calibration
+des coefficients, calee a 4 ans facteur compris. Il ne differencie aucun scenario publie : aucune reduction
+des multiplicateurs liee au niveau de dette n'est modelisee dans ce domaine, ou la dette agit par la trainee
+sur le potentiel et par la prime de taux. Il reste une marche a 110 %, inerte dans ce domaine (dette de
+modele declaree, gardee par un test qui rougit le jour ou un scenario publie lit une dette sous le seuil).
 
 ### Mecanismes Supprimes (v3.0)
 
@@ -539,27 +545,11 @@ Les mecanismes suivants ont ete retires car sans base empirique suffisante :
 
 ---
 
-### 3. Crowding-Out Differencie
+### 3. Crowding-Out Differencie — RETIRE (lot 1, 15/11/2026)
 
-**Source** : aucune source publiée (calibration v3.0, déclarée : un ordre de grandeur, pas une estimation). Détail : METHODOLOGIE § Éviction.
+**Ce qu'il faisait jusqu'a v0.8.1** : quand le budget de l'annee precedente etait une relance nette et que la dette depassait 100 % du PIB, la croissance perdait de 0,002 (relance 100 % investissement productif) a 0,008 (sans investissement productif) point par point de PIB de relance. Aucun effet pour une consolidation. Coefficients sans source publiee.
 
-**Mecanisme** : L'investissement productif genere des retours (faible crowding), tandis que les transferts ne creent pas de capacite productive (fort crowding).
-
-```
-crowding_effect      = crowding_intensity x effort_budgetaire(t-1)
-crowding_intensity   = 0.002 + (1 - part_investissement) x 0.006
-part_investissement  = Σ_invest max(Δdép, 0) / Σ_flux max(-f, 0)      (budget de t-1)
-```
-
-La part est celle de l'expansion brute (hausses de dépenses et baisses de recettes, levier par levier) qui finance de l'investissement productif : dépenses d'éducation, de recherche publique et de transition écologique. Elle est comprise dans [0 ; 1] par construction. Les consolidations (coupes, hausses d'impôts) réduisent l'éviction par l'effort net, pas par la composition. Une coupe d'investissement n'est donc pas une part d'investissement de la relance.
-
-| Composition de l'expansion | Intensite crowding |
-|-----------------|--------------------|
-| Investissement productif pur | 0,002 |
-| Moitie investissement | 0,005 |
-| Sans investissement productif (transferts, baisses d'impots) | 0,008 |
-
-**Condition** : Uniquement active pour les expansions nettes (effort < 0) avec dette > 100%.
+**Pourquoi il est retire** : arbitrage du mainteneur du 21/10/2026 (« option C »), applique au lot 1. Les etudes lues (Huidrom et al. 2020, Ilzetzki et al. 2013, Nickel & Tudyka 2014) trouvent un multiplicateur plus faible quand la dette est haute, avec des modeles lineaires dans le signe du choc ; aucune etude lue ne reserve l'effet aux relances. Le moteur garde la reduction symetrique de 5 % des multiplicateurs au-dela de 110 % de dette ; mais comme la dette depasse ce seuil dans tout le domaine publie, cette reduction est absorbee par la calibration et ne differencie aucun scenario : la dette agit par la prime de taux et la trainee sur le potentiel. Couper ou augmenter les transferts d'un point de PIB a desormais le meme effet, a 0,1 % pres (4 % d'ecart avant). Detail : METHODOLOGIE, « Mecanismes de second ordre ».
 
 ---
 
@@ -665,7 +655,7 @@ Si r < g : Dette stabilisable meme avec deficit primaire
 Endettement Etat en hausse -> Taux marche en hausse -> Investissement prive en baisse
 ```
 
-**Calibration v3.0** : Modelise explicitement via le crowding-out differencie (section precedente).
+**Calibration** : jusqu'a v0.8.1, modelise via le crowding-out differencie, retire au lot 1 (15/11/2026). Le canal des taux passe par la prime d'effort sur le taux de la dette ; la dette agit aussi par la trainee sur le potentiel. La reduction de 5 % des multiplicateurs au-dela de 110 % du PIB est absorbee par la calibration dans le domaine publie (dette toujours au-dessus du seuil) : elle n'y differencie aucun scenario.
 
 ---
 
@@ -782,7 +772,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 2. **Multiplicateurs per-measure** : Weighted blend par mesure, pas de multiplicateur global
 3. **DECAY_PROFILE differencie** : 3 profils — TAXES (somme 2,00), TRANSFERS (somme 1,77), INVEST (somme 1,98, pic decale Y2). Melange pondere par composition des mesures
 4. **Cicatrice austerite** : RETIREE au lot 1 (15/11/2026) — sans source pour son seuil de 3 % ni pour son sens unique
-5. **Crowding-out differencie** : intensite de 0,002 (expansion 100 % investissement productif) a 0,008 (sans investissement productif), selon la part d'investissement de l'expansion brute ; aucune source publiee (METHODOLOGIE § Éviction)
+5. **Crowding-out differencie** : RETIRE au lot 1 (15/11/2026, option C du 21/10/2026) — sans source et a sens unique ; la dette agit par la prime de taux et la trainee sur le potentiel (la reduction de 5 % des multiplicateurs au-dela de 110 % est absorbee par la calibration dans le domaine publie)
 6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (v0.8.0 : recherche +0,032 pt/Md€, transition +0,005 pt, renovation 0, education +0,0025 pt — elasticites sourcees divisees par les stocks), delais et depreciation differencies, saturation douce vers le plafond ±0,20 pt
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
@@ -795,8 +785,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,45% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 129,22% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,32% PIB en statu quo NU ; 151,40% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,27% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 151,36% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

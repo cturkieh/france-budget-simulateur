@@ -9,10 +9,15 @@ de pensions coûtait 0,707 point de PIB à 4 ans, la hausse en rapportait 0,653
 (+8,2 %). Désormais même coefficient dans les deux sens (l'atténuation
 « confiance » de la coupe générique est elle-même retirée depuis, v0.6.7).
 
-Asymétrie RÉSIDUELLE, mesurée et déclarée (hors périmètre) : en moteur complet le
-rapport vaut 1,044 — c'est l'ÉVICTION (engine/growth.py, « crowding-out »), qui
-pénalise les seules expansions financées par la dette au-delà de 100 % du PIB sans
+Asymétrie RÉSIDUELLE, mesurée et déclarée jusqu'à v0.8.1 : en moteur complet le
+rapport valait 1,044 — c'était l'ÉVICTION (« crowding-out »), qui pénalisait les
+seules expansions financées par la dette au-delà de 100 % du PIB sans
 « crowding-in » symétrique pour les consolidations. Éviction neutralisée : 1,009.
+
+Lot 1 (15/11/2026) : l'éviction est RETIRÉE (tests/test_eviction_retiree.py). Les
+deux tests qui isolaient puis bornaient cette asymétrie (« éviction isolée » à ±3 %,
+« asymétrie résiduelle = l'éviction déclarée » dans ]1 ; 1,06[) sont re-déclarés en
+un seul, plus strict : moteur complet, rapport à 1 % près.
 """
 import pytest
 
@@ -49,21 +54,9 @@ def _niveau_h4(signe):
     return (y1[5] / y0[5] - 1) * 100
 
 
-def test_la_coupe_coute_ce_que_la_hausse_rapporte_eviction_isolee(monkeypatch):
-    origine = BudgetSimulatorV45.calculate_growth
-
-    def sans_eviction(self, year, etat):
-        # L'éviction ne lit qu'un effort NÉGATIF (expansion) : le borner à 0 la
-        # neutralise sans toucher au reste de calculate_growth.
-        return origine(self, year, {**etat, 'effort_budgetaire': max(etat['effort_budgetaire'], 0.0)})
-
-    monkeypatch.setattr(BudgetSimulatorV45, 'calculate_growth', sans_eviction)
+def test_la_coupe_coute_ce_que_la_hausse_rapporte():
+    """Moteur complet, dette au-delà de 100 % du PIB : couper 1 % du PIB de pensions
+    coûte ce que l'ajouter rapporte, à 1 % près (v0.8.1 : 1,044, l'éviction)."""
     hausse, coupe = _niveau_h4(+1), _niveau_h4(-1)
-    assert abs(abs(coupe) / abs(hausse) - 1) < 0.03, (hausse, coupe)
-
-
-def test_asymetrie_residuelle_est_l_eviction_declaree():
-    """Moteur complet : l'écart restant est celui de l'éviction (mesuré 1,044) —
-    borné pour qu'une NOUVELLE asymétrie de signe ne s'y cache pas."""
-    hausse, coupe = _niveau_h4(+1), _niveau_h4(-1)
-    assert 1.0 < abs(coupe) / abs(hausse) < 1.06, (hausse, coupe)
+    assert hausse > 0 > coupe
+    assert abs(abs(coupe) / abs(hausse) - 1) < 0.01, (hausse, coupe)

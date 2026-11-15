@@ -35,7 +35,7 @@ des appels dans la boucle annuelle (refonte « assemblage temporel »
 ``calculate_growth`` (+ choc de demande OBSERVÉ de l'année, v0.6.9,
 ajouté avant tout lecteur de la croissance) / ``calculate_inflation``
 (macro de l'année, consomment l'impulsion budgétaire de t−1 :
-``_budget_effort_prev`` / ``_part_investissement_prev`` / ``_last_impacts``) → mise à jour PIB (déflateur
+``_last_impacts``, d'où sont tirées les impulsions par levier) → mise à jour PIB (déflateur
 contemporain) → ``calculate_unemployment`` (Okun sur la croissance de
 l'année) → ``calculate_revenues`` / ``calculate_expenditures`` (flux
 organiques AUX PRIX DE L'ANNÉE) → ``apply_measures`` (deltas mesures ;
@@ -113,7 +113,6 @@ from .cadre import (
     creer_mondes,
     verifier_grandeur,
 )
-from .growth import part_investissement_expansion
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
     EntreeInvalide,
@@ -590,7 +589,7 @@ class OrchestratorMixin:
                         measure, parameters, year, gdp, inflation, unemployment)
                     # Part d'investissement productif de la dépense (release E,
                     # contre-vérification I2) : publiée seulement si non nulle,
-                    # lue par les impulsions et l'éviction (engine/growth.py).
+                    # lue par les impulsions (engine/growth.py).
                     param_inv = self.INVESTISSEMENT_PRODUCTIF_PARTIEL.get(measure_id)
                     if param_inv is not None and isinstance(parameters, dict):
                         part_inv = parameters.get(param_inv, 0)
@@ -1023,14 +1022,11 @@ class OrchestratorMixin:
                 economic_state_growth = {
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
-                    'effort_budgetaire': self._budget_effort_prev,
-                    # Effort INTÉRIEUR : retiré au lot 1 avec son dernier lecteur,
-                    # la cicatrice d'austérité (engine/growth.py, « RETIRÉE »).
-                    # Composition lue par l'éviction (v0.6.10, V2-01). L'ancienne
-                    # « part_depenses » (|Δdép net| / (|Δdép net| + |Δrec net|))
-                    # est retirée : son dernier lecteur, le repli du multiplicateur
-                    # agrégé, a disparu avec les impulsions levier par levier (v0.6.7).
-                    'part_investissement': self._part_investissement_prev,
+                    # Ni effort net ni composition de l'expansion (lot 1) : leur
+                    # dernier lecteur, l'éviction, est retiré (engine/growth.py,
+                    # « RETIRÉE ») ; l'effort intérieur l'avait été avec la
+                    # cicatrice d'austérité. Les impulsions sont tirées de
+                    # _last_impacts, levier par levier.
                     'debt_ratio': debt_ratio,
                     'interest_rate': self.base_params['taux_interet_base'],
                     'unemployment': unemployment,
@@ -1186,24 +1182,13 @@ class OrchestratorMixin:
                 # MESURES_HORS_DEMANDE_INTERIEURE ne stocke aucune impulsion
                 # keynésienne (engine/growth.py, _stocker_impulsions).
 
-                # Composition de l'EXPANSION de l'année (v0.6.10, contre-audit
-                # externe V2-01) : part des hausses de dépenses et baisses de
-                # recettes — levier par levier, convention des impulsions
-                # keynésiennes — qui finance de l'investissement PRODUCTIF
-                # (INVESTMENT_CORE_MEASURES). Dans [0 ; 1] par construction ;
-                # formule et motif : engine/growth.py, part_investissement_expansion.
-                part_investment = part_investissement_expansion(
-                    impacts, self.INVESTMENT_CORE_MEASURES,
-                    self.multipliers.MESURES_MULTIPLICATEUR_NET)
-
                 _log_debug(self.debug_logs, f"Y{year_idx}: Effort budgétaire = {budget_effort:.3f}")
-                _log_debug(self.debug_logs, f"Composition de l'expansion : inv={part_investment:.2f}")
 
-                # Impulsion budgétaire de l'année stockée pour la macro de t+1
-                # (lag standard d'un an, cf. en-tête du bloc REFONTE ci-dessus :
-                # growth/inflation de t+1 consommeront cet effort et cette part).
-                self._budget_effort_prev = budget_effort
-                self._part_investissement_prev = part_investment
+                # Impulsion budgétaire de l'année : la macro de t+1 la lit dans
+                # self._last_impacts (lag standard d'un an, cf. en-tête du bloc
+                # REFONTE ci-dessus), levier par levier. L'effort agrégé de
+                # l'année ne nourrit plus que la prime de taux ci-dessous et la
+                # colonne publiée (lot 1 : ses lecteurs macro sont retirés).
 
                 revenues = revenues_after
                 spending = spending_after

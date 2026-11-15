@@ -14,12 +14,17 @@ formule) est publiée dans son impact (clé ``depenses_investissement``) et
 forme un flux distinct, ``(collectivites, investissement)``, multiplié et lu
 par l'éviction comme l'investissement productif de l'État, avec son profil de
 persistance ; la dotation garde la classe de la dépense générique.
+
+Lot 1 (15/11/2026) : l'éviction est retirée (tests/test_eviction_retiree.py) ;
+le test « même part d'investissement de l'expansion que l'État » l'est avec
+elle. Ce qui reste du correctif — même classe de multiplicateur et même
+profil — est verrouillé par ``test_meme_classe_de_multiplicateur_et_meme_profil_que_l_etat``.
 """
 from pathlib import Path
 
 import pytest
 
-from budget_simulator.engine.growth import flux_par_levier, part_investissement_expansion
+from budget_simulator.engine.growth import flux_par_levier
 from budget_simulator.simulator import BudgetSimulatorV45, FiscalMultipliers
 
 NETTES = FiscalMultipliers.MESURES_MULTIPLICATEUR_NET
@@ -44,18 +49,6 @@ def test_flux_inchange_sans_part_investissement():
     impacts = {'collectivites': {'depenses': 10.0, 'recettes': 0.0}}
     assert flux_par_levier(impacts, NETTES) == {('collectivites', 'recettes'): 0.0,
                                                 ('collectivites', 'depenses'): -10.0}
-
-
-@pytest.mark.parametrize('montant', [5.0, 15.0])
-def test_eviction_meme_part_que_l_etat(montant):
-    """La part d'investissement de l'expansion compte l'investissement local
-    comme celui de l'État."""
-    local = {'collectivites': {'depenses': montant, 'depenses_investissement': montant}}
-    etat = {'transition_ecologique': {'depenses': montant}}
-    assert part_investissement_expansion(local, INVEST, NETTES) == 1.0
-    assert part_investissement_expansion(etat, INVEST, NETTES) == 1.0
-    mixte = {'collectivites': {'depenses': 2 * montant, 'depenses_investissement': montant}}
-    assert part_investissement_expansion(mixte, INVEST, NETTES) == pytest.approx(0.5, abs=1e-15)
 
 
 ETAT = dict(output_gap=-0.005, unemployment_gap=0.0, debt_ratio=0.95, unemployment=0.076,
@@ -120,7 +113,10 @@ def test_meme_ordre_d_effet_que_l_investissement_de_l_etat(annee_debut, annee):
     dénominateur commun aux deux leviers ; sans lui, les deux effets sont proches
     de zéro (−0,06 et −0,16 point en 2035, mode historique) et le rapport tombe à
     0,375, hors de l'intervalle, alors que l'écart (−0,08 → −0,10 point) ne bouge
-    presque pas. À cet état du moteur, seule l'assertion d'écart absolu tient."""
+    presque pas : à cet état du moteur, seule l'assertion d'écart absolu tenait.
+    Lot 1, retrait de l'éviction : les deux effets s'écartent de zéro (−0,08 et −0,18
+    point en 2035, mode historique) et le rapport revient dans l'intervalle (0,444 ;
+    0,727 en 2032, mode cadre). Les deux assertions sont donc gardées."""
     d0, _ = _simuler({}, annee_debut)
     local, _ = _simuler({'collectivites': {'investissement': 10}}, annee_debut)
     etat, _ = _simuler({'transition_ecologique': {'investissement': 10}}, annee_debut)
@@ -128,6 +124,7 @@ def test_meme_ordre_d_effet_que_l_investissement_de_l_etat(annee_debut, annee):
     de = etat.at[annee, 'Dette/PIB %'] - d0.at[annee, 'Dette/PIB %']
     assert dl < 0 and de < 0, (dl, de)
     assert abs(dl - de) <= 0.02 * 10, (dl, de)
+    assert 0.4 <= dl / de <= 1.6, (dl, de)
 
 
 def _fr(x):

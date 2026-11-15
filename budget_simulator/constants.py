@@ -429,10 +429,12 @@ MULT_COUPE_DEPENSES = 0.74    # 0,60 → 0,81 (÷1,10 « confiance ») → 0,74 
                               # (0,7963 → 0,8004). k = 0,81/1,10 sans le facteur : 44 cas au bit.
 MULT_TRANSFERTS = 0.71        # 0,50 → 0,71 : 0,44 → 0,65
 MULT_HAUSSE_IMPOTS = 0.615    # 0,50 → 0,615 : 0,52 → 0,65
-MULT_BAISSE_IMPOTS = 0.63     # 0,35 → 0,455 → 0,63 : 0,33 → 0,45 → 0,65. k > k hausse :
-                              # l'éviction (engine/growth.py) ne frappe que les expansions
-                              # (dette > 100 %) : à k = 0,615 la baisse vaudrait 0,631 (−3 %) ;
-                              # éviction neutralisée, k égaux → rapport baisse/hausse 1,001
+MULT_BAISSE_IMPOTS = 0.615    # 0,35 → 0,455 → 0,63 → 0,615 (= k hausse) : 0,33 → 0,45 → 0,65.
+                              # Lot 1 (15/11/2026) : le 0,63 compensait l'éviction, qui ne
+                              # frappait que les expansions ; éviction retirée, il donnait une
+                              # baisse 3,6 % au-dessus de la hausse (test de symétrie à ±3 %
+                              # rouge) : retour au coefficient de la hausse, conséquence
+                              # mécanique du retrait (pas un recalage sur une nouvelle cible).
 TAUX_PRELEVEMENTS_AUTOFINANCEMENT = 0.51  # recettes/PIB du moteur : seuil d'autofinancement = 1 / 0,51
 
 # BCE_PLANCHER_ACCOMMODANT : seuil bas de la règle monétaire du moteur, pendant
@@ -451,21 +453,18 @@ BCE_PLANCHER_ACCOMMODANT = 0.008  # 0,8 % — seuil de la politique monétaire a
 DEBT_DRAG_COEFF = -0.005  # par unité de ratio : −0,05 pt de croissance par +10 pts ; compromis Reinhart-Rogoff −0,008 / Herndon-Ash-Pollin −0,003
 DEBT_DRAG_SEUIL = 0.9     # 90 % du PIB
 
-# --- Éviction (« crowding-out », engine/growth.py : intensite_eviction / effet_eviction)
-# — source unique (v0.6.10, contre-audit externe V2-01 ; c'étaient des littéraux,
-# valeurs INCHANGÉES). Une EXPANSION nette (effort < 0) quand la dette dépasse
-# EVICTION_SEUIL_DETTE ôte intensité × |effort| à la croissance de l'année, avec
-#   intensité = EVICTION_INTENSITE_INVESTISSEMENT + (1 − part) × EVICTION_SURCROIT_NON_PRODUCTIF,
-# part ∈ [0 ; 1] = part de l'expansion qui finance de l'investissement productif
-# (part_investissement_expansion). Bornes : 0,002 (expansion 100 % investissement
-# productif) → 0,008 (0 % : transferts, baisses d'impôts, dépense courante).
-# SOURCE : AUCUNE. Calibration de la v3.0 du moteur (27/03/2026), présentée dans
-# METHODOLOGIE comme « éviction standard » sans référence ; aucune source trouvée
-# dans METHODOLOGIE, EXPLICATION_MODELE_ECONOMIQUE ni l'historique du dépôt
-# (recherche du 21/10/2026). Ordre de grandeur déclaré, pas une estimation.
-EVICTION_SEUIL_DETTE = 1.0                 # 100 % du PIB (même absence de source)
-EVICTION_INTENSITE_INVESTISSEMENT = 0.002  # intensité d'une expansion 100 % investissement productif
-EVICTION_SURCROIT_NON_PRODUCTIF = 0.006    # surcroît d'intensité d'une expansion 0 % investissement
+# --- Éviction (« crowding-out ») : RETIRÉE au lot 1 des corrections d'équations
+# (15/11/2026 ; arbitrage du mainteneur du 21/10/2026, « option C »). Ses trois
+# constantes (seuil de dette 1,0 ; intensités 0,002 et 0,006, calibration v3.0
+# déclarée SANS SOURCE) n'ont plus de lecteur. Reste le facteur ×0,95 des
+# multiplicateurs au-delà de 110 % du PIB (simulator.py,
+# FiscalMultipliers.adjustments['high_debt']) : dans tout le domaine publié la
+# dette lue dépasse ce seuil, le facteur s'applique à tous les appels et il est
+# absorbé par la calibration des MULT_* ci-dessus. Aucune réduction des
+# multiplicateurs liée au niveau de dette n'est donc modélisée dans le domaine
+# publié ; la dette agit par la traînée sur le potentiel (DEBT_DRAG_*) et par la
+# prime de taux (PRIME_TAUX_*). Le facteur reste une marche à 110 %, inerte dans
+# ce domaine : dette de modèle déclarée. Garde : tests/test_eviction_retiree.py.
 
 # --- Croissance potentielle : ré-ancrage DÉRIVÉ (v0.6.7, lot 3b, option B
 # arbitrée le 07/10/2026) ---

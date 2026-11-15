@@ -281,7 +281,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 
 Le simulateur repose sur une chaîne déterministe **53 curseurs (sliders) → 36 mesures → 33 handlers** : les réglages de l'interface sont convertis en mesures normalisées, elles-mêmes appliquées par des handlers de calcul qui produisent la trajectoire budgétaire 2025-2035. Le registre exhaustif de cette chaîne (dimension sliders incluse) est documenté dans [`docs/MEASURE_REGISTRY.md`](MEASURE_REGISTRY.md).
 
-Le moteur applique des multiplicateurs budgétaires différenciés par mesure (investissement, transferts, prélèvements, coupes de dépenses) et un profil temporel de décroissance lui-même différencié, ainsi que des mécanismes de second tour (éviction, retour fiscal de la transition, effets d'offre dynamiques de l'investissement productif). Le détail des calibrations et des sources académiques sous-jacentes relève de la documentation technique du moteur ; ce document ne porte que sur les scénarios et leurs paramètres d'entrée.
+Le moteur applique des multiplicateurs budgétaires différenciés par mesure (investissement, transferts, prélèvements, coupes de dépenses) et un profil temporel de décroissance lui-même différencié, ainsi que des mécanismes de second tour (retour fiscal de la transition, effets d'offre dynamiques de l'investissement productif). Le détail des calibrations et des sources académiques sous-jacentes relève de la documentation technique du moteur ; ce document ne porte que sur les scénarios et leurs paramètres d'entrée.
 
 ---
 

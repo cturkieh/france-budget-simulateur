@@ -436,8 +436,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # dépense est de l'investissement public productif, {levier : paramètre en
     # Md€ de cette part}. L'orchestrateur publie cette part dans l'impact du
     # levier (clé ``depenses_investissement``) ; elle forme un flux distinct,
-    # ``(levier, 'investissement')``, qui prend la classe de multiplicateur,
-    # d'éviction et de persistance de l'investissement productif (celle de
+    # ``(levier, 'investissement')``, qui prend la classe de multiplicateur
+    # et de persistance de l'investissement productif (celle de
     # INVESTMENT_CORE_MEASURES), le reste de la dépense gardant la sienne. Ainsi
     # un même euro d'investissement public a le même ordre d'effet, porté par
     # l'État ou par les collectivités (avant : +0,20 contre −0,40 point de dette
@@ -459,7 +459,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # résident (budget de l'Union européenne, bénéficiaires de l'aide
     # extérieure) : multiplicateur intérieur nul, aucune impulsion keynésienne
     # stockée (engine/growth.py, _stocker_impulsions). Le montant reste dans le
-    # solde, la dette et l'effort qui nourrit l'éviction (effet de
+    # solde, la dette et l'effort qui nourrit la prime de taux (effet de
     # financement). Un impôt payé par une entreprise établie en France garde le
     # multiplicateur fiscal, quels que soient ses actionnaires.
     MESURES_HORS_DEMANDE_INTERIEURE = frozenset({'transferts_etranger'})
@@ -559,11 +559,11 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # (engine/expenditures.py). Init = Σ catégories = primaire INSEE 1649,3.
         self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
 
-        # Impulsion budgétaire de l'année précédente, consommée par la macro de
-        # l'année courante (lag standard d'un an — refonte 2026-06, étape 1 du
-        # bloc REFONTE de simulate()).
-        self._budget_effort_prev = 0.0
-        self._part_investissement_prev = 0.0
+        # Impulsion budgétaire de l'année précédente : la macro de l'année
+        # courante la lit levier par levier dans _last_impacts (lag standard d'un
+        # an — refonte 2026-06). L'effort agrégé de t−1, l'effort intérieur et la
+        # part d'investissement de l'expansion ne sont plus des états (lot 1 :
+        # leurs lecteurs, terme d'inflation, cicatrice et éviction, sont retirés).
 
         # Sauvegarde de la baseline initiale pour reset entre simulations.
         # Les réformes structurelles ajustent spending_categories_base pour que
@@ -686,7 +686,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._passage_tva_reduite = (0.0, 0.0)
         # croissance_precedente : RETIRÉ (refonte 2026-06) — état devenu write-only
         # (les flux consomment désormais la croissance contemporaine, la macro
-        # l'impulsion t−1 via _budget_effort_prev/_part_investissement_prev).
+        # l'impulsion t−1 via _last_impacts, levier par levier).
 
         self.pib_reel_base2025 = self.base_params['pib_base']
         self.pib_nominal = self.base_params['pib_base']
@@ -835,8 +835,6 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self.spending_categories_base = dict(self._spending_categories_base_initial)
         self._spending_factors = {cat: 1.0 for cat in self.spending_categories_base}
         self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
-        self._budget_effort_prev = 0.0
-        self._part_investissement_prev = 0.0
 
         # --- Attributs créés dynamiquement pendant la simulation ---
         if hasattr(self, '_chomage_params_prev'):
