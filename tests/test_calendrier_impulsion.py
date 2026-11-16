@@ -260,7 +260,9 @@ def _sorties_avec_et_sans_evaluation(mesures, annee_debut, preparer=None):
 
     def niveaux_precedents(sim):
         return niveaux_du_budget(sim._last_impacts, sim.pib_nominal,
-                                 sim.multipliers.MESURES_MULTIPLICATEUR_NET)
+                                 sim.multipliers.MESURES_MULTIPLICATEUR_NET,
+                                 leviers_de_transfert=sim.TRANSFER_MEASURES,
+                                 prestations_non_reclassees=sim.PRESTATIONS_NON_RECLASSEES)
 
     class _Sans(S):
         def _niveaux_hors_effet_propre(self, *args):

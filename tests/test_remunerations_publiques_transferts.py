@@ -143,8 +143,8 @@ def test_source_unique_le_montant_reclasse_est_celui_du_canal_menages(monkeypatc
     appels = []
     origine = growth_mod.flux_par_levier
 
-    def espion(impacts, nettes):
-        f = origine(impacts, nettes)
+    def espion(impacts, nettes, **ensembles):
+        f = origine(impacts, nettes, **ensembles)
         appels.append((impacts, f))
         return f
     monkeypatch.setattr(growth_mod, 'flux_par_levier', espion)
@@ -383,8 +383,8 @@ def _flux_vus(monkeypatch, mode):
     appels = []
     origine = growth_mod.flux_par_levier
 
-    def espion(impacts, nettes):
-        f = origine(impacts, nettes)
+    def espion(impacts, nettes, **ensembles):
+        f = origine(impacts, nettes, **ensembles)
         appels.append((impacts, f))
         return f
     with monkeypatch.context() as mp:

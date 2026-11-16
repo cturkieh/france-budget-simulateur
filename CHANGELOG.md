@@ -6,6 +6,65 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 5e : prestations en espèces émises hors des leviers de transfert au traitement des transferts
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5b
+ci-dessous, qu'il suppose appliqué. Aucun coefficient ne change.
+
+**La règle** (même mécanique que le lot 5b). Le montant qu'un levier émet au canal ménages `prestations` et qui
+n'est pas déjà traité comme un transfert (levier hors `TRANSFER_MEASURES`, hors coefficient propre) forme un flux
+distinct `(levier, 'prestations')`, au coefficient et au profil des transferts, dans les deux sens ; le reste du
+levier garde sa famille. Un seul cas : le rabot uniforme, dont les coupes de pensions, d'allocations chômage et de
+minima sociaux (environ un tiers de la coupe : 46,8 Md€ sur 141,2 en 2032, mode cadre) étaient prises en dépense
+courante. Source : prestations sociales en espèces (SEC 2010, D.62), déjà traitées en transferts quand un levier de
+transfert les porte.
+
+**Exceptions**, verrouillées par la liste et par le comportement : le SMIC (coefficient propre) ; la santé
+(`PRESTATIONS_NON_RECLASSEES`), dont le canal porte les franchises et participations, une prestation en nature
+(D.632), en attente d'un arbitrage. Limite déclarée (METHODOLOGIE, limite 10) : la coupe de masse salariale du rabot
+reste assimilée à des effectifs ; la note source ne dit pas s'il s'agit d'un gel ; prise comme un gel, elle
+relèverait la dette 2032 de 1,07 point (le traitement des transferts l'abaisserait de 0,51 point, l'effet prix
+du lot 5d, qui retire le coût du gel du PIB publié, la relèverait de 1,59 point) ; sur la pile d'intégration,
+1,08, 0,58 et 1,65.
+
+- `flux_par_levier` (`engine/growth.py`) reçoit les leviers de transfert et les exclusions, en arguments nommés
+  OBLIGATOIRES (un appelant qui les oublierait désactiverait la règle en silence ; appelants modifiés :
+  `_stocker_impulsions` et les tests `test_eviction_composition_v0610`, `test_release_e_investissement_local`) ;
+  `_stocker_impulsions` prend le flux `prestations` au traitement des transferts, comme le flux `remunerations`.
+- Test rouge puis vert : `tests/test_prestations_hors_transferts.py` (nouveau), ce qu'il garde :
+  - **inventaire** dérivé du registre des paramètres : hors des leviers de transfert et des coefficients
+    propres, exactement le rabot (reclassé) et la santé (exclue) ; un émetteur nouveau rougit, à classer ;
+  - **source unique** : chaque année, le flux de prestations vaut exactement le canal, deux modes ;
+  - **même effet qu'un transfert** du même montant, à 1e-9 près, en montée en charge sur trois ans, deux sens,
+    cinq états, pour le rabot et un émetteur synthétique ; non-vacuité ;
+  - **exceptions par le comportement** : retirer le canal du SMIC ou de la santé ne change aucune colonne
+    macroéconomique ; le retirer du rabot change la trajectoire ;
+  - **signature** : `flux_par_levier` refuse un appel sans les deux ensembles.
+  Rouge avant : 25 échecs sur 32. Mutations « santé reclassée », « règle désactivée », « leviers de transfert oubliés », « règle limitée à la
+  première impulsion », « prestations comptées en plus de la dépense », « SMIC reclassé » : toutes rouges.
+- Tests adaptés, aucune tolérance élargie : les espions de `flux_par_levier` du lot 5b transmettent les arguments
+  nommés ; la mutation de W2-13 (levier de prestations retiré des transferts) coupe aussi la seconde voie,
+  `PRESTATIONS_NON_RECLASSEES` ; le test du pouvoir d'achat qui pose un canal `prestations` sans euro budgétaire
+  le pose sur un levier de transfert (sur un autre levier, ce canal est désormais une part de la dépense, lue par
+  la croissance).
+- Golden master isolé (pleine précision) : l'état d'avant, instrumenté, liste les cas où un levier hors transfert,
+  hors coefficient propre et hors santé émet au canal ; seuls ceux-là bougent (3 : le programme qui utilise le rabot
+  dans les deux modes, le mini-scénario du rabot) ; les 61 autres sont identiques au bit. Instantanés régénérés une
+  fois (golden masters historique, cadre et mini-scénarios ; delta de référence inchangé). Pouvoir d'achat 2029 figé
+  non modifié.
+- Effet (mode cadre 2028, par rapport au lot 5b) : le programme qui utilise le rabot, dette 2032 −0,58 point,
+  déficit 2032 plus faible de 0,14, croissance moyenne 2028-2032 +0,042, chômage 2032 −0,06 ; les neuf autres
+  scénarios et la référence identiques au bit. Rangs : aucun ne change en pleine précision (ni aux sorties du
+  moteur, deux décimales) ; aux valeurs affichées par le site (une décimale), le programme qui utilise le rabot
+  rejoint, ex æquo, le 1ᵉʳ rang de déficit 2032.
+- Pile d'intégration (reporté après les lots 2, 6, 5b et 5d, mesuré contre le lot 5d reporté) : le programme qui
+  utilise le rabot, dette 2032 −0,65, déficit +0,15, croissance moyenne +0,038, chômage −0,07 ; en dette 2032 il
+  passe du 2ᵉ au 1ᵉʳ rang. Point (a) : `niveaux_du_budget` (lot 6) prend les deux ensembles désormais obligatoires
+  de `flux_par_levier` et les transmet ; ses deux appelants (budget évalué hors de son effet propre, budget
+  précédent) passent les mêmes ensembles que `_stocker_impulsions` (source unique), comme le banc du lot 6.
+- Docs : METHODOLOGIE (encadré, table de base, classements, limite 10), EXPLICATION (table et note en français
+  courant), commentaires de `simulator.py` et `engine/growth.py`.
+
 ## [non publiée — proposée] — équations du lot 5d : effet prix des rémunérations publiques sur le PIB en valeur publié
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5b

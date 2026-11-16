@@ -85,7 +85,7 @@ def test_impulsions_lisent_flux_par_levier():
     sim.pib_nominal = 3000.0
     sim._last_impacts = impacts
     sim._stocker_impulsions(1, dict(output_gap=0.0, debt_ratio=1.1, unemployment_gap=0.0, interest_rate=0.03))
-    assert sim._niveaux_impulsion == {k: v / 3000.0 for k, v in flux_par_levier(impacts, NETTES).items()}
+    assert sim._niveaux_impulsion == {k: v / 3000.0 for k, v in flux_par_levier(impacts, NETTES, leviers_de_transfert=BudgetSimulatorV45.TRANSFER_MEASURES, prestations_non_reclassees=BudgetSimulatorV45.PRESTATIONS_NON_RECLASSEES).items()}
 
 
 def _croissance_et_effort_2027(mesures):

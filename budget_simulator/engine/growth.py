@@ -159,7 +159,9 @@ class PotentielAnnee(NamedTuple):
     total: float               # croissance_potentielle_totale()
 
 
-def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str, str], float]:
+def flux_par_levier(impacts: Dict, mesures_nettes: frozenset, *,
+                    leviers_de_transfert: frozenset,
+                    prestations_non_reclassees: frozenset) -> Dict[Tuple[str, str], float]:
     """Flux budgétaires d'une année, levier par levier, en Md€ signés comme un
     EFFORT : positif = consolidation (hausse de recettes, baisse de dépense),
     négatif = expansion (hausse de dépense, baisse de recettes).
@@ -188,6 +190,16 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
     reste dans ``(levier, 'depenses')``, avec sa famille. Sans ce canal, rien ne
     change. Un levier à coefficient propre garde tout dans son solde (le SMIC, dont
     la part « agents publics » attend un arbitrage du mainteneur).
+
+    Prestations en espèces hors des leviers de transfert (lot 5e, même mécanique) :
+    la part de la dépense qu'un levier émet au canal ménages ``prestations``
+    (pensions, allocations, minima sociaux coupés par le rabot uniforme) forme un
+    flux distinct ``(levier, 'prestations')`` = −part, au traitement des transferts,
+    si le levier n'est pas déjà un levier de transfert (``leviers_de_transfert``,
+    dont tout le flux l'est déjà) ni exclu (``prestations_non_reclassees`` : canal
+    qui porte une prestation EN NATURE, en attente d'un arbitrage). Les deux
+    ensembles sont OBLIGATOIRES (arguments nommés sans valeur par défaut) : un
+    appelant qui les oublierait désactiverait la règle en silence.
     """
     flux: Dict[Tuple[str, str], float] = {}
     for m_id, m_impact in impacts.items():
@@ -203,9 +215,16 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
             canaux = m_impact.get('menages')
             rem = float((canaux.get('remunerations_publiques', 0) or 0)
                         if isinstance(canaux, dict) else 0)
-            if rem:
-                flux[(m_id, 'depenses')] = -(dep - inv - rem)
-                flux[(m_id, 'remunerations')] = -rem
+            presta = (float(canaux.get('prestations', 0) or 0)
+                      if (isinstance(canaux, dict)
+                          and m_id not in leviers_de_transfert
+                          and m_id not in prestations_non_reclassees) else 0.0)
+            if rem or presta:
+                flux[(m_id, 'depenses')] = -(dep - inv - rem - presta)
+                if rem:
+                    flux[(m_id, 'remunerations')] = -rem
+                if presta:
+                    flux[(m_id, 'prestations')] = -presta
                 if inv:
                     flux[(m_id, 'investissement')] = -inv
             elif inv:
@@ -216,11 +235,18 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
     return flux
 
 
-def niveaux_du_budget(impacts: Dict, pib: float, mesures_nettes: frozenset) -> Dict[Tuple[str, str], float]:
+def niveaux_du_budget(impacts: Dict, pib: float, mesures_nettes: frozenset, *,
+                      leviers_de_transfert: frozenset,
+                      prestations_non_reclassees: frozenset) -> Dict[Tuple[str, str], float]:
     """Effort de chaque flux d'un budget (``flux_par_levier``), en part du PIB
     nominal ``pib`` de son année : les NIVEAUX dont la variation d'un budget au
-    suivant est l'impulsion keynésienne (``_stocker_impulsions``)."""
-    return {cle: montant / pib for cle, montant in flux_par_levier(impacts, mesures_nettes).items()}
+    suivant est l'impulsion keynésienne (``_stocker_impulsions``). Les deux
+    ensembles de ``flux_par_levier`` (lot 5e) sont obligatoires ici aussi et
+    transmis tels quels : source unique, le même appel quel que soit l'appelant
+    (budget évalué hors de son effet propre, ou budget précédent)."""
+    return {cle: montant / pib for cle, montant in flux_par_levier(
+        impacts, mesures_nettes, leviers_de_transfert=leviers_de_transfert,
+        prestations_non_reclassees=prestations_non_reclassees).items()}
 def cout_employeur_des_remunerations(impacts: Dict) -> float:
     """Coût employeur de l'année (Md€, signé : + pour une hausse) des rémunérations publiques à
     effectifs constants : la somme du canal ménages ``remunerations_publiques`` de TOUS les leviers
@@ -447,7 +473,9 @@ class GrowthMixin:
         """
         if niveaux is None:
             niveaux = niveaux_du_budget(self._last_impacts, self.pib_nominal,
-                                        self.multipliers.MESURES_MULTIPLICATEUR_NET)
+                                        self.multipliers.MESURES_MULTIPLICATEUR_NET,
+                                        leviers_de_transfert=self.TRANSFER_MEASURES,
+                                        prestations_non_reclassees=self.PRESTATIONS_NON_RECLASSEES)
 
         compositions = {
             'recettes': {'depenses': 0.0, 'recettes': 1.0, 'investissement': 0.0},
@@ -485,7 +513,7 @@ class GrowthMixin:
                     composition = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 1.0,
                                    'transferts': 0.0}
                     profil = self.DECAY_PROFILE_INVEST
-                elif canal == 'remunerations':
+                elif canal in ('remunerations', 'prestations'):
                     # Rémunération des agents publics à effectifs constants (lot 5b,
                     # arbitrage du mainteneur) : un revenu versé aux agents, au
                     # traitement des transferts — coefficient et profil —, dans les
@@ -495,6 +523,10 @@ class GrowthMixin:
                     # 2010 et e-mod.fr 2017 ; limite : ces sources décrivent un
                     # effet différé, le profil des transferts ne l'est pas (profil
                     # par analogie, METHODOLOGIE, encadré du lot 5b).
+                    # Prestations en espèces émises par un levier qui n'est pas de
+                    # transfert (lot 5e : pensions, allocations et minima coupés par
+                    # le rabot uniforme) : des transferts au sens du SEC (D.62), le
+                    # même traitement que les leviers de transfert du moteur.
                     composition = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.0,
                                    'transferts': 1.0}
                     profil = self.DECAY_PROFILE_TRANSFERS

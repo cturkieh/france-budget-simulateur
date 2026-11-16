@@ -486,6 +486,16 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         'prestations_menages',
     ])
 
+    # Lot 5e (arbitrage du mainteneur attendu) : leviers hors TRANSFER_MEASURES dont
+    # le canal ménages ``prestations`` n'est PAS reclassé au traitement des
+    # transferts (engine/growth.py, flux_par_levier). La santé : ce canal y porte les
+    # franchises et participations, un reste à charge sur des remboursements de
+    # soins, c'est-à-dire une prestation EN NATURE (SEC 2010 D.632), pas en espèces ;
+    # cas laissé en l'état, en attente d'un arbitrage. Tout autre émetteur du canal
+    # hors des leviers de transfert est reclassé (tests/test_prestations_hors_transferts.py
+    # dérive les émetteurs du registre des paramètres).
+    PRESTATIONS_NON_RECLASSEES = frozenset({'sante'})
+
     # Release E (socle) : flux dont la contrepartie DIRECTE est un agent non
     # résident (budget de l'Union européenne, bénéficiaires de l'aide
     # extérieure) : multiplicateur intérieur nul, aucune impulsion keynésienne

@@ -1008,7 +1008,9 @@ class OrchestratorMixin:
                 delattr(self, cle)
             vars(self).update(originaux)
         return niveaux_du_budget(demande.impacts, demande.gdp_nominal,
-                                 self.multipliers.MESURES_MULTIPLICATEUR_NET)
+                                 self.multipliers.MESURES_MULTIPLICATEUR_NET,
+                                 leviers_de_transfert=self.TRANSFER_MEASURES,
+                                 prestations_non_reclassees=self.PRESTATIONS_NON_RECLASSEES)
 
     @_entree_retablie
     def simulate(self) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:

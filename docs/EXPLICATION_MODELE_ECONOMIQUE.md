@@ -433,6 +433,7 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 | **Expansion** | | |
 | Investissement public | **1,31** (demande seule 1,28 ; avec l'effet de capacite d'un equipement public, 1,54 : le tableau du FMI) [1,20] | FMI WEO oct. 2014 (chemin de 0,46 a 1,54 en quatre ans) |
 | Depense courante (defense, dotations, postes, credits, sante) | **0,811** (effet 0,8), meme coefficient que la coupe (lot 5) [0,74] | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
+| Coupes de prestations en especes du rabot uniforme (pensions, chomage, minima) | **0,785** (effet 0,65), comme un transfert (lot 5e) [0,688] | SEC 2010 (D.62) |
 | Transferts sociaux | **0,785** (effet 0,65), meme coefficient pour une coupe [0,688] | Gechert 2015 |
 | Remuneration des agents publics a effectifs constants (point d'indice, revalorisation des enseignants) | **0,785** (effet 0,65), comme un transfert, dans les deux sens (lot 5b) [0,688] | comptabilite nationale (effet prix) et Mesange 2017 ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010) |
 | Baisses impots | **0,674** (effet 0,65, comme la hausse) [0,615] | aucune asymetrie de signe etablie (v0.6.7) |
@@ -477,6 +478,14 @@ du SMIC versée aux agents publics compte aussi (jusqu'à 0,4 point pour un prog
 rapportées au PIB baissent de même, sans que les montants en euros bougent. Les prix à la consommation, la
 croissance, le chômage et le pouvoir d'achat ne changent pas ; la colonne « déflateur du PIB » du simulateur, elle,
 monte (METHODOLOGIE, encadré du lot 5d).
+
+**Coupes de pensions et d'allocations du rabot : comme des transferts (lot 5e, 16/11/2026, non publié).** Le rabot
+uniforme baisse aussi des pensions, des allocations chômage et des minima sociaux, environ un tiers de ce qu'il
+économise. Ce sont des prestations versées en argent, que le moteur traite déjà comme des transferts quand elles
+passent par les curseurs des retraites ou du chômage. Elles le sont désormais aussi dans le rabot, au lieu d'être
+comptées comme une dépense courante : la dette 2032 du programme qui l'utilise baisse de 0,65 point. Le reste du rabot
+ne change pas ; on ne sait pas si sa coupe de masse salariale est un gel des salaires ou une baisse d'effectifs, et
+le moteur la traite comme des effectifs (METHODOLOGIE, limite 10).
 
 **Subventions et aides en capital : limite déclarée (16/11/2026).** Les subventions aux entreprises et les aides
 en capital versées aux ménages gardent le traitement d'une dépense courante : aucune étude consultée ne chiffre

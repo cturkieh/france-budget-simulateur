@@ -2268,6 +2268,7 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 | Expansion depense courante | **0,811** | lot 5 : même coefficient que la coupe de dépense courante (convention du mainteneur : pas d'asymétrie de signe retenue, même instrument, même coefficient ; limite : encadré du lot 5) | 0,688 (coefficient des transferts, jusqu'au lot 5) ; lot 6 : 0,74 (calendrier de l'impulsion, recalage) |
 | Expansion transferts | **0,785** | v0.6.7 : calé « central » ; recalé au lot 1 (release de paramètres) | 0,71 (v0.6.7), 0,50 (v0.6.6), 0,80 (v2.0) ; lot 6 : 0,688 (calendrier de l'impulsion, recalage) |
 | Remuneration publique a effectifs constants (hausse ou baisse) | **0,785** | lot 5b, arbitrage du mainteneur : traitement des transferts (coefficient et profil) ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010), profil par analogie, limites : encadre du lot 5b | 0,811 (point d'indice, depense courante) ; 1,31 (revalorisation des enseignants, investissement) ; lot 6 : 0,688 avant le recalage |
+| Prestations en especes emises hors des leviers de transfert (coupes de prestations du rabot uniforme) | **0,785** | lot 5e : traitement des transferts (coefficient et profil), prestations en especes (SEC 2010, D.62) ; exceptions : SMIC, franchises de sante (en nature) | 0,74 (depense courante) |
 | Expansion baisses impots | **0,674** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie ; = hausse depuis le lot 1 | 0,63 (v0.6.7), 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) ; lot 6 : 0,615 (calendrier de l'impulsion, recalage) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
@@ -2360,9 +2361,12 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > - **arbitré, classement inchangé, limite déclarée** (arbitrage du mainteneur du 16/11/2026) : les subventions
 >   aux entreprises et les transferts en capital aux ménages restent au coefficient de la dépense courante
 >   (limite 9 de « Limites et Precautions ») ;
+> - **les coupes de prestations en espèces du rabot uniforme** (pensions, allocations chômage, minima sociaux) :
+>   **traitées au lot 5e** (encadré du lot 5e) ;
 > - **à arbitrer** : les indemnités journalières comprises dans le curseur Ondam (des prestations en espèces) et
 >   la dotation des collectivités (un transfert entre administrations). Les soins de l'Ondam et de l'aide
->   médicale de l'État, prestations en nature, restent de la dépense courante ;
+>   médicale de l'État, prestations en nature, restent de la dépense courante, comme les franchises de
+>   l'assurance maladie (canal `prestations` de la santé, exclu du lot 5e) ;
 > - **la même dépense de santé avait une dynamique différente selon le levier qui la porte** (préexistant, résolu
 >   par l'option du lot 6) : `sante` suivait le profil de persistance de l'investissement
 >   (`INVESTMENT_FLOW_MEASURES`), les moyens de soins de `depenses_publiques` celui de la dépense courante. Pour un
@@ -2511,6 +2515,40 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > 6ᵉ) ; aux sorties du moteur (deux décimales), un ex æquo au 5ᵉ rang se départage ; aux valeurs affichées par le
 > site (une décimale), un ex æquo à trois au 4ᵉ rang se départage ; déficit, croissance, chômage, pouvoir d'achat,
 > compétitivité et Gini : aucun rang ne change.
+
+> **Prestations en espèces émises hors des leviers de transfert : traitement des transferts (lot 5e, équation,
+> 16/11/2026, non publiée).** Même règle que le lot 5b : le montant qu'un levier émet au canal ménages `prestations`
+> et qui n'est pas déjà traité comme un transfert (levier hors `TRANSFER_MEASURES`, hors coefficient propre) forme
+> un flux distinct, `(levier, 'prestations')` dans `flux_par_levier` (`engine/growth.py`), au coefficient et au
+> profil des transferts (`MULT_TRANSFERTS`, `DECAY_PROFILE_TRANSFERS`), dans les deux sens ; le reste du levier
+> garde sa famille. Un seul cas : le rabot uniforme, dont les coupes de pensions, d'allocations chômage et de minima
+> sociaux, allocation aux adultes handicapés comprise (`_CATEGORIES_ESPECES`, `handlers/montaigne.py`), étaient
+> prises en dépense courante avec le reste du rabot ; elles en font environ un tiers (46,8 Md€ sur 141,2 en 2032,
+> mode cadre, programme publié qui l'utilise). **Source** : ce sont des prestations sociales en espèces (SEC 2010,
+> D.62), que le moteur traite déjà comme des transferts quand un levier de transfert les porte (`retraites`,
+> `chomage_alloc`, `prestations_menages`) ; le montant est celui que lit déjà l'indice de pouvoir d'achat.
+> **Exceptions déclarées**, verrouillées par la liste et par le comportement (retirer leur canal ne change aucune
+> colonne macroéconomique) : le SMIC, à coefficient propre, garde ce canal dans son solde ; la santé
+> (`PRESTATIONS_NON_RECLASSEES`, `simulator.py`) aussi : son canal `prestations` porte les franchises et
+> participations, un reste à charge sur des remboursements de soins, c'est-à-dire une prestation en nature (SEC
+> 2010, D.632), pas en espèces ; laissée en l'état, en attente d'un arbitrage. **Limites** : celles du lot 5b pour
+> le coefficient et le profil des transferts (profil concentré sur les premières années) ; la coupe de masse
+> salariale du rabot n'est pas touchée (limite 10 de « Limites et Precautions »). Test :
+> `tests/test_prestations_hors_transferts.py` (émetteurs dérivés du registre des paramètres : hors des leviers de
+> transfert et des coefficients propres, exactement le rabot et la santé ; source unique chaque année, deux modes ;
+> même trajectoire macroéconomique qu'un transfert du même montant, à 1e-9 près, en montée en charge sur trois ans,
+> dans les deux sens et cinq états, pour le rabot et un émetteur synthétique ; non-vacuité ; exceptions du SMIC et
+> de la santé par le comportement ; mutations « santé reclassée », « règle désactivée », « règle limitée à la
+> première impulsion », « prestations comptées en plus de la dépense » et « SMIC reclassé » : toutes rouges). **Ce
+> qui bouge** (mode cadre 2028, dix scénarios publiés, par rapport au lot 5b) : le seul programme qui utilise le
+> rabot, dette 2032 −0,58 point, déficit 2032 plus faible de 0,14 point, croissance moyenne 2028-2032 +0,042 point,
+> chômage 2032 −0,06 point ; les neuf autres scénarios et la référence sans programme sont identiques au bit. Rangs :
+> aucun ne change en pleine précision (ni aux sorties du moteur, à deux décimales) ; aux valeurs affichées par le site
+> (une décimale), le programme qui utilise le rabot rejoint, ex æquo, le 1ᵉʳ rang de déficit 2032. Sur la pile
+> d'intégration (lots 2, 6, 5b et 5d appliqués, contre le lot 5d reporté) : dette 2032 −0,65 point, déficit 2032
+> plus faible de 0,15, croissance moyenne +0,038, chômage 2032 −0,07 ; en dette 2032, ce programme passe du 2ᵉ au
+> 1ᵉʳ rang (pleine précision comme aux sorties du moteur), et, à une décimale, il rejoint aussi, ex æquo, le 9ᵉ rang
+> de chômage.
 
 **Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée jusqu'à v0.8.1** : en moteur complet, la coupe coûtait encore 4,4 % de plus que la hausse ne rapportait ; c'était l'éviction (« crowding-out »), qui réduisait l'effet des seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Éviction retirée au lot 1 (15/11/2026) : 0,1 %, verrouillé à 1 % par `tests/test_symetrie_transferts_v067.py`.
 (Correction du lot 5 : la symétrie de signe n'est pas un résultat de Gechert 2015, qui classe par instrument et ne teste pas le signe ; c'est une convention du mainteneur, pour toutes les familles. Limite déclarée : encadré « Dépense courante symétrique en signe ».)
@@ -3945,6 +3983,8 @@ diffère du droit en vigueur pour plusieurs leviers. Garde exécutable :
 8. **Symetrie hausse/baisse verifiee sur le PIB, pas sur la dette** (preexistant, toutes familles) : les tests de symetrie comparent l'effet sur le PIB reel, et la dette d'une hausse et d'une baisse de meme ampleur n'est plus en miroir quand la prime de taux atteint son plafond de malus (0,60 point), une relance n'y coutant plus de prime quand une coupe en regagne (mesure, mode cadre 2028, ±1 point de PIB de depense courante, dette 2032 : +1,80 / -2,04 point dans un programme publie au plafond, 13,5 % d'ecart contre 2 % sur le PIB et 1 % plafond leve ; 3 % pour la reference sans programme ; 11 % pour les transferts).
 
 9. **Subventions aux entreprises et transferts en capital aux menages** (arbitrage du mainteneur du 16/11/2026 : classement inchange, limite declaree) : aucune source consultee ne chiffre l'effet d'une subvention durable. Mesange (document de travail Insee G2017/04, note 77 p. 105) range les transferts courants, les transferts en capital et les subventions parmi les postes « sans effets directs ou indirects sur l'activite dans le modele » ; QUEST (Roeger & in 't Veld, European Economy Economic Papers 426, 2010, tableau 2) ne chiffre que des aides temporaires a l'investissement, dont l'effet vient d'un report dans le temps et ne se transpose pas a une subvention permanente. Le moteur leur donne le coefficient de la depense courante, vraisemblablement trop fort. Ordre de grandeur (mode cadre 2028, dette 2032, mesure au lot 5b) : prises au coefficient des transferts, profil inchange, les subventions baisseraient la dette de 0,02 a 0,10 point selon le programme (0,02 pour la reference sans programme, dont le droit en vigueur baisse les subventions ; au plus 0,08 en ecart a elle) ; les transferts en capital aux menages la releveraient de 0,005 point, pour un seul programme.
+
+10. **Coupe de masse salariale du rabot uniforme** (lot 5e, non touchee) : le moteur l'assimile a des effectifs (depense courante), alors que la note source du levier ne dit pas s'il s'agit d'un gel des remunerations ou d'une baisse d'effectifs ; ses exemples d'ajustement sont des fermetures et des rencherissements de services, pas des gels de remuneration. Ordre de grandeur (mode cadre 2028, dette 2032, mesure sur la pile d'integration, lots 2 et 6 appliques) : prise comme un gel, elle releverait la dette 2032 du programme publie qui l'utilise de 1,08 point : le traitement des transferts du lot 5b l'abaisserait de 0,58 point, l'effet prix du lot 5d, qui retire le cout du gel du PIB en valeur publie, la releverait de 1,65 point (sur l'etat du lot 5e seul : 1,07, 0,51 et 1,59). Son assiette n'est pas modifiee.
 
 ---
 

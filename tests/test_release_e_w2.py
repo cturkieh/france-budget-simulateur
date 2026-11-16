@@ -1252,12 +1252,18 @@ def test_w2_13_p5_multiplicateur_des_transferts_dans_les_deux_sens(x, sens):
 
 def test_w2_13_mutation_hors_des_transferts(monkeypatch):
     """Par MUTATION : retiré de ``TRANSFER_MEASURES``, le levier serait
-    multiplié comme une dépense générique — le test W2-13 rougit."""
+    multiplié comme une dépense générique — le test W2-13 rougit. Depuis le lot
+    5e, ses prestations en espèces (canal ``prestations``, toute sa dépense)
+    prendraient encore le traitement des transferts par la règle des
+    prestations émises hors des leviers de transfert : la mutation coupe aussi
+    cette seconde voie (``PRESTATIONS_NON_RECLASSEES``)."""
     vus, sortie = _compositions_multiplicateur({'prestations_menages': {'solidarite': -10.0}})
     _impact_applique(sortie[2], 'prestations_menages', C.POLICY_START_YEAR)
     assert vus and vus[0][1]['transferts'] == 1.0
     monkeypatch.setattr(BudgetSimulatorV45, 'TRANSFER_MEASURES',
                         BudgetSimulatorV45.TRANSFER_MEASURES - {'prestations_menages'})
+    monkeypatch.setattr(BudgetSimulatorV45, 'PRESTATIONS_NON_RECLASSEES',
+                        BudgetSimulatorV45.PRESTATIONS_NON_RECLASSEES | {'prestations_menages'})
     vus, _ = _compositions_multiplicateur({'prestations_menages': {'solidarite': -10.0}})
     assert vus and vus[0][1]['transferts'] == 0.0
 

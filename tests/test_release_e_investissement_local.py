@@ -39,7 +39,7 @@ def test_part_investissement_declaree():
 
 def test_flux_distinct_de_la_dotation():
     impacts = {'collectivites': {'depenses': 25.0, 'recettes': 0.0, 'depenses_investissement': 15.0}}
-    flux = flux_par_levier(impacts, NETTES)
+    flux = flux_par_levier(impacts, NETTES, leviers_de_transfert=BudgetSimulatorV45.TRANSFER_MEASURES, prestations_non_reclassees=BudgetSimulatorV45.PRESTATIONS_NON_RECLASSEES)
     assert flux[('collectivites', 'depenses')] == -10.0       # dotation
     assert flux[('collectivites', 'investissement')] == -15.0  # investissement productif
     assert flux[('collectivites', 'recettes')] == 0.0
@@ -47,7 +47,7 @@ def test_flux_distinct_de_la_dotation():
 
 def test_flux_inchange_sans_part_investissement():
     impacts = {'collectivites': {'depenses': 10.0, 'recettes': 0.0}}
-    assert flux_par_levier(impacts, NETTES) == {('collectivites', 'recettes'): 0.0,
+    assert flux_par_levier(impacts, NETTES, leviers_de_transfert=BudgetSimulatorV45.TRANSFER_MEASURES, prestations_non_reclassees=BudgetSimulatorV45.PRESTATIONS_NON_RECLASSEES) == {('collectivites', 'recettes'): 0.0,
                                                 ('collectivites', 'depenses'): -10.0}
 
 

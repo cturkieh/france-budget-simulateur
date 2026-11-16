@@ -145,16 +145,26 @@ def test_aucun_levier_ne_transmet_plus_que_ses_euros(statu_quo, nom):
         f"(Δ = {euros:.1f} Md€, transmission {ecart / (euros / assiette):.0%})")
 
 
+# Levier porteur du canal posé à la main. Pour ``prestations``, un levier de
+# TRANSFERT : depuis le lot 5e, le canal ``prestations`` d'un levier qui n'est
+# pas de transfert est une part de sa dépense, lue par la croissance (flux au
+# traitement des transferts) ; posé sans euro budgétaire sur un tel levier, il
+# créerait deux flux opposés. Sur un levier de transfert, seul l'indice le lit.
+_PORTEUR = {'prestations': ('prestations_menages', {'solidarite': 1.0})}
+_PORTEUR_PAR_DEFAUT = ('impot_revenu', {'taux_superieur': 0.5})
+
+
 def _niveau_constant(monkeypatch, **canaux):
     """Simulation où un levier émet, chaque année dès 2026, un canal ménages
     CONSTANT posé à la main, sans aucun euro budgétaire : la macro (PIB,
     déflateur) reste celle du statu quo, seul l'indice peut bouger."""
-    sim = BudgetSimulatorV45(periods=10, mesures={'impot_revenu': {'taux_superieur': 0.5}})
+    levier, params = _PORTEUR.get(next(iter(canaux), None), _PORTEUR_PAR_DEFAUT)
+    sim = BudgetSimulatorV45(periods=10, mesures={levier: params})
 
     def _constant(measure, params, year, gdp, inflation, unemployment):
         return 0.0, 0.0, {'menages': canaux_menages(**canaux)}
 
-    monkeypatch.setitem(sim.measure_handlers, 'impot_revenu', _constant)
+    monkeypatch.setitem(sim.measure_handlers, levier, _constant)
     df, _, _ = sim.simulate()
     return sim._rdb_trace, df.set_index('Année')['PIB']
 
