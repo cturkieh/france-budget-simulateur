@@ -127,7 +127,9 @@ def test_p1_handler_sans_ancien_commentaire_de_six_milliards():
 
 # ===========================================================================
 # 2. Effet des cotisations salariales sur l'indice de Gini : coefficient PAR
-#    Md€, estimation de France Budget (décision du mainteneur du 12/11/2026)
+#    Md€, estimation de France Budget par la méthode commune du lot 4
+#    (salaires au classement final de la fiche 1.4 de l'Insee), qui remplace
+#    l'arbitrage du mainteneur du 12/11/2026 (quintiles, plage +0,00006 à +0,0001)
 # ===========================================================================
 
 def test_p2_coefficient_par_md_nomme():
@@ -141,15 +143,25 @@ def test_p2_coefficient_par_md_nomme():
 
 
 def test_p2_coefficient_documente_comme_estimation_de_france_budget():
-    """Le commentaire de la constante dit ce qu'elle est : une estimation de
-    France Budget (quintiles Insee 2025), son incertitude (facteur 2) et son
-    domaine (baisse uniforme de quelques points) ; aucune « OFCE 2023 »."""
+    """Le commentaire de la constante dit ce qu'elle est, dans les mots de la
+    méthode commune du lot 4 : une estimation de France Budget par un proxy, les
+    salaires au classement final de la fiche 1.4 de l'Insee ; son incertitude
+    (facteur 2, plafonds des cotisations vieillesse) et son domaine (baisse
+    uniforme) ; il garde la mention de l'estimation antérieure par quintiles
+    (arbitrage du 12/11/2026, remplacé), en recoupement. Aucune « OFCE 2023 »."""
     source = CONSTANTS_PY.read_text(encoding='utf-8')
     debut = source.index('GINI_COTIS_SAL_PAR_MD = ')
-    bloc = source[source.rfind('\n\n', 0, debut):debut]
-    for motif in ('estimation de France Budget', 'quintiles', 'Insee', 'facteur 2', 'baisse uniforme'):
+    commentaire = []
+    for ligne in reversed(source[:debut].splitlines()):   # le commentaire propre de la constante, juste au-dessus
+        if not ligne.startswith('#'):
+            break
+        commentaire.insert(0, ligne.lstrip('# '))
+    bloc = ' '.join(commentaire)
+    for motif in ('estimation de France Budget', 'proxy', 'salaires', 'fiche 1.4', "l'Insee", 'classement final',
+                  'facteur 2', 'baisse uniforme', 'estimation antérieure par quintiles'):
         assert motif in bloc, (motif, bloc)
     assert 'OFCE 2023' not in bloc
+    assert 'GINI_COTIS_SAL_PAR_MD = _gini_ecart_rang_final(' in source
 
 
 def _gini(points, sim=None):
