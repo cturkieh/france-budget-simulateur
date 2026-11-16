@@ -206,6 +206,10 @@ sa source, que chacun peut modifier ; pour l'impôt plancher sur les très grand
 défaut, milieu de la fourchette publiée (15 % à 55 % environ). Elle ne contient que la réaction des
 contribuables : l'effet de l'impôt sur l'activité et l'emploi est calculé par ailleurs, une seule fois,
 par le moteur. Quand une source ne donne qu'un montant, sans taux, ce montant est utilisé tel quel.
+La recette d'un impôt écrit en taux grandit avec l'économie : son assiette suit la richesse produite
+(le PIB en euros courants). Cela vaut aussi pour le curseur des impôts sur le patrimoine (IFI, droits de
+succession et de donation, taxe foncière) : une hausse de 10 % de ces impôts rapporte 10 % d'une recette
+qui augmente chaque année, et non une somme figée. L'IFI que remplacerait un ISF suit la même règle.
 
 ---
 

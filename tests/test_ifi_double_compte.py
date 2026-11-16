@@ -15,11 +15,13 @@ changent pas ; recette, canal ménages, Gini et compétitivité suivent les mêm
 """
 import pytest
 
-from budget_simulator.constants import GINI_HAUT_PATRIMOINE_PAR_MD
+from budget_simulator.constants import GINI_HAUT_PATRIMOINE_PAR_MD, PATRIMOINE_IFI_MD, PIB_BASE_2025_MD_EUR
 from budget_simulator.simulator import BudgetSimulatorV45
 
 ANNEE = 2030
-GDP = 3300.0
+# PIB de l'année source de l'assiette (indice 1) : les euros du bloc sont ceux de l'année source,
+# ceux sur lesquels le Gini est émis (hors indice, tests/test_patrimoine_assiette_pib.py).
+GDP = float(PIB_BASE_2025_MD_EUR)
 
 
 def _patrimoine(p, i, gdp=GDP, annee=ANNEE):
@@ -66,8 +68,8 @@ def test_l_ifi_ne_varie_qu_au_prorata_de_ce_qui_en_reste(p, i):
 
 def test_isf_complet_le_bloc_ne_contient_plus_d_ifi():
     """À l'intensité 1 de l'ISF, le bloc vaut successions + taxe foncière seules : l'écart
-    mesuré est exactement l'IFI de la base du bloc (2 Md€ dans le code de v0.8.1)."""
-    assert _ifi_du_bloc() == pytest.approx(2.0, abs=1e-12)
+    mesuré est exactement l'IFI de la base du bloc."""
+    assert _ifi_du_bloc() == pytest.approx(PATRIMOINE_IFI_MD, abs=1e-12)
 
 
 def test_bout_en_bout_valide_et_sans_exces():

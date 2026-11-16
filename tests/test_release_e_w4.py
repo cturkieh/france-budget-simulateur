@@ -1973,10 +1973,14 @@ ISF_MOITIE = {'isf_climatique': {'intensite': 0.5}}
 
 def test_w4_5_z4_l_isf_inchange_avec_ou_sans_plancher():
     """W4-5 (Z4') : sorties de ``_apply_isf_climatique`` identiques au bit avec
-    ou sans plancher (rejeu, et chaque année des deux modes : la recette de
-    l'ISF ne lit pas le PIB) ; le plancher ne lit pas la constante d'évasion
-    de l'ISF (paramètre propre, ``evitement``)."""
-    _verifier_independance('impot_plancher_patrimoine', {'taux': 0.02}, ISF_MOITIE, toutes_annees=True)
+    ou sans plancher (rejeu à entrées égales, et première année des deux
+    modes) ; le plancher ne lit pas la constante d'évasion de l'ISF (paramètre
+    propre, ``evitement``). Les années suivantes ne sont plus comparées depuis
+    le lot 3 : l'IFI que remplace l'ISF suit le PIB nominal (règle « un taux
+    suit son assiette »), et le plancher, qui change le PIB, change donc
+    l'IFI déduit — un effet de l'économie, pas un double compte ; le rejeu,
+    lui, reste au bit."""
+    _verifier_independance('impot_plancher_patrimoine', {'taux': 0.02}, ISF_MOITIE)
     code = '\n'.join(l.split('#')[0] for l in
                      inspect.getsource(BudgetSimulatorV45._apply_impot_plancher_patrimoine).splitlines())
     assert 'taux_evasion' not in code and not re.search(r'\b0\.15\b', code)
@@ -1992,10 +1996,10 @@ def _mutant_isf_couple_au_plancher(self, original, measure, params, year, gdp, i
 def test_w4_5_z4_mutation_isf_couple_au_plancher(monkeypatch):
     """Par MUTATION : une recette du plancher reversée dans l'ISF (même
     patrimoine compté deux fois) fait échouer Z4'."""
-    _verifier_independance('impot_plancher_patrimoine', {'taux': 0.02}, ISF_MOITIE, toutes_annees=True)
+    _verifier_independance('impot_plancher_patrimoine', {'taux': 0.02}, ISF_MOITIE)
     _muter(monkeypatch, '_apply_isf_climatique', _mutant_isf_couple_au_plancher)
     with pytest.raises(AssertionError, match='DOUBLE_COMPTE'):
-        _verifier_independance('impot_plancher_patrimoine', {'taux': 0.02}, ISF_MOITIE, toutes_annees=True)
+        _verifier_independance('impot_plancher_patrimoine', {'taux': 0.02}, ISF_MOITIE)
 
 
 IS_ET_SURTAXE = {'impot_societes': {'taux': 0.30, 'niches': 0}, 'is_exceptionnel_tge': {'montant': 12}}

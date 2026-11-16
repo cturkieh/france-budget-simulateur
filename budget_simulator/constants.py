@@ -2949,6 +2949,18 @@ DMTG_2025_MD = 21.2
 # dérogatoires (dossier du dépôt parent
 # docs/plans/evitement-successions-sources-2026-11.md) ; l'infobulle le dit.
 DMTG_VARIATION_MAX_MD = 25.0
+# Bloc du levier ``fiscalite_patrimoine`` (IFI + successions et donations + taxe
+# foncière) et IFI que remplace ``isf_climatique`` : recettes de l'année source
+# ANNEE_SOURCE_PATRIMOINE, en Md€. L'intensité du levier est un pourcentage de
+# ces recettes, donc un taux : l'assiette suit le PIB nominal depuis l'année
+# source (règle « un taux suit son assiette », _indice_pib_source), comme l'IFI
+# remplacé (jusqu'au lot 3 : bloc figé en euros, IFI remplacé à +2 % par an
+# depuis 2026, convention propre au levier). Valeurs de v0.8.1, attribuées à
+# « DGFiP 2024 » sans référence retrouvée : release de paramètres distincte.
+ANNEE_SOURCE_PATRIMOINE = 2025
+PATRIMOINE_IFI_MD = 2.0
+PATRIMOINE_SUCCESSIONS_MD = 15.0
+PATRIMOINE_TAXE_FONCIERE_MD = 36.0
 # Bornes hautes de trois montants (Md€ par an), décision du mainteneur du
 # 12/11/2026 : les objectifs de dépense qu'un programme publié écrit en part du
 # PIB ou du revenu national brut (RNB) sont comptés pour tous ; chaque borne est

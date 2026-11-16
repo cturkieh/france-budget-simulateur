@@ -27,6 +27,7 @@ from budget_simulator.constants import (
     CROISSANCE_UC_ANNUELLE,
     HANDLER_FAILED_KEY,
     PART_NETTE_REMUNERATIONS_APU,
+    PIB_BASE_2025_MD_EUR,
     REPERCUSSION_BAISSE_FISCALITE_INDIRECTE,
     REPERCUSSION_HAUSSE_FISCALITE_INDIRECTE,
     TAUX_EPARGNE_MENAGES_2025,
@@ -488,9 +489,11 @@ def test_fiscalite_patrimoine_deux_sens(statu_quo, intensite):
     # À la main : IFI 2 Md€ + taxe foncière 36 Md€ × part des ménages (FIPECO,
     # 2024 : 26,1 Md€ sur 42,9 Md€ de taxes foncières, le reste « payé surtout
     # par les entreprises » — revue passe 1, L3) ; succession 15 Md€ exclue.
-    assert i['recettes'] == pytest.approx(53.0 * intensite, rel=1e-12)
+    # Lot 3 : l'assiette suit le PIB nominal depuis 2025 (indice de l'année).
+    indice = sim._pib_nominal_par_annee[AN1] / PIB_BASE_2025_MD_EUR
+    assert i['recettes'] == pytest.approx(53.0 * intensite * indice, rel=1e-12)
     assert i['menages']['prelevements_directs'] == pytest.approx(
-        intensite * (2.0 + 36.0 * 26.1 / 42.9), rel=1e-12)
+        intensite * (2.0 + 36.0 * 26.1 / 42.9) * indice, rel=1e-12)
     ecart = _ecart_an1(sim._rdb_trace, statu_quo)
     assert ecart == pytest.approx(-i['menages']['prelevements_directs']
                                   / sim._rdb_trace[AN1].rdb_base, rel=1e-9)

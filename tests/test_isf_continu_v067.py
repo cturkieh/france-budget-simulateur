@@ -13,13 +13,15 @@ l'intensité 1. Monotone, continu, nul en 0, identique en 1.
 """
 import pytest
 
-from budget_simulator.constants import POLICY_START_YEAR
+from budget_simulator.constants import PATRIMOINE_IFI_MD, PIB_BASE_2025_MD_EUR, POLICY_START_YEAR
 from budget_simulator.simulator import BudgetSimulatorV45
+
+GDP = 3000.0  # PIB passé au handler par ces tests
 
 
 def _isf(intensite, year):
     sim = BudgetSimulatorV45(mesures={})
-    _, rec, impacts = sim._apply_isf_climatique({}, {'intensite': intensite}, year, 3000.0, 0.015, 0.075)
+    _, rec, impacts = sim._apply_isf_climatique({}, {'intensite': intensite}, year, GDP, 0.015, 0.075)
     return rec, impacts
 
 
@@ -31,7 +33,9 @@ def _isf_complet(year):
 
 
 def _ifi(year):
-    return 2.0 * 1.02 ** max(0, year - POLICY_START_YEAR)
+    """IFI remplacé : recette de l'année source × PIB / PIB 2025 (lot 3 ; avant : 2 Md€ × 1,02^n
+    depuis 2026). Ne dépend plus de l'année à PIB donné."""
+    return PATRIMOINE_IFI_MD * GDP / PIB_BASE_2025_MD_EUR
 
 
 GRILLE = [i / 1000 for i in range(1001)] + [1e-6, 0.571, 0.572, 0.999]
@@ -58,7 +62,8 @@ def test_intensite_1_inchangee(year):
     rec, _ = _isf(1.0, year)
     assert rec == pytest.approx(_isf_complet(year) - _ifi(year), rel=1e-12)
     if year == 2030:
-        assert rec == pytest.approx(7.90, abs=5e-3)
+        # ISF complet ≈ 10,07 Md€ moins l'IFI remplacé au PIB du test (2,0 × 3 000 / 2 991).
+        assert rec == pytest.approx(10.0716 - PATRIMOINE_IFI_MD * GDP / PIB_BASE_2025_MD_EUR, abs=5e-3)
 
 
 def test_effets_macro_interpoles_comme_la_recette():

@@ -40,7 +40,9 @@ from budget_simulator.config import load_policy_config
 from budget_simulator.constants import (
     ASU_COUT_RECOURS_MD_EUR,
     OFFRE_SENIORS_PIB_NIVEAU_LT,
+    PATRIMOINE_IFI_MD,
     PHASING_OFFRE_SENIORS,
+    PIB_BASE_2025_MD_EUR,
     POLICY_START_YEAR,
     asu_effort_perenne_md_eur,
 )
@@ -128,13 +130,18 @@ def test_c_superprofits_trois_ans_a_partir_du_debut():
 
 def test_c_isf_phasage_du_programme_ifi_calendaire():
     """ISF climatique : phasage 50 % l'année d'entrée (2028), mais l'IFI remplacé
-    croît depuis 2026 (calendrier, pas horloge du programme). Différence avec
-    l'entrée en 2026 du mode historique : exactement l'IFI de deux ans de plus."""
+    suit le PIB de l'année (assiette, pas horloge du programme ; lot 3 : avant, +2 %
+    par an depuis 2026). Différence avec l'entrée en 2026 du mode historique :
+    exactement l'écart d'IFI entre les PIB nominaux des deux années d'entrée."""
     i = 0.5
-    cadre_2028 = impacts_par_annee(simuler({'isf_climatique': {'intensite': i}}, annee_debut=DEBUT)[2])
-    hist_2026 = impacts_par_annee(simuler({'isf_climatique': {'intensite': i}})[2])
+    df_c, _, r_c, _ = simuler({'isf_climatique': {'intensite': i}}, annee_debut=DEBUT)
+    df_h, _, r_h, _ = simuler({'isf_climatique': {'intensite': i}})
+    cadre_2028 = impacts_par_annee(r_c)
+    hist_2026 = impacts_par_annee(r_h)
     ecart = cadre_2028[DEBUT]['isf_climatique']['recettes'] - hist_2026[2026]['isf_climatique']['recettes']
-    assert ecart == pytest.approx(i * (2.0 - 2.0 * 1.02 ** 2), rel=1e-9)
+    pib = lambda df, an: float(df.loc[df['Année'] == an, 'PIB'].iloc[0])
+    ifi = lambda df, an: PATRIMOINE_IFI_MD * pib(df, an) / PIB_BASE_2025_MD_EUR
+    assert ecart == pytest.approx(i * (ifi(df_h, 2026) - ifi(df_c, DEBUT)), rel=1e-9)
 
 
 def test_c_seniors_horloge_du_choc_au_debut():

@@ -141,8 +141,9 @@ leurs sorties clé par clé. Conséquences :
 - le **choc d'âge** des retraites est daté au plus tôt de l'année de début : ses montées en
   charge (pensions, offre de travail, chômage seniors) partent avec le programme ;
 - restent **calendaires** : le calendrier légal de l'âge (62,75 ans gelés jusqu'en 2027, puis
-  +3 mois par an jusqu'à 64 ans en 2032), la revalorisation légale de 2026, et la croissance de
-  l'IFI que remplacerait un ISF climatique ;
+  +3 mois par an jusqu'à 64 ans en 2032) et la revalorisation légale de 2026 ; l'IFI que
+  remplacerait un ISF climatique suit le PIB nominal de l'année (son assiette), quelle que soit
+  l'année d'entrée du programme ;
 - le passage d'une hausse de TVA dans les prix a lieu l'année qui suit son entrée en vigueur,
   sur l'horloge de la TVA ; le coefficient et le plafond sont inchangés.
 
@@ -1856,7 +1857,10 @@ Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`, 
 **Curseur d'intensité — courbe continue (v0.6.7, audit externe Codex 10/2026, arbitrage du
 mainteneur du 07/10/2026)** : `recette totale = IFI + intensité × (ISF complet − IFI)`, donc écart au statu quo =
 `intensité × (ISF complet − IFI)`, où « ISF complet » est le point NFP ci-dessous (seuil 1,3 M EUR,
-taux 1 %, bonus vert 30 % : +7,90 Md EUR en 2030, IFI de 2,16 Md EUR déduit). Gini, pouvoir
+taux 1 %, bonus vert 30 % : ≈ 10,07 Md EUR de recette nette, IFI déduit ; +7,81 Md EUR en 2030 en
+mode cadre). L'IFI déduit suit le PIB nominal depuis 2025 (règle « un taux suit son assiette ») ;
+jusqu'au lot 3, il croissait de 2 % par an depuis 2026, une convention propre à ce levier (2,16 Md EUR
+en 2030). La recette brute de l'ISF, elle, ne suit pas le PIB (limite antérieure, signalée). Gini, pouvoir
 d'achat et compétitivité sont interpolés de la même façon. Monotone, nul à 0, identique au bit à 1
 (`tests/test_isf_continu_v067.py`, grille de 1 000 points). Jusqu'en v0.6.6, l'intensité pilotait
 seuil, taux et bonus avec des paliers de foyers et d'assiette en escalier : dès 10⁻⁶ l'IFI était
@@ -2185,7 +2189,12 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
 - **Un taux suit son assiette.** L'assiette est sourcée à une année (2025 ; 2026 pour la taxe
   sur les transactions financières, première année pleine au taux de 0,4 %) et suit le PIB
   nominal depuis cette année : la recette ne dépend pas de l'année où le programme commence.
-  Un montant en Md€ reste constant en euros courants (règle commune de la release).
+  Un montant en Md€ reste constant en euros courants (règle commune de la release). La règle
+  vaut aussi, depuis le lot 3, pour le curseur « Fiscalité du patrimoine » (un pourcentage des
+  recettes de l'IFI, des droits de succession et de donation et de la taxe foncière) et pour l'IFI
+  que remplace l'ISF ; avant, le bloc restait figé en euros de l'année source (sa part dans le PIB
+  baissait d'environ 10 % sur le mandat). Leurs effets ponctuels sur le Gini et la compétitivité
+  sont comptés hors indice, comme ceux des autres impôts à taux.
 - **Un montant annoncé est un rendement net.** Quand une source donne un montant sans taux,
   le curseur en Md€ (`rendement_*`) remplace le calcul : ni taux, ni réaction, ni assiette
   ne s'y appliquent, et les paramètres de taux fournis en même temps sont ignorés (refus en
@@ -2628,7 +2637,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > au PIB plus faibles dans la même proportion ; inflation du déflateur publiée plus haute de 0,013 à 0,222 point par
 > an en moyenne sur 2028-2032 (jusqu'à 1,10 point l'année d'une forte hausse) ; indice des prix à la consommation,
 > croissance, chômage, Gini et pouvoir d'achat identiques au bit. **Décomposition** (chaque levier compté seul) : le
-> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,429 et 1,375 point ; la revalorisation des
+> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,429 et 1,376 point ; la revalorisation des
 > enseignants seule de 0,088 à 0,385 point ; la part « agents publics » du SMIC seule de 0,029 à 0,185 point.
 > Méthode : chaque levier est mesuré seul, le coût des autres retiré ; mesurée en retirant la seule part du SMIC de
 > l'ensemble, elle vaut 0,029 à 0,185 point, l'écart venant de ce que les leviers interagissent par le PIB publié.

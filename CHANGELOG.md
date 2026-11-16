@@ -44,6 +44,24 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   `tests/test_ifi_double_compte.py` (nouveau ; levier inchangé sans ISF, IFI au prorata de ce qui en reste,
   mêmes euros dans les quatre canaux, cas de l'audit de bout en bout). Golden master isolé : aucun cas ne
   combine les deux leviers, 64 sur 64 identiques au bit.
+- **Impôts sur le patrimoine : l'assiette suit le PIB nominal** (règle commune « un taux suit son assiette »).
+  Le curseur « Fiscalité du patrimoine » est un pourcentage des recettes de l'IFI, des droits de succession et de
+  donation et de la taxe foncière : il s'appliquait pourtant à un bloc figé en euros de l'année source (part dans
+  le PIB en baisse d'environ 10 % sur le mandat). L'IFI que remplace l'ISF croissait de 2 % par an depuis 2026,
+  une convention propre à ce levier, sans source ouverte. Désormais bloc × intensité × PIB_t / PIB_2025 et IFI
+  remplacé × PIB_t / PIB_2025 (`_indice_pib_source`, année source `ANNEE_SOURCE_PATRIMOINE`) ; effets ponctuels
+  (Gini, compétitivité) hors indice, comme les revenus du capital et l'impôt plancher. Aucune valeur de base ne
+  change (bloc patrimoine, bloc « paramètres » distinct) ; les trois bases sont extraites en constantes nommées
+  (`PATRIMOINE_IFI_MD`, `PATRIMOINE_SUCCESSIONS_MD`, `PATRIMOINE_TAXE_FONCIERE_MD`), l'IFI étant le même pour
+  les deux leviers. Test rouge puis vert : `tests/test_patrimoine_assiette_pib.py` (nouveau). Golden master
+  isolé : bougent exactement les cas qui portent l'un des deux leviers — le scénario qui pose l'ISF (deux modes)
+  et les deux mini-scénarios des leviers ; 60 cas sur 64 identiques au bit. Instantanés régénérés une fois
+  (mêmes cas). Re-déclarés : l'IFI des tests de l'ISF continu et de l'horloge de l'ISF suit le PIB ; l'assiette
+  du test de pouvoir d'achat du patrimoine porte l'indice de l'année ; l'indépendance de l'ISF et de l'impôt
+  plancher (Z4') se compare au rejeu et à la première année (le plancher change le PIB, donc l'IFI déduit) ; la
+  recette d'année pleine du test du Gini de l'ISF (méthode du lot 4) se lit au PIB de 2025, où l'IFI déduit vaut
+  celui de 2025, sans la correction de +2 % par an. Chiffre publié recalculé par sa garde (effet prix des
+  rémunérations publiques, METHODOLOGIE) : le point d'indice seul abaisse la dette 2032 de 1,429 et 1,376 point.
 
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 

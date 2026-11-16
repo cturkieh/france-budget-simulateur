@@ -67,6 +67,7 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    ANNEE_SOURCE_PATRIMOINE,
     COUT_PAR_POINT_COTIS_SAL,
     CSG_TAUX_DROIT_EN_VIGUEUR_2026,
     ETI_PLANCHER_FACTEUR,
@@ -87,7 +88,9 @@ from ..constants import (
     PART_CONSOMMATION_MENAGES_TVA_TOTALE,
     PART_MENAGES_TAXE_FONCIERE,
     PATRIMOINE_COMPET_PAR_10MD,
-    POLICY_START_YEAR,
+    PATRIMOINE_IFI_MD,
+    PATRIMOINE_SUCCESSIONS_MD,
+    PATRIMOINE_TAXE_FONCIERE_MD,
     TVA_COMPET_PAR_2PTS,
     TVA_ENERGIE_CONSO_ELECTRICITE_MD,
     TVA_ENERGIE_CONSO_GAZ_MD,
@@ -575,9 +578,12 @@ class FiscaliteMenagesMixin(_MixinBase):
             return 0.0, 0.0, {}
 
         # ===== BUDGET ACTUEL =====
-        IFI_BASE = 2.0      # Md€
-        SUCCESSION_BASE = 15.0  # Md€
-        FONCIERE_BASE = 36.0    # Md€
+        # Recettes de l'année source (constants.py) ; l'assiette suit le PIB
+        # nominal depuis cette année (règle « un taux suit son assiette »).
+        IFI_BASE = PATRIMOINE_IFI_MD
+        SUCCESSION_BASE = PATRIMOINE_SUCCESSIONS_MD
+        FONCIERE_BASE = PATRIMOINE_TAXE_FONCIERE_MD
+        indice = self._indice_pib_source(ANNEE_SOURCE_PATRIMOINE, gdp)
         # IFI ENCORE EN VIGUEUR : l'ISF du programme (``isf_climatique``) en
         # remplace la part de son intensité i — recette totale (1 − i) × IFI +
         # i × ISF complet (courbe continue v0.6.7). Le bloc ne fait varier que
@@ -590,7 +596,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         TOTAL_BASE = ifi_en_vigueur + SUCCESSION_BASE + FONCIERE_BASE  # 53 Md€ sans ISF
 
         # ===== VARIATION =====
-        delta_revenue = TOTAL_BASE * intensite
+        delta_revenue = TOTAL_BASE * intensite * indice
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # Revenu disponible (v0.6.8) : l'IFI et la part MÉNAGES de la taxe
@@ -601,7 +607,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         impacts = {
             'recettes': delta_revenue,
             'menages': canaux_menages(prelevements_directs=(
-                intensite * (ifi_en_vigueur + PART_MENAGES_TAXE_FONCIERE * FONCIERE_BASE))),
+                intensite * (ifi_en_vigueur + PART_MENAGES_TAXE_FONCIERE * FONCIERE_BASE) * indice)),
         }
 
         # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
@@ -614,6 +620,9 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Lot 3 : seul l'IFI ENCORE EN VIGUEUR compte (part p['part_ifi']) ; la
         # part en vigueur entre dans les paramètres suivis : un ISF qui change
         # d'intensité change les euros du bloc, donc l'effet.
+        # Euros HORS indice d'assiette, comme les autres impôts à taux du
+        # moteur (revenus du capital, impôt plancher) : l'effet est émis une
+        # fois, au changement de paramètre.
         def _base_du_bloc(p):
             return IFI_BASE * p['part_ifi'] + SUCCESSION_BASE + FONCIERE_BASE
 
@@ -637,7 +646,7 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         _log_debug(self.debug_logs,
                    f"Y{year}: Fiscalité patrimoine {intensite*100:+.0f}% - "
-                   f"Total = {TOTAL_BASE*(1+intensite):.1f}Md€ "
+                   f"Total = {TOTAL_BASE*indice*(1+intensite):.1f}Md€ "
                    f"(delta {delta_revenue:+.1f}Md€)")
 
         return 0, delta_revenue, impacts
@@ -673,11 +682,14 @@ class FiscaliteMenagesMixin(_MixinBase):
         years_elapsed = year - self._origine('isf_climatique')
 
         # ===== IFI DYNAMIQUE =====
-        # IFI actuel avec croissance +2%/an (inflation patrimoniale INSEE 2015-2025).
-        # CALENDAIRE (v0.7.0) : l'IFI remplacé croît depuis 2026 quelle que soit
+        # IFI remplacé : recette de l'année source × PIB nominal de l'année / PIB
+        # de l'année source (règle « un taux suit son assiette », lot 3 ; avant :
+        # +2 %/an depuis 2026, convention propre au levier). Quelle que soit
         # l'année d'entrée de l'ISF — ce n'est pas l'horloge du programme.
-        ifi_depart = 2.0  # IFI de l'année de départ (Md€), remplacé par l'ISF
-        ifi_actuel = ifi_depart * (1.02 ** max(0, year - POLICY_START_YEAR))
+        # IFI de l'année source (ANNEE_SOURCE_PATRIMOINE) : sert au Gini (euros
+        # hors indice, méthode du lot 4) ; l'IFI remplacé de l'année suit le PIB.
+        ifi_depart = PATRIMOINE_IFI_MD
+        ifi_actuel = PATRIMOINE_IFI_MD * self._indice_pib_source(ANNEE_SOURCE_PATRIMOINE, gdp)
 
         # ===== PHASING 2 ANS (cadastre fiscal) =====
         # 0.5 l'année de mise en place, 1.0 ensuite (plein effet)

@@ -89,12 +89,14 @@ def test_ir_decote_et_taux_additifs():
 
 def _isf_recette_pleine(intensite, sim=None):
     """Recette nette de l'ISF hors phasage, IFI de 2025 déduit : la recette du
-    levier en régime permanent (deuxième année) moins la croissance de l'IFI."""
+    levier en régime permanent (deuxième année), au PIB de 2025. Lot 3 : l'IFI
+    remplacé suit le PIB (et non plus +2 %/an), il vaut donc celui de 2025 au
+    PIB de 2025 ; aucune correction de sa croissance."""
     sim = sim or _sim()
     sim._origines_courantes = {'isf_climatique': C.POLICY_START_YEAR}
-    _, rec, _ = _appel(sim, 'isf_climatique', {'intensite': intensite}, year=C.POLICY_START_YEAR + 1)
-    ifi_deuxieme_annee = 2.0 * 1.02
-    return rec + intensite * (ifi_deuxieme_annee - 2.0)
+    _, rec, _ = _appel(sim, 'isf_climatique', {'intensite': intensite}, year=C.POLICY_START_YEAR + 1,
+                       gdp=float(C.PIB_BASE_2025_MD_EUR))
+    return rec
 
 
 @pytest.mark.parametrize('intensite', [0.3, 0.6, 1.0])
