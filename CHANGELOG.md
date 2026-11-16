@@ -1,10 +1,18 @@
 # Changelog — moteur france-budget-simulateur
 
-**BLOQUANT AVANT PUBLICATION : retirer l'échec attendu de la garde du pouvoir d'achat 2029 et mettre à jour les valeurs figées après relecture.**
-
 Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
+
+## [non publiée — proposée] — garde du pouvoir d'achat 2029 : valeurs figées relues, échec attendu retiré
+
+**Statut** : commit de TEST ; moteur et sorties inchangés. Les valeurs figées du pouvoir d'achat 2029 (mode
+historique, `tests/snapshots/pa_2029_figes.json`) sont mises à jour à la main avec les valeurs publiées de la pile,
+relues et validées par le mainteneur le 16/11/2026 (arbitrage du mainteneur) ; le fichier n'est jamais régénéré
+automatiquement (`_lisezmoi` complété). L'échec attendu temporaire de la garde (tolérance ±1,5 point) est retiré, avec
+la ligne « bloquant avant publication » qui ouvrait ce fichier. Écarts au figé précédent, dans l'ordre du fichier :
+−0,1 ; +0,6 ; +1,4 ; −0,4 ; −0,6 ; −0,4 ; +0,2 ; −0,2 ; −0,1 ; +0,5 (le plus grand, +1,4, sous la tolérance qui avait
+mordu à +1,5 sur une étape de la pile).
 
 ## [non publiée — proposée] — texte de la croissance : équation (2) sans écrêtage, avis de la v0.8.0 daté
 

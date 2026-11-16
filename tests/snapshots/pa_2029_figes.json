@@ -1,15 +1,15 @@
 {
- "_lisezmoi": "Pouvoir d'achat 2029 (mode historique) de chaque scénario publié, FIGÉ PAR REVUE HUMAINE : garde-fou de tests/test_political_scenarios_2027.py (tolérance ±1,5 pt), indépendant du golden master. Jamais régénéré automatiquement : après un recalibrage ou un ré-encodage volontaire, reporter ici les valeurs auditées (commit identifiable). Dernière mise à jour : release de paramètres P (moteur v0.8.1, 12/11/2026), les dix encodages suivant leurs sources, puis deux encodages mis à jour par la relecture du même jour, quatre par la contre-relecture qui l'a suivie et quatre par les objectifs de dépense en part du PIB ou du RNB comptés pour tous ; écarts audités au CHANGELOG.",
+ "_lisezmoi": "Pouvoir d'achat 2029 (mode historique) de chaque scénario publié, FIGÉ PAR REVUE HUMAINE : garde-fou de tests/test_political_scenarios_2027.py (tolérance ±1,5 pt), indépendant du golden master. Jamais régénéré automatiquement : après un recalibrage ou un ré-encodage volontaire, reporter ici les valeurs auditées (commit identifiable). Dernière mise à jour : 16/11/2026, relecture par le mainteneur des valeurs publiées de la pile des corrections du moteur (équations des lots 1 à 6, SMIC, croissance sans écrêtage, encodages du site du lot 3), reportées à la main sur arbitrage du mainteneur ; écarts au CHANGELOG. Précédente : release de paramètres P (moteur v0.8.1, 12/11/2026), les dix encodages suivant leurs sources, puis deux encodages mis à jour par la relecture du même jour, quatre par la contre-relecture qui l'a suivie et quatre par les objectifs de dépense en part du PIB ou du RNB comptés pour tous.",
  "valeurs": {
-  "plf_2026": 102.9,
-  "rn_2027": 103.9,
-  "lfi_2027": 107.6,
-  "renaissance_2027": 101.7,
-  "horizons_2027": 102.8,
-  "lr_2027": 99.1,
-  "ps_2027": 105.3,
-  "ecologistes_2027": 103.2,
-  "im_rabot_2029": 96.9,
-  "nouvelle_energie_2027": 111.0
+  "plf_2026": 102.8,
+  "rn_2027": 104.5,
+  "lfi_2027": 109.0,
+  "renaissance_2027": 101.3,
+  "horizons_2027": 102.2,
+  "lr_2027": 98.7,
+  "ps_2027": 105.5,
+  "ecologistes_2027": 103.0,
+  "im_rabot_2029": 96.8,
+  "nouvelle_energie_2027": 111.5
  }
 }
