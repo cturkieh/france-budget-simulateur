@@ -221,10 +221,49 @@ def niveaux_du_budget(impacts: Dict, pib: float, mesures_nettes: frozenset) -> D
     nominal ``pib`` de son année : les NIVEAUX dont la variation d'un budget au
     suivant est l'impulsion keynésienne (``_stocker_impulsions``)."""
     return {cle: montant / pib for cle, montant in flux_par_levier(impacts, mesures_nettes).items()}
+def cout_employeur_des_remunerations(impacts: Dict) -> float:
+    """Coût employeur de l'année (Md€, signé : + pour une hausse) des rémunérations publiques à
+    effectifs constants : la somme du canal ménages ``remunerations_publiques`` de TOUS les leviers
+    (SOURCE UNIQUE : le canal que lisent l'impulsion du lot 5b et le pouvoir d'achat), la part
+    « agents publics » de la hausse du SMIC comprise. L'effet prix est une identité comptable
+    (production non marchande évaluée à ses coûts) : il ne dépend pas du coefficient par lequel la
+    croissance prend le levier — l'exception du SMIC ne vaut que pour la demande (lot 5b). Lu par
+    l'effet prix sur le PIB publié (lot 5d, ``au_pib_publie``)."""
+    total = 0.0
+    for impact in impacts.values():
+        canaux = impact.get('menages') if isinstance(impact, dict) else None
+        if isinstance(canaux, dict):
+            total += float(canaux.get('remunerations_publiques', 0) or 0)
+    return total
+
+
+def au_pib_publie(pib_interne: float, deflateur_interne: float, inflation_interne: float,
+                  cout_remunerations: float, rapport_precedent: float) -> Tuple[float, float, float, float]:
+    """Effet prix des rémunérations publiques sur le PIB en valeur PUBLIÉ (lot 5d). La production
+    non marchande est évaluée à la somme de ses coûts (SEC 2010 § 10.28) ; une hausse de rémunération à effectifs constants en est un PRIX, pas un
+    volume (§ 10.30, § 10.44). Le coût employeur de l'année s'ajoute donc au PIB en valeur publié,
+    en niveau, dans les deux sens ; le déflateur publié en est relevé d'autant (PIB publié = PIB
+    réel × déflateur publié) et l'inflation publiée du déflateur est sa variation. Rend
+    ``(PIB publié, déflateur publié, inflation publiée, rapport PIB publié / PIB interne)``.
+
+    Rien de cela n'entre dans le moteur : PIB nominal, déflateur et inflation internes (recettes,
+    indexations, courbe de Phillips, taille des impulsions, prime de taux, pouvoir d'achat, IPC…)
+    restent ceux de l'état sans effet prix. Sans rémunération, les quatre valeurs sont identiques
+    au bit aux valeurs internes (rapport 1,0 exactement)."""
+    pib_publie = pib_interne + cout_remunerations
+    rapport = pib_publie / pib_interne
+    deflateur_publie = deflateur_interne * rapport
+    inflation_publiee = inflation_interne + (1 + inflation_interne) * (rapport / rapport_precedent - 1)
+    return pib_publie, deflateur_publie, inflation_publiee, rapport
 
 
 class GrowthMixin:
     """Bloc moteur — Croissance (PIB potentiel + multiplicateur keynésien)."""
+
+    def _cout_remunerations_annee(self, impacts: Dict) -> float:
+        """Coût employeur de l'année des rémunérations publiques à effectifs constants, pour
+        l'effet prix sur le PIB publié (lot 5d) : ``cout_employeur_des_remunerations``, source unique."""
+        return cout_employeur_des_remunerations(impacts)
 
     def potentiel_de_l_annee(self) -> PotentielAnnee:
         """Photographie du potentiel de l'année en cours (v0.6.10, V2-02).

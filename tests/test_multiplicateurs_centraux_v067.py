@@ -51,13 +51,23 @@ def _simuler(famille=None, periods=12):
                                'recettes': x if flux == 'recettes' else 0.0}
                 if flux == 'remunerations':
                     imp[levier]['menages'] = canaux_menages(remunerations_publiques=x)
+                self.__dict__.setdefault('_injections', {})[year] = x
                 if flux in ('depenses', 'remunerations'):
                     sp += x
                 else:
                     rv += x
             return sp, rv, imp
 
-    return _Impulsion(periods=periods, mesures={}).simulate()
+    sim = _Impulsion(periods=periods, mesures={})
+    df, annuel, rapport = sim.simulate()
+    # Impulsion injectée chaque année (0,01 × PIB INTERNE de l'année), lue telle quelle : le PIB publié porte en plus
+    # l'effet prix des rémunérations publiques (lot 5d), il ne la mesure pas quand le levier en verse.
+    return df, annuel, dict(rapport, impulsions_injectees=dict(getattr(sim, '_injections', {})))
+
+
+def _injectee(sortie, i):
+    """Impulsion injectée l'année d'index ``i`` (Md€)."""
+    return sortie[2]['impulsions_injectees'][int(sortie[0]['Année'][i])]
 
 
 @pytest.fixture(scope='module')
@@ -125,11 +135,28 @@ def test_choc_investissement_de_calibrage_ne_s_autofinance_pas_dans_le_banc(mesu
     cumule_10 = sum(n[2:12]) / 10
     assert cumule_10 * TAUX_PRELEVEMENTS_AUTOFINANCEMENT < 1
     df0, df = base[0], cas['investissement'][0]
-    cout = sum(0.01 * df['PIB'][i] for i in range(1, 12))
+    cout = sum(_injectee(cas['investissement'], i) for i in range(1, 12))
     degradation = sum(df0['Déficit'][i] - df['Déficit'][i] for i in range(1, 12))
     assert degradation > 0.5 * cout   # l'essentiel du coût reste à la charge des finances publiques
     assert df['Dette'][11] > df0['Dette'][11]                   # dette nominale 2036
     assert df['Dette/PIB %'][11] > df0['Dette/PIB %'][11]       # ratio 2036
+
+
+def test_l_impulsion_injectee_est_lue_au_pib_interne_avec_remuneration(mesures):
+    """Lot 5d : avec un levier qui verse une rémunération publique, le PIB publié porte l'effet prix (le coût de
+    l'année) ; l'impulsion injectée vaut 0,01 × PIB INTERNE = 0,01 × (PIB publié − coût), et non 0,01 × PIB publié
+    (1 % de moins ici). Sans rémunération, les deux lectures coïncident au bit. Le banc lit donc l'impulsion
+    telle qu'injectée."""
+    _, cas = mesures
+    for famille, avec_remuneration in (('remunerations_publiques', True), ('investissement', False)):
+        df = cas[famille][0]
+        for i in range(1, 12):
+            x, publie = _injectee(cas[famille], i), float(df['PIB'][i])
+            assert x == pytest.approx(0.01 * (publie - (x if avec_remuneration else 0.0)), rel=1e-12), (famille, i)
+            if avec_remuneration:
+                assert abs(x / (0.01 * publie) - 1) > 0.005, (famille, i)
+            else:
+                assert x == 0.01 * publie, (famille, i)
 
 
 METHODO = Path(__file__).resolve().parent.parent / 'docs' / 'METHODOLOGIE.md'
@@ -147,7 +174,7 @@ def _banc_autofinancement(base, cas):
     (df0, ann0, _), (df, ann, _) = base, cas
     periode = range(1, 12)
     n = _niveaux(base, cas)
-    cout = sum(0.01 * df['PIB'][i] for i in periode)   # = impulsion injectée (0,01 × PIB de l'année)
+    cout = sum(_injectee(cas, i) for i in periode)   # impulsion injectée (0,01 × PIB interne de l'année)
     d_rec = sum(ann['Recettes_Totales'][i] - ann0['Recettes_Totales'][i] for i in periode)
     d_dep = sum(ann['Dépenses_Totales'][i] - ann0['Dépenses_Totales'][i] for i in periode)
     d_int = sum(ann['Intérêts_Dette'][i] - ann0['Intérêts_Dette'][i] for i in periode)

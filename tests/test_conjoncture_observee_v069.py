@@ -133,6 +133,11 @@ def _simuler(nom, chocs=None, coins=None):
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
         mp.setattr(orch, 'rdb_annee', espion_rdb)
+        # Ce fichier verrouille le PIB nominal INTERNE (choc de conjoncture, déflateur, consommateurs
+        # de la croissance), lu ici dans les sorties. L'effet prix des rémunérations publiques (lot 5d)
+        # ne touche que le PIB publié et il est verrouillé ailleurs (test_effet_prix_remunerations.py) :
+        # il est retiré, les colonnes publiées sont alors les valeurs internes.
+        mp.setattr(BudgetSimulatorV45, '_cout_remunerations_annee', lambda self, impacts: 0.0)
         if chocs is not None:
             mp.setattr(C, 'CHOCS_DEMANDE_OBSERVES', dict(chocs), raising=False)
         if coins is not None:

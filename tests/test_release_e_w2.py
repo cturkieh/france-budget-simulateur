@@ -151,6 +151,16 @@ def _impacts(rapport):
     return {a['Année']: a for a in rapport['measure_impacts_by_year']}
 
 
+def _pib_interne(sortie, annee):
+    """PIB nominal INTERNE de l'année, reconstruit depuis les sorties publiées (lot 5d) : le PIB publié moins le coût
+    employeur de l'année des rémunérations publiques (somme des canaux ``remunerations_publiques`` des impacts
+    publiés). Sans rémunération, c'est le PIB publié, au bit."""
+    df, _, rapport = sortie[:3]
+    cout = sum(float((v.get('menages') or {}).get('remunerations_publiques', 0) or 0)
+               for m, v in _impacts(rapport)[annee].items() if m != 'Année' and isinstance(v, dict))
+    return float(df.set_index('Année').at[annee, 'PIB']) - cout
+
+
 def _impact_applique(rapport, levier, annee):
     """Impact publié du levier l'année ``annee``. Échoue en nommant la cause si
     le levier est en échec (squelette non livré, porte) ou absent."""
@@ -1354,11 +1364,12 @@ def test_w2_15_t1_d_hausse_dans_l_effort_seul_canal_dette(annee_debut):
     with droit_sans_valeurs_datees():          # droit constant : voir _residu_t_plus_1
         ref = _simuler_brut({}, annee_debut)
         avec = _simuler_brut({'transferts_etranger': {'montant': x}}, annee_debut)
-    r_ref = ref[0].set_index('Année')
     d_ref, d_avec = ref[1].set_index('Année'), avec[1].set_index('Année')
     eff_ref = d_ref.at[t, 'Effort_Budgétaire %'] / 100
     eff_avec = d_avec.at[t, 'Effort_Budgétaire %'] / 100
-    assert eff_avec - eff_ref == pytest.approx(-x / r_ref.at[t, 'PIB'], abs=1e-15)
+    # L'effort est rapporté au PIB INTERNE (lot 5d : le PIB publié porte en plus l'effet prix des rémunérations
+    # publiques) : reconstruit depuis les sorties, il ne dépend pas d'une absence de rémunération dans le banc.
+    assert eff_avec - eff_ref == pytest.approx(-x / _pib_interne(ref, t), abs=1e-15)
     residu, ecart_pib, attendu = _residu_t_plus_1(annee_debut, x)
     assert abs(residu) <= 1e-12, residu
     assert ecart_pib == pytest.approx(attendu, abs=1e-9)

@@ -2404,10 +2404,10 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > 0,25 la première année) alors que le profil des transferts du moteur est concentré sur les premières années :
 > ce profil est repris par analogie, sans source, et l'effet est trop rapide la première année ; (2) le retour
 > immédiat des cotisations (employeur et salariales) et de la CSG aux administrations publiques n'est pas
-> modélisé à part : il passe par l'élasticité des recettes, avec un an de retard, et le coût pour le déficit en
-> est surestimé la première année ; (3) l'effet prix d'une hausse de rémunération sur le PIB en valeur (SEC 2010
-> § 10.28 : la production non marchande vaut la somme de ses coûts) n'est pas représenté : le moteur ne relève
-> ni le PIB nominal ni le déflateur ; (4) les études empiriques sur les salaires publics divergent (Bermperoglou,
+> modélisé à part : il ne passe que par l'élasticité des recettes au PIB (la même année depuis le calendrier du
+> lot 6, avec un an de retard avant), et le coût pour le déficit en reste surestimé la première année ; (3) l'effet prix d'une hausse de rémunération sur le PIB en valeur (SEC 2010
+> § 10.28 : la production non marchande vaut la somme de ses coûts) est traité au lot 5d, sur le seul PIB publié
+> (encadré suivant) ; (4) les études empiriques sur les salaires publics divergent (Bermperoglou,
 > Pappa & Vella, *Journal of Economic Dynamics and Control*, 2017 ; Forni, Monteforte & Sessa, *Journal of Public
 > Economics*, 2009 ; FMI, document de travail 19/125) et n'ont été lues qu'en résumé. Pour les effectifs, la méta-analyse de
 > Gechert (catégorie « emploi public ») et l'OFCE (Creel, Heyer & Plane, *Revue de l'OFCE* n° 116, 2011) ne
@@ -2439,6 +2439,78 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > déficit et Gini : aucun rang ne change. Rangs sur la pile (sorties du moteur) : en dette 2032, un scénario passe
 > du 6ᵉ au 4ᵉ rang et un programme du 4ᵉ au 5ᵉ ; en croissance moyenne, deux rangs changent ; à une décimale, la
 > dette et le déficit changent chacun d'un ou deux rangs, la croissance et le chômage d'un.
+
+> **Effet prix des rémunérations publiques sur le PIB en valeur publié (lot 5d, équation, 16/11/2026, non
+> publiée).** Pour toute hausse ou baisse de rémunération des agents publics à effectifs constants (canal ménages
+> `remunerations_publiques` de tous les leviers : point d'indice, revalorisation des enseignants en place, part «
+> agents publics » de la hausse du SMIC), le coût employeur de l'année s'ajoute au PIB en valeur publié, en niveau,
+> dans les deux sens : une hausse le relève, un gel relatif ou une baisse l'abaisse. Le montant est ce canal
+> (`cout_employeur_des_remunerations`, `engine/growth.py`, source unique : le même que lisent l'impulsion du lot 5b
+> et le pouvoir d'achat). L'effet prix est une identité comptable, indépendante du coefficient par lequel la
+> croissance prend le levier : l'exception du SMIC du lot 5b (coefficient propre) ne vaut que pour la demande.
+> L'assiette de la part « agents publics » du SMIC est elle-même en cours d'instruction ; elle sera reprise avec le
+> traitement du SMIC. Le déflateur publié en est relevé d'autant (PIB publié = PIB réel × déflateur publié), la
+> colonne « Inflation % » (déflateur du PIB) publie sa variation, et les ratios publiés (dette, déficit, recettes et
+> dépenses rapportés au PIB) sont rapportés au PIB publié (`au_pib_publie`). **Sources** : la production non
+> marchande est évaluée « as the sum of the costs incurred », rémunération des salariés comprise (SEC 2010 § 10.28)
+> ; son volume se mesure aux rémunérations « at base period prices » (§ 10.30) et le prix de chaque type de travail
+> est « the compensation paid per hour » (§ 10.44) : une hausse de rémunération à effectifs constants relève le PIB
+> en valeur et son déflateur, pas son volume. Mésange (document de travail Insee G2017/04, p. 92) : « le prix de la
+> valeur ajoutée non marchande, et par suite les prix de demande en produits non marchands, suivent le salaire moyen
+> par tête non marchand ». Insee Première n° 1950 (mai 2023) : « Le déflateur de la consommation des APU augmente
+> moins (+1,2 %), même s'il est tiré par la revalorisation du point d'indice des fonctionnaires ». **Rien n'entre
+> dans le moteur** : le PIB nominal, le déflateur et l'inflation internes, donc les recettes (élasticité au PIB
+> nominal), les indexations, la courbe de Phillips et son inertie, la taille des impulsions, la prime de taux et la
+> traînée de dette, l'écart de déficit, le passage de la TVA dans les prix, les bases des leviers et les plafonds,
+> l'atterrissage, le Gini et le pouvoir d'achat, restent ceux de l'état sans effet prix ; l'indice des prix à la
+> consommation (colonne « Inflation IPC % »), qui ne contient pas les salaires publics, aussi. **Limites déclarées**
+> : (1) mesure sans rétroaction : la prime de taux et la traînée de dette lisent le ratio de dette au PIB interne ;
+> rapportées au PIB publié, elles abaisseraient le ratio de dette de 2032 d'environ 0,2 point par point de PIB de
+> coût (mesuré : au plus 0,25 point, mode cadre 2028) ; (2) les effectifs ne sont pas concernés : la valeur ajoutée
+> directe d'une embauche, en volume, reste portée par le multiplicateur de la dépense courante, qui agit dès l'année
+> du budget depuis le lot 6 (0,69 % de PIB la première année pour un point de PIB de masse salariale), alors que les
+> modèles publiés donnent 1,2 à 2,0 point de PIB par point de PIB de masse salariale la première année (OFCE, *Revue
+> de l'OFCE* n° 116, 2011 : 1,2 ; OFCE, policy brief n° 17, 2017 : 2,0) ; à coût égal, une hausse de salaire et une
+> embauche ne sont donc pas traitées de façon comparable la première année : au sens du SEC, chacune ajoute son coût
+> au PIB en valeur, en prix pour l'une, en volume pour l'autre ; dans le moteur, pour un point de PIB de coût dès
+> 2028 (mode cadre), la hausse de salaire relève le PIB publié de 1,67 % et abaisse le ratio de dette de 1,40 point
+> la première année, l'embauche relève le PIB de 0,69 % et l'abaisse de 0,21 point (avant le calendrier du lot 6 :
+> +1 % et −0,20 point contre 0 et +1,05) ; (3) l'effort budgétaire (colonne « Effort_Budgétaire % ») reste rapporté
+> au PIB interne, comme la taille des impulsions qu'il mesure (écart au PIB publié : au plus 0,033 point de PIB) ;
+> l'écart de production, en volume, n'est pas touché ; (4) le ratio des recettes publié baisse sans que les recettes
+> bougent : le retour immédiat des cotisations n'est pas modélisé à part (limite (2) du lot 5b). Test :
+> `tests/test_effet_prix_remunerations.py` (identité publiée PIB = PIB réel × déflateur, avec et sans rémunération ;
+> inflation publiée = variation du déflateur publié ; chaque année, le PIB publié porte exactement le coût employeur
+> de l'année, effectifs exclus, SMIC compris ; ratios publiés × PIB publié = ratios internes × PIB interne ; toute
+> autre colonne identique au bit, indice des prix à la consommation compris ; sans rémunération, tout identique au
+> bit ; le SMIC seul relève le PIB publié du montant de son canal, rien d'autre ; hausse et baisse en miroir ;
+> chiffres du paragraphe « Ce qui bouge » liés à la mesure, en pleine précision, sauf les rangs ; mutations « prix
+> entré dans le PIB interne », « prix dans l'indice des prix à la consommation », « prix compté une seule année », «
+> prix aussi pour les effectifs », « déflateur publié non relevé » et « SMIC exclu de l'effet prix » : toutes
+> rouges). **Ce qui bouge** (mode cadre 2028, dix scénarios publiés, par rapport au lot 5b ; écarts en pleine
+> précision, sans les arrondis de sortie du moteur) : les sept programmes qui relèvent le point d'indice, la
+> revalorisation des enseignants ou le SMIC ; la référence sans programme et les trois autres sont identiques au
+> bit. **Seuls les rapports au PIB bougent** : la dette et le déficit en euros ne changent pas, ni les recettes ni
+> les dépenses ; c'est le PIB en valeur publié, au dénominateur, qui est relevé. Dette rapportée au PIB en 2032 :
+> −1,611 et −1,549 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,16 et 1,11 %),
+> −0,748 point pour un programme qui revalorise les enseignants et relève le SMIC, de −0,088 à −0,385 point pour les
+> quatre autres ; déficit 2032 rapporté au PIB plus faible de 0,003 à 0,104 point ; recettes et dépenses rapportées
+> au PIB plus faibles dans la même proportion ; inflation du déflateur publiée plus haute de 0,013 à 0,236 point par
+> an en moyenne sur 2028-2032 (jusqu'à 1,26 point l'année d'une forte hausse) ; indice des prix à la consommation,
+> croissance, chômage, Gini et pouvoir d'achat identiques au bit. **Décomposition** (chaque levier compté seul) : le
+> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,428 et 1,381 point ; la revalorisation des
+> enseignants seule de 0,088 à 0,385 point ; la part « agents publics » du SMIC seule de 0,024 à 0,445 point.
+> Méthode : chaque levier est mesuré seul, le coût des autres retiré ; mesurée en retirant la seule part du SMIC de
+> l'ensemble, elle vaut 0,024 à 0,443 point, l'écart venant de ce que les leviers interagissent par le PIB publié.
+> **Rangs.** En pleine précision (comme aux sorties du moteur, à deux décimales) : en dette 2032 rapportée au PIB,
+> deux programmes échangent les 9ᵉ et 10ᵉ rangs ; déficit, croissance, chômage, pouvoir d'achat, compétitivité et
+> Gini : aucun rang ne change. Aux valeurs affichées par le site (une décimale), s'y ajoutent : en dette, deux
+> scénarios ex æquo au 4ᵉ rang se départagent (4ᵉ et 5ᵉ) ; en déficit, deux programmes deviennent ex æquo au 7ᵉ
+> rang. Sur la pile d'intégration (lots 2 et 6 appliqués, contre le lot 5b reporté), en pleine précision : en dette
+> 2032 rapportée au PIB, trois rangs changent entre le 4ᵉ et le 6ᵉ (le scénario du budget 2026 voté passe du 4ᵉ au
+> 6ᵉ) ; aux sorties du moteur (deux décimales), un ex æquo au 5ᵉ rang se départage ; aux valeurs affichées par le
+> site (une décimale), un ex æquo à trois au 4ᵉ rang se départage ; déficit, croissance, chômage, pouvoir d'achat,
+> compétitivité et Gini : aucun rang ne change.
 
 **Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée jusqu'à v0.8.1** : en moteur complet, la coupe coûtait encore 4,4 % de plus que la hausse ne rapportait ; c'était l'éviction (« crowding-out »), qui réduisait l'effet des seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Éviction retirée au lot 1 (15/11/2026) : 0,1 %, verrouillé à 1 % par `tests/test_symetrie_transferts_v067.py`.
 (Correction du lot 5 : la symétrie de signe n'est pas un résultat de Gechert 2015, qui classe par instrument et ne teste pas le signe ; c'est une convention du mainteneur, pour toutes les familles. Limite déclarée : encadré « Dépense courante symétrique en signe ».)
@@ -3157,7 +3229,7 @@ n'a plus de borne fixe.
 
 | Écart de recherche du programme en 2032 | (i) Effet deux ans après la dépense | (ii) 30 % d'une hausse en salaires |
 |---|---|---|
-| +26,7 Md€ | +1,35 / −0,31 / −0,091 | +0,93 / −0,24 / −0,073 |
+| +26,7 Md€ | +1,32 / −0,31 / −0,091 | +0,91 / −0,24 / −0,073 |
 | +10,7 Md€ | +0,70 / −0,16 / −0,049 | +0,49 / −0,13 / −0,040 |
 | +8,9 Md€ | +0,62 / −0,13 / −0,038 | +0,49 / −0,12 / −0,038 |
 | aucun (sept scénarios) | 0 | 0 |
@@ -3572,6 +3644,11 @@ classement inchange. Proprietes verrouillees par tests dedies.
   PA(t)  = 100 × [RDB(t) / RDB₂₀₂₅] / P(t) / (1 + γ)^(t − 2025)
   borne  = variation annuelle ± PA_VARIATION_ANNUELLE_MAX (filet, ne mord sur aucun scénario publié)
   ```
+
+  `PIB_nominal(t)` et `D(t)` sont le PIB et le déflateur INTERNES du moteur (lot 5d) : l'effet prix des
+  rémunérations publiques ne relève que le PIB et le déflateur publiés ; il ne touche ni le revenu ni les prix
+  à la consommation des ménages. Depuis les sorties publiées, D(t) = Déflateur × (PIB − coût) / PIB, où coût est
+  la somme des canaux `remunerations_publiques` de l'année.
 
   | Symbole | Valeur | Source (vérifiée en ligne le 07/10/2026, pages HTML et résumés) |
   |---|---|---|

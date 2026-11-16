@@ -247,7 +247,12 @@ def _injecte(etat, levier, x0, remuneration):
     sim = _Banc(periods=PERIODES, mesures={}, annee_debut=e['annee_debut'])
     if 'dette' in e:
         sim.base_params['dette_ratio'] = e['dette']
-    return sim.simulate()
+    # Le lot 5d ajoute au PIB PUBLIÉ le coût d'une rémunération (effet prix), pas d'un transfert :
+    # l'équivalence porte sur l'effet de demande, l'effet prix est retiré des deux côtés (il est
+    # verrouillé par test_effet_prix_remunerations.py).
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(BudgetSimulatorV45, '_cout_remunerations_annee', lambda self, impacts: 0.0)
+        return sim.simulate()
 
 
 @pytest.fixture(scope='module')
@@ -343,12 +348,15 @@ class _SmicSansCanal(BudgetSimulatorV45):
 
 
 @pytest.mark.parametrize('annee_debut', [None, 2028])
-def test_smic_la_part_agents_publics_ne_change_aucune_colonne_macroeconomique(annee_debut):
+def test_smic_la_part_agents_publics_ne_change_aucune_colonne_macroeconomique(monkeypatch, annee_debut):
     """L'exception du SMIC, par le COMPORTEMENT et pas seulement par la liste : retirer la part
     « agents publics » de son canal ménages ne change aucune colonne macroéconomique, au bit (elle
     reste dans le solde du SMIC, au coefficient propre). Seul l'indice de pouvoir d'achat, qui lit ce
     canal, bouge. Un reclassement de cette part au traitement des transferts, sous quelque nom que ce
-    soit, rougit ici."""
+    soit, rougit ici. L'exception porte sur la DEMANDE : l'effet prix du lot 5d, qui ajoute ce canal au
+    PIB publié pour tous les leviers, est retiré des deux côtés (verrouillé par
+    test_effet_prix_remunerations.py)."""
+    monkeypatch.setattr(BudgetSimulatorV45, '_cout_remunerations_annee', lambda self, impacts: 0.0)
     mesures = {'smic': {'montant_brut': 2000}}
     a = BudgetSimulatorV45(periods=PERIODES, mesures=mesures, annee_debut=annee_debut).simulate()
     sim = _SmicSansCanal(periods=PERIODES, mesures=mesures, annee_debut=annee_debut)

@@ -6,6 +6,87 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 5d : effet prix des rémunérations publiques sur le PIB en valeur publié
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5b
+ci-dessous, qu'il suppose appliqué. Aucun coefficient ne change. Remplace la limite (3) de l'encadré du lot 5b.
+
+**La règle.** Le coût employeur de l'année des rémunérations publiques à effectifs constants — le canal ménages
+`remunerations_publiques` de tous les leviers, part « agents publics » de la hausse du SMIC comprise,
+`cout_employeur_des_remunerations` (`engine/growth.py`), source unique — s'ajoute au PIB en valeur PUBLIÉ, en niveau,
+dans les deux sens. L'effet prix est une identité comptable : l'exception du SMIC du lot 5b ne vaut que pour la
+demande. L'assiette de la part publique du SMIC est en cours d'instruction (reprise avec le traitement du SMIC). Le déflateur publié en est relevé d'autant (PIB publié = PIB réel × déflateur publié),
+« Inflation % » (déflateur du PIB) publie sa variation, et les ratios publiés (dette, déficit, recettes, dépenses
+rapportés au PIB) sont rapportés au PIB publié (`au_pib_publie`). Rien n'entre dans le moteur : PIB nominal,
+déflateur et inflation internes, indice des prix à la consommation, recettes, indexations, Phillips, impulsions,
+prime de taux, traînée, atterrissage, Gini, pouvoir d'achat sont ceux de l'état sans effet prix.
+
+**Sources.** SEC 2010 § 10.28 (production non marchande évaluée à la somme de ses coûts), § 10.30 et § 10.44 (une
+hausse de rémunération à effectifs constants est un prix) ; Mésange 2017 p. 92 (le prix de la valeur ajoutée non
+marchande suit le salaire moyen par tête non marchand) ; Insee Première n° 1950, mai 2023 (le déflateur de la
+consommation des administrations « tiré par la revalorisation du point d'indice des fonctionnaires »).
+
+**Limites déclarées** (METHODOLOGIE, encadré du lot 5d) : pas de rétroaction sur la prime de taux ni la traînée de
+dette (rapportées au PIB publié, elles abaisseraient le ratio de dette de 2032 d'environ 0,2 point par point de PIB
+de coût, au plus 0,25 mesuré) ; effectifs non concernés (leur valeur ajoutée directe en volume reste au multiplicateur de la
+dépense courante, nul la première année avant le calendrier du lot 6, contre 1,2 à 2,0 dans les modèles publiés) — à coût égal, la première
+année, une hausse de salaire relève le PIB publié de 1 % et abaisse le ratio de dette de 0,2 point par point de PIB,
+une embauche ne relève pas le PIB et accroît le ratio de 1,05 point (sur la pile, depuis le calendrier du lot 6 : −1,40
+point pour le salaire, PIB publié +1,67 %, contre −0,21 pour l'embauche, PIB +0,69 %) ; effort budgétaire rapporté
+au PIB interne (écart au plus 0,033 point de PIB), écart de production inchangé (volume) ; ratio des recettes publié
+en baisse, sans retour des cotisations modélisé.
+
+- Test rouge puis vert : `tests/test_effet_prix_remunerations.py` (nouveau), à la précision machine : identité
+  publiée PIB = PIB réel × déflateur, avec et sans rémunération ; inflation publiée = variation du déflateur
+  publié ; chaque année, PIB publié − PIB interne = coût employeur de l'année, effectifs exclus ; ratios publiés ×
+  PIB publié = ratios internes × PIB interne ; toute autre colonne identique au bit (indice des prix à la
+  consommation, PIB réel, croissance, chômage, soldes et stocks en euros, taux, effort, écart de production,
+  potentiel, pouvoir d'achat, Gini, compétitivité) ; sans rémunération, tout identique au bit ; le SMIC seul relève
+  le PIB publié du montant de son canal, rien d'autre ; hausse et baisse en miroir à 1 % près (mesuré : 0,015 % à
+  0,34 %, le coût suivant la masse salariale indexée) ; chiffres du paragraphe « Ce qui bouge » de l'encadré et de
+  la note d'EXPLICATION recalculés en pleine précision et liés à la mesure (avec les scénarios publiés, groupes lus
+  dans les impacts, sans nom de scénario ; non liés : les rangs).
+  Rouge avant : 13 échecs sur 45 (le cœur de la règle ; les gardes d'invariance, vraies avant le lot, passaient déjà). Mutations « prix entré dans le PIB interne », « prix dans l'indice des prix à la
+  consommation », « prix compté une seule année », « prix aussi pour les effectifs », « déflateur publié non
+  relevé », « SMIC exclu de l'effet prix » : toutes rouges.
+- Tests adaptés, aucune tolérance élargie : l'équivalence du lot 5b (« même effet qu'un transfert »), la garde de
+  comportement de l'exception du SMIC du lot 5b (qui porte sur la demande) et les tests de la conjoncture observée
+  (PIB nominal INTERNE) retirent l'effet prix des deux côtés (il est verrouillé par le test neuf).
+  Le rejeu de la formule du pouvoir d'achat depuis les sorties publiées retire l'effet prix du déflateur publié
+  (D = Déflateur × (PIB − coût) / PIB) : la formule lit le déflateur interne, ce que METHODOLOGIE précise désormais.
+  Même défaut, latent, dans trois bancs qui relisaient le PIB publié comme le PIB interne (verts faute de
+  rémunération dans leur programme) : l'effort du test W2-15 et les niveaux d'impulsion du test des impulsions
+  lisent désormais le PIB interne reconstruit (PIB publié − coût de l'année), le banc des multiplicateurs lit
+  l'impulsion telle qu'injectée ; un cas avec rémunération prouve la bonne lecture (0,01 × PIB interne, 1 % sous
+  0,01 × PIB publié). Commentaire du validateur annuel corrigé : il borne des ratios au PIB interne et n'alimente que
+  le journal de débogage ; le rapport publié lit les ratios publiés.
+- Golden master isolé (pleine précision) : bougent les 15 cas où un levier émet une rémunération (sept programmes,
+  deux modes, et le mini-scénario du SMIC), et seulement les colonnes PIB, déflateur, inflation du déflateur et
+  ratios au PIB ; les 49 autres cas sont identiques au bit. Instantanés régénérés une fois (golden masters
+  historique, cadre et mini-scénarios, delta de référence). Pouvoir d'achat 2029 figé non modifié.
+- Effet (mode cadre 2028, par rapport au lot 5b, pleine précision) : seuls les rapports au PIB bougent — la dette,
+  le déficit, les recettes et les dépenses en euros ne changent pas, c'est le PIB en valeur publié, au dénominateur,
+  qui est relevé. Dette rapportée au PIB en 2032 : −1,704 et −1,558 point pour les deux programmes qui relèvent le
+  point d'indice (PIB publié 2032 plus haut de 1,18 et 1,11 %), −0,766 pour un programme qui revalorise les
+  enseignants et relève le SMIC, de −0,084 à −0,397 pour les quatre autres ; décomposition, chaque levier compté
+  seul : point d'indice −1,461 et −1,437, enseignants −0,084 à −0,397, part publique du SMIC −0,024 à −0,455
+  (retirée de l'ensemble : −0,024 à −0,453, les leviers interagissant par le PIB publié) ; déficit 2032 rapporté au
+  PIB plus faible de 0,003 à 0,120 ; inflation du déflateur publiée +0,013 à +0,240 point par an en moyenne sur
+  2028-2032 (jusqu'à +1,27 une année) ; indice des prix à la consommation, croissance, chômage, Gini et pouvoir
+  d'achat identiques au bit. Rangs en pleine précision (comme aux sorties du moteur, deux décimales) : dette 2032,
+  9ᵉ/10ᵉ ; aux valeurs affichées par le site (une décimale), s'y ajoutent en dette un ex æquo au 4ᵉ rang qui se
+  départage et en déficit un ex æquo nouveau au 7ᵉ rang.
+- Pile d'intégration (reporté après les lots 2, 6 et 5b, mesuré contre le lot 5b reporté) : dette rapportée au PIB
+  en 2032 −1,611 et −1,549 point (point d'indice ; PIB publié 2032 +1,16 et +1,11 %), −0,748, −0,088 à −0,385 ;
+  déficit 2032 rapporté au PIB plus faible de 0,003 à 0,104 ; décomposition, chaque levier seul : 1,428 et 1,381,
+  0,088 à 0,385, SMIC 0,024 à 0,445 (0,443 retirée de l'ensemble) ; chiffres liés de l'encadré et de la note
+  recalculés. Rangs de dette 2032 : trois changent entre le 4ᵉ et le 6ᵉ (pleine précision). L'effet prix entre dans
+  la boucle refondue du lot 6 sur la seule passe définitive : l'évaluation hors effet propre n'en laisse aucune
+  trace (test d'empreinte du lot 6, qui compare tous les attributs d'instance, nouvel état compris). Limite (2)
+  relue avec le lot 6 : l'embauche a désormais un effet la première année.
+- Docs : METHODOLOGIE (encadré, limite (3) du lot 5b), EXPLICATION (la dette rapportée au PIB baisse, la dette en
+  euros ne change pas), docstrings de `engine/growth.py` et commentaires de `engine/orchestrator.py`.
+
 ## [non publiée — proposée] — équations du lot 5b : rémunérations publiques à effectifs constants au traitement des transferts
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5
@@ -33,7 +114,8 @@ revenu net des agents n'est qu'une part (`PART_NETTE_REMUNERATIONS_APU`). Limite
 un effet différé (Mésange : « Les mécanismes de transmission à l'activité sont donc plus lents » ; e-mod.fr : 0,25
 la première année), le profil des transferts du moteur est concentré sur les premières années (profil repris par
 analogie, sans source : effet trop rapide la première année) ; le retour immédiat des cotisations et de la CSG aux
-administrations n'est pas modélisé à part (il passe par l'élasticité des recettes, avec un an de retard) ; l'effet
+administrations n'est pas modélisé à part (il ne passe que par l'élasticité des recettes au PIB, la même année
+depuis le calendrier du lot 6 sur la pile d'intégration, avec un an de retard avant) ; l'effet
 prix sur le PIB en valeur n'est pas représenté ; les études empiriques sur les salaires publics divergent (Bermperoglou, Pappa & Vella 2017 ; Forni, Monteforte & Sessa 2009 ;
 FMI, document de travail 19/125) et n'ont été lues qu'en résumé. Pour les effectifs, Gechert (catégorie « emploi
 public ») et l'OFCE (Creel, Heyer & Plane 2011) ne contredisent pas la dépense courante.

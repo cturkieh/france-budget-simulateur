@@ -118,6 +118,7 @@ from .cadre import (
     verifier_grandeur,
 )
 from .growth import niveaux_du_budget
+from .growth import au_pib_publie
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
     EntreeInvalide,
@@ -1083,6 +1084,8 @@ class OrchestratorMixin:
         results_detailed = []
         validation_log = []
         measure_impacts_by_year = []  # NOUVEAU: stockage des impacts par mesure par année
+        # Lot 5d : rapport PIB publié / PIB interne de l'année précédente (inflation publiée).
+        self._rapport_pib_publie = 1.0
 
         # État initial
         gdp_nominal = self.pib_nominal
@@ -1115,6 +1118,7 @@ class OrchestratorMixin:
                 interests = CHARGES_INTERET_MD_EUR
                 deficit = revenues - (spending + interests)  # 1562 - 1714 = -152 (≈ -5,1% PIB)
                 impacts = {}
+                cout_remunerations = 0.0
                 budget_effort = 0
                 multiplier = 1.0
                 growth = self.base_params['croissance_2025']  # INSEE: 0.9%
@@ -1254,6 +1258,9 @@ class OrchestratorMixin:
                  spending_base, spending_after, revenues_after, impacts) = demande
 
                 self._last_impacts = impacts
+                # Lot 5d : coût employeur de l'année des rémunérations publiques du lot 5b
+                # (même source que l'impulsion), pour le seul PIB PUBLIÉ (effet prix).
+                cout_remunerations = self._cout_remunerations_annee(impacts)
                 if year in self._journal_atterrissage:
                     # Premier temps de l'atterrissage : effet des réajustements du
                     # droit en vigueur sur le solde, mesuré à l'état de l'année.
@@ -1580,12 +1587,16 @@ class OrchestratorMixin:
                     _log_debug(self.debug_logs,
                         f"Y{year}: Compétitivité = {competitivite_index:.2f} (delta {competitivite_delta:+.3f} pts = {competitivite_delta/100:+.2%})")
 
-            # Validation
+            # Validation annuelle : bornes de vraisemblance du moteur, rapportées au PIB
+            # nominal INTERNE (gdp_nominal), pas au PIB publié (lot 5d : les colonnes
+            # publiées le sont au PIB publié, qui porte l'effet prix des rémunérations
+            # publiques). Ces alertes ne vont qu'au journal de débogage (validation_log) ;
+            # le rapport publié (validate_trajectory, plus bas) lit les ratios publiés.
             year_data = {
                 'Recettes/PIB %': revenues / gdp_nominal * 100,
-                # Aligné sur la métrique AFFICHÉE (avec intérêts) — revue
-                # 2026-06-10 : le validateur bornait un ratio primaire que
-                # personne ne voit (écart 2-3 pts vs colonne publiée).
+                # Dépenses avec intérêts, comme la colonne publiée — revue 2026-06-10 :
+                # le validateur bornait un ratio primaire que personne ne voit (écart
+                # 2-3 pts) ; le dénominateur reste le PIB interne (voir ci-dessus).
                 'Dépenses/PIB %': (spending + interests) / gdp_nominal * 100,
                 'Dette/PIB %': debt / gdp_nominal * 100,
                 'Gini': self.gini_courant,
@@ -1598,25 +1609,30 @@ class OrchestratorMixin:
             if violations:
                 validation_log.append(f"An {year}: {', '.join(violations)}")
 
-            # Résultats
+            # Résultats. Lot 5d : PIB, déflateur et ratios PUBLIÉS portent l'effet prix des
+            # rémunérations publiques (au_pib_publie) ; tout le reste, et tout le moteur, garde
+            # le PIB interne. Sans rémunération, publié = interne au bit.
+            pib_publie, deflateur_publie, inflation_publiee, self._rapport_pib_publie = au_pib_publie(
+                gdp_nominal, self.deflateur_cumule, inflation, cout_remunerations,
+                self._rapport_pib_publie)
             results_list.append({
                 'Année': year,
-                'PIB': round(gdp_nominal, 1),
+                'PIB': round(pib_publie, 1),
                 'Croissance %': round(growth * 100, 2),
-                'Inflation %': round(inflation * 100, 2),
+                'Inflation %': round(inflation_publiee * 100, 2),
                 # IPC (v0.7.0) : prix de la consommation des ménages (cf. bloc
                 # pouvoir d'achat) ; « Inflation % » reste le déflateur du PIB.
                 'Inflation IPC %': round(inflation_ipc * 100, 2),
                 'Déficit': round(deficit, 1),
-                'Déficit/PIB %': round(deficit / gdp_nominal * 100, 2),
+                'Déficit/PIB %': round(deficit / pib_publie * 100, 2),
                 'Dette': round(debt, 1),
-                'Dette/PIB %': round(debt / gdp_nominal * 100, 2),
+                'Dette/PIB %': round(debt / pib_publie * 100, 2),
                 'Chômage %': round(unemployment * 100, 2),
                 'Gini': round(self.gini_courant, 3),
                 'Pouvoir d\'Achat': round(purchasing_power, 1),
                 'Competitivite': round(competitivite_index, 2),
-                'Recettes/PIB %': round(revenues / gdp_nominal * 100, 1),
-                'Dépenses/PIB %': round((spending + interests) / gdp_nominal * 100, 1),  # AVEC intérêts
+                'Recettes/PIB %': round(revenues / pib_publie * 100, 1),
+                'Dépenses/PIB %': round((spending + interests) / pib_publie * 100, 1),  # AVEC intérêts
             })
 
             results_detailed.append({
@@ -1629,7 +1645,7 @@ class OrchestratorMixin:
                 'Effort_Budgétaire %': round(budget_effort * 100, 2) if year_idx > 0 else 0,
                 'Multiplicateur': round(multiplier, 2),
                 'PIB_Réel_Base2025': round(gdp_real, 1),
-                'Déflateur': round(self.deflateur_cumule, 3),
+                'Déflateur': round(deflateur_publie, 3),
                 'Output_Gap %': round(output_gap * 100, 2),
                 # Colonnes de potentiel = valeurs CONSOMMÉES par l'année
                 # (photographie `potentiel_annee`, prise avant la clôture

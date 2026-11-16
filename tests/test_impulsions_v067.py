@@ -222,7 +222,12 @@ def test_simulation_complete_chaque_variation_est_multipliee_une_fois(monkeypatc
     sim = _Sonde(periods=10, mesures={'fraude_fiscale': {'effort': 1.0}})
     df, _, rapport = sim.simulate()
     impacts = rapport['measure_impacts_by_year']
-    pib = list(df['PIB'])   # PIB nominal pleine précision, index 0 = 2025
+    # PIB nominal INTERNE pleine précision, index 0 = 2025 : le PIB publié moins le coût employeur de l'année des
+    # rémunérations publiques (lot 5d, effet prix du seul PIB publié ; nul ici, au bit, faute de rémunération).
+    assert [a['Année'] for a in impacts] == list(df['Année'])
+    pib = [float(df['PIB'][i]) - sum(float((v.get('menages') or {}).get('remunerations_publiques', 0) or 0)
+                                     for m, v in impacts[i].items() if m != 'Année' and isinstance(v, dict))
+           for i in range(len(df))]
     niveaux = []
     for t in range(1, 11):
         cumul = sum(d for (an, m, _c, _s), (d, _k, _p) in sim._fiscal_impulses.items()

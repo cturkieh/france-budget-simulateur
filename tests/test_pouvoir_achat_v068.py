@@ -260,7 +260,11 @@ def test_formule_exacte_rejouee(monkeypatch):
     bout sur un programme mixte à partir des SORTIES publiques (colonnes PIB,
     Déflateur, RDB_Ménages_Md€ et impacts par mesure de l'API) : canaux € de
     l'année, prix = déflateur × coin fiscal, indice par UC. Remplace les tests
-    de la formule v0.6.7 (croissance + Σ coefficients × 0,5 après 2026)."""
+    de la formule v0.6.7 (croissance + Σ coefficients × 0,5 après 2026). Lot 5d : le
+    déflateur de la formule est le déflateur INTERNE ; le déflateur publié porte en plus
+    l'effet prix des rémunérations publiques (ici la part « agents publics » du SMIC),
+    qu'on retire depuis les sorties publiées : D = Déflateur × (PIB − coût) / PIB, coût =
+    Σ des canaux ``remunerations_publiques`` de l'année."""
     import budget_simulator.engine.orchestrator as orch
     monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
     mesures = {'tva_rate': {'taux': 0.22}, 'retraites': {'indexation': 0.8},
@@ -273,9 +277,11 @@ def test_formule_exacte_rejouee(monkeypatch):
                   if k != 'Année' and 'menages' in v]
         effet = sum(rdb_module.effet_revenu_md_eur(c) for c in canaux)
         coin = sum(rdb_module.coin_indirect_md_eur(c) for c in canaux)
+        cout = sum(float(c.get('remunerations_publiques', 0) or 0) for c in canaux)
+        deflateur_interne = det.loc[an, 'Déflateur'] * (df.loc[an, 'PIB'] - cout) / df.loc[an, 'PIB']
         rdb = det.loc[an, 'RDB_Ménages_Md€']
         base = rdb - effet
-        prix = det.loc[an, 'Déflateur'] * (1 + coin / ((1 - TAUX_EPARGNE_MENAGES_2025) * base))
+        prix = deflateur_interne * (1 + coin / ((1 - TAUX_EPARGNE_MENAGES_2025) * base))
         attendu = (100 * rdb / rdb_module.RDB_MENAGES_2025_MD_EUR / prix
                    / (1 + CROISSANCE_UC_ANNUELLE) ** i)
         assert df.loc[an, PA] == pytest.approx(attendu, rel=1e-12), an

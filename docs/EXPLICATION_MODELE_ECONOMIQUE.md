@@ -466,6 +466,18 @@ Les sept programmes publiés qui relèvent ces salaires voient leur dette 2032 m
 cadre (METHODOLOGIE, encadré du lot 5b). La part de la hausse du SMIC versée aux agents publics garde, en
 attendant un arbitrage, le traitement propre du SMIC.
 
+**Hausse de salaire des agents publics : le PIB en valeur monte d'autant (lot 5d, 16/11/2026, non publié).** En
+comptabilité nationale, ce que produisent les administrations est compté à son coût, salaires compris : augmenter
+le point d'indice relève donc le PIB en euros, et ses prix, sans rien changer aux quantités produites (l'Insee l'a
+constaté en 2022). Le moteur l'ajoute désormais au PIB publié, qui sert à calculer la dette et le déficit en part
+du PIB. La dette et le déficit en euros ne changent pas : c'est le PIB en valeur, au dénominateur, qui est relevé.
+La dette rapportée au PIB de 2032 baisse donc d'environ 1,5 à 1,6 point pour les deux programmes qui relèvent
+fortement le point d'indice, de 0,1 à 0,4 point pour ceux qui revalorisent les enseignants ; la part de la hausse
+du SMIC versée aux agents publics compte aussi (jusqu'à 0,4 point pour un programme). Les recettes et les dépenses
+rapportées au PIB baissent de même, sans que les montants en euros bougent. Les prix à la consommation, la
+croissance, le chômage et le pouvoir d'achat ne changent pas ; la colonne « déflateur du PIB » du simulateur, elle,
+monte (METHODOLOGIE, encadré du lot 5d).
+
 **Subventions et aides en capital : limite déclarée (16/11/2026).** Les subventions aux entreprises et les aides
 en capital versées aux ménages gardent le traitement d'une dépense courante : aucune étude consultée ne chiffre
 l'effet d'une subvention durable, et ce traitement est probablement trop fort. L'écart reste petit : un dixième
