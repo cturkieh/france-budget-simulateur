@@ -49,7 +49,8 @@ def test_symetrie_canal_investissement(sim):
     hausse = sim.multipliers.get_multiplier('expansion', COMPO_INVEST, ETAT_NEUTRE, 3, 'education')
     coupe = sim.multipliers.get_multiplier('consolidation', COMPO_INVEST, ETAT_NEUTRE, 3, 'education')
     assert coupe == pytest.approx(-hausse, abs=1e-9)
-    assert hausse == pytest.approx(1.2 * 0.95, abs=1e-9)  # high_debt s'applique aux deux
+    from budget_simulator.constants import MULT_INVESTISSEMENT
+    assert hausse == pytest.approx(MULT_INVESTISSEMENT * 0.95, abs=1e-9)  # high_debt s'applique aux deux
 
 
 @pytest.mark.parametrize('annee', [1, 2, 3, 9])
@@ -71,8 +72,8 @@ def test_consolidation_mixte_sans_attenuation(sim):
     des deux coefficients, sans facteur de composition."""
     compo_mixte = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.5}
     mixte = sim.multipliers.get_multiplier('consolidation', compo_mixte, ETAT_NEUTRE, 3, 'mix')
-    from budget_simulator.constants import MULT_COUPE_DEPENSES
-    attendu = (0.5 * -1.2 + 0.5 * -MULT_COUPE_DEPENSES) * 0.95
+    from budget_simulator.constants import MULT_COUPE_DEPENSES, MULT_INVESTISSEMENT
+    attendu = (0.5 * -MULT_INVESTISSEMENT + 0.5 * -MULT_COUPE_DEPENSES) * 0.95
     assert mixte == pytest.approx(attendu, abs=1e-9)
 
 
@@ -83,7 +84,8 @@ def test_regime_recession_amplifie_les_deux_sens(sim):
     h = sim.multipliers.get_multiplier('expansion', COMPO_INVEST, etat_recession, 3, 'education')
     c = sim.multipliers.get_multiplier('consolidation', COMPO_INVEST, etat_recession, 3, 'education')
     assert c == pytest.approx(-h, abs=1e-9)
-    assert abs(h) == pytest.approx(1.2 * 0.95 * 1.15, abs=1e-9)
+    from budget_simulator.constants import MULT_INVESTISSEMENT
+    assert abs(h) == pytest.approx(MULT_INVESTISSEMENT * 0.95 * 1.15, abs=1e-9)
 
 
 # === P0-C · Effet d'offre symétrique (Bom & Ligthart 2014 : élasticité de

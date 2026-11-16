@@ -71,12 +71,6 @@ def _niveaux(base, cas):
     return [abs(yr[i] - yb[i]) / yb[i] * 100 for i in range(len(yr))]
 
 
-# Lot 6, commit d'ÉQUATION (calendrier de l'impulsion) : l'impulsion agit dès l'année de son budget ;
-# à coefficients inchangés, le niveau à 4 ans du banc baisse de 9 à 13 % (la trajectoire n'est plus
-# décalée d'un an) et sort de la tolérance pour chaque famille. Le recalage des coefficients sur les
-# MÊMES cibles est un commit de paramètres distinct (règle du projet) : rouge attendu entre les deux,
-# strict (un vert inattendu fait échouer).
-@pytest.mark.xfail(strict=True, reason="lot 6 : coefficients recalés au commit de paramètres suivant")
 @pytest.mark.parametrize('famille', list(FAMILLES))
 def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
     base, cas = mesures
@@ -86,6 +80,9 @@ def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
     # paramètres, 15/11/2026) une fois l'éviction retirée — le coefficient 0,71 compensait
     # l'éviction d'une relance 100 % transferts (0,672 sans elle, +3,4 %) : tolérance resserrée à
     # 1 %, comme la symétrie coupe/hausse (tests/test_symetrie_transferts_v067.py).
+    # Lot 6 (calendrier de l'impulsion, release de paramètres) : coefficients recalés pour retrouver
+    # le niveau d'avant le lot (la trajectoire n'est plus décalée d'un an) ; cibles et tolérances
+    # inchangées (investissement 1,41, toujours −6 % de sa cible).
     tolerance = {'investissement': 0.10, 'transferts': 0.01}.get(famille, 0.05)
     assert niveau_4 == pytest.approx(cible, rel=tolerance), (
         f'{famille} : niveau à 4 ans {niveau_4:.3f} vs cible centrale {cible}')
@@ -239,3 +236,69 @@ def test_le_statu_quo_ne_depend_pas_des_multiplicateurs():
     sim.multipliers = _Interdit()
     b = sim.simulate()[0]
     assert a.equals(b)
+
+
+# --- Lot 6, revue adverse : le calage sur un seul point, déclaré et lié à la mesure -----------------
+# Profils publiés par les sources, niveau du PIB en % pour un point de PIB, H0 = année du choc.
+# FMI, World Economic Outlook, oct. 2014, ch. 3, tableau 3.4, col. (1), p. 95 : k = 0 à 4.
+PROFIL_FMI_INVESTISSEMENT = (0.457, 0.755, 1.035, 1.389, 1.539)
+# Mésange 2017 (Insee et DG Trésor, G2017/04) : « 1 an », « 2 ans », « 3 ans », « 5 ans » = H0, H1, H2,
+# H4 ; « 4 ans » n'est pas publié (H3 = milieu de 3 et 5 ans, convention déclarée dans METHODOLOGIE).
+MESANGE_INVESTISSEMENT = (1.31, 1.38, 1.22, 0.93)   # p. 102, investissement public
+MESANGE_DEPENSE = (0.78, 1.06, 1.03, 0.86)          # p. 105, dépense publique générique
+
+
+def _cinq_ans_mesange(publie):
+    un, deux, trois, cinq = publie
+    return (un, deux, trois, (trois + cinq) / 2, cinq)
+
+
+def _profil_cadre(monkeypatch, famille):
+    """Choc permanent d'un point de PIB posé en 2028 sur un levier synthétique, mode cadre 2028 :
+    niveau du PIB réel en % du cas sans choc, H0 à H4 (protocole du tableau « Profils par famille »)."""
+    import budget_simulator.engine.orchestrator as orch
+    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
+    levier = {'investissement': 'zz_investissement', 'depense_courante': 'zz_depense_courante'}[famille]
+    if famille == 'investissement':
+        monkeypatch.setattr(BudgetSimulatorV45, 'INVESTMENT_CORE_MEASURES',
+                            BudgetSimulatorV45.INVESTMENT_CORE_MEASURES | {levier})
+        monkeypatch.setattr(BudgetSimulatorV45, 'INVESTMENT_FLOW_MEASURES',
+                            BudgetSimulatorV45.INVESTMENT_FLOW_MEASURES | {levier})
+
+    def simuler(avec_choc):
+        class _Choc(BudgetSimulatorV45):
+            def apply_measures(self, year, spending, revenues, gdp, inflation, unemployment):
+                sp, rv, imp = super().apply_measures(year, spending, revenues, gdp, inflation, unemployment)
+                if avec_choc and year >= 2028:
+                    x = 0.01 * gdp
+                    imp = dict(imp)
+                    imp[levier] = {'depenses': x, 'recettes': 0.0}
+                    sp += x
+                return sp, rv, imp
+        return _Choc(periods=10, mesures={}, annee_debut=2028).simulate()[1]['PIB_Réel_Base2025'].values
+    y0, y1 = simuler(False), simuler(True)
+    return [(y1[i] / y0[i] - 1) * 100 for i in range(3, 8)]
+
+
+def test_calage_sur_un_seul_point_declare_et_lie_a_la_mesure(monkeypatch):
+    """METHODOLOGIE (« Calendrier de l'impulsion », limite déclarée) : chaque famille est calée sur
+    son niveau à quatre ans ; le cumul des cinq premières années (H0 à H4, mode cadre 2028) s'écarte
+    des sources d'un écart qui n'est pas le même pour toutes les familles. Les pourcentages et la
+    première année publiés sont recalculés ici et doivent figurer tels quels."""
+    investissement = _profil_cadre(monkeypatch, 'investissement')
+    depense = _profil_cadre(monkeypatch, 'depense_courante')
+    fmi, mesange_i = sum(PROFIL_FMI_INVESTISSEMENT), sum(_cinq_ans_mesange(MESANGE_INVESTISSEMENT))
+    mesange_d = sum(_cinq_ans_mesange(MESANGE_DEPENSE))
+    inv, dep = sum(investissement), sum(depense)
+    # Non-vacuité : les deux familles ont un effet ; l'investissement est au-dessus des deux sources.
+    assert inv > fmi and inv > mesange_i and 0 < dep < mesange_d
+    attendus = [
+        (f"l'investissement dépasse le profil du FMI de {_fr(100 * (inv / fmi - 1))} % et celui de "
+         f"Mésange de {_fr(100 * (inv / mesange_i - 1))} %"),
+        f"la dépense courante est {_fr(100 * (1 - dep / mesange_d))} % sous Mésange",
+        (f"Première année : investissement {_fr(investissement[0], 2)}, contre "
+         f"{_fr(PROFIL_FMI_INVESTISSEMENT[0], 2)} (FMI) et {_fr(MESANGE_INVESTISSEMENT[0], 2)} (Mésange)"),
+    ]
+    texte = ' '.join(METHODO.read_text(encoding='utf-8').split())
+    manquants = [a for a in attendus if a not in texte]
+    assert not manquants, manquants

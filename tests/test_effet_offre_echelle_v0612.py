@@ -439,10 +439,10 @@ def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     entre 20 et 50 Md€ et la valeur absolue remontait alors que le rendement, lui,
     décroissait toujours. Lot 2 (16/11/2026) : le retour fiscal propre du levier,
     retiré, allégeait aussi le coût. Lot 6 (calendrier de l'impulsion :
-    l'investissement agit dès l'année de son budget) : l'effet arrive plus tôt dans
-    la fenêtre. Sur la pile des deux lots, l'effet change de signe entre 20 et
-    50 Md€ (mesure du moteur actuel : −0,37 point à 20 Md€, +0,39 à 50 Md€). Les
-    deux chiffres de cette docstring sont recalculés ci-dessous : ils ne peuvent pas dériver."""
+    l'investissement agit dès l'année de son budget, puis coefficients recalés) :
+    l'effet ne change plus de signe dans le domaine, sur la pile des deux lots aussi
+    (mesure du moteur actuel : −0,98 point à 20 Md€, −1,13 à 50 Md€). Les deux
+    chiffres de cette docstring sont recalculés ci-dessous : ils ne peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)
     d0 = _dette_2035(sc, 'transition_ecologique', 'investissement', 0)
     effets = {x: _dette_2035(sc, 'transition_ecologique', 'investissement', x) - d0 for x in (1, 5, 20, 50)}
@@ -466,21 +466,20 @@ def test_chiffres_publies_de_l_encadre_lies_a_la_mesure():
     vigueur est livré avec le moteur : la garde tourne aussi sans ``scenarios.json``,
     donc en CI publique. Un chiffre qui cesse de reproduire fait rougir la CI (il était
     resté à l'état d'un commit intermédiaire). Re-déclaré au lot 6 (calendrier de
-    l'impulsion) : le passage « entre 20 et 30 Md€/an » d'un gain à un coût ne se
-    produit plus dans le domaine ; la forme vérifiée devient « au plus bas vers
-    20 Md€/an, puis le gain diminue sans devenir un coût » ; au lot 2 (retour fiscal
-    propre du levier retiré), « entre 10 et 20 Md€/an, le coût l'emporte ». Pile
-    d'intégration (lot 2 puis lot 6) : au plus bas vers 20 Md€/an, le coût l'emporte
-    entre 30 et 50 Md€/an."""
+    l'impulsion, puis coefficients recalés) : le passage « entre 20 et 30 Md€/an » d'un
+    gain à un coût ne se produit plus dans le domaine ; la forme vérifiée devient « le
+    ratio baisse sur tout le curseur, de moins en moins par Md€ » ; elle tient sur la
+    pile d'intégration (lot 2 puis lot 6)."""
     d = {x: _dette_2035(DROIT, 'transition_ecologique', 'investissement', x) for x in (0, 10, 20, 30, 50)}
-    assert d[20] < d[10] and d[20] < d[30] < d[0] < d[50], d   # au plus bas vers 20, coût entre 30 et 50
+    assert d[0] > d[10] > d[20] > d[30] > d[50], d   # baisse sur tout le curseur
+    assert (d[0] - d[10]) / 10 > (d[10] - d[20]) / 10 > (d[30] - d[50]) / 20 > 0, d   # de moins en moins
     sans_offre = {k: v for k, v in GrowthMixin.SUPPLY_EFFECTS.items() if k != 'transition_invest'}
     with patch.object(GrowthMixin, 'SUPPLY_EFFECTS', sans_offre):
         d50_sans = _dette_2035(DROIT, 'transition_ecologique', 'investissement', 50)
     texte = (RACINE / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
     texte = ' '.join(re.sub(r'\n>\s?', ' ', texte).split())
     for attendu in (f"{_fr(d[0])} → {_fr(d[10])} à 10 Md€/an",
-                    "Le ratio est au plus bas vers 20 Md€/an ; entre 30 et 50 Md€/an, le coût l'emporte",
+                    "Le ratio baisse sur tout le curseur, de moins en moins par Md€",
                     f"0 → 50 Md€/an, {_fr(d[0])} → {_fr(d[50])} (canal d'offre coupé : {_fr(d50_sans)})"):
         assert attendu in texte, attendu
 

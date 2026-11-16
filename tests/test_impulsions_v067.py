@@ -52,6 +52,10 @@ def _effets(impacts_par_annee, etat=ETAT):
         m = sim.multipliers.base_multipliers
         m['consolidation'].update(tax_based=-0.50, spending_based=-0.60)
         m['expansion'].update(tax_cuts=0.35, transferts=0.50)
+        # Investissement de la table de l'audit (1,2 ; recalé à 1,31 au lot 6, release de
+        # paramètres) : fixé ici, sans quoi le banc ne reproduirait plus l'auditeur.
+        m['expansion'].update(investissement=1.2)
+        m['consolidation'].update(investissement=-1.2)
         sim.pib_nominal = PIB
         out = []
         for t, impacts in enumerate(seq, start=1):

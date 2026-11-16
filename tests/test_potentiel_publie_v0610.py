@@ -91,15 +91,18 @@ def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
     # agit dès son année, la relance de 2026 arrive en 2026 et non en 2027 ;
     # en 2030, l'effet de la relance est plus avancé dans son profil) :
     # croissance 1,093483 → 1,047881, gap 0,202340 → 0,142556, potentiel
-    # consommé 1,047476 → 1,049378 (lot 6 seul). Lot 2 (16/11/2026, recherche en
+    # consommé 1,047476 → 1,049378 ; puis coefficients recalés (release de
+    # paramètres du même lot : la relance de recherche porte k = 1,31) :
+    # croissance 1,047881 → 1,043124, gap 0,142556 → 0,176807, potentiel
+    # consommé 1,049378 → 1,050130 (lot 6 seul). Lot 2 (16/11/2026, recherche en
     # forme stock puis logarithmique, hors plafond), mesuré seul sur le lot 1 :
     # croissance 1,272968, gap 0,198552, potentiel consommé 1,227719. Pile
-    # d'intégration (lot 2 puis lot 6) : croissance 1,227499, gap 0,138353,
-    # potentiel consommé 1,229591 ; le potentiel préparé pour 2031 diffère
-    # (1,187852) : le test garde son pouvoir.
-    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.227499, abs=5e-7)
-    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.138353, abs=5e-7)
-    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.229591, abs=5e-7)
+    # d'intégration (lot 2 puis lot 6, coefficients recalés) : croissance
+    # 1,222666, gap 0,172272, potentiel consommé 1,230331 ; le potentiel préparé
+    # pour 2031 diffère (1,188740) : le test garde son pouvoir.
+    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.222666, abs=5e-7)
+    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.172272, abs=5e-7)
+    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.230331, abs=5e-7)
     assert abs(consomme[ANNEE_AUDIT + 1]['total'] - consomme[ANNEE_AUDIT]['total']) * 100 > 0.01
 
     # La colonne publiée est le potentiel consommé, pas celui préparé pour 2031.

@@ -59,8 +59,8 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 
 | | statu quo NU | scenario de reference `plf_2026` |
 |---|---|---|
-| Deficit 2026 | -5,30 % | **-5,39 %** (loi votee : -5,0 % ; surtaxe IS 2026 non comptee, voir ci-dessous) |
-| Dette 2030 | 129,23 % | **129,32 %** (mission IGF : 130,5) |
+| Deficit 2026 | -5,30 % | **-5,38 %** (loi votee : -5,0 % ; surtaxe IS 2026 non comptee, voir ci-dessous) |
+| Dette 2030 | 129,23 % | **129,30 %** (mission IGF : 130,5) |
 | Dette 2035 | 151,32 % | **151,33 %** |
 | Deficit 2035 | -9,06 % | **-9,03 %** |
 
@@ -231,7 +231,7 @@ porté en recettes et persiste. Sans ce rebasage, l'écart disparaîtrait en 202
 rebondirait sans aucune mesure. Avec lui, le budget 2026 exécuté, reconduit à droit constant hors
 mesures votées pour une durée limitée (la surtaxe d'IS votée pour 2026 s'arrête en 2027, v0.8.1),
 donne en 2027 un **déficit de
-−5,80 %** du PIB et une **dette de 121,92 %**. La croissance 2027, 1,42 %, est le rebond du
+−5,79 %** du PIB et une **dette de 121,91 %**. La croissance 2027, 1,43 %, est le rebond du
 modèle : elle n'est jamais forcée. Une année injectée ne peut pas être l'année de début d'un
 programme : l'atterrissage écrase des niveaux (422 en mode strict).
 
@@ -2250,19 +2250,19 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 
 **Ce que cela corrige (v0.6.6, deux erreurs de calcul)** : (1) une impulsion n'était stockée qu'au changement du hash des mesures — constant pendant une simulation —, donc UNE impulsion par scénario, égale au NIVEAU de la première année non nulle : la montée en charge n'était jamais multipliée (fraude fiscale : 0,10 % du PIB multiplié, 0,47 % atteint en 2030), et les résidus s'arrêtaient net dès que l'effort courant repassait sous 0,1 % du PIB ; (2) un seul multiplicateur par scénario, moyenne des multiplicateurs SIGNÉS pondérée par l'effort BRUT puis appliquée à l'effort NET : un programme équilibré n'avait aucun effet keynésien, et une consolidation nette pouvait être comptée comme une relance (banc de l'auditeur, 40 Md EUR d'investissement + 20/40/50 Md EUR d'impôts : +0,253 / 0 / +0,060 pt au lieu de +0,420 / +0,120 / −0,030). Contrat verrouillé par `tests/test_impulsions_v067.py` (somme signée, additivité d'une montée en charge, résidus après retrait, franchissement de zéro, chaque variation multipliée une fois en simulation complète).
 
-**Somme analytique `k × Σ profil` (définition ; valeurs de la v0.6.6)** : le coefficient d'impact multiplié par la somme de son profil donne l'effet de niveau qu'aurait une impulsion permanente si aucune autre équation ne réagissait. Avec les coefficients de la v0.6.6, cette somme analytique valait 2,38 pour l'investissement (1,2 × 1,98 ; inchangée depuis, k et profil INVEST n'ayant pas bougé), 1,0 pour une hausse d'impôts (0,5 × 2,0), 0,89 pour les transferts (0,5 × 1,77), 1,09 à 1,20 pour une coupe générique, 0,70 pour une baisse d'impôts ; la v0.6.6 ne les exposait presque jamais (une seule impulsion par scénario, plafonnée), et depuis la v0.6.7 les impulsions portent tout le canal keynésien. **Ce n'est pas l'effet effectif** : dans le moteur complet, le rappel vers le potentiel (λ = 0,2), Phillips, Okun et la dette réagissent ; l'investissement, à k = 1,2 inchangé, produit un effet de niveau de 1,29 % du PIB à 4 ans (cible centrale 1,5 : FMI, WEO oct. 2014, ch. 3) et de 0,33 % à 10 ans (mesuré au lot 6, équation du calendrier de l'impulsion, coefficients encore inchangés ; 1,41 et 0,37 au lot 1 ; 1,41 et 0,40 jusqu'à v0.8.1), et non 2,38. Les valeurs courantes, calées sur cet effet mesuré, sont celles du tableau « Recalibrage central des familles » ci-dessous (constantes `MULT_*` et `MULT_CIBLE_NIVEAU_4ANS`, `budget_simulator/constants.py`).
+**Somme analytique `k × Σ profil` (définition ; valeurs de la v0.6.6)** : le coefficient d'impact multiplié par la somme de son profil donne l'effet de niveau qu'aurait une impulsion permanente si aucune autre équation ne réagissait. Avec les coefficients de la v0.6.6, cette somme analytique valait 2,38 pour l'investissement (1,2 × 1,98 ; inchangée jusqu'au lot 6, puis 2,59 avec k = 1,31 et le même profil), 1,0 pour une hausse d'impôts (0,5 × 2,0), 0,89 pour les transferts (0,5 × 1,77), 1,09 à 1,20 pour une coupe générique, 0,70 pour une baisse d'impôts ; la v0.6.6 ne les exposait presque jamais (une seule impulsion par scénario, plafonnée), et depuis la v0.6.7 les impulsions portent tout le canal keynésien. **Ce n'est pas l'effet effectif** : dans le moteur complet, le rappel vers le potentiel (λ = 0,2), Phillips, Okun et la dette réagissent ; l'investissement, à k = 1,31 depuis le lot 6 (1,2 jusque-là ; recalé après la correction du calendrier de l'impulsion), produit un effet de niveau de 1,41 % du PIB à 4 ans (cible centrale 1,5 : FMI, WEO oct. 2014, ch. 3) et de 0,40 % à 10 ans (mesuré au lot 6 ; 1,29 et 0,33 au même lot à k = 1,2 ; 1,41 et 0,37 au lot 1 ; 1,41 et 0,40 jusqu'à v0.8.1), et non 2,59. Les valeurs courantes, calées sur cet effet mesuré, sont celles du tableau « Recalibrage central des familles » ci-dessous (constantes `MULT_*` et `MULT_CIBLE_NIVEAU_4ANS`, `budget_simulator/constants.py`).
 
 ### Table des Multiplicateurs de Base
 
 | Type | Valeur | Source | Ancien |
 |------|--------|--------|--------|
-| Consolidation fiscale (anticipee) | **-0,615** | v0.6.7 : calé « central » (tableau ci-dessous) | -0,50 (v0.6.6), -0,92 (v2.0) |
-| Consolidation depenses generique | **-0,74** (v0.6.7, calé « central », sans atténuation « confiance » ; -0,81 ÷ 1,10 avant, -0,60 en v0.6.6) | Ramey 2019 (« 0,6 to 1 », milieu) ; Gechert & Rannenberg 0,4-0,7 | -0,40 (v3.0-v5.1, sous le consensus) |
-| Coupe d'investissement public | **-1,20** | SYMETRIQUE de la hausse (convention du mainteneur : pas d'asymetrie de signe retenue ; Mesange : multiplicateurs identiques a la hausse et a la baisse ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) |
-| Expansion investissement | **1,20** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) |
-| Expansion depense courante | **0,74** | lot 5 : même coefficient que la coupe de dépense courante (convention du mainteneur : pas d'asymétrie de signe retenue, même instrument, même coefficient ; limite : encadré du lot 5) | 0,688 (coefficient des transferts, jusqu'au lot 5) |
-| Expansion transferts | **0,688** | v0.6.7 : calé « central » ; recalé au lot 1 (release de paramètres) | 0,71 (v0.6.7), 0,50 (v0.6.6), 0,80 (v2.0) |
-| Expansion baisses impots | **0,615** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie ; = hausse depuis le lot 1 | 0,63 (v0.6.7), 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) |
+| Consolidation fiscale (anticipee) | **-0,674** | v0.6.7 : calé « central » (tableau ci-dessous) | -0,50 (v0.6.6), -0,92 (v2.0) ; lot 6 : -0,615 (calendrier de l'impulsion, recalage) |
+| Consolidation depenses generique | **-0,811** (v0.6.7, calé « central », sans atténuation « confiance » ; -0,81 ÷ 1,10 avant, -0,60 en v0.6.6) | Ramey 2019 (« 0,6 to 1 », milieu) ; Gechert & Rannenberg 0,4-0,7 | -0,40 (v3.0-v5.1, sous le consensus) ; lot 6 : -0,74 (calendrier de l'impulsion, recalage) |
+| Coupe d'investissement public | **-1,31** | SYMETRIQUE de la hausse (convention du mainteneur : pas d'asymetrie de signe retenue ; Mesange : multiplicateurs identiques a la hausse et a la baisse ; FMI WEO oct. 2010 ch. 3 : coupes d'investissement au haut de l'echelle de cout) | canal ABSENT v5.1 (coupe traitee a -0,40 : audit 08/2026, constat 2) ; lot 6 : -1,20 (calendrier de l'impulsion, recalage) |
+| Expansion investissement | **1,31** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) ; lot 6 : 1,20 (calendrier de l'impulsion, recalage) |
+| Expansion depense courante | **0,811** | lot 5 : même coefficient que la coupe de dépense courante (convention du mainteneur : pas d'asymétrie de signe retenue, même instrument, même coefficient ; limite : encadré du lot 5) | 0,688 (coefficient des transferts, jusqu'au lot 5) ; lot 6 : 0,74 (calendrier de l'impulsion, recalage) |
+| Expansion transferts | **0,785** | v0.6.7 : calé « central » ; recalé au lot 1 (release de paramètres) | 0,71 (v0.6.7), 0,50 (v0.6.6), 0,80 (v2.0) ; lot 6 : 0,688 (calendrier de l'impulsion, recalage) |
+| Expansion baisses impots | **0,674** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie ; = hausse depuis le lot 1 | 0,63 (v0.6.7), 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) ; lot 6 : 0,615 (calendrier de l'impulsion, recalage) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
 
@@ -2275,12 +2275,12 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 
 | Famille (profil) | Cible centrale, niveau à 4 ans | Source vérifiée | Moteur avant (k v0.6.6) | Moteur après (v0.6.7) | 10 ans, v0.6.7 (niveau / cumulé Ramey) | Moteur actuel : 4 ans (k) ; 10 ans (niveau / cumulé) |
 |---|---|---|---|---|---|---|
-| Investissement public (INVEST) | 1,5 | FMI WEO oct. 2014 ch. 3 : « +0,4 % la même année, +1,5 % quatre ans après » ; Gechert 2015 : dépenses ≈ 1, investissement ≈ +0,5 — borne haute de lecture : Banque mondiale, GEP juin 2024 ch. 3, niveau ≈ 1,1 à 5 ans (≤ 1,6), économies émergentes et en développement | 1,41 (k = 1,2) | **inchangé** (−6 %) | 0,40 / 0,92 | 1,29 (k = 1,2) ; 0,33 / 0,93 |
-| Coupe de dépenses générique (TAXES) | 0,8 | Ramey 2019 JEP : « 0.6 to 1 for spending multipliers » (milieu) ; Gechert ≈ 1 | 0,58 (k = 0,60 ÷ 1,10) | 0,80 (k = 0,74, sans facteur « confiance » ; 0,79 à k = 0,81 ÷ 1,10) | 0,15 / 0,56 | 0,72 (k = 0,74) ; 0,07 / 0,52 |
-| Hausse de dépense courante (TAXES) | 0,8 | la même que la coupe : même instrument (lot 5) | non mesurée (coefficient des transferts) | non mesurée (coefficient des transferts ; 0,74 au lot 1, k = 0,688) | — | 0,72 (k = 0,74) ; 0,07 / 0,52 |
-| Transferts (TRANSFERS) | 0,65 | Gechert 2015 : « 0.3 to 0.4 units » sous les dépenses (≈ 1) | 0,44 (k = 0,50) | 0,65 (k = 0,71) | 0,01 / 0,43 | 0,56 (k = 0,688) ; 0,01 / 0,41 |
-| Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 | 0,58 (k = 0,615) ; 0,02 / 0,40 |
-| Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 | 0,59 (k = 0,615) ; 0,00 / 0,41 |
+| Investissement public (INVEST) | 1,5 | FMI WEO oct. 2014 ch. 3 : « +0,4 % la même année, +1,5 % quatre ans après » ; Gechert 2015 : dépenses ≈ 1, investissement ≈ +0,5 — borne haute de lecture : Banque mondiale, GEP juin 2024 ch. 3, niveau ≈ 1,1 à 5 ans (≤ 1,6), économies émergentes et en développement | 1,41 (k = 1,2) | **inchangé** (−6 %) | 0,40 / 0,92 | 1,41 (k = 1,31) ; 0,40 / 1,03 |
+| Coupe de dépenses générique (TAXES) | 0,8 | Ramey 2019 JEP : « 0.6 to 1 for spending multipliers » (milieu) ; Gechert ≈ 1 | 0,58 (k = 0,60 ÷ 1,10) | 0,80 (k = 0,74, sans facteur « confiance » ; 0,79 à k = 0,81 ÷ 1,10) | 0,15 / 0,56 | 0,79 (k = 0,811) ; 0,11 / 0,58 |
+| Hausse de dépense courante (TAXES) | 0,8 | la même que la coupe : même instrument (lot 5) | non mesurée (coefficient des transferts) | non mesurée (coefficient des transferts ; 0,74 au lot 1, k = 0,688) | — | 0,79 (k = 0,811) ; 0,11 / 0,58 |
+| Transferts (TRANSFERS) | 0,65 | Gechert 2015 : « 0.3 to 0.4 units » sous les dépenses (≈ 1) | 0,44 (k = 0,50) | 0,65 (k = 0,71) | 0,01 / 0,43 | 0,65 (k = 0,785) ; 0,04 / 0,48 |
+| Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 | 0,65 (k = 0,674) ; 0,01 / 0,45 |
+| Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 | 0,65 (k = 0,674) ; 0,03 / 0,46 |
 
 > **Coefficient des transferts recalé (lot 1, release de paramètres, 15/11/2026, non publiée).** `MULT_TRANSFERTS`
 > 0,71 → **0,688**. Le 0,71 avait été calé (v0.6.7) sur une relance 100 % transferts SOUS éviction ; l'éviction
@@ -2370,15 +2370,16 @@ près de zéro (l'effet durable du capital public passe par le canal d'offre `SU
 d'investissement retenu pour le calibrage ne s'autofinance pas dans le banc de référence** : impulsion
 synthétique PERMANENTE de 1 % du PIB sur le levier éducation, à partir du statu quo, 2026-2036
 (`tests/test_multiplicateurs_centraux_v067.py`). Trois notions à ne pas confondre, mesurées sur ce banc :
-(1) autofinancement budgétaire — le solde public ne récupère que 17 % du coût brut (393 Md EUR sur
-2026-2036) : les recettes induites (+381 Md EUR) sont en grande partie absorbées par les dépenses
-induites hors impulsion (+314 Md EUR : dépenses indexées sur les prix +185, intérêts +130) ; mesure
-distincte, en volume, sans prix ni intérêts : multiplicateur cumulé 10 ans × 0,51 = 0,48 < 1 ; (2) dette
-nominale — +73 Md EUR en 2030, +326 Md EUR en 2036 ; (3) ratio dette/PIB — le PIB nominal plus haut
-(volume et prix : +2,07 % en 2030 pour +1,29 % en volume) gonfle le dénominateur : le ratio passe sous le statu
-quo en 2030 (−0,52 pt) et 2031 (−0,15 pt) sans que le coût soit remboursé, puis le dépasse (+3,3 pt en 2035).
-Jusqu'au lot 6 (calendrier de l'impulsion), l'effet sur l'activité n'arrivait qu'en 2027 : 8 % du coût récupéré,
-dette nominale +104 Md EUR en 2030, ratio au-dessus du statu quo dès 2030 (+0,57 pt).
+(1) autofinancement budgétaire — le solde public ne récupère que 26 % du coût brut (394 Md EUR sur
+2026-2036) : les recettes induites (+424 Md EUR) sont en grande partie absorbées par les dépenses
+induites hors impulsion (+323 Md EUR : dépenses indexées sur les prix +207, intérêts +115) ; mesure
+distincte, en volume, sans prix ni intérêts : multiplicateur cumulé 10 ans × 0,51 = 0,53 < 1 ; (2) dette
+nominale — +61 Md EUR en 2030, +293 Md EUR en 2036 ; (3) ratio dette/PIB — le PIB nominal plus haut
+(volume et prix : +2,28 % en 2030 pour +1,41 % en volume) gonfle le dénominateur : le ratio passe sous le statu
+quo en 2030 (−1,13 pt) et 2031 (−0,88 pt) sans que le coût soit remboursé, puis le dépasse (+2,2 pt en 2035).
+Jusqu'au lot 6 (calendrier de l'impulsion : l'effet sur l'activité n'arrivait qu'en 2027 ; coefficient 1,2 au
+lieu de 1,31), 8 % du coût récupéré, dette nominale +104 Md EUR en 2030, ratio au-dessus du statu quo dès 2030
+(+0,57 pt).
 Jusqu'à v0.8.1, le terme d'effort de l'inflation (retiré au lot 1) ajoutait 0,08 point d'inflation par
 point de PIB de relance, chaque année : la hausse des prix portait alors près des deux tiers des recettes
 induites (+458 Md EUR, 13 % du coût récupéré) et le ratio passait légèrement SOUS le statu quo en 2030
@@ -2508,8 +2509,8 @@ dans les deux modes, impulsion ex ante, aucune trace de l'évaluation dans l'ét
 post ») : 1 à 8 itérations par année à 10⁻¹³ près, un temps de calcul multiplié par 5 au mieux (22 dans le
 prototype mesuré) ; il change la définition de l'impulsion en plus du calendrier, et rend la consolidation plus
 coûteuse et la relance moins porteuse à la fois (efforts rapportés à un PIB que leur propre effet a déplacé) ; écart
-à la correction retenue, mode cadre : au plus 0,07 point de dette 2032 et 0,004 point de croissance moyenne
-2028-2032. (b) **Réordonnancement simple** (mesures évaluées une seule fois, hors effet propre, et publiées telles
+à la correction retenue, mode cadre, coefficients recalés : au plus 0,09 point de dette 2032 et 0,006 point de
+croissance moyenne 2028-2032. (b) **Réordonnancement simple** (mesures évaluées une seule fois, hors effet propre, et publiées telles
 quelles) : aucun surcoût, mais les montants publiés de l'année seraient évalués à un PIB qui n'est pas celui de
 l'année, l'écart entre numérateur et dénominateur que la refonte « assemblage temporel » a corrigé ; écart mesuré :
 au plus 0,02 point de dette 2032. (c) **Demi-année** : aucune source.
@@ -2522,10 +2523,14 @@ cadre (médiane des dix programmes publiés, machine de développement), soit ×
   allègements) : toujours lus avec un an de retard. Ce retard ne se justifiait que par la cohérence avec l'ancienne
   impulsion ; c'est désormais une convention qu'aucune des sources consultées ne porte (Mésange 2017, baisse des
   cotisations employeurs de 1 % du PIB : chômage −0,35 point dès la première année, p. 107 ; cotisations salariés :
-  −0,10, p. 110) ; sens : l'effet emploi de ces leviers arrive un an tard, dans les deux sens.
+  −0,10, p. 110) ; sens : l'effet emploi de ces leviers arrive un an tard, dans les deux sens. Ordre de grandeur,
+  mesuré à la revue du lot (effets directs lus la même année, à partir des impacts évalués hors effet propre ;
+  coefficients recalés) : de −0,06 à +0,09 point de dette 2032 selon le programme publié, et 0,05 point de chômage
+  2032 au plus.
 - **Passage d'une hausse de TVA dans les prix** : l'année qui suit son entrée en vigueur, conséquence de l'ordre de
   calcul (les prix de l'année sont calculés avant ses mesures), sans source ; sens : la hausse des prix, et l'érosion
-  du pouvoir d'achat qu'elle entraîne, arrivent un an tard pour tout programme qui relève la TVA.
+  du pouvoir d'achat qu'elle entraîne, arrivent un an tard pour tout programme qui relève la TVA. Au 16/11/2026,
+  aucun des dix programmes publiés ne modifie la TVA : la limite ne joue que dans le simulateur.
 - **Effet d'offre** (`update_potential_growth`) : il clôt l'année, son bonus agit l'année suivante, après les délais
   propres à chaque canal ; à instruire avec ces délais.
 - **Filet de croissance dès la première année** : l'effet de la première année arrivant l'année du budget, le filet
@@ -2538,24 +2543,52 @@ cadre (médiane des dix programmes publiés, machine de développement), soit ×
   depuis cette année ; en mode historique, 2026 est aussi la première année du programme, dont l'effet entre
   désormais dans ce PIB d'ancrage (seul ce levier, seul ce mode ; le mode cadre commence après 2026).
 - **Forme de la première année par famille**, comparée aux sources (tableau ci-dessous) : l'investissement reste
-  sous les modèles français la première année (Mésange 1,31, OFCE 1,1 à 1,2) et près de l'estimation empirique du
-  FMI (0,46) ; la dépense courante est proche de Mésange (0,78) ; les impôts sont au-dessus de Mésange (0,32 à 0,41)
-  et sous l'OFCE 2011 (0,8 à 1,1). Le profil de chaque famille (`DECAY_PROFILE_*`) n'est pas recalé par ce lot.
-- **Retour au solde la première année** : pour un point de PIB de dépense, le moteur rend désormais 0,25 à 0,32 €
+  sous les modèles français la première année (0,56 contre Mésange 1,31 et OFCE 1,1 à 1,2) et près de
+  l'estimation empirique du FMI (0,46), mais il culmine plus tôt que celle-ci (1,58 la 4ᵉ année, contre une montée
+  jusqu'à 1,54 la 5ᵉ) ; la dépense courante est proche de Mésange (0,69 contre 0,78) ; les impôts sont au-dessus de
+  Mésange (0,57 contre 0,32 à 0,41) et sous l'OFCE 2011 (0,8 à 1,1). Le profil de chaque famille
+  (`DECAY_PROFILE_*`) n'est pas recalé par ce lot : la forme, et non le seul niveau à 4 ans, reste à instruire.
+- **Retour au solde la première année** : pour un point de PIB de dépense, le moteur rend désormais 0,28 à 0,36 €
   par euro la première année (recettes induites), contre rien avant ; Mésange en rend environ la moitié (solde
   primaire −0,53 pour la dépense générique, −0,49 pour l'investissement), l'OFCE 2017 environ 0,3.
+- **Coefficients propres** (SMIC 0,15, fraude fiscale −0,40) : présents depuis la première version publique, ils ne
+  sont calés sur aucun niveau mesuré à un horizon dans le moteur complet ; ils ne sont pas recalés (leur niveau à
+  4 ans baisse comme celui des autres familles avant recalage : SMIC 0,10 → 0,08, fraude −0,38 → −0,34). Recalés
+  comme leur famille de profil (transferts × 0,785 / 0,688, impôts × 0,674 / 0,615), ils déplaceraient la dette 2032
+  des programmes publiés de 0,03 point au plus (mesuré à la revue du lot). À trancher.
+
+**Recalage des coefficients (lot 6, release de paramètres, 16/11/2026, non publiée).** À coefficients inchangés, la
+correction du calendrier faisait baisser le niveau à 4 ans du banc de 9 à 13 % : la trajectoire n'est plus décalée
+d'un an, et le niveau « quatre ans après » est désormais celui de la cinquième année d'effet. Les cibles
+(`MULT_CIBLE_NIVEAU_4ANS`) ne changent pas ; chaque coefficient est recalé, par la méthode de la sécante sur le banc
+de `tests/test_multiplicateurs_centraux_v067.py`, pour que sa famille retrouve son niveau à 4 ans d'avant le lot :
+investissement 1,2 → **1,31** (1,4098 visé, 1,41 atteint ; la cible 1,5 reste à −6 %, dans la tolérance de 10 %,
+comme avant), dépense courante 0,74 → **0,811** (coupe 0,794), transferts 0,688 → **0,785** (0,650), impôts 0,615 →
+**0,674** (hausse 0,646 ; la baisse reste au coefficient de la hausse). Le lot change le calendrier, pas les niveaux :
+le recalage sur les niveaux d'avant isole l'effet du calendrier ; recaler l'investissement sur sa cible de 1,5
+plutôt que sur 1,41 serait une décision distincte. SMIC et fraude fiscale ne sont pas recalés (ci-dessus).
+
+**Limite déclarée : chaque famille est calée sur un seul point, son niveau à quatre ans** (arbitrage du mainteneur,
+non tranché). Sur la trajectoire, l'écart aux sources n'est pas le même pour toutes les familles (choc permanent
+d'un point de PIB posé en 2028, mode cadre, cumul des niveaux des cinq premières années, H0 à H4) :
+l'investissement dépasse le profil du FMI de 23 % et celui de Mésange de 8 % ; la dépense courante est 8 % sous
+Mésange. Première année : investissement 0,56, contre 0,46 (FMI) et 1,31 (Mésange). Mésange ne publie pas
+l'année « 4 ans » : elle est prise au milieu de « 3 ans » et « 5 ans » (convention de ce calcul). L'investissement
+culmine la 4ᵉ année d'effet quand le FMI monte encore à la 5ᵉ : sur la fenêtre publiée, l'écart joue en faveur
+des programmes riches en investissement, par rapport à ceux qui portent sur la dépense courante.
+Le FMI mesure en outre un effet TOTAL (demande et capacité de production), auquel le moteur ajoute son canal
+d'offre pour les leviers qui en ont un. Garde : `tests/test_multiplicateurs_centraux_v067.py` (chiffres de ce
+paragraphe liés à la mesure).
 
 **Profils par famille** (choc permanent d'un point de PIB posé au premier budget, mode cadre 2028 ; PIB en volume,
-écart en % au cas sans choc ; H0 = année du premier budget, H4 = « quatre ans après »). Coefficients inchangés à ce
-commit : le niveau à H4 baisse de 9 à 13 % et sort de la tolérance du banc ; le recalage est un commit de paramètres
-distinct.
+écart en % au cas sans choc ; H0 = année du premier budget, H4 = « quatre ans après » ; coefficients recalés).
 
 | Famille | H0 | H1 | H2 | H4 | H9 | Avant le lot 6 (H0 ; H4) | Sources, année du choc ; 5ᵉ année |
 |---|---|---|---|---|---|---|---|
-| Dépense courante | 0,63 | 0,85 | 0,90 | 0,73 | 0,16 | 0,00 ; 0,80 | Mésange 0,78 ; 0,86 |
-| Transferts | 0,58 | 0,79 | 0,77 | 0,57 | 0,07 | 0,00 ; 0,65 | OFCE 2011 (prestations) 1,0 ; 0,9 |
-| Investissement | 0,51 | 1,15 | 1,44 | 1,30 | 0,46 | 0,00 ; 1,42 | FMI 0,46 ; 1,54 — Mésange 1,31 ; 0,93 |
-| Hausse d'impôts | −0,52 | −0,71 | −0,74 | −0,60 | −0,08 | 0,00 ; −0,65 | Mésange (TVA) −0,32 ; −0,81 |
+| Dépense courante | 0,69 | 0,94 | 0,98 | 0,80 | 0,20 | 0,00 ; 0,80 | Mésange 0,78 ; 0,86 |
+| Transferts | 0,67 | 0,91 | 0,88 | 0,66 | 0,12 | 0,00 ; 0,65 | OFCE 2011 (prestations) 1,0 ; 0,9 |
+| Investissement | 0,56 | 1,25 | 1,57 | 1,42 | 0,53 | 0,00 ; 1,42 | FMI 0,46 ; 1,54 — Mésange 1,31 ; 0,93 |
+| Hausse d'impôts | −0,57 | −0,78 | −0,81 | −0,66 | −0,12 | 0,00 ; −0,65 | Mésange (TVA) −0,32 ; −0,81 |
 
 ### DECAY_PROFILE (Profil Temporel Differencie v3.1)
 
@@ -2667,12 +2700,13 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 > Banc (choc permanent d'un point de PIB de dépense courante, hausse puis baisse, statu quo, mode historique ; écart
 > du niveau des prix, le déflateur, au statu quo) : en v0.8.1, avec le terme, +1,05 / −1,33 % à 5 ans et
 > +3,53 / −4,69 % à 20 ans, écart d'inflation résiduel de +0,12 à −0,19 point à 20 ans ; sans lui (mesure du moteur
-> actuel) : +0,70 / −0,69 % à 5 ans, +1,36 / −1,35 % à 20 ans, écart d'inflation ≤ 0,02 point à 20 ans
+> actuel) : +0,76 / −0,76 % à 5 ans, +1,49 / −1,48 % à 20 ans, écart d'inflation ≤ 0,02 point à 20 ans
 > (lot 5 : la hausse de dépense courante prend le coefficient de sa baisse ; +0,51 et +1,26 avant, la hausse au
 > coefficient des transferts ; lot 6 : l'effet sur l'activité commence l'année du choc, l'écart de production
-> s'ouvre un an plus tôt et les prix ont une année de plus pour réagir à 5 ans — +0,55 / −0,54 avant).
+> s'ouvre un an plus tôt et les prix ont une année de plus pour réagir à 5 ans, puis le coefficient est recalé —
+> +0,55 / −0,54 avant le lot).
 > **Limite déclarée** : à 5 ans, le moteur répond en prix moins que les deux modèles français publiés pour un choc
-> comparable, environ les quatre cinquièmes de ThreeME (0,89 %) et la moitié environ de Mésange (1,3 à 1,5 %) ; sens :
+> comparable, environ 85 % de ThreeME (0,89 %) et la moitié environ de Mésange (1,3 à 1,5 %) ; sens :
 > l'effet des budgets sur les prix est probablement sous-estimé, pour une relance comme pour une consolidation. Les
 > études empiriques lues trouvent une réponse plus faible et non significative, et les modèles du SEBC la disent
 > « rather contained ». Avec le terme, la hausse se rapprochait des modèles français, mais par un effet sans source,
@@ -2717,8 +2751,8 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 **Distinction importante — ne pas confondre** :
 - Le **point fixe** (1,6%, `INFLATION_STRUCTURELLE`) est l'inflation vers laquelle le regime converge quand output gap = 0.
 - La **cible BCE** (2,0%, `BCE_CIBLE_INFLATION`) est le **seuil du garde-fou de surchauffe** : au-dessus, la banque centrale freine (blend 50/50). Ce n'est PLUS un point de convergence forcee (mecanique pre-v4.0).
-- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference** : 1,34 / 1,45 / 1,50 / 1,52 / 1,53%, ecart annuel <= 0,15 pt, **moyenne 2026-2030 = 1,468%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
-- **Marge a declarer** : (re-mesure le 16/11/2026, lot 6, calendrier de l'impulsion, equation : moyenne du scenario servi 1,468 %, a 0,068 pt du plancher ; sensibilite a `rho` entre 0,25 et 0,50 : 0,054 pt ; a `rho` = 0,50, 1,430 %, au-dessus du plancher ; corridor de dette a 1,18 pt en 2030 ; chiffres lies a la mesure par `tests/test_phillips_v061.py`. Lot 5, hausse de depense courante au coefficient de sa coupe : 1,470 %, 0,070 pt, 0,058 pt, 1,428 %, 1,27 pt. Lot 1, terme d'effort de l'inflation et eviction retires, coefficient des transferts recale : 1,470 %, 0,070 pt, 0,054 pt (0,056 avant le retrait de l'eviction), 1,428 %, 1,21 pt. Re-mesure du 12/11/2026, release P, moteur v0.8.1 : 1,474 %, 0,074 pt, 0,052 pt, 1,436 %, 1,28 pt. La suite du paragraphe date de la v0.6.7.) La moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
+- L'output gap negatif tire le deflateur effectif vers **~1,3-1,6%**, sous le point fixe. Corridor officiel vise : 1,3 / 1,6 / 1,6 / 1,5 / 1,5% (RAA 2026 Tableau n° 2 pour 2026-2029, mission IGF 07/2026 pour 2030) ; **realise du moteur sur le scenario de reference** : 1,34 / 1,45 / 1,50 / 1,53 / 1,53%, ecart annuel <= 0,15 pt, **moyenne 2026-2030 = 1,470%** (fourchette du dossier : 1,40-1,60). Le statu quo NU, lui, rend 1,34 / 1,44 / 1,49 / 1,51 / 1,53%. (Re-mesure 07/10/2026, v0.6.7 : le bruit tire graine 42 soutenait le deflateur, 1,498% de moyenne avec lui.) Ces deux series ne sont pas interchangeables : la page en publiait une troisieme, celle du scenario de reference d'AVANT le lot 9, jusqu'au 26/08/2026. (Recale 30/08/2026, v0.6.3 : graine 2025 aux comptes definitifs INSEE — deflateur 2025 realise 1,1 % — et inertie `rho` 0,50 -> 0,33, milieu de la fourchette declaree, encadre par la direction Banque de France, Billet n° 335.)
+- **Marge a declarer** : (re-mesure le 16/11/2026, lot 6, calendrier de l'impulsion puis coefficients recales : moyenne du scenario servi 1,470 %, a 0,070 pt du plancher ; sensibilite a `rho` entre 0,25 et 0,50 : 0,056 pt ; a `rho` = 0,50, 1,430 %, au-dessus du plancher ; corridor de dette a 1,20 pt en 2030 ; chiffres lies a la mesure par `tests/test_phillips_v061.py`. Lot 6, equation seule : 1,468 %, 0,068 pt, 0,054 pt, 1,430 %, 1,18 pt. Lot 5, hausse de depense courante au coefficient de sa coupe : 1,470 %, 0,070 pt, 0,058 pt, 1,428 %, 1,27 pt. Lot 1, terme d'effort de l'inflation et eviction retires, coefficient des transferts recale : 1,470 %, 0,070 pt, 0,054 pt (0,056 avant le retrait de l'eviction), 1,428 %, 1,21 pt. Re-mesure du 12/11/2026, release P, moteur v0.8.1 : 1,474 %, 0,074 pt, 0,052 pt, 1,436 %, 1,28 pt. La suite du paragraphe date de la v0.6.7.) La moyenne du scenario servi est a 0,028 pt du plancher de la fourchette (0,098 avec le bruit tire, 0,014 avant le recalage v0.6.3), et la sensibilite du sentier au parametre d'inertie `rho` vaut 0,056 pt entre 0,25 et 0,50 depuis l'output gap en niveau (v0.6.7 ; 0,046 au 30/08/2026, 0,062 avant) — AU-DESSUS du < 0,05 demande par le brief, la fenetre 2026-2030 etant desormais transitoire. La conformite tient pour `rho` dans [0,20 ; 0,45] ; a 0,50, borne haute de la fourchette de travail, la moyenne tombe a 1,384 %, sous le plancher (marge que le tirage aleatoire tenait) : la plage TESTEE est restreinte a [0,20 ; 0,45] (arbitrage du 07/10/2026, `tests/test_phillips_v061.py`), `rho` servi (0,33) restant au milieu ; une valeur servie au-dela de 0,45 sortirait du corridor. En sens inverse, le corridor de DETTE est a 1,86 pt (2030) pour une tolerance portee de 1,6 a 2,0 (v0.6.7) : le PIB nominal etant desormais honnete, l'ecart revele le residu (b) que le PIB trop bas compensait — declare ici plutot que tu (chiffres complets : « Calibration Baseline Validee »).
 
 **Sources** : BCE Survey of Professional Forecasters T3 2026 ; Gouvernement, RAA 2026 du PSMT 2025-2029 (Tableau n° 2, note 6), avis HCFP n° 2026-3 ; INSEE, blog « Inflation : les deflateurs en comptabilite nationale » (sept. 2022) ; Banque de France, *Rue de la Banque* n° 56 (fev. 2018) et Billet de blog n° 335 (dec. 2023) ; BCE, ECB Working Paper n° 3133 (oct. 2025) ; FMI, *France: 2026 Article IV Consultation*, PR n° 26/255 ; BCE Strategy Review 2021 (cible symetrique 2%).
 
@@ -2841,12 +2875,12 @@ persistance de l'investissement) ; la dotation garde la classe de la dépense g�
 v0.8.0 : −0,37 point de dette 2032 (mode cadre) contre −0,40 pour l'État, −0,63 contre −0,71 en 2035 (mode
 historique) ; le reste d'écart était la recette propre du levier de l'État, retirée au lot 2 : les deux leviers
 donnent désormais le même effet, au bit. Mesure du moteur actuel, 10 Md€ par an :
-−0,40 point de dette 2032 (mode cadre) contre −0,40 pour l'État, −0,28 contre −0,28 en 2035 (mode historique)
+−0,59 point de dette 2032 (mode cadre) contre −0,59 pour l'État, −0,59 contre −0,59 en 2035 (mode historique)
 (lot 1 : le terme d'effort de l'inflation, retiré, faisait baisser le ratio de toute relance par le dénominateur ;
 lot 5 : la hausse de défense du droit en vigueur, présente dans toute simulation en mode cadre, prend le coefficient
 de la coupe de dépense courante ; lot 2 : retour fiscal propre de l'État retiré ; lot 6 : l'investissement agit dès
-l'année de son budget, son effet sur le PIB arrive un an plus tôt dans la fenêtre — −0,08 / −0,08 et −0,08 / −0,08
-avec le lot 2 seul ;
+l'année de son budget, son effet sur le PIB arrive un an plus tôt dans la fenêtre, et son coefficient est recalé —
+−0,08 / −0,08 et −0,08 / −0,08 avec le lot 2 seul ;
 chiffre lié à la mesure par `tests/test_release_e_investissement_local.py`). Trois programmes publiés bougent (dette 2032 en mode cadre
 −0,31 à −0,48 point, dette 2035 en mode historique −0,63 à −0,98) ; les sept autres sont identiques au bit.
 
@@ -2902,7 +2936,7 @@ attente, passe dédiée) :
   d'octobre 2014, ch. 3 : +1,5 % de PIB quatre ans après une hausse d'un point de PIB d'investissement public),
   qui contient déjà le surcroît de capacité de production ; le canal d'offre du moteur s'y ajoute. Mesure du
   moteur actuel, PIB réel par euro dépensé chaque année, quatre ans après le début (15 Md€ par an dès 2026, mode
-  historique) : 1,37 € pour une dépense de la famille investissement sans effet d'offre (le levier du banc de calage), 1,67 € pour l'investissement de l'État ou des collectivités, 4,30 € pour la recherche (1,65 € pour l'État tant que son levier gardait un retour fiscal propre, retiré au lot 2). Le sens est donc
+  historique) : 1,31 € pour une dépense de la famille investissement sans effet d'offre (le levier du banc de calage), 1,61 € pour l'investissement de l'État ou des collectivités, 4,24 € pour la recherche (1,65 € pour l'État tant que son levier gardait un retour fiscal propre, retiré au lot 2). Le sens est donc
   connu : pour ces leviers, le moteur compte une partie de l'effet d'offre deux fois, d'une ampleur inconnue pour
   la recherche, dont la dépense prend le coefficient de la famille investissement. C'est aussi pourquoi le
   plafond des canaux en flux est conservé : le retirer, ou donner au capital public une forme stock, ajouterait
@@ -2978,16 +3012,16 @@ n'a plus de borne fixe.
 
 | Écart de recherche du programme en 2032 | (i) Effet deux ans après la dépense | (ii) 30 % d'une hausse en salaires |
 |---|---|---|
-| +26,7 Md€ | +1,34 / −0,31 / −0,091 | +0,92 / −0,24 / −0,073 |
-| +10,7 Md€ | +0,70 / −0,16 / −0,049 | +0,49 / −0,13 / −0,040 |
+| +26,7 Md€ | +1,33 / −0,31 / −0,091 | +0,92 / −0,24 / −0,072 |
+| +10,7 Md€ | +0,70 / −0,16 / −0,049 | +0,49 / −0,12 / −0,039 |
 | +8,9 Md€ | +0,62 / −0,13 / −0,038 | +0,49 / −0,12 / −0,038 |
 | aucun (sept scénarios) | 0 | 0 |
-| droit en vigueur, +5 Md€ par an (version principale : −1,52 / +0,29 / +0,138) | +0,41 / −0,07 / −0,019 | +0,41 / −0,10 / −0,029 |
+| droit en vigueur, +5 Md€ par an (version principale : −1,61 / +0,30 / +0,141) | +0,41 / −0,07 / −0,019 | +0,41 / −0,10 / −0,029 |
 
 > **Ce que cela implique : une hausse de la recherche publique se rembourse dans le moteur avant la fin du
 > mandat, en part du PIB et en euros.** Mesure du moteur actuel, 5 Md€ de plus par an sur le droit en vigueur,
-> mode cadre (programme dès 2028) : dette 2032 plus basse de 1,52 point de PIB et de 15,3 Md€, solde 2032 meilleur
-> de 8,3 Md€ ; la dette en euros passe sous celle de la référence dès 2030. C'est la conséquence de l'étude
+> mode cadre (programme dès 2028) : dette 2032 plus basse de 1,61 point de PIB et de 17,2 Md€, solde 2032 meilleur
+> de 8,8 Md€ ; la dette en euros passe sous celle de la référence dès 2030. C'est la conséquence de l'étude
 > source, pas un excès du moteur : Fieldhouse & Mertens estiment qu'un euro de stock de recherche publique civile
 > rapporte 1,71 € de PIB par an (tableau 2 ; intervalle 1,07 à 2,22), plus que le rendement implicite du moteur :
 > 0,96 € en 2025, 1,14 € en 2032 (élasticité 0,06 × PIB ÷ stock de 187 Md€) ; seul le bas de leur intervalle
@@ -3020,14 +3054,14 @@ n'a plus de borne fixe.
 > mode cadre : de 0 à +1,48 pt ; le scénario de référence, les deux autres programmes et le statu quo sont
 > identiques au bit. Le sens est le même pour tous : chaque programme reçoit l'offre de son montant. **Le curseur
 > d'investissement tiré seul fait encore baisser le ratio de dette 2035 pour les petits montants** (droit en
-> vigueur, c'est-à-dire le budget 2026 voté tel que le moteur le tient, mode historique : 149,25 → 148,98 à
+> vigueur, c'est-à-dire le budget 2026 voté tel que le moteur le tient, mode historique : 149,39 → 148,82 à
 > 10 Md€/an ; mesure du moteur actuel) — ce n'est plus un artefact d'échelle mais ce qu'implique l'élasticité
-> centrale (FMI WP 15/95 : « the public-debt-to-GDP ratio may actually decline »). Le ratio est au plus bas vers
-> 20 Md€/an ; entre 30 et 50 Md€/an, le coût l'emporte : 0 → 50 Md€/an, 149,25 → 149,64 (canal d'offre coupé :
-> 154,27). Avec le seul lot 6 (calendrier de l'impulsion : l'investissement agissait sur l'activité un an après son
-> budget), le ratio restait sous son niveau de départ jusqu'à 50 Md€/an (149,25 → 149,20 ; 153,82 sans le canal
-> d'offre) ; avec le seul lot 2 (retour fiscal propre du levier retiré), le coût l'emportait dès 10 à 20 Md€/an
-> (149,14 → 150,47 ; 155,12) ; avant les deux, entre 20 et 30 Md€/an (149,14 → 149,97 ; 154,62).
+> centrale (FMI WP 15/95 : « the public-debt-to-GDP ratio may actually decline »). Le ratio baisse sur tout le
+> curseur, de moins en moins par Md€ : 0 → 50 Md€/an, 149,39 → 148,26 (canal d'offre coupé : 152,86) ; c'est
+> donc le canal d'offre qui fait baisser le ratio. Jusqu'au lot 6 (calendrier de l'impulsion : l'investissement
+> agissait sur l'activité un an après son budget ; coefficient 1,2 au lieu de 1,31), le coût l'emportait entre
+> 20 et 30 Md€/an (149,14 → 149,97 à 50 Md€/an ; 154,62 sans le canal d'offre), et dès 10 à 20 Md€/an une fois
+> retiré le retour fiscal propre du levier (lot 2 : 149,14 → 150,47 ; 155,12).
 > Jusqu'à v0.8.1, le terme d'effort de
 > l'inflation (retiré au lot 1) faisait baisser le ratio de toute relance par le dénominateur (149,91 → 148,25 à
 > 50 Md€/an ; 152,87 sans le canal d'offre ; mesuré en v0.8.1). Dit, non verrouillé en signe, verrouillé en
@@ -3495,20 +3529,20 @@ vote » : deficit -5,0 -> -6,76 %, dette 118,4 -> 130,5 %, charge de la dette
 
 | Année | Dette moteur | Dette mission | Écart | Déficit moteur | Déficit mission | Niveau PIB nominal vs mission |
 |---|---|---|---|---|---|---|
-| 2026 | 118,05 | 118,4 | −0,35 | −5,39 | −5,00 | 0,47 % |
-| 2027 | 120,53 | 121,4 | −0,87 | −5,54 | −5,88 | 0,41 % |
-| 2028 | 123,21 | 124,2 | −0,99 | −5,77 | −6,21 | 0,24 % |
-| 2029 | 126,12 | 127,3 | −1,18 | −6,05 | −6,57 | 0,24 % |
-| 2030 | 129,32 | 130,5 | −1,18 | −6,41 | −6,76 | 0,23 % |
+| 2026 | 118,03 | 118,4 | −0,37 | −5,38 | −5,00 | 0,48 % |
+| 2027 | 120,51 | 121,4 | −0,89 | −5,54 | −5,88 | 0,42 % |
+| 2028 | 123,18 | 124,2 | −1,02 | −5,76 | −6,21 | 0,24 % |
+| 2029 | 126,10 | 127,3 | −1,20 | −6,05 | −6,57 | 0,24 % |
+| 2030 | 129,30 | 130,5 | −1,20 | −6,41 | −6,76 | 0,23 % |
 
-Re-mesurées le 12/11/2026 (release de paramètres P, moteur v0.8.1) : la référence ne compte plus la surtaxe d'IS votée pour 2026 seulement (0 dès 2027, valeur datée ; en mode historique, 0 dès 2026). Re-mesurées le 15/11/2026 (lot 1 : terme d'effort de l'inflation et éviction retirés, coefficient des transferts recalé ; 2027-2030 seulement, 2026 identique), puis au lot 5 (la hausse de défense du scénario prend le coefficient de la coupe de dépense courante ; 2027-2030 seulement). Re-mesurées le 16/11/2026 (lot 6, calendrier de l'impulsion : le budget de chaque année agit dès cette année ; 2026-2030). Lecture : le PIB nominal est désormais honnête (niveau 2030 à +0,23 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,18 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
+Re-mesurées le 12/11/2026 (release de paramètres P, moteur v0.8.1) : la référence ne compte plus la surtaxe d'IS votée pour 2026 seulement (0 dès 2027, valeur datée ; en mode historique, 0 dès 2026). Re-mesurées le 15/11/2026 (lot 1 : terme d'effort de l'inflation et éviction retirés, coefficient des transferts recalé ; 2027-2030 seulement, 2026 identique), puis au lot 5 (la hausse de défense du scénario prend le coefficient de la coupe de dépense courante ; 2027-2030 seulement). Re-mesurées le 16/11/2026 (lot 6, calendrier de l'impulsion : le budget de chaque année agit dès cette année ; 2026-2030), puis après le recalage des coefficients d'impact du même lot (release de paramètres). Lecture : le PIB nominal est désormais honnête (niveau 2030 à +0,23 % de la mission, tolérance ±0,6) ; l'écart de dette (−1,20 pt en 2030) révèle un solde primaire du statu quo légèrement trop favorable — le résidu (b) décrit dans `tests/test_calibration_mission_v060.py`, que le PIB nominal trop bas compensait jusqu'ici. Chantier ouvert v0.6.8 (bloc dépenses). Statu quo NU (aucune mesure) : dette 2030 129,12 %, 2035 151,17 %.
 
 | Indicateur | Valeur | Horizon |
 |------------|--------|---------|
 | Croissance reelle depenses primaires | +0,8 a +1,4%/an CHAQUE annee | Tendanciel officiel (mission IGF : Ondam +3,5 % courants, retraites 354->401 Md EUR) |
 | Elasticite recettes / PIB nominal | 1,00 | Ratio recettes/PIB stable par construction (~52,2%) |
-| Deficit | **-5,39 %** PIB | 2026, scenario de reference (mission : -5,00 par hypothese ; statu quo NU : -5,30 ; v0.8.1 : surtaxe IS 2026 non comptee en mode historique) |
-| Dette | **129,32 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,18 pt (lot 6, calendrier de l'impulsion, équation ; -1,27 au lot 5 : hausse de depense courante au coefficient de sa coupe ; -1,21 au lot 1 : terme d'effort de l'inflation et eviction retires, coefficient des transferts recale ; -1,28 en v0.8.1 : surtaxe IS arretee ; -1,69 en v0.7.2 : dette de depart 115,7 % et reencodage du 08/11/2026 ; -1,86 avant) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
+| Deficit | **-5,38 %** PIB | 2026, scenario de reference (mission : -5,00 par hypothese ; statu quo NU : -5,30 ; v0.8.1 : surtaxe IS 2026 non comptee en mode historique) |
+| Dette | **129,30 %** PIB | 2030, scenario de reference (mission : 130,5 ; ecart -1,20 pt (lot 6, paramètres recalés ; -1,18 au lot 6, calendrier de l'impulsion, équation ; -1,27 au lot 5 : hausse de depense courante au coefficient de sa coupe ; -1,21 au lot 1 : terme d'effort de l'inflation et eviction retires, coefficient des transferts recale ; -1,28 en v0.8.1 : surtaxe IS arretee ; -1,69 en v0.7.2 : dette de depart 115,7 % et reencodage du 08/11/2026 ; -1,86 avant) depuis le re-ancrage DERIVE du potentiel v0.6.7, qui rend le PIB nominal honnete et revele le residu (b) — +0,05 sans bruit avant re-ancrage, -1,98 avec le bruit ; la v4.0 affichait +2,4 pt) |
 | Dette | **129,23 %** PIB | 2030, statu quo NU (aucune mesure) — l'objet de calibration, servi nulle part |
 | Dette | **151,32 %** PIB | 2035, statu quo NU (taux honnetes v0.6.0 : marginal 3,47 % @ 117,6 % AFT, boule de neige reelle r > g des 2029 ; scenario de reference : 151,33) |
 | Deficit | **-9,06 %** PIB | 2035, statu quo NU (charge d'interets ~7 % du PIB ; scenario de reference : -9,03) |

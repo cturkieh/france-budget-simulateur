@@ -54,8 +54,8 @@ def test_v2_03_dix_revalorisations_a_2_pourcent_ecart_exact():
 
 
 @pytest.mark.parametrize('mesures, dette_2035', [
-    pytest.param({'retraites': {'indexation': 0.0}}, 146.77, id='gel_pensions'),
-    pytest.param({'prestations_indexation': {'taux_indexation': 0.0}}, 150.04,
+    pytest.param({'retraites': {'indexation': 0.0}}, 147.49, id='gel_pensions'),
+    pytest.param({'prestations_indexation': {'taux_indexation': 0.0}}, 150.26,
                  id='gel_prestations'),
 ])
 def test_v2_03_dette_2035_des_gels_totaux(mesures, dette_2035):
@@ -71,7 +71,9 @@ def test_v2_03_dette_2035_des_gels_totaux(mesures, dette_2035):
     un gel est une coupe de transferts) : 146,35 → 146,20 et 149,83 → 149,79.
     Lot 6 (16/11/2026, calendrier de l'impulsion : la consolidation agit dès
     l'année de son budget, son effet récessif pèse un an de plus sur le PIB de
-    la fenêtre) : 146,20 → 146,77 et 149,79 → 150,04."""
+    la fenêtre) : 146,20 → 146,77 et 149,79 → 150,04 ; puis coefficients recalés
+    (release de paramètres du même lot, transferts 0,688 → 0,785) : 146,77 → 147,49
+    et 150,04 → 150,26."""
     df, _, _ = BudgetSimulatorV45(periods=10, mesures=mesures).simulate()
     dette = df.loc[df['Année'] == 2035, 'Dette/PIB %'].iloc[0]
     assert dette == pytest.approx(dette_2035, abs=0.005)

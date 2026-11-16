@@ -159,14 +159,14 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             name="multiplicateur consolidation dépenses générique",
             source="base_multipliers['consolidation']['spending_based']",
             raw_value=mults['consolidation']['spending_based'],
-            representations=("-0,74", "-0.74"),
+            representations=("-0,811", "-0.811"),   # lot 6 (paramètres) : -0,74 avant
             must_appear_in=(METHODO, PUBLIC_METHODO),
         ),
         CriticalConstant(
             name="multiplicateur coupe d'investissement public",
             source="base_multipliers['consolidation']['investissement']",
             raw_value=mults['consolidation']['investissement'],
-            representations=("-1,20", "-1.20", "-1,2", "-1.2"),
+            representations=("-1,31", "-1.31"),   # lot 6 (paramètres) : -1,20 avant
             must_appear_in=(METHODO, PUBLIC_METHODO),
         ),
         CriticalConstant(

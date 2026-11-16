@@ -6,6 +6,63 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — paramètres du lot 6 : coefficients d'impact recalés après la correction du calendrier
+
+**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du commit d'équation
+du lot 6 (bloc suivant), qu'elle suppose appliqué. Aucune équation ne change.
+
+**Pourquoi.** Le budget agissant désormais dès son année, le niveau « quatre ans après » de chaque famille est celui
+de sa cinquième année d'effet, et non plus de sa quatrième : à coefficients inchangés, il baissait de 9 à 13 % au banc
+des multiplicateurs (investissement 1,41 → 1,29 ; transferts 0,650 → 0,563 ; impôts 0,646 → 0,584 ; dépense
+courante 0,794 → 0,720). Les cibles (`MULT_CIBLE_NIVEAU_4ANS`) ne changent pas.
+
+**Le recalage.** Méthode de la sécante sur le banc de `tests/test_multiplicateurs_centraux_v067.py`, chaque
+coefficient ramené au niveau à 4 ans d'avant le lot : `MULT_INVESTISSEMENT` 1,2 → **1,31** (1,41 ; la cible 1,5 reste
+à −6 %, dans sa tolérance de 10 %, comme avant), `MULT_COUPE_DEPENSES` 0,74 → **0,811** (0,79, hausse et coupe),
+`MULT_TRANSFERTS` 0,688 → **0,785** (0,650), `MULT_HAUSSE_IMPOTS` et `MULT_BAISSE_IMPOTS` 0,615 → **0,674** (0,65 ;
+la baisse reste au coefficient de la hausse). Facteurs ×1,09 à ×1,14. Le lot change le calendrier, pas les niveaux :
+recaler l'investissement sur 1,5 plutôt que sur 1,41 serait une décision distincte. Les coefficients propres (SMIC
+0,15, fraude fiscale −0,40), présents depuis la première version publique, ne sont calés sur aucun niveau mesuré
+dans le moteur : non recalés, limite déclarée (recalés comme leur famille de profil, ils déplaceraient la dette 2032
+des programmes publiés de 0,03 point au plus).
+
+**Limite déclarée (arbitrage du mainteneur, non tranché).** Chaque famille est calée sur un seul point, son niveau à
+quatre ans. Sur la trajectoire des cinq premières années (mode cadre 2028), l'investissement dépasse le profil du
+FMI de 23 % et celui de Mésange de 8 % ; la dépense courante est 8 % sous Mésange ; première année : 0,56 pour
+l'investissement, contre 0,46 (FMI) et 1,31 (Mésange). Pour les leviers qui ont un canal d'offre (transition
+écologique, investissement des collectivités), le moteur ajoute ce canal à une demande calée sur un effet que le FMI
+mesure TOTAL (demande et capacité de production) : 1,67 à quatre ans pour le levier de la transition écologique,
+mesuré au protocole du banc des multiplicateurs, contre 1,54 pour la source, comme avant ce lot.
+
+- Test rouge puis vert : banc des multiplicateurs, niveau à 4 ans sur la cible pour les six familles (en échec
+  attendu strict au commit d'équation, vert ici ; écart au niveau d'avant le lot ≤ 0,2 %).
+- Re-déclarés : coefficients écrits en dur remplacés par leur constante (symétrie de l'investissement) ; banc de
+  l'auditeur avec la table de l'audit, investissement compris ; représentations du verrou documentaire ; miroir du
+  curseur de défense : 1,0087 à la 4ᵉ année d'effet (tolérance 1 %), 1,0108 à l'année calendaire d'avant le lot
+  (tolérance 1,5 %, montant fixe en Md€) ; gros choc de 2 points : écart au miroir de 10 % (13 % en mode cadre),
+  exactement la part écrêtée par le filet de croissance ; valeurs datées V2-02 et
+  V2-03 ; forme de l'effet d'offre de l'investissement vert (le ratio baisse sur tout le curseur) ; réponse des prix
+  comparée à ThreeME et Mésange.
+- Instantanés régénérés une fois : restent identiques les mini-scénarios du SMIC, de la fraude fiscale et de
+  l'abattement des retraites (aucune impulsion à un coefficient recalé) ; les dix scénarios publiés bougent.
+  Pouvoir d'achat 2029 figé non modifié (écarts au figé ≤ 0,3 point, tolérance 1,5).
+- Effet (mode cadre 2028, dix scénarios publiés, dette 2032), recalage seul : de −1,31 à +1,70 point ; équation et
+  recalage ensemble, par rapport à l'état d'avant le lot : de −4,26 point (la plus forte relance) à +4,58 (le plus
+  fort effort de consolidation) ; référence −0,03. Étendue de la dette 2032 entre les dix scénarios : 13,4 → 4,7
+  points. Déficit 2032 : −0,84 à +0,64 ; croissance moyenne 2028-2032 : −0,26 à +0,11 point ; Gini inchangé.
+- Pile d'intégration (reporté après le lot 2 et l'équation du lot 6, mesuré contre eux) : recalage seul de −1,28 à
+  +1,70 point de dette 2032 ; équation et recalage ensemble, contre le lot 2 : de −4,17 à +4,58 ; référence −0,03 ;
+  étendue de la dette 2032 12,99 → 5,43 points ; déficit 2032 −0,84 à +0,64 ; croissance moyenne −0,258 à +0,108.
+  Chiffres « moteur actuel » du lot 2 recalculés sur la pile (recherche +5 Md€ par an : dette 2032 −1,61 point et
+  −17,2 Md€ ; effet total par euro à quatre ans 1,31 / 1,61 / 4,24 €, la propriété « au-dessus de la cible de 1,5 »
+  tient de nouveau, attente stricte levée) ; courbe de l'investissement vert : baisse sur tout le curseur.
+- Garde ajoutée à la revue adverse : la limite « calage sur un seul point » est recalculée (profils en mode cadre
+  2028, sources écrites en constantes du test) et doit figurer telle quelle dans METHODOLOGIE.
+- Docs : METHODOLOGIE (recalage, limite du calage sur un seul point, profils par famille dans « Calendrier de
+  l'impulsion », ordres de grandeur des limites restantes, table des multiplicateurs, somme analytique de
+  l'investissement à k = 1,31, tableau des familles, chiffres liés à la mesure), EXPLICATION (table des
+  coefficients).
+
 ## [non publiée — proposée] — équation du lot 6 : le budget agit dès son année (calendrier de l'impulsion)
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, qui suppose appliqués les blocs des

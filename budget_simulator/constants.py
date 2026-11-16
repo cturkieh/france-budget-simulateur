@@ -426,21 +426,34 @@ MULT_CIBLE_NIVEAU_4ANS = {
 # par tests/test_symetrie_impots_v067.py (rapport baisse/hausse à 4 ans, ±3 %).
 # Coefficients d'impact k (FiscalMultipliers.base_multipliers) qui réalisent ces
 # cibles dans le moteur, mesurés le 07/10/2026 (niveau à 4 ans avant → après) :
-MULT_INVESTISSEMENT = 1.2     # inchangé : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %)
-MULT_COUPE_DEPENSES = 0.74    # 0,60 → 0,81 (÷1,10 « confiance ») → 0,74 sans ce facteur : 0,58 → 0,80
+MULT_INVESTISSEMENT = 1.31    # inchangé à 1,2 jusqu'au lot 6 : 1,41 mesuré, cible 1,5 (−6 %, dans ±10 %).
+                              # Lot 6 (release de paramètres, 16/11/2026) : l'impulsion agit dès l'année de
+                              # son budget ; à 1,2, le niveau à 4 ans tombait à 1,29. Recalé par la sécante
+                              # sur le banc de tests/test_multiplicateurs_centraux_v067.py pour retrouver
+                              # le niveau d'avant le lot (1,4098 ; k = 1,3096 → 1,31), pas la cible 1,5 :
+                              # le lot change le calendrier, pas les niveaux.
+MULT_COUPE_DEPENSES = 0.811   # 0,60 → 0,81 (÷1,10 « confiance ») → 0,74 sans ce facteur : 0,58 → 0,80
                               # (0,7963 → 0,8004). k = 0,81/1,10 sans le facteur : 44 cas au bit.
                               # Lot 5 (15/11/2026) : vaut aussi pour une HAUSSE de dépense courante
                               # (nom historique) ; elle prenait MULT_TRANSFERTS (0,74 à 4 ans au
                               # banc, contre 0,79 pour la coupe). Valeur inchangée.
-MULT_TRANSFERTS = 0.688       # 0,50 → 0,71 : 0,44 → 0,65 ; 0,71 → 0,688 (lot 1, release de paramètres,
+                              # Lot 6 (release de paramètres, 16/11/2026) : 0,74 → 0,811 (k = 0,8107),
+                              # niveau à 4 ans de la coupe ramené à sa valeur d'avant le lot (0,794), le
+                              # calendrier de l'impulsion l'ayant fait tomber à 0,720.
+MULT_TRANSFERTS = 0.785       # 0,50 → 0,71 : 0,44 → 0,65 ; 0,71 → 0,688 (lot 1, release de paramètres,
                               # 15/11/2026) : le 0,71 était calé sur une relance 100 % transferts
                               # SOUS éviction ; éviction retirée, il donnait 0,672 (+3,4 %). Recalé par
                               # bissection sur le banc de tests/test_multiplicateurs_centraux_v067.py
                               # (0,6882) : hausse 0,650, coupe 0,650 à 4 ans. Un calage fait avant le
                               # retrait du terme d'effort de l'inflation (éviction seule neutralisée)
                               # donnait 0,684 ; sur l'état sans les trois mécanismes, 0,684 donne 0,646.
-MULT_HAUSSE_IMPOTS = 0.615    # 0,50 → 0,615 : 0,52 → 0,65
-MULT_BAISSE_IMPOTS = 0.615    # 0,35 → 0,455 → 0,63 → 0,615 (= k hausse) : 0,33 → 0,45 → 0,65.
+                              # Lot 6 (release de paramètres, 16/11/2026) : 0,688 → 0,785 (k = 0,7849),
+                              # niveau à 4 ans ramené à 0,650 (0,563 après le calendrier de l'impulsion).
+MULT_HAUSSE_IMPOTS = 0.674    # 0,50 → 0,615 : 0,52 → 0,65 ; lot 6 (release de paramètres, 16/11/2026) :
+                              # 0,615 → 0,674 (k = 0,6739), niveau à 4 ans ramené à 0,646 (0,584 après le
+                              # calendrier de l'impulsion)
+MULT_BAISSE_IMPOTS = 0.674    # 0,35 → 0,455 → 0,63 → 0,615 (= k hausse) : 0,33 → 0,45 → 0,65 ;
+                              # lot 6 : 0,674, toujours = k hausse (convention de symétrie, lot 1).
                               # Lot 1 (15/11/2026) : le 0,63 compensait l'éviction, qui ne
                               # frappait que les expansions ; éviction retirée, il donnait une
                               # baisse 3,6 % au-dessus de la hausse (test de symétrie à ±3 %

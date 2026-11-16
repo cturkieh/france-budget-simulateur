@@ -299,10 +299,10 @@ def test_gros_choc_l_ecart_au_miroir_est_exactement_la_part_ecretee_par_le_filet
     4. sinon (leviers au profil de l'investissement, dont la première année est plus faible), rien
        ne change en levant le filet.
 
-    Mesuré au commit d'équation du lot 6, levier synthétique : hausse +1,245 % contre baisse
-    −1,250 % au banc historique (écart au miroir 0,4 %, croissance calculée 2,505 %), +1,211 %
-    contre −1,255 % en mode cadre 2028 (3,6 %, croissance calculée 2,544 %) ; santé et réforme de
-    l'État (profil de l'investissement) ne sont pas écrêtées."""
+    Mesuré avec les coefficients recalés du lot 6, levier synthétique : hausse +1,245 % contre
+    baisse −1,370 % au banc historique (écart au miroir 10 %, croissance calculée 2,627 %), +1,213 %
+    contre −1,374 % en mode cadre 2028 (13 %, croissance calculée 2,664 %) ; au commit d'équation,
+    0,4 % et 3,6 %. Santé et réforme de l'État (profil de l'investissement) ne sont pas écrêtées."""
     hausse, g_ref, ecrete = _premiere_annee(etat, levier, +GROS_CHOC)
     baisse, _, ecrete_baisse = _premiere_annee(etat, levier, -GROS_CHOC)
     hausse_libre, _, ecrete_libre = _premiere_annee(etat, levier, +GROS_CHOC, filet_leve=True)
@@ -399,8 +399,9 @@ def test_curseur_defense_en_miroir(pleine_precision, etat, horizon, tolerance):
     - horizon 4, l'année calendaire d'avant le lot (budget 2026 → 2030), devenue la 5e année
       d'effet : tolérance de 1,5 %. Le curseur est un montant FIXE en Md€, et l'écart au miroir
       croît d'environ 0,2 point par année d'effet ; mesuré au banc historique, années d'effet 2 à 6 :
-      1,0034 / 1,0056 / 1,0080 / 1,0099 / 1,0121 au commit d'équation, 1,0020 / 1,0044 / 1,0073 /
-      1,0099 / 1,0130 avant le lot (mode cadre 2028 : 1,0082 et 1,0099 aux horizons 3 et 4). Le même
+      1,0038 / 1,0061 / 1,0087 / 1,0108 / 1,0132 avec les coefficients recalés (1,0034 / 1,0056 /
+      1,0080 / 1,0099 / 1,0121 au commit d'équation), 1,0020 / 1,0044 / 1,0073 / 1,0099 / 1,0130
+      avant le lot (mode cadre 2028 : 1,0091 et 1,0111 aux horizons 3 et 4). Le même
       levier en part FIXE du PIB (banc générique ci-dessus, ±0,33 point) reste sous 0,2 % la 5e
       année. 1,5 % couvre cette dérive connue et rougit toujours l'asymétrie de coefficient que la
       garde vise (1,089 et 1,031 avant le lot 5)."""

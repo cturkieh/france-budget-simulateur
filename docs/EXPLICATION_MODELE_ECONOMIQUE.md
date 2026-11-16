@@ -255,7 +255,7 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 vote, reajuste sur l'execution 2026 »**, qui encode la loi de
-> finances reajustee sur l'execution 2026 et rend -5,39 % de deficit 2026, 129,32 % de
+> finances reajustee sur l'execution 2026 et rend -5,38 % de deficit 2026, 129,30 % de
 > dette 2030 et 151,33 % en 2035 (depuis la v0.8.1, la surtaxe d'IS votee pour 2026 seulement
 > n'y est plus comptee, et ce mode l'applique des 2026 ; le site part de l'atterrissage 2026, -5,5 %). Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
@@ -422,19 +422,19 @@ Le multiplicateur mesure l'impact sur le PIB d'une variation des depenses ou rec
 
 ### Valeurs du Modele
 
-Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB réel 4 ans après une impulsion permanente de 1 % du PIB, mesuré dans le moteur complet, tombe sur la valeur centrale de la littérature (entre parenthèses ; détail et sources : METHODOLOGIE § Table des Multiplicateurs de Base).
+Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB réel 4 ans après une impulsion permanente de 1 % du PIB, mesuré dans le moteur complet, tombe sur la valeur centrale de la littérature (entre parenthèses ; détail et sources : METHODOLOGIE § Table des Multiplicateurs de Base). Recalés au lot 6 (non publié) : le budget agissant désormais des son annee, les coefficients sont releves pour retrouver le meme effet a 4 ans (valeurs d'avant entre crochets).
 
 | Type de mesure | Multiplicateur | Source |
 |----------------|----------------|--------|
 | **Consolidation** | | |
-| Hausse impots | **-0,615** (effet 0,65) | Gechert 2015 (méta-analyse, 104 études) |
-| Coupes depenses generiques | **-0,74** (effet 0,8) | Ramey 2019 (« 0.6 to 1 ») |
-| Coupe d'investissement public | **-1,20** | symetrique de la hausse |
+| Hausse impots | **-0,674** (effet 0,65) [-0,615] | Gechert 2015 (méta-analyse, 104 études) |
+| Coupes depenses generiques | **-0,811** (effet 0,8) [-0,74] | Ramey 2019 (« 0.6 to 1 ») |
+| Coupe d'investissement public | **-1,31** [-1,20] | symetrique de la hausse |
 | **Expansion** | | |
-| Investissement public | **1,20** (effet 1,41) | FMI WEO oct. 2014 (1,5 a 4 ans) |
-| Depense courante (defense, dotations, postes, credits, sante) | **0,74** (effet 0,8), meme coefficient que la coupe (lot 5) | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
-| Transferts sociaux | **0,688** (effet 0,65), meme coefficient pour une coupe | Gechert 2015 |
-| Baisses impots | **0,615** (effet 0,65, comme la hausse) | aucune asymetrie de signe etablie (v0.6.7) |
+| Investissement public | **1,31** (effet 1,41) [1,20] | FMI WEO oct. 2014 (1,5 a 4 ans) |
+| Depense courante (defense, dotations, postes, credits, sante) | **0,811** (effet 0,8), meme coefficient que la coupe (lot 5) [0,74] | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
+| Transferts sociaux | **0,785** (effet 0,65), meme coefficient pour une coupe [0,688] | Gechert 2015 |
+| Baisses impots | **0,674** (effet 0,65, comme la hausse) [0,615] | aucune asymetrie de signe etablie (v0.6.7) |
 | **Cas speciaux** | | |
 | SMIC | **0,15** | Kramarz & Philippon 2001 (quasi-zero) |
 | Fraude fiscale | **-0,40** | Enforcement, pas nouvelle taxe |
@@ -835,8 +835,8 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les trajectoires baseline sont coherentes :
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
-- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,39% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 129,32% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,38% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,30% pour le scenario de reference (HCFP : >125% sans ajustement)
 - Dette 2035 : 151,32% PIB en statu quo NU ; 151,33% pour le scenario de reference. Deficit 2035 : -9,06% / -9,03%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
