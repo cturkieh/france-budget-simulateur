@@ -63,7 +63,9 @@ def test_part_reelle_de_l_ancienne_assiette_publiee_liee_a_la_mesure():
     _, ctx = _coupes({'rabot_uniforme': {'taux_reduction': 0.08, 'exclure_defense': 0, 'exclure_ue': 0}})
     part = f"{8 / ctx[2032]['indice_prix']:.1f}".replace('.', ',')
     assert part == '7,4'
-    racine = Path(__file__).absolute().parent.parent
+    # Documents du MOTEUR : `resolve()` suit le lien `tests` du dépôt du site jusqu'au moteur ; `absolute()` lirait
+    # le CHANGELOG du site, qui n'est pas celui-ci.
+    racine = Path(__file__).resolve().parent.parent
     for doc in ('docs/METHODOLOGIE.md', 'CHANGELOG.md'):
         texte = ' '.join((racine / doc).read_text(encoding='utf-8').split())
         assert f"environ {part} % des dépenses de l'année en 2032" in texte, doc
@@ -201,5 +203,5 @@ def test_coupe_2029_publiee_liee_a_la_mesure():
     from pathlib import Path
     coupes, _ = _coupes(RABOT_NOTE)
     ecrit = f"{coupes[2029]:.1f}".replace('.', ',') + ' Md€ en 2029'
-    doc = (Path(__file__).absolute().parent.parent / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
+    doc = (Path(__file__).resolve().parent.parent / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
     assert ecrit in doc, ecrit

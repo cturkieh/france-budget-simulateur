@@ -4,6 +4,13 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — test : documents du moteur lus à leur place quand la suite tourne depuis le site
+
+**Statut** : commit de TEST ; moteur, sorties et instantanés inchangés. Raccordement réel au site (sous-module) :
+`tests/test_rabot_assiette_note.py` lisait METHODOLOGIE et le CHANGELOG par `Path(__file__).absolute()`, qui garde
+le lien `tests` du dépôt du site et lit donc le CHANGELOG du site. Les deux lectures passent par `resolve()`, comme
+les autres tests qui lisent un document du moteur. Moteur seul : inchangé.
+
 ## [non publiée — proposée] — texte : infobulle des cotisations salariales sans effet sur les inégalités
 
 **Statut** : commit de TEXTE ; moteur, sorties et instantanés inchangés. Arbitrage du mainteneur du 16/11/2026 :
