@@ -626,11 +626,18 @@ class OrchestratorMixin:
                     # Part d'investissement productif de la dépense (release E,
                     # contre-vérification I2) : publiée seulement si non nulle,
                     # lue par les impulsions (engine/growth.py).
+                    # Lot 5c : plus la part investie des autres paramètres du
+                    # levier (dotation aux collectivités), même source que l'effet
+                    # d'offre (part_investie_des_autres_parametres).
                     param_inv = self.INVESTISSEMENT_PRODUCTIF_PARTIEL.get(measure_id)
                     if param_inv is not None and isinstance(parameters, dict):
                         part_inv = parameters.get(param_inv, 0)
-                        if isinstance(part_inv, (int, float)) and not isinstance(part_inv, bool) and part_inv:
-                            measure_impacts['depenses_investissement'] = float(part_inv)
+                        part = (float(part_inv) if isinstance(part_inv, (int, float))
+                                and not isinstance(part_inv, bool) else 0.0)
+                        part += self.part_investie_des_autres_parametres(
+                            measure_id, lambda p, d: parameters.get(p, d))
+                        if part:
+                            measure_impacts['depenses_investissement'] = part
                     # Contrat v0.6.8 (revue passe 1, L2) : une formule ne pose
                     # aucun canal ménages. Côté dépenses, zéro effet direct est
                     # l'arbitrage 2 ; côté recettes, l'indice compterait la taxe

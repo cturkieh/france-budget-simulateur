@@ -40,6 +40,8 @@ TRACEABILITY_KEYS = frozenset({
     'description',      # str — métadonnée libellé (_apply_asu)
     'rabot_details',    # dict — tolérance ImpactsDict documentée (_apply_rabot_uniforme)
     'recettes_tva',     # Md€ — part TVA de fiscalite_indirecte, lue par le passage dans les prix
+    'depenses_investissement',  # Md€ — part investie de `depenses`, lue par flux_par_levier (lot 5c :
+                                # émise aussi par la dotation aux collectivités, droit en vigueur compris)
 })
 
 # Clés d'infrastructure (échec handler / message d'erreur) posées par

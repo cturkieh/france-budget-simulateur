@@ -255,8 +255,8 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 vote, reajuste sur l'execution 2026 »**, qui encode la loi de
-> finances reajustee sur l'execution 2026 et rend -5,39 % de deficit 2026, 129,36 % de
-> dette 2030 et 151,37 % en 2035 (depuis la v0.8.1, la surtaxe d'IS votee pour 2026 seulement
+> finances reajustee sur l'execution 2026 et rend -5,39 % de deficit 2026, 129,41 % de
+> dette 2030 et 151,49 % en 2035 (depuis la v0.8.1, la surtaxe d'IS votee pour 2026 seulement
 > n'y est plus comptee, et ce mode l'applique des 2026 ; le site part de l'atterrissage 2026, -5,5 %). Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -432,8 +432,9 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 | Coupe d'investissement public | **-1,31** [-1,20] | symetrique de la hausse |
 | **Expansion** | | |
 | Investissement public | **1,31** (demande seule 1,28 ; avec l'effet de capacite d'un equipement public, 1,54 : le tableau du FMI) [1,20] | FMI WEO oct. 2014 (chemin de 0,46 a 1,54 en quatre ans) |
-| Depense courante (defense, dotations, postes, credits, sante) | **0,811** (effet 0,8), meme coefficient que la coupe (lot 5) [0,74] | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
+| Depense courante (defense, la moitie des dotations des collectivites, postes, credits, sante) | **0,811** (effet 0,8), meme coefficient que la coupe (lot 5) [0,74] | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
 | Coupes de prestations en especes du rabot uniforme (pensions, chomage, minima) | **0,785** (effet 0,65), comme un transfert (lot 5e) [0,688] | SEC 2010 (D.62) |
+| Dotation des collectivites, la moitie d'une variation (coupe du rabot comprise) | **1,31** (effet 1,54 avec l'effet de capacite), comme l'investissement public, dans les deux sens (lot 5c) [1,20] | Caisse des Depots 2015, Cour des comptes 2018 |
 | Transferts sociaux | **0,785** (effet 0,65), meme coefficient pour une coupe [0,688] | Gechert 2015 |
 | Remuneration des agents publics a effectifs constants (point d'indice, revalorisation des enseignants) | **0,785** (effet 0,65), comme un transfert, dans les deux sens (lot 5b) [0,688] | comptabilite nationale (effet prix) et Mesange 2017 ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010) |
 | Baisses impots | **0,674** (effet 0,65, comme la hausse) [0,615] | aucune asymetrie de signe etablie (v0.6.7) |
@@ -486,6 +487,23 @@ passent par les curseurs des retraites ou du chômage. Elles le sont désormais 
 comptées comme une dépense courante : la dette 2032 du programme qui l'utilise baisse de 0,65 point. Le reste du rabot
 ne change pas ; on ne sait pas si sa coupe de masse salariale est un gel des salaires ou une baisse d'effectifs, et
 le moteur la traite comme des effectifs (METHODOLOGIE, limite 10).
+
+**Dotation des collectivités : pour moitié de l'investissement (lot 5c, 16/11/2026, non publié).** Quand l'État
+baisse ce qu'il verse aux communes, aux départements et aux régions, ceux-ci réduisent surtout leurs travaux et
+leurs équipements : environ 0,2 € d'investissement en moins par euro la première année, 0,4 à 0,6 € quand la
+baisse dure (Caisse des Dépôts 2015, Cour des comptes 2018). Le moteur compte donc la moitié d'une variation de
+dotation comme de l'investissement public et l'autre moitié comme une dépense courante, dans les deux sens, y
+compris quand la baisse vient du rabot uniforme : une
+baisse durable de 10 Md€ alourdit la dette 2032 de 0,25 point de plus qu'avant. Le budget 2026 voté place déjà
+la dotation 3,4 Md€ sous la valeur de base du moteur, si bien que toute simulation en mode cadre bouge un peu
+(+0,14 point de dette 2032 pour la référence). Pour l'effet sur la capacité de production, le moteur part de la
+dotation du budget voté, afin de ne pas prêter au statu quo un effet qu'il n'a pas ; le mode historique, qui
+n'applique pas ce budget, ne compte donc pas cet effet (METHODOLOGIE, encadré du lot 5c).
+
+**Indemnités journalières : limite déclarée (16/11/2026).** Les indemnités versées pendant un arrêt maladie ou
+après un accident du travail, des prestations en argent qui font environ 7 % du curseur de l'assurance maladie,
+restent comptées comme une dépense courante, car ce curseur ne les sépare pas des soins : l'écart serait d'au plus
+0,003 point de dette 2032 (METHODOLOGIE, limite 11 de « Limites et Precautions »).
 
 **Subventions et aides en capital : limite déclarée (16/11/2026).** Les subventions aux entreprises et les aides
 en capital versées aux ménages gardent le traitement d'une dépense courante : aucune étude consultée ne chiffre
@@ -876,8 +894,8 @@ Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les 
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
 - Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,39% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 129,36% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,32% PIB en statu quo NU ; 151,37% pour le scenario de reference. Deficit 2035 : -9,06% / -9,03%
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,41% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 151,49% pour le scenario de reference. Deficit 2035 : -9,06% / -9,04%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

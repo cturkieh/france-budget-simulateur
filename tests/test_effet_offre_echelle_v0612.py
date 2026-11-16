@@ -447,7 +447,7 @@ def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     fiscal propre du levier retiré, puis lot 6 entier) : le coût l'emporte dès le premier
     Md€ (+0,01 point), sans changement de signe dans le domaine, et le coût par Md€ croît
     avec le montant à partir de 5 Md€ (mesure du moteur actuel : 0,31 point à 20 Md€,
-    +2,26 à 50 Md€). Les deux chiffres de cette docstring sont recalculés ci-dessous : ils
+    +2,27 à 50 Md€). Les deux chiffres de cette docstring sont recalculés ci-dessous : ils
     ne peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)
     d0 = _dette_2035(sc, 'transition_ecologique', 'investissement', 0)
@@ -781,13 +781,26 @@ def test_w6_8_mi_plafond_et_neuf_dixiemes_exacts():
 BASES_NEUTRE = {'statu_quo': {}, 'droit_en_vigueur': DROIT, **SCENARIOS}
 
 
-def _au_defaut_sur_l_offre(mesures):
-    """Le programme, paramètres d'offre ramenés au défaut (le reste inchangé)."""
+def _au_defaut_sur_l_offre(mesures, annee_debut=None):
+    """Le programme, paramètres d'offre ramenés à leur neutre d'offre (le reste
+    inchangé) : le défaut pour chaque canal ; en mode cadre, la valeur du droit
+    en vigueur pour les parts investies d'autres paramètres (lot 5c, dotation aux
+    collectivités : leur offre se compte depuis le droit ; en mode historique,
+    elles n'en ont pas), et sans les leviers qui coupent la dotation (rabot)."""
     defauts = _defauts()
     out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in mesures.items()}
     for cle, (levier, param) in CANAUX.items():
         if isinstance(out.get(levier), dict) and param in out[levier]:
             out[levier][param] = defauts[cle]
+    if annee_debut is not None:
+        for levier, params in BudgetSimulatorV45.PARTS_INVESTIES.items():
+            for param in params:
+                if isinstance(out.get(levier), dict) and param in out[levier]:
+                    out[levier][param] = DROIT[levier][param]
+        # Un levier qui coupe la ligne « Dotations » (rabot uniforme, lot 5c) porte un effet
+        # d'offre par sa coupe ; son neutre d'offre est l'absence de coupe : il est retiré.
+        for levier in BudgetSimulatorV45.COUPES_DE_DOTATION:
+            out.pop(levier, None)
     return out
 
 
@@ -802,7 +815,7 @@ def test_w6_9_neutre_sorties_identiques_au_bit(annee_debut, strict):
     if len(BASES_NEUTRE) < 12:
         assert len(BASES_NEUTRE) == 2  # dépôt public seul : statu quo et droit en vigueur
     for nom, base in BASES_NEUTRE.items():
-        neutre = _au_defaut_sur_l_offre(pour_le_mode(base, annee_debut))
+        neutre = _au_defaut_sur_l_offre(pour_le_mode(base, annee_debut), annee_debut)
         assert all(d == 0 for d in _deltas(neutre).values()), nom
         avec = _simuler(neutre, annee_debut, strict=strict)
         with _sans_effet_d_offre():

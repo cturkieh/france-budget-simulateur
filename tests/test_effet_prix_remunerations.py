@@ -225,6 +225,9 @@ def _publie_cadre(nom, leviers='tous'):
     mp = pytest.MonkeyPatch()
     try:
         mp.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
+        # Lot 5c (postérieur) neutralisé — part investie de la dotation nulle : les chiffres de l'encadré du lot 5d
+        # sont ceux de son état (par rapport au lot 5b), pas ceux de la pile qui le suit.
+        mp.setattr(S, 'PARTS_INVESTIES', {'collectivites': {'dotation': 0.0}})
         if leviers is None:
             mp.setattr(S, '_cout_remunerations_annee', lambda self, impacts: 0.0)
         elif leviers != 'tous':

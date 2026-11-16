@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from asteval import Interpreter
@@ -22,6 +22,8 @@ from .constants import (
     OUTPUT_GAP_INITIAL,
     POLICY_START_YEAR,
     TAUX_INTERET_BASE, TAUX_PLAFOND_ABSOLU,
+    PART_DOTATION_INVESTIE,
+    HANDLER_FAILED_KEY,
 )
 from .handlers.additionnels import AdditionnelsMixin
 from .handlers.competitivite import CompetitiviteMixin
@@ -473,8 +475,92 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # un même euro d'investissement public a le même ordre d'effet, porté par
     # l'État ou par les collectivités (avant : +0,20 contre −0,40 point de dette
     # 2032 pour 10 Md€, mode cadre). La dotation des collectivités reste une
-    # dépense générique.
+    # dépense générique, sauf sa part investie (PARTS_INVESTIES, lot 5c).
     INVESTISSEMENT_PRODUCTIF_PARTIEL = {'collectivites': 'investissement'}
+
+    # Lot 5c (arbitrage du mainteneur du 16/11/2026) : part d'un AUTRE paramètre
+    # du levier qui est de l'investissement productif, {levier : {paramètre :
+    # part}}. Une variation de dotation aux collectivités pèse pour
+    # PART_DOTATION_INVESTIE sur l'investissement local et prend le traitement du
+    # curseur d'investissement : son impulsion (flux, coefficient et profil de
+    # l'investissement) est comptée depuis le DÉFAUT, comme toute dépense ; son
+    # effet d'offre (canal collectivites_invest), en mode cadre seulement, depuis
+    # la dotation du DROIT EN VIGUEUR de l'année (contrat W6-10 : le statu quo ne
+    # consomme aucune offre). Le mode historique n'applique pas le droit en
+    # vigueur : la part investie n'y a pas d'effet d'offre. Source unique du
+    # montant : part_investie_des_autres_parametres ; de la référence d'offre :
+    # references_d_offre_des_parts_investies.
+    PARTS_INVESTIES = {'collectivites': {'dotation': PART_DOTATION_INVESTIE}}
+
+    def part_investie_des_autres_parametres(self, measure_id: str, lire, references=None) -> float:
+        """Part investie (Md€) portée par les paramètres de ``PARTS_INVESTIES`` d'un
+        levier : Σ part × (valeur − défaut). SOURCE UNIQUE du montant que
+        l'orchestrateur ajoute à ``depenses_investissement`` (impulsion) et que
+        ``update_potential_growth`` ajoute au delta du canal d'offre du levier
+        (lot 5c). ``lire(param, repli)`` rend la valeur telle que ce lecteur la
+        voit (porte comprise) ; une valeur absente ou non numérique compte comme la
+        référence : aucune variation, donc ni impulsion ni offre (un levier en échec
+        n'en a aucune).
+        ``references`` : valeur de référence de chaque paramètre (défaut du registre
+        si absente) — l'impulsion compte depuis le défaut, l'effet d'offre depuis le
+        droit en vigueur (``references_d_offre_des_parts_investies``)."""
+        total = 0.0
+        defauts = self._get_default_values().get(measure_id, {})
+        for param, part in self.PARTS_INVESTIES.get(measure_id, {}).items():
+            defaut = defauts.get(param, 0)
+            reference = (references or {}).get(param, defaut)
+            valeur = lire(param, reference)
+            if (isinstance(valeur, (int, float)) and not isinstance(valeur, bool)
+                    and isinstance(reference, (int, float))):
+                total += part * (valeur - reference)
+        return total
+
+    # Lot 5c (réfutation M1) : leviers qui COUPENT la ligne « Dotations » des dépenses
+    # (``spending_categories_base['collectivites']``, la même ligne de 120 Md€ que
+    # déplace le curseur ``collectivites.dotation``) : la part investie de leur coupe
+    # est publiée dans leur impact (``depenses_investissement``, impulsion) et,
+    # en mode cadre, nourrit le canal d'offre du capital public local, depuis une
+    # référence nulle (le statu quo ne porte pas cette coupe).
+    COUPES_DE_DOTATION = frozenset({'rabot_uniforme'})
+
+    def part_investie_d_une_variation_de_dotation(self, variation: float) -> float:
+        """Part investie (Md€) d'une variation de la dotation aux collectivités : la
+        part du registre ``PARTS_INVESTIES`` (``PART_DOTATION_INVESTIE``), la même
+        pour le curseur et pour la coupe du rabot (source unique de la part)."""
+        return self.PARTS_INVESTIES['collectivites']['dotation'] * variation
+
+    def part_investie_des_coupes_de_dotation(self) -> float:
+        """Part investie (Md€) des coupes de dotation de l'année par les leviers de
+        ``COUPES_DE_DOTATION`` : leur ``depenses_investissement`` publié (le même
+        montant que l'impulsion, plafonds compris), un levier en échec exclu."""
+        total = 0.0
+        for levier in sorted(self.COUPES_DE_DOTATION):
+            impact = (getattr(self, '_last_impacts', None) or {}).get(levier)
+            if isinstance(impact, dict) and not impact.get(HANDLER_FAILED_KEY):
+                part = impact.get('depenses_investissement', 0) or 0
+                if isinstance(part, (int, float)) and not isinstance(part, bool):
+                    total += float(part)
+        return total
+
+    def references_d_offre_des_parts_investies(self, measure_id: str,
+                                               annee: int) -> Optional[Dict[str, float]]:
+        """Référence de l'effet d'offre des paramètres de ``PARTS_INVESTIES`` d'un
+        levier l'année ``annee`` (lot 5c) : leur valeur dans le droit en vigueur
+        DE CETTE ANNÉE, lu dans le cadre de la simulation
+        (``CadreTemporel.droit_en_vigueur_de`` : droit réajusté, valeurs datées
+        comprises ; un paramètre absent du droit garde le défaut, que le statu quo
+        hérite alors). Le statu quo, qui applique ce droit, ne consomme donc aucune
+        offre (contrat W6-10). ``None`` en mode historique : ce mode n'applique pas
+        le droit en vigueur (il ne lit pas même son fichier) ; la part investie n'y
+        a pas d'effet d'offre — son impulsion, comptée depuis le défaut, si."""
+        cadre_temporel = getattr(self, '_cadre', None)
+        droit = cadre_temporel.droit_en_vigueur_de(annee) if cadre_temporel is not None else None
+        if droit is None:
+            return None
+        bloc = droit.get(measure_id)
+        bloc = bloc if isinstance(bloc, dict) else {}
+        return {param: float(bloc[param]) for param in self.PARTS_INVESTIES.get(measure_id, {})
+                if isinstance(bloc.get(param), (int, float)) and not isinstance(bloc.get(param), bool)}
 
     # Mesures de transfert direct (decay rapide)
     # Release E (socle) : ``prestations_menages`` (prestations de solidarité et

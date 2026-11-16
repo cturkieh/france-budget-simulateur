@@ -2826,4 +2826,22 @@ OFFRE_PENTE_RENOVATION = 0.0               # ThreeME (Trésor-Éco 394) : aucun 
 OFFRE_PENTE_EDUCATION = OFFRE_PENTE_CAPITAL_PUBLIC * 0.5  # convention v3.1 (rapport 1/2), canal inerte sur l'horizon
 OFFRE_PLAFOND = 0.002                      # ±0,20 pt, canaux en flux seulement depuis le lot 2 (convention v3.1, sans source)
 
+# --- Dotation aux collectivités : part investie (lot 5c, arbitrage du mainteneur du 16/11/2026) ---
+# Une variation de collectivites.dotation est prise pour cette part comme une variation d'investissement
+# local, pour le reste comme de la dépense courante, dans les deux sens ; l'effet direct sur le déficit reste
+# d'un euro pour un euro. La part investie prend le traitement du curseur collectivites.investissement :
+# flux d'investissement, coefficient et profil de l'investissement productif (impulsion comptée depuis le
+# défaut) et, en mode cadre seulement, effet d'offre collectivites_invest compté depuis la dotation du droit
+# en vigueur (simulator.py, PARTS_INVESTIES). Sources : Caisse des Dépôts, Éclairages n° 8 (sept. 2015),
+# « Impact des dotations de l'État sur l'investissement des collectivités : une approche économétrique
+# (2001-2013) » — élasticité de l'investissement aux dotations de 0,14 (communes) à 0,40 (départements) la
+# première année, « symétrie à court terme », 0,40 pour les communes après trois baisses successives ;
+# rapportée aux montants 2013 (DGCL, Les collectivités locales en chiffres 2015) : 0,20 à 0,26 € par euro la
+# première année, 0,41 à 0,59 € pour une baisse durable (0,47 à 0,61 € d'après la simulation 2014-2017 de
+# l'étude). Cour des comptes, Les finances publiques locales (sept. 2018), p. 69-86 : DGF réduite de 11,2 Md€
+# (2013-2017), investissement local inférieur de 10,8 % en 2017 (environ 0,6 € par euro, sans
+# contrefactuel), cycle électoral non neutralisé. 0,5 est le CENTRE de la fourchette des baisses durables,
+# pas un chiffre publié (variantes 20 % et 60 % et limites : METHODOLOGIE, encadré du lot 5c).
+PART_DOTATION_INVESTIE = 0.5
+
 # === FIN RELEASE E ===

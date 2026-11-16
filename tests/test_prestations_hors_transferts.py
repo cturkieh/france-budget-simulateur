@@ -117,8 +117,9 @@ def test_source_unique_le_montant_reclasse_est_celui_du_canal_menages(monkeypatc
             if m in RECLASSES and p:
                 vus += 1
                 dep = float(imp.get('depenses', 0) or 0)
+                inv = float(imp.get('depenses_investissement', 0) or 0)   # part investie de sa coupe de dotation (lot 5c)
                 assert f[(m, 'prestations')] == -p, m
-                assert f[(m, 'depenses')] == -(dep - p), m
+                assert f[(m, 'depenses')] == -(dep - inv - p), m
                 assert abs(p) < abs(dep), (m, p, dep)   # une part de la dépense du levier
             else:
                 assert (m, 'prestations') not in f, m

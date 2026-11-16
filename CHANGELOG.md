@@ -6,6 +6,118 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 5c : dotation aux collectivités, la moitié d'une variation en investissement local
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des blocs des lots 5e, 5d
+et 5b ci-dessous, qu'il suppose appliqués. Aucun coefficient ne change.
+
+**La règle** (arbitrage du mainteneur du 16/11/2026). Une variation de la dotation aux collectivités
+(`collectivites.dotation`) est prise pour moitié (`PART_DOTATION_INVESTIE` = 0,5, `constants.py`) comme une variation
+d'investissement local, pour l'autre moitié comme de la dépense courante, dans les deux sens. La moitié investie
+prend le traitement du curseur d'investissement local : flux d'investissement, coefficient et profil de
+l'investissement productif (1,41 point de PIB à 4 ans par point de PIB, contre 0,79) et effet d'offre du capital
+public local (canal `collectivites_invest`). L'effet direct sur le déficit reste d'un euro pour un euro. La même règle
+vaut pour la coupe de la ligne « Dotations » par le rabot uniforme (`COUPES_DE_DOTATION`) : même ligne de 120 Md€
+que le curseur ; la part investie de la coupe est publiée dans l'impact du rabot (impulsion) et, en mode cadre,
+nourrit le même canal d'offre depuis une référence nulle. Un levier en échec (valeur non numérique) n'a ni impulsion
+ni effet d'offre, curseur d'investissement compris (avant : son effet d'offre comptait encore).
+
+**Deux références, déclarées.** L'impulsion se compte depuis le défaut du moteur (120 Md€), comme toute dépense ;
+l'effet d'offre, en mode cadre, depuis la dotation du droit en vigueur de l'année (116,6 Md€), lue dans le cadre de
+la simulation (`CadreTemporel.droit_en_vigueur_de`), pour que le statu quo ne consomme aucune offre (contrat W6-10,
+inchangé et vert dans les deux modes). Écart : 1,7 Md€ par an ; la référence sans programme porte l'impulsion
+(+0,15 point de dette 2032) sans l'effet d'offre (+0,09 de plus s'il était compté depuis le défaut). Le mode
+historique n'applique pas le droit en vigueur et n'en lit pas le fichier : la part investie n'y a pas d'effet d'offre,
+son impulsion y est comptée. Une première version comptait l'offre depuis le droit dans les deux modes : le statu
+quo nu du mode historique recevait un bonus (dette 2032 −0,09 point), et ce mode lisait le fichier du droit ;
+écartée. Cause : le défaut du moteur diffère du droit en vigueur ; un alignement relèverait d'une release de
+paramètres.
+
+**Sources et limites.** Caisse des Dépôts, *Éclairages* n° 8 (septembre 2015) : élasticité de l'investissement local
+aux dotations de 0,14 à 0,40 la première année, « symétrie à court terme », 0,40 pour les communes après trois baisses
+successives ; rapportée aux montants de 2013 (DGCL), 0,20 à 0,26 € par euro la première année, 0,41 à 0,59 € pour
+une baisse durable. Cour des comptes, *Les finances publiques locales* (septembre 2018, p. 69-86) : part forfaitaire
+de la DGF réduite de 11,2 Md€ en 2013-2017, investissement local de 2017 inférieur de 10,8 % à celui de 2013 (environ 0,6 € par euro, sans
+contrefactuel, cycle électoral non neutralisé). La moitié est le centre de la fourchette d'une baisse durable. Limites
+déclarées (METHODOLOGIE, encadré du lot 5c et limite 12) : une seule étude économétrique, non évaluée par des pairs ;
+une seule part quel que soit l'horizon, dès la première année, alors que l'étude ne tient pour causales que ses
+estimations de court terme (0,20 à 0,26 €) — effet de première année surestimé si l'on suit ce seul court terme ; une
+part montant avec la durée de la baisse demanderait des conventions que l'étude ne donne pas (non proposée) ; aucune
+réaction des collectivités sur le solde (impôt local, emprunt, fiscalité transférée) ; symétrie au-delà du court terme
+par convention ; double compte possible demande + offre, commun aux leviers d'investissement (0,045 à 0,106 point de
+dette 2032 pour les quatre scénarios qui baissent la dotation, celui du rabot uniforme compris).
+
+- Test rouge puis vert : `tests/test_dotation_investissement_local.py` (nouveau), ce qu'il garde :
+  - **impulsion** identique à celle du curseur d'investissement à part × (dotation − défaut), dépense compensée,
+    effet d'offre retiré, deux modes, deux sens : au bit en mode historique, à 1e-12 près en mode cadre ;
+  - **effet d'offre, mode cadre** : identique à celui du curseur à part × (dotation − dotation du droit) ;
+  - **mode historique** : aucun effet d'offre de la part investie, aucun appel au chargeur du droit (espion, avec
+    son témoin en mode cadre) ;
+  - non-vacuité (la dotation n'est plus de la seule dépense courante ; le droit diffère du défaut), miroir hausse
+    et baisse sur le PIB de 1 à 4 ans, chiffres publiés de l'encadré et de la note d'EXPLICATION liés à la mesure ;
+  - **coupe de dotation du rabot** : même ligne de dépense que le curseur (périmètre), part investie publiée chaque
+    année = part × coupe, effet d'offre en mode cadre seulement et égal, en montant, à celui du curseur
+    d'investissement pour part × coupe (pas seulement de même signe) ; **levier en échec** sans impulsion ni offre ;
+  - **curseur d'investissement, dotation et coupe du rabot bougés ensemble** : sur le canal d'offre, leurs parts
+    s'ajoutent, aucune ne remplace les autres (aucun scénario publié ne bouge le curseur : sans ce test, une part
+    qui remplaçait l'écart du curseur laissait toute la suite verte) ;
+  - paragraphe « Ce qui bouge » et décomposition de l'encadré recalculés en pleine précision et liés à la mesure
+    (avec les scénarios publiés ; non liés : le coefficient seul et les rangs), double compte de la limite compris.
+  Rouge avant, sur l'état du lot 5e : 21 échecs sur 30 (les tests de structure et d'invariance passaient déjà).
+  Mutations, toutes rouges : « offre depuis le défaut » (le test d'offre, W6-10 et W6-9 du mode cadre), « offre
+  aussi en mode historique » (le test du mode historique, W6-10 et W6-9 historiques), « pas d'offre en mode cadre »,
+  « impulsion depuis le droit », « rabot sans part investie », « rabot sans offre », « levier en échec avec offre »,
+  « valeur non numérique lue comme le défaut », « part de la dotation qui remplace l'écart du curseur », « part du
+  rabot qui remplace les deux autres » (ces deux-là, d'un caractère, n'étaient vues par aucun test avant les deux
+  tests de combinaison) et « offre du rabot doublée » (vue sans les scénarios publiés par le test du montant et
+  celui de la combinaison ; avant, par un golden master seulement).
+- Tests existants adaptés, aucune tolérance élargie : W6-9 (la projection « paramètres d'offre au neutre » ramène la
+  dotation au droit en mode cadre, sa référence d'offre) ; part d'investissement publiée (curseur plus part de la
+  dotation ; avant le début, en mode cadre, la part de la dotation du droit) ; W6-9, la projection retire aussi le
+  rabot en mode cadre (son neutre d'offre est l'absence de coupe) ; source unique du lot 5e (le flux de dépense du
+  rabot net aussi de sa part investie) ; `depenses_investissement` dans
+  `TRACEABILITY_KEYS` (une sous-part de `depenses`, lue par `flux_par_levier`, comme `recettes_tva`) ; chiffres
+  liés de la documentation ; la garde des chiffres du lot 5d retire la part investie (ce lot, postérieur), pour que
+  ses chiffres restent ceux de son état (sans elle, ils bougent au millième : −1,704 deviendrait −1,707).
+- Golden master isolé (pleine précision) : l'état d'avant, instrumenté, liste les cas où la dotation lue diffère du
+  défaut, ou que le rabot coupe, une année au moins ; seuls ceux-là bougent (23 : les dix scénarios dans les deux
+  modes, la référence du mode cadre, deux mini-scénarios) ; les 41 autres cas, dont le statu quo historique, sont
+  identiques au bit.
+  Instantanés régénérés une fois (golden masters historique, cadre et mini-scénarios, delta de référence). Pouvoir
+  d'achat 2029 figé non modifié.
+- Effet (mode cadre 2028, dix scénarios publiés, par rapport au lot 5e, en pleine précision) : dette 2032 de +0,146
+  à +0,149 point pour les six qui gardent la dotation du droit (référence +0,148), de +0,256 à +0,413 pour les trois
+  qui la baissent de 7 à 12 Md€, +0,481 pour celui qui utilise le rabot (dont +0,323 pour sa coupe de dotation) ;
+  déficit 2032 de −0,024 à −0,116 ; croissance moyenne 2028-2032 de −0,006 à −0,037 ; Gini inchangé (moins de
+  0,0001). Décomposition (trois programmes, en écart à la référence) : coefficient seul +0,126 à +0,246 ; avec le
+  profil de l'investissement +0,063 à +0,191 ; avec l'effet d'offre (ce commit) +0,109 à +0,266. Variantes de la part
+  (baisse durable de 10 Md€) : +0,15 à 20 %, +0,38 à 50 %, +0,46 à 60 %. Rangs, en pleine précision pour tous les
+  indicateurs : le budget 2026 voté et un programme échangent les 4ᵉ et 5ᵉ rangs de dette et de déficit 2032 et les
+  7ᵉ et 8ᵉ de chômage 2032 ; deux programmes échangent les 7ᵉ et 8ᵉ rangs de déficit 2032 ; aux sorties du moteur, à
+  deux décimales (une pour le pouvoir d'achat), ce dernier échange devient un ex æquo au 7ᵉ rang et un ex æquo
+  apparaît au 5ᵉ rang de pouvoir d'achat 2032 ; aux valeurs affichées par le site, à une décimale, l'échange des 4ᵉ
+  et 5ᵉ rangs de déficit et celui des 7ᵉ et 8ᵉ rangs de chômage disparaissent, l'ex æquo du 7ᵉ rang de déficit se
+  départage, trois rangs de croissance bougent (5ᵉ → 7ᵉ, 8ᵉ → 7ᵉ ex æquo, ex æquo du 5ᵉ rang ramené de trois
+  scénarios à deux), l'échange de dette et l'ex æquo de pouvoir d'achat demeurent.
+- Pile d'intégration (reporté après les lots 2, 6, 5b, 5d et 5e, mesuré contre le lot 5e reporté) : dette 2032
+  de +0,131 à +0,136 point pour les six qui gardent la dotation du droit (référence +0,136), de +0,182 à +0,311
+  pour les trois qui la baissent, +0,342 pour le rabot (dont +0,207 pour sa coupe) ; déficit −0,020 à −0,094 ;
+  croissance moyenne −0,004 à −0,029 ; décomposition +0,002 à +0,100 (profil de l'investissement) et +0,046 à
+  +0,175 (avec l'offre) ; variantes de la part : +0,10 / +0,25 / +0,30 (20 / 50 / 60 %) ; double compte 0,044 à
+  0,110 ; chiffres liés de l'encadré et de la note recalculés ; rangs relus sur la pile (deux lectures). Point (c) :
+  le miroir hausse/baisse de dotation tient sa tolérance de 1 % sur la pile (au plus 0,9 %, de 1 à 4 ans, dans les
+  deux modes) ; l'écart de 1,04 à 1,24 % vu à l'essai d'assemblage portait sur la première version du lot, dont
+  l'offre se comptait depuis le défaut ; aucune re-déclaration. Point (d) : la garde du calage sur le tableau du FMI
+  reste verte avec la part investie des dotations.
+- Arbitrage du mainteneur du 16/11/2026, texte seulement : indemnités journalières dans le curseur Ondam, calcul
+  inchangé, limite déclarée (METHODOLOGIE, limite 11 ; EXPLICATION) — des prestations en espèces, 6,75 % de l'Ondam
+  constaté 2025 (17,9 sur 265,4 Md€, Commission des comptes de la sécurité sociale, mai 2026) ; au traitement des
+  transferts, au plus 0,003 point de dette 2032. Seul classement encore à arbitrer : la dynamique de la dépense de
+  santé selon le levier qui la porte.
+- Docs : METHODOLOGIE (nouvel encadré, table de base, périmètre du canal investissement, classements, limites 11
+  et 12, chiffres liés), EXPLICATION (table, notes en français courant), commentaires de `constants.py`,
+  `simulator.py`, `engine/growth.py`, `engine/orchestrator.py` et `handlers/montaigne.py`.
+
 ## [non publiée — proposée] — équations du lot 5e : prestations en espèces émises hors des leviers de transfert au traitement des transferts
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5b

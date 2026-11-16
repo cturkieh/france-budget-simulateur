@@ -135,6 +135,7 @@ from ..constants import (
     OFFRE_PLAFOND,
     OUTPUT_GAP_RAPPEL,
     REGIME_DEMI_LARGEUR_CROISSANCE,
+    HANDLER_FAILED_KEY,
 )
 from ._regimes import au_dessus, en_dessous
 from ._param_domain import validate_param_domains, valeur_brute
@@ -832,6 +833,38 @@ class GrowthMixin:
                 current_val = propre.get(cfg['param'], default_val)
 
                 delta = current_val - default_val
+                # Lot 5c : le canal d'offre de l'investissement partiel d'un levier
+                # (collectivites_invest) reçoit aussi la part investie des autres
+                # paramètres (dotation aux collectivités), lue par la même porte,
+                # comptée depuis le droit en vigueur de l'année (le statu quo ne
+                # consomme aucune offre, contrat W6-10) ; aucune en mode historique
+                # (références None : ce mode n'applique pas le droit en vigueur).
+                if self.INVESTISSEMENT_PRODUCTIF_PARTIEL.get(cfg['measure_id']) == cfg['param']:
+                    references = self.references_d_offre_des_parts_investies(
+                        cfg['measure_id'], self.annee_base + year)
+                    if references is not None:
+                        def lire(param, defaut, levier=cfg['measure_id']):
+                            valeur = valeur_brute(self.mesures, levier, param, defaut)
+                            if not isinstance(valeur, (int, float)) or isinstance(valeur, bool):
+                                return defaut
+                            return validate_param_domains(
+                                levier, {param: valeur}, strict=False,
+                                warned=getattr(self, '_domain_clamp_warned', None)).get(param, defaut)
+                        delta += self.part_investie_des_autres_parametres(
+                            cfg['measure_id'], lire, references)
+
+                # Lot 5c (réfutation m1) : un levier en échec cette année (ni dépense ni
+                # impulsion, HANDLER_FAILED_KEY) n'a pas d'effet d'offre non plus — ni
+                # son curseur, ni la part investie de ses autres paramètres.
+                impact_du_levier = (getattr(self, '_last_impacts', None) or {}).get(cfg['measure_id'])
+                if isinstance(impact_du_levier, dict) and impact_du_levier.get(HANDLER_FAILED_KEY):
+                    delta = 0.0
+                # Lot 5c (réfutation M1) : la part investie des coupes de la ligne
+                # « Dotations » par d'autres leviers (rabot uniforme), en mode cadre.
+                if (self.INVESTISSEMENT_PRODUCTIF_PARTIEL.get(cfg['measure_id']) == cfg['param']
+                        and self.references_d_offre_des_parts_investies(
+                            cfg['measure_id'], self.annee_base + year) is not None):
+                    delta += self.part_investie_des_coupes_de_dotation()
 
                 if cfg.get('forme') == 'stock':
                     self._supply_bonus_by_key[key] = self._contribution_du_stock(key, cfg, delta)

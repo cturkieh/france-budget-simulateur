@@ -20,6 +20,7 @@ le test « même part d'investissement de l'expansion que l'État » l'est avec
 elle. Ce qui reste du correctif — même classe de multiplicateur et même
 profil — est verrouillé par ``test_meme_classe_de_multiplicateur_et_meme_profil_que_l_etat``.
 """
+import json
 from pathlib import Path
 
 import pytest
@@ -87,14 +88,32 @@ def _simuler(mesures, annee_debut):
 
 @pytest.mark.parametrize('annee_debut', [None, DEBUT_CADRE], ids=['historique', 'cadre2028'])
 def test_impact_publie_la_part_investissement(annee_debut):
+    """La part d'investissement productif publiée est le curseur, plus la part
+    investie de la dotation (lot 5c : ``PARTS_INVESTIES``, comptée depuis le
+    défaut) ; elle est absente quand ni l'un ni l'autre ne s'écarte du défaut —
+    sauf, en mode cadre, avant le début : le droit en vigueur s'y applique et sa
+    dotation, sous le défaut, a sa part investie."""
+    part = BudgetSimulatorV45.PARTS_INVESTIES['collectivites']['dotation']
+    defaut = BudgetSimulatorV45()._get_default_values()['collectivites']['dotation']
+    droit = json.loads((Path(__file__).resolve().parents[1] / 'budget_simulator' / 'data'
+                        / 'droit_en_vigueur.json').read_text(encoding='utf-8'))['mesures']
     _, rapport = _simuler({'collectivites': {'dotation': 130, 'investissement': 8}}, annee_debut)
     debut = annee_debut or 2026
     annees = {int(a['Année']): a for a in rapport['measure_impacts_by_year']}
     for annee in range(debut, 2036):
-        assert annees[annee]['collectivites']['depenses_investissement'] == pytest.approx(8.0, abs=1e-12)
-    _, sans = _simuler({'collectivites': {'dotation': 130}}, annee_debut)
-    assert all('depenses_investissement' not in (a.get('collectivites') or {})
-               for a in sans['measure_impacts_by_year'])
+        assert annees[annee]['collectivites']['depenses_investissement'] == pytest.approx(
+            8.0 + part * (130 - defaut), abs=1e-12)
+    _, sans = _simuler({'collectivites': {'dotation': defaut}}, annee_debut)
+    avant_le_debut = 0
+    for a in sans['measure_impacts_by_year']:
+        bloc = a.get('collectivites') or {}
+        if annee_debut is not None and int(a['Année']) < annee_debut and bloc:
+            avant_le_debut += 1
+            assert bloc['depenses_investissement'] == pytest.approx(
+                part * (droit['collectivites']['dotation'] - defaut), abs=1e-12)
+        else:
+            assert 'depenses_investissement' not in bloc, a['Année']
+    assert avant_le_debut == (0 if annee_debut is None else annee_debut - 2026)
 
 
 @pytest.mark.parametrize('annee_debut, annee', [(DEBUT_CADRE, 2032), (None, 2035)],

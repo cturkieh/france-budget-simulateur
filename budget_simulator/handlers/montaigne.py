@@ -169,6 +169,12 @@ class MontaigneMixin(_MixinBase):
             'gini': impact_gini,
             'competitivite': impact_competitivite,
             'menages': canaux_menages(prestations=-coupes_prestations),
+            # Lot 5c (réfutation M1) : la coupe de la ligne « Dotations » (la même que
+            # celle du curseur collectivites.dotation) a sa part investie, comme une
+            # baisse de dotation : flux d'investissement (impulsion) et, en mode
+            # cadre, effet d'offre du capital public local (growth.py).
+            'depenses_investissement': self.part_investie_d_une_variation_de_dotation(
+                -details_coupes.get('collectivites', 0.0)),
             # Métadonnées de debug. La valeur est un sous-dict, ce qui s'écarte
             # du contrat ImpactsDict = Dict[str, float]. Les agrégateurs du
             # moteur ne lisent que les clés connues (gini, competitivite,
