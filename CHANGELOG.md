@@ -42,7 +42,8 @@ lot 3 » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
   (`MONTAIGNE_DEFENSE_PART_PIB`, mécanisme du bloc « défauts du lot 3 ») : 0 (seule la catégorie « équipements »,
   25 Md€ en 2025) → 0,027, 2,7 % du PIB, pensions comprises (Institut Montaigne, « Budget base zéro », novembre 2025,
   p. 81 et note 113, rouverte). Avec le PIB du moteur, 86 Md€ en 2029 (91 selon la note, dont le PIB est plus élevé).
-  Convention déclarée : la part de 2,7 % est gardée chaque année du rabot, 2028 compris (la note la fixe pour 2029).
+  Convention déclarée : la part de 2,7 % est gardée chaque année du rabot, 2028 compris (la note la fixe pour 2029 ;
+  ne l'appliquer qu'à partir de 2029 : dette 2032 du scénario de la note −0,03 point, mesuré sur la pile assemblée).
   Infobulle de l'exclusion mise à jour. Golden master isolé : bougent exactement le scénario de référence de la note
   (deux modes) et le mini-scénario du rabot ; 61 sur 64 identiques au bit. Effet (mode cadre, pleine précision, pile
   assemblée) : coupe 2029 du scénario de la note 143,97 → 139,47 Md€ ; 2032 : dette +0,04 point, déficit −0,06 point
@@ -121,6 +122,9 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   comme avant ; la valeur de la note est posée par la release de paramètres. Test rouge puis vert :
   `tests/test_rabot_assiette_note.py` (mécanisme sous une part posée par le test ; part nulle = exclusion d'avant ;
   indice d'inégalités sur la part coupée, 2 rouges avant). Golden master isolé : 64 cas sur 64 identiques au bit.
+  Enjeu du prorata, mesuré sur la pile assemblée : retirer le reste de la défense des seules pensions ou de la seule
+  masse salariale changerait le pouvoir d'achat 2032 du scénario de la note de +0,13 ou −0,07 point d'indice, et sa
+  dette 2032 de +0,05 ou −0,02 point.
 - **Rabot uniforme : la contribution à l'Union européenne est exclue là où elle est comptée** (correction,
   relevée par la relecture adverse du lot). Les catégories du moteur somment la dépense primaire des administrations
   (Insee, tableau 3.201) ; « autres » en est le résidu, et cette dépense compte la contribution à l'UE (opération D76).

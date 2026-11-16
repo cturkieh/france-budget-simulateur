@@ -508,13 +508,17 @@ retiré au prorata des autres catégories, ce qui laisse inchangée la compositi
 déclarée). L'indice d'inégalités du rabot (coefficient par milliard de prestations en espèces coupées, montant
 d'année pleine de 2025) porte la même part coupée, calculée sur les dépenses et le PIB de 2025. À la valeur neutre 0,
 seule la catégorie « équipements » est exclue, comme avant.
+Enjeu du prorata, mesuré sur la pile assemblée (scénario de la note, mode cadre) : retirer ce reste des seules
+pensions changerait le pouvoir d'achat 2032 de +0,13 point d'indice et la dette 2032 de +0,05 point ; de la seule
+masse salariale, de −0,07 et −0,02 point (la coupe totale est la même).
 
 **Rabot uniforme, défense au périmètre de la note (lot 3, valeur sourcée).** La part de la défense exclue est celle
 de la note : 2,7 % du PIB, pensions comprises (p. 81 : « dépenses de défense portées à 2,7 % du PIB d'ici 2029, soit
 91 Md€ » ; note 113 : « En intégrant les pensions »), au lieu de la seule catégorie « équipements » (25 Md€ en 2025).
 Avec le PIB du moteur, 2,7 % du PIB font 86 Md€ en 2029 (la note suppose un PIB plus élevé). Convention déclarée,
 aucune source ne tranchant : la note fixe ce niveau pour 2029 ; le moteur le garde chaque année du rabot, 2028
-compris, comme il garde le taux de 8 % au-delà de 2029.
+compris, comme il garde le taux de 8 % au-delà de 2029. Enjeu mesuré : ne l'appliquer qu'à partir de 2029
+baisserait la dette 2032 du scénario de la note de 0,03 point.
 
 **Rabot uniforme, contribution à l'Union européenne (lot 3, correction).** Les catégories du moteur somment la dépense
 primaire des administrations publiques (Insee, tableau 3.201) ; « autres » en est le résidu, et cette dépense compte
