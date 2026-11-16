@@ -1305,11 +1305,12 @@ class CadreTemporel:
         signature de contrat de la release E), les années où il est dépassé,
         l'impact maximal mesuré (avant toute réduction, % du PIB) et son année
         — ``null`` si le seuil n'est jamais dépassé. ``filet_croissance`` : le
-        filet de la croissance réelle annuelle (``constants.CROISSANCE_FILET_MIN``
-        et ``CROISSANCE_FILET_MAX``, en %), les années où il mord et, pour
-        chacune, la croissance calculée et la croissance retenue (en %, 4
-        décimales) ; même journal que l'avis texte de ``report.warnings``,
-        listes vides si le filet ne mord pas (``bloc_filet_croissance``).
+        domaine de la croissance réelle annuelle (``constants.CROISSANCE_FILET_MIN``
+        et ``CROISSANCE_FILET_MAX``, en %), les années où la croissance en sort
+        et, pour chacune, la croissance calculée et la croissance retenue (en %,
+        4 décimales ; égales depuis le retrait de l'écrêtage) ; même journal que
+        l'avis texte de ``report.warnings``, listes vides dans le domaine
+        (``bloc_filet_croissance``).
         ``profils`` : calendriers (``rapport_profils``)."""
         etat = self.etat
         return {

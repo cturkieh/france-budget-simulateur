@@ -6,6 +6,36 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équation : la croissance n'est plus écrêtée, le filet ne fait plus qu'un avis
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur le lot SMIC.
+
+**La règle** (arbitrage du mainteneur du 16/11/2026). L'écrêtage de la croissance réelle annuelle dans
+[−3,5 % ; +2,5 %] (`np.clip` en fin de `calculate_growth`), qui ne venait d'aucune source, est supprimé. Les bornes
+(`CROISSANCE_FILET_MIN`, `CROISSANCE_FILET_MAX`, noms conservés) restent celles du domaine de validité des
+multiplicateurs linéaires : une croissance qui en sort est publiée telle qu'elle est calculée, et l'avis
+`_filet_croissance` la signale (« croissance non écrêtée ; résultats à lire avec prudence »). Le contrat lu par le
+site ne change pas : même préfixe (« filet de croissance [−3,50 % ; 2,50 %] atteint : »), même format par année
+(« x % calculés, y % retenus », désormais égaux), même bloc `cadre.filet_croissance` (croissance retenue =
+croissance calculée). Le libellé du site, qui dit la croissance « ramenée à la limite », est à retoucher côté site.
+
+**Ce qui bouge** (pleine précision). Mode cadre (publié) : rien, au bit, pour les dix scénarios et la référence
+sans programme (garde de CI : aucun n'en sort, aucune année). **Mode historique de l'API** : les deux programmes
+publiés dont la croissance 2026 sortait du domaine — croissance 2026 de 2,76 % et 4,39 % au lieu de 2,50 % ; dette
+2032 plus basse de 1,02 et 7,99 points ; pouvoir d'achat 2029 plus haut de 0,13 et 0,89 point (publié : +0,2 et
++0,9) ; les huit autres scénarios identiques au bit. Mini-scénario des cotisations salariales (mode historique) : il
+sortait aussi du domaine, il bouge.
+
+- Test rouge puis vert : `tests/test_croissance_sans_ecretage.py` (nouveau) — croissance hors du domaine publiée
+  telle quelle, avis au même format, aucun avis dans le domaine, garde du mode publié (programmes dérivés des
+  scénarios publiés, aucun nom).
+- Tests mis à jour (ils verrouillaient l'écrêtage) : `test_release_e_filet_structure.py` (valeur retenue = valeur
+  calculée), `test_release_e_arbitrages.py` (avis m6), `test_symetrie_depense_courante.py` (un gros choc reste en
+  miroir ; la limite déclarée dit « en sortent »).
+- Documentation : METHODOLOGIE (encadré de l'avis du filet : la phrase « lever le filet suppose une crise de
+  financement » est remplacée par la règle ; limite du calendrier de l'impulsion ; plafond de taille), docstrings de
+  `api.py`, `cadre.py`, `growth.py`, `orchestrator.py`, commentaire de `constants.py`.
+
 ## [non publiée — proposée] — texte : l'option du lot 6 (santé et réforme de l'État au rythme de la dépense courante) est retenue
 
 **Statut** : commit de TEXTE ; moteur inchangé. L'option était décrite comme « non tranchée » ; elle est retenue

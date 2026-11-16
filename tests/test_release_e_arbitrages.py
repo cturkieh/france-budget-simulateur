@@ -856,16 +856,16 @@ def _avis_filet(rapport):
 
 @pytest.mark.parametrize('annee_debut', [None, DEBUT_CADRE], ids=['historique', 'cadre2028'])
 def test_m6_filet_de_croissance_avis_trace_sans_invalider(annee_debut):
-    """Le filet ramène la croissance dans [−3,5 % ; +2,5 %] : un avis le dit,
-    avec chaque année et la valeur calculée avant écrêtage ; le rapport reste
-    valide (l'entrée a été lue telle quelle)."""
+    """Une croissance hors de [−3,5 % ; +2,5 %] (plus écrêtée depuis l'arbitrage
+    du mainteneur du 16/11/2026) : un avis le dit, avec chaque année et la valeur
+    calculée ; le rapport reste valide (l'entrée a été lue telle quelle)."""
     df, _, rapport = BudgetSimulatorV45(periods=10, mesures=PROGRAMME_RELANCE,
                                         annee_debut=annee_debut).simulate()
     assert rapport['valid'] is True, rapport['warnings']
     avis = _avis_filet(rapport)
     assert len(avis) == 1, rapport['warnings']
     croissance = df.set_index('Année')['Croissance %']
-    annees = [int(a) for a, c in croissance.items() if c == 2.5]
+    annees = [int(a) for a, c in croissance.items() if c > 2.5]
     assert annees, ('NON_VACUITE', croissance.to_dict())
     for annee in annees:
         m = re.search(rf'{annee} \(([\d,]+) % calculés', avis[0])

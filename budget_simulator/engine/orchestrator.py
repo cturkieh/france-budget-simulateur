@@ -211,14 +211,17 @@ def _avis_plafond_total(annees) -> str:
 
 def _avis_filet_croissance(ecretages) -> str:
     """Avis du filet de croissance (contre-vérification m6) : une ligne, chaque
-    année écrêtée avec la croissance calculée et la croissance retenue."""
+    année hors du domaine de validité, avec la croissance calculée et la
+    croissance retenue — égales depuis le retrait de l'écrêtage (arbitrage du
+    mainteneur du 16/11/2026). Préfixe et format par année inchangés : le site
+    les lit."""
     def pct(x):
         return f"{x * 100:.2f}".replace('.', ',').replace('-', '−')
     annees = ' ; '.join(f"{annee} ({pct(brute)} % calculés, {pct(retenue)} % retenus)"
                         for annee, brute, retenue in ecretages)
     return (f"filet de croissance [{pct(CROISSANCE_FILET_MIN)} % ; {pct(CROISSANCE_FILET_MAX)} %] "
             f"atteint : {annees} — hors du domaine de validité des multiplicateurs linéaires, "
-            f"croissance ramenée dans le filet ; résultats à lire avec prudence")
+            f"croissance non écrêtée ; résultats à lire avec prudence")
 
 
 # Ordre d'évaluation des trois mondes de la composition (lot C, v0.7.0) :
@@ -908,8 +911,8 @@ class OrchestratorMixin:
         # d'offre (le potentiel ne le voit que par l'hystérèse, sur la croissance
         # cyclique) ; la Phillips le lit en t+1 par l'écart de production, comme
         # tout choc de demande — calculate_inflation, ci-dessous, ne lit pas la
-        # croissance de l'année. Hors du filet [−3,5 % ; +2,5 %] de
-        # calculate_growth : c'est une donnée constatée, pas une sortie du
+        # croissance de l'année. Hors du contrôle du domaine [−3,5 % ; +2,5 %]
+        # de calculate_growth : c'est une donnée constatée, pas une sortie du
         # modèle. Absent de la table = aucune opération (bit-identique).
         choc_demande = conjoncture.CHOCS_DEMANDE_OBSERVES.get(year)
         if choc_demande is not None:

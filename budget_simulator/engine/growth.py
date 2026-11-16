@@ -468,9 +468,10 @@ class GrowthMixin:
         Blanchard & Leigh (2013) trouvent des effets PLUS forts, jamais plus
         faibles, pour les grandes consolidations. L'ancien plafond (niveau
         d'effort ≤ 2 % du PIB) tronquait le coût — ou le gain — des seuls
-        programmes les plus brutaux. Le filet reste le clip de croissance
-        [−3,5 % ; +2,5 %] ; l'effet est une convolution finie (6 ans) des
-        impulsions, borné par k_max × 1,15 × 1,3 × Σ|impulsions récentes|.
+        programmes les plus brutaux. La croissance n'est plus écrêtée (le
+        domaine [−3,5 % ; +2,5 %] ne fait plus qu'un avis) ; l'effet est une
+        convolution finie (6 ans) des impulsions, borné par
+        k_max × 1,15 × 1,3 × Σ|impulsions récentes|.
         """
         if niveaux is None:
             niveaux = niveaux_du_budget(self._last_impacts, self.pib_nominal,
@@ -693,15 +694,15 @@ class GrowthMixin:
         # scénario de référence du corridor de la mission (dette 2029 −2,26 pt ;
         # sans lui −0,39). Ne pas réintroduire : une incertitude se publie en
         # variante, pas en tirage caché dans la trajectoire centrale.
-        # Filet [CROISSANCE_FILET_MIN ; CROISSANCE_FILET_MAX] (borne de validité
-        # des multiplicateurs linéaires) : chaque écrêtage est consigné, année et
-        # valeur calculée, pour l'avis du rapport (contre-vérification m6 ;
-        # jusque-là, un journal de débogage seulement).
-        calculee = croissance
-        croissance = np.clip(croissance, CROISSANCE_FILET_MIN, CROISSANCE_FILET_MAX)
-        if croissance != calculee and hasattr(self, '_filet_croissance'):
+        # Domaine de validité des multiplicateurs linéaires [CROISSANCE_FILET_MIN ;
+        # CROISSANCE_FILET_MAX] : plus d'écrêtage (arbitrage du mainteneur du
+        # 16/11/2026 ; aucune source ne le fondait). Une croissance hors du
+        # domaine est publiée telle qu'elle est calculée et consignée, année et
+        # valeur (retenue = calculée), pour l'avis du rapport, qui la signale.
+        if (not CROISSANCE_FILET_MIN <= croissance <= CROISSANCE_FILET_MAX
+                and hasattr(self, '_filet_croissance')):
             self._filet_croissance.append(
-                (self.annee_base + year, float(calculee), float(croissance)))
+                (self.annee_base + year, float(croissance), float(croissance)))
         if croissance < -0.025:
             _log_debug(self.debug_logs, f"Y{year}: Récession profonde")
         elif croissance > 0.024:

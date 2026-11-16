@@ -713,12 +713,13 @@ POLICY_START_YEAR = 2026
 # calcul et le bloc `cadre.plafond_total` lisent la même source.
 PLAFOND_IMPACT_TOTAL_PIB = 0.10
 
-# Filet de croissance réelle annuelle (engine/growth.py, calculate_growth) :
-# borne de validité des multiplicateurs linéaires, même logique que le plafond
-# ci-dessus. Valeurs INCHANGÉES (littéraux jusqu'à la release E) ; nommées pour
-# que le calcul et l'avis du rapport lisent la même source. Quand le filet
-# mord, un avis le dit, avec l'année et la valeur calculée avant écrêtage
-# (contre-vérification adverse m6) ; il n'invalide pas le rapport.
+# Domaine de validité de la croissance réelle annuelle (engine/growth.py,
+# calculate_growth) : bornes de validité des multiplicateurs linéaires.
+# Valeurs INCHANGÉES (littéraux jusqu'à la release E) ; noms conservés (contrat
+# du bloc cadre.filet_croissance). Plus d'écrêtage depuis l'arbitrage du
+# mainteneur du 16/11/2026 (aucune source ne le fondait) : une croissance hors
+# du domaine est publiée telle quelle et un avis la signale (contre-vérification
+# adverse m6) ; il n'invalide pas le rapport.
 CROISSANCE_FILET_MIN = -0.035
 CROISSANCE_FILET_MAX = 0.025
 

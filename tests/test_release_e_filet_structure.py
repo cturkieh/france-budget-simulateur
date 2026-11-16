@@ -16,6 +16,10 @@ pour le plafond de l'impact total :
 Toujours émis (listes vides si le filet ne mord pas), dans les deux modes. Les
 sorties numériques ne changent pas (bloc de rapport seul).
 
+Depuis le retrait de l'écrêtage (arbitrage du mainteneur du 16/11/2026), le bloc
+et l'avis signalent une croissance hors du domaine sans la ramener à la borne :
+croissance retenue = croissance calculée (tests/test_croissance_sans_ecretage.py).
+
 Règle d'écriture : chaque valeur attendue est dérivée des constantes nommées de
 ``constants.py`` ou de l'avis texte du même calcul, jamais recopiée d'une sortie
 du moteur.
@@ -94,19 +98,16 @@ def test_bloc_et_avis_disent_la_meme_chose(annee_debut):
 
 
 @MODES
-def test_valeurs_retenues_a_la_borne_et_calculees_au_dela(annee_debut):
+def test_valeurs_retenues_egales_aux_valeurs_calculees_hors_du_domaine(annee_debut):
     df, _, rapport = _simuler(PROGRAMME_RELANCE, annee_debut)
     bloc = rapport['cadre']['filet_croissance']
     bas, haut = _bornes_pct()
     croissance = df.set_index('Année')['Croissance %']
     assert bloc['ecretages'], 'NON_VACUITE'
     for e in bloc['ecretages']:
-        assert e['croissance_retenue_pct'] in (bas, haut), e
-        if e['croissance_retenue_pct'] == haut:
-            assert e['croissance_calculee_pct'] > haut, e
-        else:
-            assert e['croissance_calculee_pct'] < bas, e
-        # La croissance publiée de l'année est la valeur retenue.
+        assert e['croissance_retenue_pct'] == pytest.approx(e['croissance_calculee_pct'], abs=1e-4), e
+        assert not bas <= e['croissance_calculee_pct'] <= haut, e
+        # La croissance publiée de l'année est la valeur retenue, donc la valeur calculée.
         assert croissance[e['annee']] == pytest.approx(e['croissance_retenue_pct'], abs=0.005), e
 
 
@@ -121,8 +122,10 @@ def test_annees_uniques_croissantes_et_egales_aux_ecretages(annee_debut):
 
 def test_borne_basse_et_arrondi_par_le_rapport():
     """Borne basse (aucun programme admis ne l'atteint aujourd'hui) : le
-    rapport publie l'écrêtage tel que le journal du filet le consigne, en %
-    arrondi à 4 décimales, valeur retenue à la borne."""
+    rapport publie chaque sortie du domaine telle que le journal la consigne,
+    calculée arrondie à 4 décimales, retenue à 6 (le journal de format est
+    synthétique : il fixe aussi des valeurs retenues à la borne, ce que le
+    moteur ne produit plus)."""
     bas, haut = _bornes_pct()
     journal = [(2029, -0.0412345678, C.CROISSANCE_FILET_MIN), (2031, 0.0301, C.CROISSANCE_FILET_MAX)]
     bloc = cadre.CadreTemporel.preparer({}, None).rapport(None, [], filet_croissance=journal)['filet_croissance']

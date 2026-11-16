@@ -267,8 +267,8 @@ GROS_CHOC = 0.02
 
 
 def _premiere_annee(etat, levier, x0, filet_leve=False):
-    """(niveau du PIB réel en % de la référence, croissance de référence, écrêtage consigné par le
-    filet l'année du budget ou None), la première année d'effet, pleine précision."""
+    """(niveau du PIB réel en % de la référence, croissance de référence, sortie du domaine consignée pour
+    l'avis l'année du budget — (calculée, retenue) — ou None), la première année d'effet, pleine précision."""
     import budget_simulator.engine.growth as growth
     i = _indice(etat, 0)
     with pytest.MonkeyPatch.context() as mp:
@@ -285,48 +285,39 @@ def _premiere_annee(etat, levier, x0, filet_leve=False):
 
 @pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
 @pytest.mark.parametrize('levier', LEVIERS)
-def test_gros_choc_l_ecart_au_miroir_est_exactement_la_part_ecretee_par_le_filet(pleine_precision, levier, etat):
-    """À 2 points de PIB, la hausse peut atteindre le filet de croissance (+2,5 %,
-    ``CROISSANCE_FILET_MAX``, borne de validité des multiplicateurs linéaires) dès sa première année
-    d'effet, qui est depuis le lot 6 l'année de son budget. Le filet n'est pas une asymétrie de la
-    dépense courante ; ce test le montre au lieu de retirer le cas :
+def test_gros_choc_hausse_et_baisse_en_miroir_sans_ecretage(pleine_precision, levier, etat):
+    """À 2 points de PIB, la hausse peut sortir du domaine de validité de la croissance (+2,5 %,
+    ``CROISSANCE_FILET_MAX``) dès sa première année d'effet, qui est depuis le lot 6 l'année de son budget.
+    Depuis le retrait de l'écrêtage (arbitrage du mainteneur du 16/11/2026), elle n'est plus ramenée à la
+    borne :
 
-    1. la baisse n'est jamais écrêtée ;
-    2. filet levé, hausse et baisse sont en miroir à 0,1 % près, comme pour 1,5 point ;
-    3. filet en place, si la hausse est écrêtée, l'écart au miroir est EXACTEMENT la part écrêtée :
-       niveau de la hausse + (croissance calculée − croissance écrêtée) / (1 + croissance de
-       référence) = niveau de la hausse filet levé, à 1e-9 point près ;
-    4. sinon (leviers au profil de l'investissement, dont la première année est plus faible), rien
-       ne change en levant le filet.
+    1. la trajectoire est la même, bornes du domaine levées ou non (elles ne font plus qu'un avis) ;
+    2. hausse et baisse sont en miroir à 0,1 % près, comme pour 1,5 point ;
+    3. quand la hausse sort du domaine, l'avis consigne la croissance calculée, retenue telle quelle.
 
-    Mesuré avec les coefficients recalés du lot 6, levier synthétique : hausse +1,245 % contre
-    baisse −1,370 % au banc historique (écart au miroir 10 %, croissance calculée 2,627 %), +1,213 %
-    contre −1,374 % en mode cadre 2028 (13 %, croissance calculée 2,664 %) ; au commit d'équation,
-    0,4 % et 3,6 %. Santé et réforme de l'État (profil de l'investissement) ne sont pas écrêtées."""
-    hausse, g_ref, ecrete = _premiere_annee(etat, levier, +GROS_CHOC)
-    baisse, _, ecrete_baisse = _premiere_annee(etat, levier, -GROS_CHOC)
-    hausse_libre, _, ecrete_libre = _premiere_annee(etat, levier, +GROS_CHOC, filet_leve=True)
-    assert ecrete_baisse is None and ecrete_libre is None
-    assert hausse_libre > 0 > baisse
-    assert abs(abs(baisse) / hausse_libre - 1) < 0.001, (levier, etat, hausse_libre, baisse)
-    if ecrete is None:
-        assert hausse == hausse_libre, (levier, etat)
-    else:
-        calculee, ecretee = ecrete
-        assert calculee > ecretee
-        part = (calculee - ecretee) / (1 + g_ref) * 100
-        assert hausse + part == pytest.approx(hausse_libre, abs=1e-9), (levier, etat, hausse, part)
+    Jusqu'au retrait, le filet écrêtait la hausse du levier synthétique (écart au miroir de 10 à 13 %, de
+    la part écrêtée exactement)."""
+    hausse, g_ref, hors = _premiere_annee(etat, levier, +GROS_CHOC)
+    baisse, _, hors_baisse = _premiere_annee(etat, levier, -GROS_CHOC)
+    hausse_libre, _, _ = _premiere_annee(etat, levier, +GROS_CHOC, filet_leve=True)
+    assert hors_baisse is None
+    assert hausse == hausse_libre, (levier, etat)
+    assert hausse > 0 > baisse
+    assert abs(abs(baisse) / hausse - 1) < 0.001, (levier, etat, hausse, baisse)
+    if hors is not None:
+        calculee, retenue = hors
+        from budget_simulator.constants import CROISSANCE_FILET_MAX
+        assert calculee == retenue > CROISSANCE_FILET_MAX, (levier, etat, hors)
 
 
-@pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
-def test_gros_choc_le_filet_mord_bien_sur_le_levier_synthetique(pleine_precision, etat):
-    """Non-vacuité du test précédent : à 2 points, la hausse du levier synthétique est écrêtée
-    l'année de son budget, et l'asymétrie qui en résulte dépasse la tolérance de 0,1 % des autres
-    premières années (c'est elle que le passage à 1,5 point avait fait disparaître)."""
-    hausse, _, ecrete = _premiere_annee(etat, 'depense_courante_synthetique', +GROS_CHOC)
-    baisse, _, _ = _premiere_annee(etat, 'depense_courante_synthetique', -GROS_CHOC)
-    assert ecrete is not None
-    assert abs(baisse) / hausse - 1 > 0.001, (etat, hausse, baisse)
+def test_gros_choc_la_hausse_sort_bien_du_domaine_sur_le_levier_synthetique(pleine_precision):
+    """Non-vacuité du test précédent : à 2 points, la hausse du levier synthétique sort du domaine l'année
+    de son budget (avis), dans les deux états, et reste en miroir de la baisse."""
+    for etat in ('banc_historique', 'cadre_2028'):
+        hausse, _, hors = _premiere_annee(etat, 'depense_courante_synthetique', +GROS_CHOC)
+        baisse, _, _ = _premiere_annee(etat, 'depense_courante_synthetique', -GROS_CHOC)
+        assert hors is not None, etat
+        assert abs(abs(baisse) / hausse - 1) < 0.001, (etat, hausse, baisse)
 
 
 NOMBRES = {0: 'aucun', 1: 'un seul', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq'}
@@ -334,7 +325,7 @@ NOMBRES = {0: 'aucun', 1: 'un seul', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cin
 
 def test_limite_du_filet_la_premiere_annee_declaree_et_liee_aux_instantanes():
     """METHODOLOGIE (§ « Calendrier de l'impulsion », limites) déclare combien de programmes publiés
-    atteignent le filet de croissance dès leur première année : mode historique, budget 2026 ; mode
+    sortent du domaine de la croissance dès leur première année : mode historique, budget 2026 ; mode
     cadre, budget 2028. Les nombres sont relus dans les instantanés des programmes publiés
     (``tests/snapshots``), pas recopiés."""
     import json as _json
@@ -352,7 +343,7 @@ def test_limite_du_filet_la_premiere_annee_declaree_et_liee_aux_instantanes():
     assert total == total_cadre == 10
     assert historique >= 1, 'NON_VACUITE'
     attendu = (f'En mode historique (non publié), {NOMBRES[historique]} des dix programmes publiés '
-               f"l'atteignent dès leur première année (2026)")
+               f"en sortent dès leur première année (2026)")
     assert attendu in texte, attendu
     assert f'en mode cadre (publié), {NOMBRES[cadre]}.' in texte, cadre
 

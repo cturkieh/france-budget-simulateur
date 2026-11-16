@@ -267,9 +267,16 @@ le dit désormais dans `report.warnings`, avec chaque année et la croissance ca
 comme tout avis, il n'invalide pas le rapport. La même information est publiée sans phrase à analyser
 dans le bloc `cadre.filet_croissance` (bornes en %, années, et pour chaque année la croissance calculée
 et la croissance retenue), toujours présent, vide quand le filet ne mord pas. Seul programme publié concerné : une année dans chaque
-mode (2,87 % en 2030 en mode cadre, 3,01 % en 2028 en mode historique) ; sorties inchangées. Lever le
-filet au profit d'un avertissement seul suppose que le moteur sache représenter une crise de
-financement (passe dédiée « réalisme du financement »).
+mode (2,87 % en 2030 en mode cadre, 3,01 % en 2028 en mode historique) ; sorties inchangées.
+
+**Écrêtage retiré (arbitrage du mainteneur du 16/11/2026, non publié).** L'écrêtage de la croissance dans
+[−3,5 % ; +2,5 %] ne venait d'aucune source. Il est supprimé : une croissance hors de ce domaine est publiée
+telle qu'elle est calculée. Les bornes restent celles du domaine de validité des multiplicateurs linéaires,
+et l'avis comme le bloc `cadre.filet_croissance` le signalent toujours, au même format (croissance retenue
+= croissance calculée ; « croissance non écrêtée ; résultats à lire avec prudence »). En mode cadre (le mode
+publié), aucun programme publié ni la référence sans programme n'en sort, aucune année : aucun chiffre
+publié ne change (garde : `tests/test_croissance_sans_ecretage.py`). Le mode historique de l'API change
+pour les deux programmes publiés qui en sortaient en 2026 (chiffres mesurés : CHANGELOG, bloc du retrait).
 
 ### Calendrier d'un montant (`profils`, v0.8.0)
 
@@ -2885,12 +2892,13 @@ cadre (médiane des dix programmes publiés, machine de développement), soit ×
   aucun des dix programmes publiés ne modifie la TVA : la limite ne joue que dans le simulateur.
 - **Effet d'offre** (`update_potential_growth`) : il clôt l'année, son bonus agit l'année suivante, après les délais
   propres à chaque canal ; à instruire avec ces délais.
-- **Filet de croissance dès la première année** : l'effet de la première année arrivant l'année du budget, le filet
-  de +2,5 % (`CROISSANCE_FILET_MAX`, borne de validité des multiplicateurs linéaires) peut écrêter cette année-là.
-  En mode historique (non publié), deux des dix programmes publiés l'atteignent dès leur première année (2026),
-  contre un seul, la deuxième année, avant ce lot ; en mode cadre (publié), aucun. Quand il mord, la hausse et la
-  baisse d'un même gros choc cessent d'être en miroir, de la part écrêtée exactement
-  (`tests/test_symetrie_depense_courante.py`).
+- **Domaine de la croissance dès la première année** : l'effet de la première année arrivant l'année du budget, la
+  croissance peut dépasser +2,5 % (`CROISSANCE_FILET_MAX`, borne de validité des multiplicateurs linéaires) cette
+  année-là. En mode historique (non publié), deux des dix programmes publiés en sortent dès leur première année
+  (2026), contre un seul, la deuxième année, avant ce lot ; en mode cadre (publié), aucun. Depuis le retrait de
+  l'écrêtage (arbitrage du mainteneur du 16/11/2026), un avis le signale et la hausse et la baisse d'un même gros
+  choc restent en miroir (`tests/test_symetrie_depense_courante.py`) ; jusque-là, le filet les en écartait de la
+  part écrêtée exactement.
 - **Taxe sur les transactions financières, mode historique** : son assiette, sourcée en 2026, suit le PIB nominal
   depuis cette année ; en mode historique, 2026 est aussi la première année du programme, dont l'effet entre
   désormais dans ce PIB d'ancrage (seul ce levier, seul ce mode ; le mode cadre commence après 2026).
@@ -3026,7 +3034,7 @@ Lot 6 (release de paramètres, arbitrage du mainteneur) : les cinq premiers term
 
 **Sources** : profil INVEST, FMI, WEO oct. 2014, ch. 3, tableau 3.4 (lot 6). Profils TAXES et TRANSFERS : convention de la v3.1, citée jusque-là avec IMF 2014, Blanchard & Leigh 2013 et Ramey 2019 sans calage à une valeur de ces sources (non rouvertes au lot 6).
 
-**Plus de plafond de taille (v0.6.7)** : le plafond « effort ≤ 2 % du PIB » est retiré (cf. L5). Le seul filet reste le clip de croissance [−3,5 % ; +2,5 %].
+**Plus de plafond de taille (v0.6.7)** : le plafond « effort ≤ 2 % du PIB » est retiré (cf. L5). Le clip de croissance [−3,5 % ; +2,5 %] qui restait est retiré à son tour (arbitrage du mainteneur du 16/11/2026) : il ne fait plus qu'un avis.
 
 > **Note — ce qui N'EST PAS en production.** Un mecanisme de *re-impulsion annuelle* (dit « Type B » : chaque tranche annuelle d'investissement aurait genere une nouvelle impulsion de demande, en plus de l'impulsion declenchee au changement de curseur) a ete prototype puis **reverte (commit `11d979e` — « revert annual re-impulse, keep differentiated decay profiles only »)**. Il n'est **pas actif** : il re-multipliait le NIVEAU de la dépense chaque année, donc la comptait plusieurs fois. La v0.6.7 fait l'inverse : seule la VARIATION annuelle de l'effort est une impulsion, si bien que la somme des impulsions d'un levier égale exactement son niveau — chaque euro est multiplié une fois (`tests/test_impulsions_v067.py`).
 

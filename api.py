@@ -580,12 +580,14 @@ async def simulate(request: SimulationRequest):
       réduction) et `annee_impact_max` (`null` si le seuil n'est jamais
       dépassé).
     - **Filet de croissance (release E)** : bloc `cadre.filet_croissance`
-      TOUJOURS émis : `borne_min_pct` et `borne_max_pct` (filet de la
-      croissance réelle annuelle, en %), `annees` (années où il mord) et
-      `ecretages` (par année : `annee`, `croissance_calculee_pct`,
-      `croissance_retenue_pct`, en %) ; listes vides si le filet ne mord pas.
-      Même information que l'avis « filet de croissance » de
-      `report.warnings`, qui reste.
+      TOUJOURS émis : `borne_min_pct` et `borne_max_pct` (domaine de
+      validité de la croissance réelle annuelle, en %), `annees` (années où
+      la croissance en sort) et `ecretages` (par année : `annee`,
+      `croissance_calculee_pct`, `croissance_retenue_pct`, en %) ; listes
+      vides dans le domaine. La croissance n'est plus écrêtée : la valeur
+      retenue est la valeur calculée (noms des champs conservés). Même
+      information que l'avis « filet de croissance » de `report.warnings`,
+      qui reste.
     - **500** : bug du moteur (y compris un résultat non fini), journalisé.
     """
     mesures = request.mesures or {}
