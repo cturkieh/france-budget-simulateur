@@ -1092,7 +1092,7 @@
         {
           "id": "smic_montant_brut",
           "max": 2200,
-          "min": 1400,
+          "min": 1950,
           "param": "montant_brut",
           "step": 50
         }

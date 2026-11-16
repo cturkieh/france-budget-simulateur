@@ -331,7 +331,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - paramètres lus par le handler :
   - `montant_brut` (défaut : `SMIC_BRUT_MENSUEL_REFERENCE_EUR` (non littéral))
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
-  - `smic_montant_brut` → param `montant_brut` [1400–2200, pas 50]
+  - `smic_montant_brut` → param `montant_brut` [1950–2200, pas 50]
 
 ## `subventions_tge` — Subventions grandes entreprises
 - type : `fonction` · catégorie : `competitivite`
