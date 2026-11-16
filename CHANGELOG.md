@@ -27,7 +27,11 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   compris ; les deux cas de bout en bout). Re-déclarés : `csg.taux = True` est refusé comme booléen et non plus
   comme hors domaine (`tests/test_param_domains_guard.py`) ; l'âge de départ booléen n'est plus ramené à 60 ans
   par les canaux macro (`tests/test_cloture_revue_lot3.py`). Sorties identiques au bit, en pleine précision, sur
-  les 64 cas du golden master (dix scénarios publiés des deux modes, mini-scénarios, statu quo).
+  les 64 cas du golden master (dix scénarios publiés des deux modes, mini-scénarios, statu quo). Limite
+  déclarée : un levier refusé compte pour zéro en entier, y compris la valeur de droit en vigueur qu'il porte en
+  mode cadre (exemple : `fonction_publique.effectifs: true` sur la loi de finances votée perd les suppressions de
+  postes du droit en vigueur, alors qu'une clé absente les garde). C'est le traitement antérieur d'une chaîne de
+  caractères, que les gardes étendent aux booléens.
 - **Sources de l'ISF dans le code** (aucun calcul ne change). Les commentaires de
   `handlers/fiscalite_menages.py` attribuaient le taux d'évasion de 15 % et le plafond de 18 Md€ à l'« EU Tax
   Observatory 2024 », dont le rapport ne contient aucun des deux. Ils disent désormais ce que la documentation
