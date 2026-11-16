@@ -189,8 +189,8 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset, *,
     d'achat) forme un flux distinct ``(levier, 'remunerations')`` = −part, pris au
     traitement des transferts ; le reste de la dépense (effectifs, budget, postes)
     reste dans ``(levier, 'depenses')``, avec sa famille. Sans ce canal, rien ne
-    change. Un levier à coefficient propre garde tout dans son solde (le SMIC, dont
-    la part « agents publics » attend un arbitrage du mainteneur).
+    change. Un levier à coefficient propre garde tout dans son solde ; le SMIC n'en
+    est plus un depuis le lot SMIC : sa paie publique suit cette règle.
 
     Prestations en espèces hors des leviers de transfert (lot 5e, même mécanique) :
     la part de la dépense qu'un levier émet au canal ménages ``prestations``
@@ -533,6 +533,10 @@ class GrowthMixin:
                     profil = self.DECAY_PROFILE_TRANSFERS
                 else:
                     composition = compositions[canal]
+                    # Recette d'un levier de transfert prise comme un impôt (lot
+                    # SMIC) : profil des impôts, comme son coefficient.
+                    if canal == 'recettes' and m_id in self.RECETTES_AU_PROFIL_DES_IMPOTS:
+                        profil = self.DECAY_PROFILE_TAXES
                 # La matrice porte le signe de l'effet (négatif en
                 # consolidation) ; ici le signe vient de l'impulsion, la
                 # matrice n'en donne que l'amplitude.

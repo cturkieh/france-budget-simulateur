@@ -32,11 +32,10 @@ Contrat verrouillé ici, dans le moteur complet :
    première ;
 3. par les vrais curseurs (point d'indice ±2 %, revalorisation des enseignants ±5 %), hausse et baisse
    déplacent le PIB réel en miroir à 1 % près, de 1 à 6 ans, dans les deux modes ;
-4. exception déclarée : un levier à coefficient propre (``MESURES_MULTIPLICATEUR_NET``) qui émet ce canal
-   le garde dans son solde, à son coefficient propre. C'est le cas du SMIC (part « agents publics » de la
-   hausse), laissé en l'état en attente d'un arbitrage du mainteneur, verrouillé par la liste (le test
-   rougit si la liste des émetteurs à coefficient propre change) ET par le comportement (retirer cette
-   part du canal ne change aucune colonne macroéconomique) ;
+4. plus d'exception : le SMIC, dont la part « agents publics » de la hausse restait dans un solde à
+   coefficient propre en attente d'un arbitrage, suit la règle depuis le lot SMIC (arbitrage du mainteneur
+   du 16/11/2026 ; tests/test_smic_flux_tresor.py) ; aucun levier à coefficient propre n'émet ce canal
+   (le test rougit si l'un d'eux se met à l'émettre) ;
 5. sous le plafond de 10 % du PIB en mode « reduction », le canal et la dépense du levier sont réduits
    du même facteur : la source unique tient, et la part de la rémunération dans la dépense ne change pas.
 
@@ -56,9 +55,9 @@ from tests.test_bornes_entrees_sorties_v067 import CONSOLIDATION_MAXIMALE
 
 S = BudgetSimulatorV45
 NETS = FiscalMultipliers.MESURES_MULTIPLICATEUR_NET
-# Émetteur à coefficient propre laissé en l'état (arbitrage du mainteneur attendu) : la part « agents
-# publics » de la hausse du SMIC reste dans le solde du levier, au coefficient propre du SMIC.
-EN_ATTENTE = frozenset({'smic'})
+# Émetteurs à coefficient propre laissés en l'état : aucun. Le SMIC, seul cas jusqu'au lot SMIC (part
+# « agents publics » de sa hausse), est désormais multiplié flux par flux.
+EN_ATTENTE = frozenset()
 COMPO_TRANSFERT = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.0, 'transferts': 1.0}
 JUMEAU_TRANSFERT = 'prestations_menages'   # levier de transfert, profil des transferts, neutre au droit
 
@@ -322,49 +321,6 @@ def test_curseurs_reels_en_miroir_de_1_a_6_ans(levier, param, ecart, annee_debut
         hausse, baisse = yh[i] / y0[i] - 1, yb[i] / y0[i] - 1
         assert hausse > 0 > baisse, (h, hausse, baisse)
         assert abs(abs(baisse) / hausse - 1) < 0.01, (levier, annee_debut, h, hausse, baisse)
-
-
-# --- 4. Exception du SMIC : verrouillée par le comportement -------------------------------------
-
-COLONNES_MACRO = {0: COLONNES[0] + ('Recettes/PIB %', 'Dépenses/PIB %'),
-                  1: COLONNES[1] + ('Croissance_Potentielle_Totale %', 'Multiplicateur', 'Dépenses_Totales')}
-
-
-class _SmicSansCanal(BudgetSimulatorV45):
-    """Le même moteur, la part « agents publics » du SMIC retirée de son canal ménages."""
-
-    def apply_measures(self, year, spending, revenues, gdp, inflation, unemployment):
-        sp, rv, imp = super().apply_measures(year, spending, revenues, gdp, inflation, unemployment)
-        bloc = imp.get('smic')
-        if isinstance(bloc, dict) and isinstance(bloc.get('menages'), dict):
-            self.__dict__.setdefault('_retire', []).append(bloc['menages'].get('remunerations_publiques', 0))
-            imp = dict(imp)
-            bloc = dict(bloc)
-            canaux = dict(bloc['menages'])
-            canaux['remunerations_publiques'] = 0.0
-            bloc['menages'] = canaux
-            imp['smic'] = bloc
-        return sp, rv, imp
-
-
-@pytest.mark.parametrize('annee_debut', [None, 2028])
-def test_smic_la_part_agents_publics_ne_change_aucune_colonne_macroeconomique(monkeypatch, annee_debut):
-    """L'exception du SMIC, par le COMPORTEMENT et pas seulement par la liste : retirer la part
-    « agents publics » de son canal ménages ne change aucune colonne macroéconomique, au bit (elle
-    reste dans le solde du SMIC, au coefficient propre). Seul l'indice de pouvoir d'achat, qui lit ce
-    canal, bouge. Un reclassement de cette part au traitement des transferts, sous quelque nom que ce
-    soit, rougit ici. L'exception porte sur la DEMANDE : l'effet prix du lot 5d, qui ajoute ce canal au
-    PIB publié pour tous les leviers, est retiré des deux côtés (verrouillé par
-    test_effet_prix_remunerations.py)."""
-    monkeypatch.setattr(BudgetSimulatorV45, '_cout_remunerations_annee', lambda self, impacts: 0.0)
-    mesures = {'smic': {'montant_brut': 2000}}
-    a = BudgetSimulatorV45(periods=PERIODES, mesures=mesures, annee_debut=annee_debut).simulate()
-    sim = _SmicSansCanal(periods=PERIODES, mesures=mesures, annee_debut=annee_debut)
-    b = sim.simulate()
-    assert any(sim._retire), 'non-vacuité : le SMIC émet une part « agents publics »'
-    for table, colonnes in COLONNES_MACRO.items():
-        for col in colonnes:
-            assert list(a[table][col]) == list(b[table][col]), (annee_debut, col)
 
 
 # --- 5. Plafond de 10 % du PIB en mode « reduction » --------------------------------------------

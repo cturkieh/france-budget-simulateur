@@ -8,8 +8,8 @@ sa famille. Cas connu : le rabot uniforme, dont les coupes de pensions, d'alloca
 sociaux (prestations en espèces, SEC 2010 D.62) étaient prises en dépense courante, comme le reste du rabot.
 
 Exceptions déclarées, verrouillées par la liste ET par le comportement :
-- le SMIC, à coefficient propre (``MESURES_MULTIPLICATEUR_NET``) : son canal ``prestations`` reste dans son
-  solde ;
+- le SMIC, levier de transfert depuis toujours (son coefficient propre a été retiré au lot SMIC) : toute sa
+  dépense est déjà au traitement des transferts, son canal ``prestations`` n'est pas reclassé ;
 - la santé (``PRESTATIONS_NON_RECLASSEES``) : son canal ``prestations`` porte les franchises et
   participations, un reste à charge sur des remboursements de soins, c'est-à-dire une prestation EN NATURE,
   pas en espèces ; laissée en l'état, en attente d'un arbitrage.
@@ -24,8 +24,8 @@ Contrat verrouillé ici, dans le moteur complet :
 3. même effet qu'un transfert du même montant, sur toute la trajectoire macroéconomique, à 1e-9 près, en
    montée en charge sur trois ans, dans les deux sens et cinq états, pour le rabot et un émetteur
    synthétique ; non-vacuité ;
-4. exceptions par le comportement : retirer le canal ``prestations`` du SMIC ou de la santé ne change aucune
-   colonne macroéconomique.
+4. exceptions par le comportement : retirer le canal ``prestations`` du SMIC (levier de transfert) ou de la
+   santé ne change aucune colonne macroéconomique.
 
 Ne change pas : la coupe de masse salariale du rabot (assimilée à des effectifs, limite déclarée) et son
 assiette, les leviers de transfert, le pouvoir d'achat (qui lisait déjà ce canal), le Gini.
@@ -85,10 +85,12 @@ def emetteurs():
 
 def test_inventaire_des_emetteurs():
     """Hors des leviers de transfert et des coefficients propres, les émetteurs du canal sont exactement le
-    rabot (reclassé) et la santé (exclue). Le SMIC est le seul émetteur à coefficient propre."""
+    rabot (reclassé) et la santé (exclue). Aucun émetteur à coefficient propre depuis que le SMIC en est
+    sorti (lot SMIC) ; il émet le canal comme levier de transfert."""
     hors_transferts = emetteurs() - S.TRANSFER_MEASURES - NETS
     assert hors_transferts == RECLASSES | EXCLUS, sorted(hors_transferts)
-    assert emetteurs() & NETS == {'smic'}, sorted(emetteurs() & NETS)
+    assert emetteurs() & NETS == frozenset(), sorted(emetteurs() & NETS)
+    assert 'smic' in emetteurs() & S.TRANSFER_MEASURES
 
 
 PROGRAMME = {'rabot_uniforme': {'taux_reduction': 0.08}, 'sante': {'franchise_participation_taux': 200},
@@ -231,7 +233,7 @@ def _sans_canal_prestations(levier):
 @pytest.mark.parametrize('levier, mesures', [('smic', {'smic': {'montant_brut': 2000}}),
                                              ('sante', {'sante': {'franchise_participation_taux': 200}})])
 def test_exceptions_le_canal_ne_change_aucune_colonne_macroeconomique(levier, mesures, annee_debut):
-    """SMIC (coefficient propre) et santé (prestation en nature, exclue) : retirer leur canal ``prestations``
+    """SMIC (levier de transfert) et santé (prestation en nature, exclue) : retirer leur canal ``prestations``
     ne change aucune colonne macroéconomique, au bit. Seul l'indice de pouvoir d'achat, qui lit ce canal,
     bouge. Un reclassement de l'un d'eux au traitement des transferts rougit ici."""
     a = BudgetSimulatorV45(periods=PERIODES, mesures=mesures, annee_debut=annee_debut).simulate()

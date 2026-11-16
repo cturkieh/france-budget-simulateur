@@ -178,13 +178,14 @@ def test_franchissement_de_zero_scinde_l_impulsion():
 
 
 def test_multiplicateur_net_des_leviers_a_coefficient_propre():
-    """smic et fraude_fiscale portent un coefficient calibré sur leur effet NET
-    (FiscalMultipliers : indépendant de la composition) : leurs deux flux sont
+    """La fraude fiscale porte un coefficient calibré sur son effet NET
+    (FiscalMultipliers : indépendant de la composition) : ses deux flux sont
     agrégés avant multiplication, les autres leviers sont multipliés flux par
-    flux. La liste et les branches de ``get_multiplier`` ne peuvent diverger."""
+    flux. La liste et les branches de ``get_multiplier`` ne peuvent diverger.
+    Le SMIC en est sorti au lot SMIC (tests/test_smic_flux_tresor.py)."""
     from budget_simulator.simulator import FiscalMultipliers
     fm = FiscalMultipliers()
-    assert FiscalMultipliers.MESURES_MULTIPLICATEUR_NET == {'smic', 'fraude_fiscale'}
+    assert FiscalMultipliers.MESURES_MULTIPLICATEUR_NET == {'fraude_fiscale'}
     etat = dict(output_gap=0.0, unemployment_gap=0.0, debt_ratio=0.95, interest_rate=0.03)
     for m in FiscalMultipliers.MESURES_MULTIPLICATEUR_NET:
         vals = {fm.get_multiplier(sens, comp, etat, 2, m)

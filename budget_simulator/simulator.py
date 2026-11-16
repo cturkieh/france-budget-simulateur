@@ -214,11 +214,12 @@ class FiscalMultipliers:
     # indépendants de la composition) : calibrés sur l'effet NET du levier, ils
     # sont appliqués à son solde recettes − dépenses ; tous les autres leviers
     # sont multipliés flux par flux (engine/growth.py, _stocker_impulsions).
-    # Verrouillé par tests/test_impulsions_v067.py. Le SMIC émet une part
-    # « agents publics » au canal remunerations_publiques ; elle reste dans son
-    # solde, au coefficient propre, en attente d'un arbitrage du mainteneur (lot
-    # 5b ; tests/test_remunerations_publiques_transferts.py).
-    MESURES_MULTIPLICATEUR_NET = frozenset({'smic', 'fraude_fiscale'})
+    # Verrouillé par tests/test_impulsions_v067.py. Le SMIC en est sorti (lot
+    # SMIC, arbitrage du mainteneur du 16/11/2026) : ses cinq postes (Trésor,
+    # tableau 9 du groupe d'experts 2017) sont multipliés chacun selon sa nature
+    # (tests/test_smic_flux_tresor.py) ; son coefficient propre de 0,15, qui ne
+    # venait d'aucune source, est supprimé.
+    MESURES_MULTIPLICATEUR_NET = frozenset({'fraude_fiscale'})
 
     def __init__(self):
         # Cache pour les multiplicateurs (évite recalcul)
@@ -293,20 +294,7 @@ class FiscalMultipliers:
         if cache_key in self._multiplier_cache:
             return self._multiplier_cache[cache_key]
 
-        # TRAITEMENTS SPÉCIAUX par measure_id
-        # Le SMIC a un multiplicateur quasi-nul : la hausse du coût du travail
-        # (destruction emplois non qualifiés, Kramarz & Philippon 2001) compense
-        # le boost de consommation. Effet net sur la croissance ~0.
-        # Multiplicateur 0.15 (bien en dessous des transferts standards 0.50).
-        if measure_id == 'smic':
-            mult_base = 0.15
-            multiplier = mult_base
-            multiplier *= self._facteur_conjoncturel(economic_state)
-            if economic_state.get('debt_ratio', 0) > 1.10:
-                multiplier *= self.adjustments['high_debt']
-            self._multiplier_cache[cache_key] = multiplier
-            return multiplier
-
+        # TRAITEMENT SPÉCIAL par measure_id (MESURES_MULTIPLICATEUR_NET).
         # Fraude fiscale (enforcement, pas nouvelle taxe)
         if measure_id == 'fraude_fiscale':
             # La fraude fiscale n'est ni une hausse fiscale ni une baisse de dépenses
@@ -581,6 +569,15 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # hors des leviers de transfert est reclassé (tests/test_prestations_hors_transferts.py
     # dérive les émetteurs du registre des paramètres).
     PRESTATIONS_NON_RECLASSEES = frozenset({'sante'})
+
+    # Lot SMIC (arbitrage du mainteneur du 16/11/2026 : chaque poste selon sa
+    # nature) : leviers de transfert dont la RECETTE prend le profil des impôts
+    # (engine/growth.py, _stocker_impulsions). Le SMIC : ses prélèvements des
+    # salariés, son impôt sur le revenu et ses allègements de charges des
+    # employeurs sont des impôts ; sa dépense (paie publique, prestations) garde
+    # le profil des transferts. Toute autre recette d'un levier de transfert garde
+    # le profil de son levier.
+    RECETTES_AU_PROFIL_DES_IMPOTS = frozenset({'smic'})
 
     # Release E (socle) : flux dont la contrepartie DIRECTE est un agent non
     # résident (budget de l'Union européenne, bénéficiaires de l'aide

@@ -227,7 +227,8 @@ def test_reforme_et_curseur_valorisent_un_poste_au_meme_cout():
 # Toute masse de la fonction publique en euros de l'année (v0.6.7, suite de
 # la réfutation) : après l'indexation du coût d'un agent, trois montants FP
 # restaient en euros 2025 — la masse salariale du point d'indice (330 Md€), la
-# part FP de la hausse du SMIC (50 Md€) et les coûts de la réforme de l'État
+# part FP de la hausse du SMIC (50 Md€, remplacée au lot SMIC par la paie publique
+# du Trésor, au PIB nominal de l'année) et les coûts de la réforme de l'État
 # (0,15 Md€ par point d'intensité, pénalité 0,3 Md€). Les économies d'une
 # réduction d'effectifs étaient indexées, pas le coût d'une hausse de
 # rémunération : asymétrie résiduelle. Même indice pour tous.
@@ -272,14 +273,20 @@ def test_point_d_indice_sur_la_masse_salariale_de_l_annee():
     assert sim.indice[2035] > 1.1
 
 
-def test_part_fp_du_smic_sur_la_masse_de_l_annee():
-    """RED : la part FP d'une hausse du SMIC (15 % des agents, 50 Md€ de masse)
-    restait en euros 2025 ; la part « aides sociales » n'est pas une masse FP."""
-    hausse = (2000 - 1800) / 1800
+def test_part_fp_du_smic_en_euros_de_l_annee():
+    """RED (v0.6.7) : la part FP d'une hausse du SMIC restait en euros 2025. Depuis
+    le lot SMIC, la paie publique et la baisse des prestations sont les postes du
+    Trésor (260 et 110 M€ de 2017 par point), mis à l'échelle du PIB nominal de
+    l'année : en euros de l'année, chaque année (tests/test_smic_flux_tresor.py)."""
+    from budget_simulator.constants import (PIB_BASE_2025_MD_EUR, SALAIRES_BRUTS_2017_MD,
+                                            SALAIRES_BRUTS_2025_MD)
+    points = 100 * (2000 - 1800) / 1800
     sim, dep = _depenses_fp({'smic': {'montant_brut': 2000}}, 'smic')
     for annee in range(2026, 2036):
-        part_fp = dep[annee] - 12 * hausse
-        assert part_fp == pytest.approx(50 * hausse * sim.indice[annee], rel=1e-9), annee
+        echelle = (SALAIRES_BRUTS_2025_MD / SALAIRES_BRUTS_2017_MD
+                   * sim._pib_nominal_par_annee[annee] / PIB_BASE_2025_MD_EUR / 1000)
+        assert dep[annee] == pytest.approx((260 - 110) * echelle * points, rel=1e-9), annee
+    assert sim._pib_nominal_par_annee[2035] / PIB_BASE_2025_MD_EUR > 1.2
 
 
 def test_couts_de_la_reforme_sur_l_indice_de_l_annee():

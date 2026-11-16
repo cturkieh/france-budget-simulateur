@@ -27,7 +27,7 @@ COMPO_TRANSFERT = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.0, 'tra
 ETAT_NEUTRE = {'output_gap': 0.0, 'unemployment_gap': 0.0, 'debt_ratio': 1.15, 'interest_rate': 0.023}
 
 
-@pytest.mark.parametrize('levier', sorted(BudgetSimulatorV45.TRANSFER_MEASURES - {'smic'}))
+@pytest.mark.parametrize('levier', sorted(BudgetSimulatorV45.TRANSFER_MEASURES))
 def test_coefficient_identique_dans_les_deux_sens(levier):
     """À l'an 3 (année quelconque : plus aucun coefficient ne dépend de l'année)."""
     fm = FiscalMultipliers()

@@ -340,7 +340,7 @@ PA(t)   = 100 × RDB réel(t) / RDB(2025) / UC(t)
   (pensions, allocations, minima, AAH ; la santé et l'APA sont des transferts en nature, hors
   revenu disponible), impôts directs (IR, CSG, cotisations salariales, part ménages de la taxe
   foncière), rémunérations des agents en place (point d'indice, à 0,535 € net par € de coût),
-  salaires au SMIC. La TVA et les accises passent par les prix, pour leur part payée par les
+  salaires d'une hausse du SMIC (revenu disponible publié par le Trésor). La TVA et les accises passent par les prix, pour leur part payée par les
   ménages (hausse répercutée en entier, baisse à moitié).
 - Indice de NIVEAU : chaque année ne lit que les montants de l'année ; une mesure permanente
   pèse son niveau, chaque année, sans se composer.
@@ -438,8 +438,8 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 | Transferts sociaux | **0,785** (effet 0,65), meme coefficient pour une coupe [0,688] | Gechert 2015 |
 | Remuneration des agents publics a effectifs constants (point d'indice, revalorisation des enseignants) | **0,785** (effet 0,65), comme un transfert, dans les deux sens (lot 5b) [0,688] | comptabilite nationale (effet prix) et Mesange 2017 ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010) |
 | Baisses impots | **0,674** (effet 0,65, comme la hausse) [0,615] | aucune asymetrie de signe etablie (v0.6.7) |
-| **Cas speciaux** | | |
-| SMIC | **0,15** | Kramarz & Philippon 2001 (quasi-zero) |
+| SMIC : paie publique et baisse des prestations | **0,785**, comme un transfert ; cotisations, impot sur le revenu et allegements au coefficient des impots, **0,674** (lot SMIC) [0,15 sur le solde, sans source] | DG Tresor, groupe d'experts 2017, tableau 9 |
+| **Cas special** | | |
 | Fraude fiscale | **-0,40** | Enforcement, pas nouvelle taxe |
 
 **Flux hors de la demande intérieure (v0.8.0).** Les multiplicateurs mesurent l'effet d'un euro dépensé,
@@ -465,8 +465,8 @@ changent pas. Deux modèles publiés encadrent ce choix : celui de l'OFCE met le
 prestations sociales, celui de la Commission européenne un peu plus bas. Dans ces modèles, l'effet arrive plus
 lentement que dans le moteur, qui le fait jouer surtout la première année : c'est une limite déclarée.
 Les sept programmes publiés qui relèvent ces salaires voient leur dette 2032 monter de 0,16 à 0,59 point en mode
-cadre (METHODOLOGIE, encadré du lot 5b). La part de la hausse du SMIC versée aux agents publics garde, en
-attendant un arbitrage, le traitement propre du SMIC.
+cadre (METHODOLOGIE, encadré du lot 5b). Depuis le lot SMIC, la part de la hausse du SMIC versée aux agents
+publics suit la même règle.
 
 **Hausse de salaire des agents publics : le PIB en valeur monte d'autant (lot 5d, 16/11/2026, non publié).** En
 comptabilité nationale, ce que produisent les administrations est compté à son coût, salaires compris : augmenter
@@ -475,7 +475,7 @@ constaté en 2022). Le moteur l'ajoute désormais au PIB publié, qui sert à ca
 du PIB. La dette et le déficit en euros ne changent pas : c'est le PIB en valeur, au dénominateur, qui est relevé.
 La dette rapportée au PIB de 2032 baisse donc d'environ 1,5 à 1,6 point pour les deux programmes qui relèvent
 fortement le point d'indice, de 0,1 à 0,4 point pour ceux qui revalorisent les enseignants ; la part de la hausse
-du SMIC versée aux agents publics compte aussi (jusqu'à 0,4 point pour un programme). Les recettes et les dépenses
+du SMIC versée aux agents publics compte aussi (jusqu'à 0,3 point pour un programme). Les recettes et les dépenses
 rapportées au PIB baissent de même, sans que les montants en euros bougent. Les prix à la consommation, la
 croissance, le chômage et le pouvoir d'achat ne changent pas ; la colonne « déflateur du PIB » du simulateur, elle,
 monte (METHODOLOGIE, encadré du lot 5d).
@@ -541,7 +541,7 @@ TAXES = (0.90, 0.50, 0.30, 0.15, 0.10, 0.05)  — somme = 2.00
 | 4 | 0,10 | Tres faible |
 | 5 | 0,05 | Quasi-nul |
 
-**Profil TRANSFERS** (transferts sociaux : retraites, SMIC, allocations) :
+**Profil TRANSFERS** (transferts sociaux : retraites, allocations, dépense d'une hausse du SMIC ; ses recettes prennent le profil des impôts) :
 ```
 TRANSFERS = (0.90, 0.50, 0.20, 0.10, 0.05, 0.02)  — somme = 1.77
 ```
@@ -829,7 +829,7 @@ re-mesures le 08/11/2026 (v0.7.2 : dette de depart recalee a 115,7 %).
 **Mesures principales :**
 - ISF climatique : +12 Md EUR
 - Taxe superprofits : +15 Md EUR
-- SMIC +14% : effets via multiplicateur quasi-nul (0,15)
+- SMIC : cinq postes de finances publiques du Tresor, chacun selon sa nature (METHODOLOGIE, § SMIC)
 - TVA energie 5,5% : -17 Md EUR
 - Retraite 60 ans : -44 Md EUR/an a plein regime (16 Md EUR x 2,75 annees, montee en charge 5 ans)
 
@@ -837,7 +837,6 @@ re-mesures le 08/11/2026 (v0.7.2 : dette de depart recalee a 115,7 %).
 - Pouvoir d'achat : hausse (SMIC, TVA energie, transferts) — chiffres a jour : METHODOLOGIE
 - Gini : -0,04 (forte reduction inegalites)
 - Competitivite : -1% (ISF, charges)
-- SMIC : multiplicateur 0,15 (quasi-zero, Kramarz & Philippon)
 
 **Trade-off** : Gains sociaux immediats vs soutenabilite long terme
 

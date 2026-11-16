@@ -1093,10 +1093,32 @@ PART_NETTE_DU_BRUT_AGENTS_PUBLICS = 0.80
 PART_NETTE_REMUNERATIONS_APU = (REMUNERATIONS_APU_BRUT_2025_MD_EUR
                                 / REMUNERATIONS_APU_2025_MD_EUR
                                 * PART_NETTE_DU_BRUT_AGENTS_PUBLICS)
-# Part nette du brut d'un salaire privé au voisinage du SMIC : 0,78 (taux de
-# cotisations salariales de 22 % retenu par le moteur, handler
-# cotisations_salariales, « URSSAF 2024 ») — NON sourcée en ligne ici.
-PART_NETTE_DU_BRUT_SALAIRES_PRIVES = 0.78
+# HAUSSE DU SMIC : EFFETS POSTE PAR POSTE (lot SMIC, arbitrage du mainteneur du
+# 16/11/2026). Effets d'une hausse de 1 % du SMIC sur le solde des finances
+# publiques, en M€ de 2017, signe du SOLDE (+ = l'améliore) : groupe d'experts sur
+# le SMIC, rapport 2017, tableau 9 (PDF p. 82 ; modèle Saphir 2017, DG Trésor ;
+# France métropolitaine, ménages ordinaires ; sans effet sur l'emploi, par
+# hypothèse de la source), relu le 16/11/2026 :
+# https://www.tresor.economie.gouv.fr/Articles/284b121f-b187-4280-b327-05f18064c3fa/files/2463e652-7de5-4cd4-b7da-6756e7c1374b
+# Total −240 M€ par point. La paie publique suppose une diffusion de la hausse
+# identique dans la fonction publique et dans le secteur privé (même page).
+SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017 = {
+    'cotisations_employeurs_nettes_des_allegements': -400.0,
+    'prelevements_des_salaries': 240.0,
+    'paie_publique': -260.0,
+    'prestations': 110.0,
+    'impot_sur_le_revenu': 70.0,
+}
+# Même rapport, tableau 8 (PDF p. 81) : revenu agrégé des ménages, par point de
+# hausse — revenu brut +1 110 M€, revenu disponible +690 M€ (= 1 110 − 240 de
+# prélèvements des salariés − 70 d'impôt sur le revenu − 110 de prestations).
+SMIC_TRESOR_REVENU_BRUT_PAR_POINT_M_EUR_2017 = 1110.0
+SMIC_TRESOR_REVENU_DISPONIBLE_PAR_POINT_M_EUR_2017 = 690.0
+# Mise à l'échelle des montants de 2017 : salaires et traitements bruts (D11) de
+# 2017, même tableau et même fichier que SALAIRES_BRUTS_2025_MD (Insee, comptes
+# nationaux annuels base 2020, tableau 2.101, fichier du 22/05/2026, relu le
+# 16/11/2026), puis PIB nominal de l'année depuis 2025.
+SALAIRES_BRUTS_2017_MD = 880.657
 # PART DE LA FISCALITÉ INDIRECTE QUI PÈSE SUR LA CONSOMMATION DES MÉNAGES — elle
 # dépend de la BASE de chaque handler (revue passe 1 v0.6.8, M2), et c'est le
 # handler qui l'applique en émettant le canal ``prelevements_indirects`` :

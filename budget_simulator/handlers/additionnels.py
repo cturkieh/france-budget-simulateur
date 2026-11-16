@@ -1,7 +1,8 @@
 """Section 6 — Paramètres additionnels (Débats Présidentielle 2027).
 
 Mesures couvertes :
-- ``smic`` : hausse SMIC brut (NFP 2027 : 1600€ net / +14.4%, 3.2M salariés concernés).
+- ``smic`` : hausse du SMIC brut ; cinq postes de finances publiques du Trésor
+  (groupe d'experts 2017, tableau 9), mis à l'échelle de l'année et de la hausse.
 - ``taxe_superprofits`` : taxe 25% sur bénéfices >120% moyenne historique
   (temporaire 3 ans : 2026-2028 en mode historique, trois ans à partir de
   annee_debut sinon — v0.7.0).
@@ -13,10 +14,9 @@ Convention d'application :
   (``gini``, ``competitivite``, ``chomage``) en mode NIVEAU one-time, gated
   sur ``years_elapsed == 0``.
 - Pouvoir d'achat (v0.6.8) : canaux ménages en euros de l'année (clé
-  ``menages``). ``smic`` : salaires nets privés, rémunérations publiques et
-  prestations indexées (la part « agents publics » reste, pour la croissance,
-  dans le solde du SMIC, à son coefficient propre : arbitrage du mainteneur
-  attendu, lot 5b) ; ``taxe_superprofits`` et ``exonerations_salaires``
+  ``menages``). ``smic`` : revenu disponible du tableau 8 du Trésor (salaires
+  nets privés, rémunérations publiques, baisse des prestations, impôt sur le
+  revenu) ; ``taxe_superprofits`` et ``exonerations_salaires``
   (cotisations PATRONALES) : aucun effet direct, par la croissance et
   l'emploi (arbitrage du mainteneur).
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de gating.
@@ -34,7 +34,13 @@ import logging
 import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import PART_NETTE_DU_BRUT_SALAIRES_PRIVES
+from ..constants import (
+    PART_NETTE_REMUNERATIONS_APU,
+    SALAIRES_BRUTS_2017_MD,
+    SALAIRES_BRUTS_2025_MD,
+    SMIC_TRESOR_REVENU_BRUT_PAR_POINT_M_EUR_2017,
+    SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017,
+)
 from .._logging import _log_debug
 from ..engine._param_domain import valeur_brute
 from ._phasing import _one_time_level, _resolve_intensite_or_legacy, _year_phasing
@@ -83,8 +89,10 @@ class AdditionnelsMixin(_MixinBase):
     """Handlers Section 6 — Paramètres additionnels Présidentielle 2027."""
 
     def _apply_smic(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
-        """SMIC (actuel 1800€ brut). NFP: 1600€ net (+14.4%). 3.2M salariés concernés. Effets NIVEAU one-time.
-        Sources: OFCE 2024, DARES 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
+        """SMIC brut mensuel. Finances publiques : les cinq postes du Trésor par point de hausse
+        (groupe d'experts 2017, tableau 9), chacun selon sa nature (lot SMIC, arbitrage du mainteneur
+        du 16/11/2026). Effets NIVEAU one-time (chômage, compétitivité, Gini). Voir METHODOLOGIE.md
+        § SMIC."""
         smic_brut = params.get('montant_brut', 1800)  # Actuel 2024 : ~1800€ brut
         smic_actuel = 1800  # Baseline 2025
 
@@ -98,43 +106,54 @@ class AdditionnelsMixin(_MixinBase):
         # ===== CALCUL IMPACTS =====
         delta_brut = smic_brut - smic_actuel
         hausse_pct = delta_brut / smic_actuel
+        points = 100.0 * hausse_pct
 
-        # 1. DÉPENSES FONCTION PUBLIQUE
-        # 15% des agents FP cat. C concernés (masse salariale ~50 Md€ en euros
-        # 2025, exprimée en euros de l'année par l'indice de prix des dépenses —
-        # v0.6.7, le même que toute masse FP, cf. handlers/efficience.py)
-        # Correction double-comptage : si le point d'indice augmente aussi,
-        # la hausse FP est déjà partiellement couverte. Surcoût SMIC net = max(0, hausse - PI).
-        masse_salariale_fp_concernee = 50 * self.indice_prix_depenses()  # Md€
-        hausse_pi_pct = _point_indice_fp_brut(self.mesures) / 100
-        delta_fp = masse_salariale_fp_concernee * max(0, hausse_pct - hausse_pi_pct)
+        # Les cinq postes du Trésor (lot SMIC, arbitrage du mainteneur du
+        # 16/11/2026 ; constants.SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017,
+        # tableau 9 du groupe d'experts 2017), en Md€ de l'année : M€ de 2017
+        # par point × salaires bruts 2025 / 2017 × PIB nominal de l'année / 2025,
+        # × la hausse en points. Chacun garde sa nature (engine/growth.py,
+        # flux_par_levier et _stocker_impulsions).
+        echelle = (SALAIRES_BRUTS_2025_MD / SALAIRES_BRUTS_2017_MD
+                   * self._indice_pib_source(2025, gdp) / 1000.0)
+        postes = SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017
 
-        # 2. DÉPENSES AIDES SOCIALES (indexées sur SMIC : RSA, prime activité)
-        # RSA = 0.5 SMIC, Prime activité indexée
-        delta_aides = 12 * hausse_pct  # RSA + prime activité ~12 Md€
+        # 1. Paie publique (dépense) : au canal des rémunérations publiques, donc
+        # au traitement des transferts (lot 5b) et à l'effet prix (lot 5d).
+        # Anti-double compte : un point d'indice relevé de p % couvre déjà p
+        # points de la hausse pour les agents ; aucune économie pour une baisse.
+        points_point_indice = _point_indice_fp_brut(self.mesures)
+        delta_fp = -postes['paie_publique'] * echelle * max(0.0, points - points_point_indice)
 
-        # 3. RECETTES COTISATIONS SOCIALES
-        # Hausse cotisations sur masse salariale privée
-        # Salariés privés SMIC : ~2.7M × 12 mois × hausse × taux cotisations (45%)
-        # LIMITATION ASSUMÉE : pas d'effet de diffusion 20-30% au-dessus du SMIC
-        # (OFCE Plane 2014, IPP Bozio 2018). Sous-estime probablement coûts/recettes
-        # de ~25-30% pour des hausses SMIC importantes. Choix de simplification pédagogique.
-        salaries_prives_smic = 2.7  # millions
-        delta_cotisations = salaries_prives_smic * 12 * delta_brut * 0.45 / 1000  # Md€
+        # 2. Prestations (dépense) : la hausse du SMIC les BAISSE (prime
+        # d'activité, aides au logement, prestations familiales, minima :
+        # tableau 8) ; un transfert, comme tout le levier.
+        delta_aides = -postes['prestations'] * echelle * points
 
-        # 4. TOTAL
+        # 3. Recettes : prélèvements des salariés et impôt sur le revenu (une
+        # hausse d'impôts), cotisations des employeurs nettes des allègements
+        # (une baisse de charges). Un seul flux de recettes : la hausse et la
+        # baisse d'impôts ont le même coefficient (tests/test_smic_flux_tresor.py).
+        impot_revenu = postes['impot_sur_le_revenu'] * echelle * points
+        delta_cotisations = ((postes['prelevements_des_salaries']
+                              + postes['cotisations_employeurs_nettes_des_allegements'])
+                             * echelle * points)
+
+        # 4. TOTAL : solde = −240 M€ par point, mis à l'échelle.
         delta_spending = delta_fp + delta_aides
-        delta_revenue = delta_cotisations
+        delta_revenue = delta_cotisations + impot_revenu
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
-        # Pouvoir d'achat (v0.6.8) : trois canaux en euros de l'année — salaires
-        # NETS des salariés privés au SMIC (même assiette que les cotisations
-        # ci-dessus, sans diffusion : limitation assumée), surcoût FP
-        # (rémunérations publiques) et prestations indexées sur le SMIC.
-        # L'ancien « +10 % de SMIC = +0,6 % de PA » portait la diffusion que le
-        # budget, lui, ne chiffre pas.
-        salaires_nets_prives = (salaries_prives_smic * 12 * delta_brut / 1000
-                                * PART_NETTE_DU_BRUT_SALAIRES_PRIVES)
+        # Pouvoir d'achat : revenu disponible du tableau 8 (+690 M€ par point),
+        # sans double compte. Salaires nets = revenu brut − prélèvements des
+        # salariés ; la part des agents publics passe par la règle du moteur
+        # (canal des rémunérations publiques, part nette du coût employeur), le
+        # reste est le salaire net du privé ; baisse des prestations ; impôt sur
+        # le revenu en prélèvement direct.
+        salaires_nets_prives = ((SMIC_TRESOR_REVENU_BRUT_PAR_POINT_M_EUR_2017
+                                 - postes['prelevements_des_salaries']
+                                 + PART_NETTE_REMUNERATIONS_APU * postes['paie_publique'])
+                                * echelle * points)
 
         # Compétitivité : -0.25% pour +10% SMIC (coût travail entreprises)
         # Impact permanent sur coût travail, mais appliqué une fois (structure de coûts)
@@ -168,13 +187,14 @@ class AdditionnelsMixin(_MixinBase):
             'chomage': impact_chomage,
             'menages': canaux_menages(salaires_prives=salaires_nets_prives,
                                       remunerations_publiques=delta_fp,
-                                      prestations=delta_aides),
+                                      prestations=delta_aides,
+                                      prelevements_directs=impot_revenu),
         }
 
         _log_debug(self.debug_logs,
             f"Y{year}: SMIC {smic_brut}€ brut ({hausse_pct*100:+.1f}%) → "
-            f"Dép. FP {delta_fp:.1f} Md€, Aides {delta_aides:.1f} Md€, "
-            f"Cotis. +{delta_cotisations:.1f} Md€, Net {delta_spending-delta_revenue:+.1f} Md€"
+            f"Paie publique {delta_fp:.2f} Md€, prestations {delta_aides:+.2f} Md€, "
+            f"recettes {delta_revenue:+.2f} Md€, solde {delta_revenue-delta_spending:+.2f} Md€"
         )
 
         return delta_spending, delta_revenue, impacts

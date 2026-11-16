@@ -1222,9 +1222,8 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
   (elles passent par la croissance)
 - **Croissance** (lot 5b, arbitrage du mainteneur du 16/11/2026) : le point d'indice, ce même
   montant, prend le traitement des transferts (coefficient et profil), dans les deux sens ; les
-  créations et suppressions de postes restent de la dépense courante. La part de la hausse du
-  SMIC dans la fonction publique reste, en attente d'un arbitrage, dans le solde du SMIC, à son
-  coefficient propre (encadré du lot 5b, § Multiplicateurs)
+  créations et suppressions de postes restent de la dépense courante. Depuis le lot SMIC, la paie
+  publique d'une hausse du SMIC (poste du Trésor, § SMIC) prend le même traitement
   2027-2032 ; suppressions : aucun effet (attrition naturelle, pas de licenciement).
 
 ---
@@ -1715,29 +1714,42 @@ deployee — hypothese conservatrice assumee).
 
 ### SMIC
 
-**Debat politique :**
-- NFP : 1 600 EUR net (+14,4% vs 1 398 EUR actuel)
-- RN : Position symbolique
-- Centre : Maintien indexation automatique
+**La règle (lot SMIC, arbitrage du mainteneur du 16/11/2026, non publiée).** Le curseur est le SMIC brut
+mensuel. Pour les finances publiques, le moteur reprend les cinq postes qu'a publiés le groupe d'experts sur le
+SMIC pour une hausse de 1 % (rapport 2017, tableau 9, PDF p. 82 ; modèle Saphir de la DG Trésor ; sans effet sur
+l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
 
-**Parametres economiques :**
-- Salaries concernes : 3,2 millions (DARES 2024)
-- Masse salariale FP : 15% agents cat. C = ~50 Md EUR (euros 2025, indexée par l'indice de prix des dépenses depuis v0.6.7)
-- Cotisations sociales : +20% de la hausse brute
+| Poste (effet sur le solde public) | M€ de 2017 par point de hausse | Traitement dans le moteur |
+|---|---|---|
+| Cotisations des employeurs, nettes des allègements de charges | −400 | recette en moins (baisse de charges) : coefficient et profil des impôts |
+| Cotisations et contributions des salariés | +240 | recette (impôt) : coefficient et profil des impôts |
+| Paie publique | −260 | dépense au canal des rémunérations publiques : traitement des transferts (lot 5b) et effet prix sur le PIB en valeur publié (lot 5d) |
+| Prestations sociales | +110 | baisse de dépense : un transfert, coefficient et profil des transferts |
+| Impôt sur le revenu | +70 | recette (impôt) : coefficient et profil des impôts |
+| **Total** | **−240** | |
 
-**Multiplicateur specifique (v3.0)** : 0,15
-- Quasi-zero : la hausse du cout du travail (destruction emplois non qualifies, Kramarz & Philippon 2001) compense le boost de consommation
-- Bien en dessous des transferts standards (0,50)
+- **Mise à l'échelle** : chaque poste × salaires bruts 2025 / salaires bruts 2017 (1 157,166 / 880,657 Md€,
+  Insee, comptes nationaux base 2020, tableau 2.101) × PIB nominal de l'année / PIB 2025, × la hausse en points.
+- **Paie publique** : seul l'écart entre la hausse du SMIC et celle du point d'indice compte (anti double
+  compte : un point d'indice relevé couvre déjà une partie de la hausse pour les agents) ; aucune économie pour
+  une baisse du SMIC.
+- **Recettes** : prélèvements des salariés, impôt sur le revenu et allègements forment un seul flux, au
+  coefficient des impôts ; c'est exact parce que la hausse et la baisse d'impôts ont le même coefficient
+  (0,674), ce que vérifie un test.
+- **Pouvoir d'achat** : le revenu disponible du tableau 8 du même rapport (PDF p. 81), +690 M€ par point :
+  revenu brut +1 110, cotisations et contributions des salariés −240, impôt sur le revenu −70, prestations
+  −110 (prime d'activité −50, aides au logement −40, prestations familiales −10, minima sociaux −10). La part
+  des agents publics passe par la règle du moteur (0,535 € de revenu par € de coût) ; le reste est le salaire
+  net du privé. Les cotisations des salariés ne sont comptées qu'une fois, dans le salaire net.
+- **Emploi** : effet direct conservé, +0,025 point de chômage par point de hausse, une fois, l'année où la
+  hausse s'applique (il passe par la dépense d'allocations ; le chômage ne revient pas sur la croissance).
+- **Compétitivité et Gini** : inchangés (−0,025 et −0,03 par point de hausse, une fois).
+- **Ce qui disparaît** : le coefficient propre de 0,15 appliqué au solde du levier, qui ne venait d'aucune
+  source ; une paie publique de 50 Md€ de masse (15 à 45 % au-dessus du Trésor) ; 12 Md€ de prestations qui
+  montaient avec le SMIC (selon le Trésor, elles baissent) ; des cotisations à 45 % sur 2,7 millions de
+  salariés ; la part nette de 0,78, sans source.
 
-**Correction double-comptage (v3.0)** :
-```
-delta_fp = max(0, hausse_smic - hausse_point_indice)
-```
-
-**Impacts (annee 1 seulement - effet NIVEAU) :**
-- PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : salaires nets des 2,7 M de salariés privés au SMIC (sans diffusion) + surcoût FP (part nette) + prestations indexées
-- Competitivite : +100 EUR = -0,3%
-- Gini : +100 EUR = -0,002 (progressif)
+Tests : `tests/test_smic_flux_tresor.py`.
 
 ### ISF Climatique
 
@@ -2269,9 +2281,10 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 | Expansion depense courante | **0,811** | lot 5 : même coefficient que la coupe de dépense courante (convention du mainteneur : pas d'asymétrie de signe retenue, même instrument, même coefficient ; limite : encadré du lot 5) | 0,688 (coefficient des transferts, jusqu'au lot 5) ; lot 6 : 0,74 (calendrier de l'impulsion, recalage) |
 | Expansion transferts | **0,785** | v0.6.7 : calé « central » ; recalé au lot 1 (release de paramètres) | 0,71 (v0.6.7), 0,50 (v0.6.6), 0,80 (v2.0) ; lot 6 : 0,688 (calendrier de l'impulsion, recalage) |
 | Remuneration publique a effectifs constants (hausse ou baisse) | **0,785** | lot 5b, arbitrage du mainteneur : traitement des transferts (coefficient et profil) ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010), profil par analogie, limites : encadre du lot 5b | 0,811 (point d'indice, depense courante) ; 1,31 (revalorisation des enseignants, investissement) ; lot 6 : 0,688 avant le recalage |
-| Prestations en especes emises hors des leviers de transfert (coupes de prestations du rabot uniforme) | **0,785** | lot 5e : traitement des transferts (coefficient et profil), prestations en especes (SEC 2010, D.62) ; exceptions : SMIC, franchises de sante (en nature) | 0,74 (depense courante) |
+| Prestations en especes emises hors des leviers de transfert (coupes de prestations du rabot uniforme) | **0,785** | lot 5e : traitement des transferts (coefficient et profil), prestations en especes (SEC 2010, D.62) ; exception : franchises de sante (en nature) ; le SMIC est un levier de transfert | 0,74 (depense courante) |
 | Expansion baisses impots | **0,674** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie ; = hausse depuis le lot 1 | 0,63 (v0.6.7), 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) ; lot 6 : 0,615 (calendrier de l'impulsion, recalage) |
-| SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
+| SMIC : paie publique et baisse des prestations | **0,785** | lot SMIC, arbitrage du mainteneur : traitement des transferts (coefficient et profil) ; postes du Trésor, § SMIC | 0,15 sur le solde du levier, sans source (jusqu'au lot SMIC) |
+| SMIC : cotisations des salariés, impôt sur le revenu, allègements des employeurs | **0,674** | lot SMIC : coefficient et profil des impôts (le même en hausse et en baisse) | 0,15 sur le solde du levier |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
 
 **Recalibrage « central » des familles (v0.6.7, arbitrage du mainteneur du 07/10/2026)** — règle : chaque
@@ -2419,16 +2432,13 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > Pappa & Vella, *Journal of Economic Dynamics and Control*, 2017 ; Forni, Monteforte & Sessa, *Journal of Public
 > Economics*, 2009 ; FMI, document de travail 19/125) et n'ont été lues qu'en résumé. Pour les effectifs, la méta-analyse de
 > Gechert (catégorie « emploi public ») et l'OFCE (Creel, Heyer & Plane, *Revue de l'OFCE* n° 116, 2011) ne
-> contredisent pas le classement en dépense courante. **En attente d'un arbitrage du mainteneur** : la hausse du
-> SMIC émet aussi une part « agents publics » à ce canal ; le SMIC a un coefficient propre appliqué à son solde
-> (`MESURES_MULTIPLICATEUR_NET`), et cette part y reste. Mesuré (mode cadre 2028), la sortir du solde au
-> traitement des transferts baisserait la dette 2032 de 0,05 à 0,81 point pour les trois programmes publiés qui
-> relèvent le SMIC. Test : `tests/test_remunerations_publiques_transferts.py` (émetteurs dérivés du registre des
+> contredisent pas le classement en dépense courante. **Tranché depuis (lot SMIC, § SMIC)** : la hausse du SMIC
+> émet aussi une part « agents publics » à ce canal ; elle restait, au lot 5b, dans le solde du SMIC, à son
+> coefficient propre. Le SMIC n'a plus de coefficient propre : sa paie publique, poste du Trésor, suit la règle. Test : `tests/test_remunerations_publiques_transferts.py` (émetteurs dérivés du registre des
 > paramètres, pas d'une liste ; source unique, chaque année, dans les deux sens et les deux modes ; même
 > trajectoire macroéconomique qu'un transfert du même montant, à 1e-9 près, pour chaque émetteur et un émetteur
 > synthétique, dans les deux sens et dans cinq états, en montée en charge sur trois ans ; vrais curseurs en miroir
-> à 1 % près de 1 à 6 ans ; exception du SMIC verrouillée par la liste des émetteurs à coefficient propre et par le
-> comportement : retirer sa part « agents publics » du canal ne change aucune colonne macroéconomique ; source
+> à 1 % près de 1 à 6 ans ; aucun levier à coefficient propre n'émet ce canal (le SMIC en est sorti) ; source
 > unique tenue sous le plafond de 10 % du PIB en mode « reduction ») et famille « rémunération publique » du banc des
 > multiplicateurs, à la tolérance des transferts. **Ce qui bouge** (mode cadre 2028, dix scénarios publiés, par
 > rapport au lot 5) : les sept programmes qui relèvent le point d'indice ou la revalorisation des enseignants ;
@@ -2455,9 +2465,8 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > dans les deux sens : une hausse le relève, un gel relatif ou une baisse l'abaisse. Le montant est ce canal
 > (`cout_employeur_des_remunerations`, `engine/growth.py`, source unique : le même que lisent l'impulsion du lot 5b
 > et le pouvoir d'achat). L'effet prix est une identité comptable, indépendante du coefficient par lequel la
-> croissance prend le levier : l'exception du SMIC du lot 5b (coefficient propre) ne vaut que pour la demande.
-> L'assiette de la part « agents publics » du SMIC est elle-même en cours d'instruction ; elle sera reprise avec le
-> traitement du SMIC. Le déflateur publié en est relevé d'autant (PIB publié = PIB réel × déflateur publié), la
+> croissance prend le levier. Depuis le lot SMIC, la part « agents publics » de la hausse du SMIC est la paie
+> publique du Trésor (§ SMIC). Le déflateur publié en est relevé d'autant (PIB publié = PIB réel × déflateur publié), la
 > colonne « Inflation % » (déflateur du PIB) publie sa variation, et les ratios publiés (dette, déficit, recettes et
 > dépenses rapportés au PIB) sont rapportés au PIB publié (`au_pib_publie`). **Sources** : la production non
 > marchande est évaluée « as the sum of the costs incurred », rémunération des salariés comprise (SEC 2010 § 10.28)
@@ -2500,16 +2509,16 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > revalorisation des enseignants ou le SMIC ; la référence sans programme et les trois autres sont identiques au
 > bit. **Seuls les rapports au PIB bougent** : la dette et le déficit en euros ne changent pas, ni les recettes ni
 > les dépenses ; c'est le PIB en valeur publié, au dénominateur, qui est relevé. Dette rapportée au PIB en 2032 :
-> −1,611 et −1,549 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,16 et 1,11 %),
-> −0,748 point pour un programme qui revalorise les enseignants et relève le SMIC, de −0,088 à −0,385 point pour les
-> quatre autres ; déficit 2032 rapporté au PIB plus faible de 0,003 à 0,104 point ; recettes et dépenses rapportées
-> au PIB plus faibles dans la même proportion ; inflation du déflateur publiée plus haute de 0,013 à 0,236 point par
-> an en moyenne sur 2028-2032 (jusqu'à 1,26 point l'année d'une forte hausse) ; indice des prix à la consommation,
+> −1,552 et −1,544 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,12 et 1,11 %),
+> −0,633 point pour un programme qui revalorise les enseignants et relève le SMIC, de −0,088 à −0,385 point pour les
+> quatre autres ; déficit 2032 rapporté au PIB plus faible de 0,003 à 0,100 point ; recettes et dépenses rapportées
+> au PIB plus faibles dans la même proportion ; inflation du déflateur publiée plus haute de 0,013 à 0,227 point par
+> an en moyenne sur 2028-2032 (jusqu'à 1,20 point l'année d'une forte hausse) ; indice des prix à la consommation,
 > croissance, chômage, Gini et pouvoir d'achat identiques au bit. **Décomposition** (chaque levier compté seul) : le
-> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,428 et 1,381 point ; la revalorisation des
-> enseignants seule de 0,088 à 0,385 point ; la part « agents publics » du SMIC seule de 0,024 à 0,445 point.
+> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,430 et 1,378 point ; la revalorisation des
+> enseignants seule de 0,088 à 0,385 point ; la part « agents publics » du SMIC seule de 0,018 à 0,331 point.
 > Méthode : chaque levier est mesuré seul, le coût des autres retiré ; mesurée en retirant la seule part du SMIC de
-> l'ensemble, elle vaut 0,024 à 0,443 point, l'écart venant de ce que les leviers interagissent par le PIB publié.
+> l'ensemble, elle vaut 0,018 à 0,330 point, l'écart venant de ce que les leviers interagissent par le PIB publié.
 > **Rangs.** En pleine précision (comme aux sorties du moteur, à deux décimales) : en dette 2032 rapportée au PIB,
 > deux programmes échangent les 9ᵉ et 10ᵉ rangs ; déficit, croissance, chômage, pouvoir d'achat, compétitivité et
 > Gini : aucun rang ne change. Aux valeurs affichées par le site (une décimale), s'y ajoutent : en dette, deux
@@ -2532,7 +2541,8 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > D.62), que le moteur traite déjà comme des transferts quand un levier de transfert les porte (`retraites`,
 > `chomage_alloc`, `prestations_menages`) ; le montant est celui que lit déjà l'indice de pouvoir d'achat.
 > **Exceptions déclarées**, verrouillées par la liste et par le comportement (retirer leur canal ne change aucune
-> colonne macroéconomique) : le SMIC, à coefficient propre, garde ce canal dans son solde ; la santé
+> colonne macroéconomique) : le SMIC, levier de transfert, dont toute la dépense est déjà au traitement des
+> transferts (jusqu'au lot SMIC, à coefficient propre, il gardait ce canal dans son solde) ; la santé
 > (`PRESTATIONS_NON_RECLASSEES`, `simulator.py`) aussi : son canal `prestations` porte les franchises et
 > participations, un reste à charge sur des remboursements de soins, c'est-à-dire une prestation en nature (SEC
 > 2010, D.632), pas en espèces ; laissée en l'état, en attente d'un arbitrage. **Limites** : celles du lot 5b pour
@@ -2639,7 +2649,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > 2028-2032 de −0,004 à −0,029 point ; Gini inchangé (écart inférieur à 0,0001). **Décomposition** (même mesure, les
 > trois programmes qui baissent la dotation, en écart à la référence) : le coefficient seul, profil d'origine
 > (mesuré sur le lot 5e seul, avant les lots 2 et 6), +0,126 à +0,246 point ; avec le profil de l'investissement,
-> +0,002 à +0,100 point (ce profil culmine la deuxième année puis s'éteint) ; avec aussi l'effet d'offre (ce
+> +0,001 à +0,100 point (ce profil culmine la deuxième année puis s'éteint) ; avec aussi l'effet d'offre (ce
 > commit), +0,046 à +0,175 point. **Rangs**, comparés en pleine précision pour tous les indicateurs : le scénario du
 > budget 2026 voté et un programme échangent les 4ᵉ et 5ᵉ rangs de dette et de déficit 2032 et les 7ᵉ et 8ᵉ rangs de
 > chômage 2032 ; deux programmes échangent les 7ᵉ et 8ᵉ rangs de déficit 2032 ; croissance, pouvoir d'achat,
@@ -2722,7 +2732,7 @@ l'alourdit, cas des consolidations). La valeur centrale retenue est celle de la 
 oct. 2014, Ramey 2019, Gechert 2015), mais la littérature ne tranche pas pour la France. Le site publie
 donc, sur chaque fiche programme, une fourchette : la même trajectoire avec les cinq multiplicateurs
 (`MULT_INVESTISSEMENT`, `MULT_COUPE_DEPENSES`, `MULT_TRANSFERTS`, `MULT_HAUSSE_IMPOTS`,
-`MULT_BAISSE_IMPOTS`) ×0,75 et ×1,25 — coefficients propres du SMIC et de la fraude fiscale et
+`MULT_BAISSE_IMPOTS`) ×0,75 et ×1,25 — coefficient propre de la fraude fiscale et
 ajustements conjoncturels inchangés. Les deux extrêmes des dix scénarios, dette 2035 : la fourchette la
 plus large est celle d'IM Rabot (125,4 à 144,5 %), la plus étroite celle d'IM Compétitivité (127,6 % dans
 les deux cas) ; chaque fiche publie la sienne. Le statu quo, sans impulsion, ne bouge pas (151,2 %).
@@ -2859,7 +2869,8 @@ cadre (médiane des dix programmes publiés, machine de développement), soit ×
   sont calés sur aucun niveau mesuré à un horizon dans le moteur complet ; ils ne sont pas recalés (leur niveau à
   4 ans baisse comme celui des autres familles avant recalage : SMIC 0,10 → 0,08, fraude −0,38 → −0,34). Recalés
   comme leur famille de profil (transferts × 0,785 / 0,688, impôts × 0,674 / 0,615), ils déplaceraient la dette 2032
-  des programmes publiés de 0,03 point au plus (mesuré à la revue du lot). À trancher.
+  des programmes publiés de 0,03 point au plus (mesuré à la revue du lot). À trancher. Celui du SMIC est retiré
+  depuis (lot SMIC, § SMIC) ; reste celui de la fraude fiscale.
 
 **Recalage des coefficients (lot 6, release de paramètres, 16/11/2026, non publiée).** À coefficients inchangés, la
 correction du calendrier faisait baisser le niveau à 4 ans du banc de 9 à 13 % : la trajectoire n'est plus décalée
@@ -2964,7 +2975,7 @@ TAXES = (0.90, 0.50, 0.30, 0.15, 0.10, 0.05)  — somme = 2.00
 ```
 Impact rapide et fort la premiere annee, decroissance classique.
 
-**Profil TRANSFERS** — pour les transferts sociaux (retraites, SMIC, allocations) :
+**Profil TRANSFERS** — pour les transferts sociaux (retraites, allocations, dépense d'une hausse du SMIC ; les recettes du SMIC prennent le profil TAXES, `RECETTES_AU_PROFIL_DES_IMPOTS`) :
 ```
 TRANSFERS = (0.90, 0.50, 0.20, 0.10, 0.05, 0.02)  — somme = 1.77
 ```
@@ -3814,18 +3825,17 @@ classement inchange. Proprietes verrouillees par tests dedies.
   | D(t) | déflateur du PIB du moteur | — |
   | K(t) | 1 (table vide en v0.6.9) | écart cumulé prix de la consommation − prix du PIB constaté (termes de l'échange) ; paragraphe « Conjoncture observée » de la section Inflation et Courbe de Phillips |
   | v | 0,6 %/an | volume tendanciel de la masse salariale du statu quo du moteur (`spending_growth_rates`, « GVT + point d'indice ») |
-  | part nette du brut privé | 0,78 | cotisations salariales de 22 % retenues par le moteur (**non sourcée en ligne**) ; SMIC uniquement |
 
 - **Canaux par levier** (chaque handler émet la clé `menages`, `handlers/_types.canaux_menages`,
   en Md€ de l'année, écart au statu quo ; contrat verrouillé pour les 33 handlers) :
 
   | Canal | Leviers | Effet sur l'indice |
   |---|---|---|
-  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, abattement retraités, ISF climatique, IFI et part ménages de la taxe foncière (`fiscalite_patrimoine` : 26,1 Md€ sur 42,9, FIPECO 2024 ; la part des entreprises passe par la croissance ; hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
+  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, impôt sur le revenu d'une hausse du SMIC (Trésor), abattement retraités, ISF climatique, IFI et part ménages de la taxe foncière (`fiscalite_patrimoine` : 26,1 Md€ sur 42,9, FIPECO 2024 ; la part des entreprises passe par la croissance ; hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
   | prélèvements indirects | TVA générale, TVA énergie, taxe carbone | par les prix : τ± × p_m (part ménages propre à la base du levier) |
-  | prestations | retraites (âge, durée, indexation), allocations chômage, ASU (effort + recours, hors coût de bascule), indexation des minima, franchises santé, part « prestations en espèces » du rabot uniforme (pensions, chômage, minima, AAH ; santé et APA, transferts en nature, à 0 comme dans le levier santé), prestations indexées sur le SMIC | +1 € de RDB par € |
-  | rémunérations publiques | point d'indice, revalorisation des enseignants, surcoût SMIC dans la fonction publique | n = 0,535 € par € de coût |
-  | salaires privés | SMIC (2,7 M de salariés privés, sans diffusion) | net du brut × 0,78 |
+  | prestations | retraites (âge, durée, indexation), allocations chômage, ASU (effort + recours, hors coût de bascule), indexation des minima, franchises santé, part « prestations en espèces » du rabot uniforme (pensions, chômage, minima, AAH ; santé et APA, transferts en nature, à 0 comme dans le levier santé), baisse des prestations quand le SMIC monte (Trésor, tableau 8) | +1 € de RDB par € |
+  | rémunérations publiques | point d'indice, revalorisation des enseignants, paie publique d'une hausse du SMIC (Trésor, tableau 9) | n = 0,535 € par € de coût |
+  | salaires privés | SMIC : salaires nets du tableau 8 du Trésor (revenu brut − cotisations des salariés), moins la part nette des agents publics | +1 € de RDB par € |
   | **aucun** (par la croissance) | impôts de production, IS, cotisations patronales, niches et subventions des entreprises, superprofits, exonérations de cotisations patronales, embauches et suppressions de postes publics, investissement, rénovation (aide à l'investissement, hors RDB), recherche, efficience, fraude, gestion de la dette ; mesures « formule » côté dépenses (côté recettes : avis explicite dans la réponse, aucune n'existe au registre) | 0 direct |
 
 - **Arbitrages du mainteneur (v0.6.8)** : (1) un impôt sur les entreprises n'a aucun effet

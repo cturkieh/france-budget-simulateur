@@ -6,6 +6,54 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équation du lot SMIC : les cinq postes du Trésor, chacun selon sa nature
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur les lots 2, 6 et 5 assemblés.
+La hausse se lit encore contre 1 800 € (la référence datée vient au commit suivant) ; aucun autre levier ne change.
+
+**La règle** (arbitrage du mainteneur du 16/11/2026). Le levier `smic` reprend les effets d'une hausse de 1 % du
+SMIC sur le solde public publiés par le groupe d'experts sur le SMIC (rapport 2017, tableau 9, PDF p. 82, modèle
+Saphir de la DG Trésor), en M€ de 2017 par point : cotisations des employeurs nettes des allègements −400,
+cotisations et contributions des salariés +240, paie publique −260, prestations sociales +110, impôt sur le revenu
++70 ; total −240 (`SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017`, `constants.py`). Mise à l'échelle : × salaires bruts
+2025 / 2017 (1 157,166 / 880,657 Md€, Insee, tableau 2.101, `SALAIRES_BRUTS_2017_MD`) × PIB nominal de l'année /
+PIB 2025, × la hausse en points. Chaque poste garde sa nature : la paie publique passe au canal des rémunérations
+publiques (traitement des transferts du lot 5b, effet prix du lot 5d ; seul l'écart au point d'indice compte, comme
+avant) ; la baisse des prestations est un transfert ; cotisations des salariés, impôt sur le revenu et allègements
+forment un flux de recettes au coefficient et au profil des impôts (`RECETTES_AU_PROFIL_DES_IMPOTS`,
+`simulator.py`) — un seul flux, exact tant que la hausse et la baisse d'impôts ont le même coefficient (garde de
+test). `smic` sort de `MESURES_MULTIPLICATEUR_NET` ; le coefficient propre de 0,15 écrit dans `get_multiplier`,
+sans source, est supprimé. La fraude fiscale garde le sien, au bit (garde de test). Effet direct sur le chômage
+conservé (+0,025 point par point de hausse, une fois). Pouvoir d'achat : le revenu disponible du tableau 8 du même
+rapport (PDF p. 81), +690 M€ par point (revenu brut +1 110, cotisations des salariés −240, impôt sur le revenu −70,
+prestations −110) ; la part des agents publics passe par la règle du moteur (0,535 € par € de coût), le reste est
+le salaire net du privé ; les cotisations des salariés ne sont comptées qu'une fois.
+
+**Ce qui disparaît.** Une paie publique de 50 Md€ de masse (15 à 45 % au-dessus du Trésor) ; 12 Md€ de prestations
+qui montaient avec le SMIC (le Trésor les fait baisser) ; des cotisations à 45 % sur 2,7 millions de salariés ; la
+part nette de 0,78 (`PART_NETTE_DU_BRUT_SALAIRES_PRIVES`, sans source, retirée : plus aucun lecteur).
+
+**Ce qui bouge** (pleine précision, à la hausse encore lue contre 1 800 €). Mode cadre 2028 : les trois programmes
+publiés qui relèvent le SMIC, dette 2032 de −0,71 à +0,18 point, déficit 2032 de −0,04 à +0,13 point, croissance
+moyenne 2028-2032 de +0,001 à +0,023 point, chômage 2032 de −0,002 à −0,027 point, pouvoir d'achat 2032 de +0,15 à
++0,33 point, Gini inchangé ; mode historique : dette 2032 de −0,99 à +0,27 point. Les sept autres scénarios et la
+référence sans programme sont identiques au bit ; instantanés : seuls ces trois programmes et le mini-scénario du
+SMIC bougent.
+
+- Test rouge puis vert : `tests/test_smic_flux_tresor.py` (nouveau) — postes et total des tableaux 9 et 8, flux mis
+  à l'échelle chaque année, paie publique nette du point d'indice, revenu des ménages du tableau 8 sans double
+  compte, effet sur le chômage, plus de coefficient propre pour le SMIC, fraude fiscale au bit, coefficient et
+  profil de chaque flux dans le moteur complet, prémisse du flux unique de recettes.
+- Tests mis à jour (ils verrouillaient l'ancienne exception) : `test_impulsions_v067.py` (liste des leviers à
+  coefficient propre), `test_remunerations_publiques_transferts.py` (plus d'émetteur à coefficient propre ; le
+  verrou de l'exception par le comportement est retiré, la règle générale s'applique au SMIC),
+  `test_prestations_hors_transferts.py` (le SMIC émet ce canal comme levier de transfert),
+  `test_symetrie_transferts_v067.py` (le SMIC entre dans la symétrie des transferts),
+  `test_fp_rampe_v067.py` (paie publique en euros de l'année, au PIB nominal).
+- Documentation : METHODOLOGIE § SMIC réécrite (sans la liste des positions politiques, périmée), tableau des
+  multiplicateurs, encadrés des lots 5b, 5d et 5e, table du pouvoir d'achat, profils ; EXPLICATION mise à jour ;
+  chiffres liés des encadrés des lots 5c et 5d recalculés par leurs gardes.
+
 ## [non publiée — proposée] — équations du lot 5c : dotation aux collectivités, la moitié d'une variation en investissement local
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des blocs des lots 5e, 5d
