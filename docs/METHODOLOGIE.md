@@ -1763,12 +1763,30 @@ l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
 - **Emploi** : effet direct conservé, +0,025 point de chômage par point de hausse, une fois, l'année où la
   hausse s'applique (il passe par la dépense d'allocations ; le chômage ne revient pas sur la croissance).
 - **Compétitivité et Gini** : inchangés (−0,025 et −0,03 par point de hausse, une fois).
+- **Limites de l'ancrage sur le Trésor** (arbitrage du mainteneur ; mode cadre 2028, pleine précision, programmes
+  publiés qui relèvent le SMIC ; chiffres recalculés par `tests/test_smic_limites.py`) :
+  1. *Coût au bas de la fourchette publiée* — sens : favorable aux programmes qui relèvent le SMIC. Le Trésor
+     chiffre −0,0105 point de PIB par point de hausse (modèle statique, sans effet sur l'emploi) ; l'OFCE, −0,020
+     (2012) à −0,024 (2024) point (modèle e-mod, dynamique, emploi compris, à un an). Si l'écart entre les deux
+     sources était entièrement réel, ajouté chaque année en coût budgétaire pur, sans effet sur la demande, la
+     dette 2032 serait plus haute de 0,24 à 0,67 point (écart de l'OFCE 2012) et de 0,34 à 0,96 point (OFCE 2024).
+     Aucune des deux sources n'est « la bonne » : l'une exclut l'emploi par hypothèse, l'autre est un seul modèle.
+  2. *Effet direct sur le chômage au-dessus de l'effet net de l'OFCE* — sens contraire : défavorable aux
+     programmes qui relèvent le SMIC. Le moteur ajoute 0,025 point de chômage par point de hausse ; l'effet net
+     de l'OFCE, allègements compris, est de 0,007. Ramené à 0,007, le chômage 2032 serait plus bas de 0,06 à 0,16
+     point et la dette 2032 plus basse de 0,04 à 0,13 point (moins d'allocations).
+  3. *Revenu des salariés du privé et coût du travail absents du PIB* — sens : plutôt favorable aux programmes qui
+     relèvent le SMIC, contraire à celui de la limite 2. Le salaire net en plus des salariés du privé (de 4,7 à
+     14,0 Md€ en 2032) ne soutient pas la demande dans le moteur, et la hausse du coût du travail n'y freine pas
+     l'activité. L'OFCE, tous canaux compris, en tire une perte nette d'environ 2 300 emplois par point de hausse à
+     un an, soit de 9 600 à 27 200 emplois pour ces programmes ; aucune source ne publie l'effet sur le PIB.
 - **Ce qui disparaît** : le coefficient propre de 0,15 appliqué au solde du levier, qui ne venait d'aucune
   source ; une paie publique de 50 Md€ de masse (15 à 45 % au-dessus du Trésor) ; 12 Md€ de prestations qui
   montaient avec le SMIC (selon le Trésor, elles baissent) ; des cotisations à 45 % sur 2,7 millions de
   salariés ; la part nette de 0,78, sans source.
 
-Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`, `tests/test_smic_parametres.py`.
+Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`, `tests/test_smic_parametres.py`,
+`tests/test_smic_limites.py`.
 
 ### ISF Climatique
 

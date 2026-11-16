@@ -6,6 +6,28 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — texte du lot SMIC : ancrage sur le Trésor et ses trois limites, chiffrées
+
+**Statut** : proposé, non publié. Commit de TEXTE (documentation et garde de chiffres liés) ; moteur, instantanés et
+sorties inchangés.
+
+**L'ancrage** (arbitrage du mainteneur du 16/11/2026). Le coût d'une hausse du SMIC suit l'échelle du Trésor (groupe
+d'experts 2017, modèle statique), pas celle de l'OFCE (modèle dynamique, environ deux fois plus coûteux par point).
+Trois limites sont déclarées dans METHODOLOGIE (§ SMIC), chacune avec son sens et son chiffre, sans nouvel élément
+sur les écrans (mode cadre 2028, programmes publiés qui relèvent le SMIC) :
+1. coût au bas de la fourchette publiée (Trésor −0,0105 point de PIB par point de hausse, OFCE −0,020 à −0,024) :
+   si l'écart était entièrement réel, dette 2032 plus haute de 0,24 à 0,67 point (OFCE 2012) et de 0,34 à 0,96 point
+   (OFCE 2024) — favorable aux programmes qui relèvent le SMIC ; l'ordre de grandeur annoncé avant le lot (« jusqu'à
+   0,5 point ») était une estimation, la mesure sur la pile donne jusqu'à 0,96 ;
+2. effet direct sur le chômage au-dessus de l'effet net de l'OFCE (0,025 contre 0,007 point par point) : ramené à
+   0,007, chômage 2032 plus bas de 0,06 à 0,16 point, dette 2032 plus basse de 0,04 à 0,13 point — sens contraire ;
+3. revenu des salariés du privé (4,7 à 14,0 Md€ en 2032) et coût du travail absents du PIB ; l'OFCE, tous canaux
+   compris, en tire une perte nette de 9 600 à 27 200 emplois pour ces programmes ; effet sur le PIB publié par
+   aucune source.
+
+- Garde : `tests/test_smic_limites.py` (nouveau) recalcule ces chiffres (programmes dérivés des scénarios publiés,
+  aucun nom) et vérifie leur sens ; elle se saute sans les scénarios publiés.
+
 ## [non publiée — proposée] — paramètres du lot SMIC : dernier SMIC du Journal officiel et part nette officielle
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit de PARAMÈTRES, sur les deux équations du lot SMIC
