@@ -224,7 +224,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | sante | effort_prev_org | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
 | sante | franchise_participation_taux | 120 | 120 | 0 | 120 | 120 | 120 | 120 | 0 | 120 | 120 |
 | sante | prevention_budget | 7.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7.5 | 11.2 | 7.5 | 7.5 | 7.5 |
-| smic | montant_brut | 1800 | 1800 | 2180 | 1800 | 1800 | 1800 | 2180 | 2000 | 1800 | 1800 |
+| smic | montant_brut | 1867.02 | 1867.02 | 2147.55 | 1867.02 | 1867.02 | 1867.02 | 2147.55 | 2000 | 1867.02 | 1867.02 |
 | subventions_tge | montant | 33 | 33 | 33 | 33 | 14.67 | 28.6464 | 33 | 33 | 33 | 33 |
 | taxe_superprofits | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | transferts_etranger | montant | — | -9 | 10.15 | — | — | -3.8094 | 10.15 | 10.15 | — | — |

@@ -35,6 +35,7 @@ import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    PART_NETTE_DU_BRUT_SMIC,
     PART_NETTE_REMUNERATIONS_APU,
     SALAIRES_BRUTS_2017_MD,
     SALAIRES_BRUTS_2025_MD,
@@ -69,6 +70,13 @@ def _point_indice_fp_brut(mesures: Dict) -> float:
     if isinstance(valeur, (int, float)) and math.isfinite(valeur):
         return valeur
     return 0.0
+
+
+def smic_brut_du_net(net: float) -> float:
+    """SMIC brut mensuel d'un montant écrit en net : net / part nette officielle
+    du SMIC (``PART_NETTE_DU_BRUT_SMIC``, 1 477,93 / 1 867,02 au 1er juin 2026).
+    Règle d'encodage d'un programme qui écrit son SMIC en net (lot SMIC)."""
+    return net / PART_NETTE_DU_BRUT_SMIC
 
 
 # Taxe sur les superprofits : mesure TEMPORAIRE, trois années d'application

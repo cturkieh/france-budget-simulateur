@@ -1126,11 +1126,24 @@ SALAIRES_BRUTS_2017_MD = 880.657
 # (la revalorisation légale fait déjà partie du statu quo) ; la hausse, fixée à
 # l'origine, est ensuite conservée en pourcentage. La valeur du droit en vigueur
 # se lit dans les euros de l'année de référence : elle est neutre à toute
-# origine (handlers/additionnels.py, _smic_de_reference). Valeur : le défaut
-# historique du moteur, remplacé par le dernier SMIC paru au Journal officiel au
-# commit de paramètres qui suit.
-SMIC_BRUT_MENSUEL_REFERENCE_EUR = 1800.0
+# origine (handlers/additionnels.py, _smic_de_reference). Valeur : le dernier
+# SMIC brut mensuel paru au Journal officiel, 12,31 € de l'heure, soit 1 867,02 €
+# par mois sur la base de 35 heures (arrêté du 22 mai 2026 relatif au relèvement
+# du salaire minimum de croissance, JORF n° 0121, en vigueur au 1er juin 2026,
+# relu le 16/11/2026) :
+# https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000054126589
+# Limites : la règle légale de revalorisation ajoute à l'inflation la moitié du
+# gain de pouvoir d'achat du salaire horaire de base des ouvriers et employés,
+# que le moteur ne compte pas (référence légèrement basse) ; ancre à mettre à
+# jour à la parution du décret de décembre 2026.
+SMIC_BRUT_MENSUEL_REFERENCE_EUR = 1867.02
 SMIC_ANNEE_DE_REFERENCE = 2026
+# Part nette officielle du SMIC (lot SMIC) : SMIC net mensuel au 1er juin 2026,
+# 1 477,93 € (service-public.fr, fiche F2300, « Salaire minimum de croissance
+# (Smic) »), rapporté au brut ; ≈ 0,7916. Convertit en brut un montant de
+# programme écrit en net (handlers/additionnels.py, smic_brut_du_net).
+SMIC_NET_MENSUEL_REFERENCE_EUR = 1477.93
+PART_NETTE_DU_BRUT_SMIC = SMIC_NET_MENSUEL_REFERENCE_EUR / SMIC_BRUT_MENSUEL_REFERENCE_EUR
 # PART DE LA FISCALITÉ INDIRECTE QUI PÈSE SUR LA CONSOMMATION DES MÉNAGES — elle
 # dépend de la BASE de chaque handler (revue passe 1 v0.6.8, M2), et c'est le
 # handler qui l'applique en émettant le canal ``prelevements_indirects`` :

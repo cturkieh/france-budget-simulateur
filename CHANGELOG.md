@@ -6,6 +6,39 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — paramètres du lot SMIC : dernier SMIC du Journal officiel et part nette officielle
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit de PARAMÈTRES, sur les deux équations du lot SMIC
+ci-dessous. **Suppose le réencodage des fiches côté site** (`scenarios.json` : SMIC des programmes qui n'y touchent
+pas porté à 1 867,02 €, valeur du droit en vigueur ; montants écrits en net reconvertis avec le rapport officiel) :
+sans lui, un programme encodé à 1 800 € recevrait une baisse du SMIC.
+
+**Les valeurs** (arbitrage du mainteneur du 16/11/2026). Référence : le dernier SMIC brut mensuel paru au Journal
+officiel, 1 867,02 € (12,31 € de l'heure sur 35 heures ; arrêté du 22 mai 2026, JORF n° 0121, en vigueur au 1er juin
+2026), au lieu de 1 800 € sans source (`SMIC_BRUT_MENSUEL_REFERENCE_EUR`, `constants.py`) ; c'est aussi la valeur
+du droit en vigueur (`data/droit_en_vigueur.json`), le défaut du moteur (`config.py`) et celui du registre des
+paramètres (`policy_measures.json`, info-bulle réécrite). Part nette officielle : 1 477,93 € nets
+(service-public.fr, fiche F2300) / 1 867,02 € ≈ 0,7916 (`PART_NETTE_DU_BRUT_SMIC`) ; conversion d'un montant écrit en
+net : `smic_brut_du_net` (`handlers/additionnels.py`), 1 700 € nets = 2 147,55 € bruts (2 180 € avec l'ancien
+rapport de 0,78). Limites déclarées (METHODOLOGIE, § SMIC) : la règle légale ajoute à l'inflation la moitié du gain
+de pouvoir d'achat du salaire horaire de base des ouvriers et employés, non comptée (référence un peu basse) ;
+référence à mettre à jour à la parution du décret de décembre 2026.
+
+**Ce qui bouge** (pleine précision, avec les fiches réencodées). Hausses retenues en mode cadre 2028 (référence portée à 2028 :
+1 920,21 €) : 11,84 % pour les deux programmes à 1 700 € nets (au lieu de 21,1 % avant le lot), 4,16 % pour le
+programme à 2 000 € bruts (au lieu de 11,1 %). Mode cadre : dette 2032 de −0,13 à −0,06 point, déficit 2032 de +0,01 à +0,07 point, croissance moyenne
+2028-2032 de −0,008 à +0,001 point, chômage 2032 de −0,11 à −0,08 point, pouvoir d'achat 2032 de −0,34 à −0,15
+point ; mode historique : dette 2032 de −0,46 à −0,11 point. Les sept autres scénarios et la référence sans
+programme, encodés à la valeur du droit, sont identiques au bit (neutralité vérifiée par les instantanés).
+
+- Test rouge puis vert : `tests/test_smic_parametres.py` (nouveau) — référence du Journal officiel, part nette et
+  conversion, défaut, droit et registre égaux à la référence, neutralité du droit et du défaut dans les deux modes.
+- Tests du lot SMIC ramenés à la constante de référence (`test_smic_flux_tresor.py`, `test_fp_rampe_v067.py`).
+- Bloc généré des scénarios (`docs/SCENARIOS_POLITIQUES.md`) régénéré depuis les fiches réencodées ; instantanés
+  régénérés (seuls les trois programmes qui relèvent le SMIC et le mini-scénario du levier bougent).
+- Chiffres liés de l'encadré du lot 5d et de la note d'EXPLICATION recalculés par leur garde (la part « agents
+  publics » du SMIC seule y vaut désormais 0,029 à 0,185 point de dette 2032).
+
 ## [non publiée — proposée] — équation du lot SMIC : la hausse se lit contre une référence datée, portée à l'année d'application
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur le bloc suivant (cinq postes du

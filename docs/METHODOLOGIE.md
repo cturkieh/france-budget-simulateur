@@ -1738,6 +1738,15 @@ l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
   rien ne change. **Limite** : en mode cadre, un montant différent de la valeur du droit est un SMIC de l'année
   d'application ; un montant compris entre la valeur du droit et la référence portée à cette année (environ 3 %
   plus haut en 2028) est donc une baisse.
+- **La référence** : le dernier SMIC brut mensuel paru au Journal officiel, 1 867,02 € (12,31 € de l'heure sur la
+  base de 35 heures ; arrêté du 22 mai 2026, en vigueur au 1er juin 2026), année de référence 2026, soit environ
+  1 920 € en 2028 avec les prix du moteur. C'est aussi la valeur du droit en vigueur et le défaut du curseur.
+  **Limites** : la règle légale de revalorisation ajoute à l'inflation la moitié du gain de pouvoir d'achat du
+  salaire horaire de base des ouvriers et employés, que le moteur ne compte pas : la référence est un peu basse,
+  donc la hausse d'un programme un peu haute ; la référence est à mettre à jour à la parution du décret de
+  décembre 2026.
+- **Un montant écrit en net** se convertit en brut avec le rapport officiel net / brut du SMIC : 1 477,93 / 1 867,02
+  ≈ 0,7916 (`PART_NETTE_DU_BRUT_SMIC`, `smic_brut_du_net`) ; 1 700 € nets valent ainsi 2 147,55 € bruts.
 - **Mise à l'échelle** : chaque poste × salaires bruts 2025 / salaires bruts 2017 (1 157,166 / 880,657 Md€,
   Insee, comptes nationaux base 2020, tableau 2.101) × PIB nominal de l'année / PIB 2025, × la hausse en points.
 - **Paie publique** : seul l'écart entre la hausse du SMIC et celle du point d'indice compte (anti double
@@ -1759,7 +1768,7 @@ l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
   montaient avec le SMIC (selon le Trésor, elles baissent) ; des cotisations à 45 % sur 2,7 millions de
   salariés ; la part nette de 0,78, sans source.
 
-Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`.
+Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`, `tests/test_smic_parametres.py`.
 
 ### ISF Climatique
 
@@ -2519,16 +2528,16 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > revalorisation des enseignants ou le SMIC ; la référence sans programme et les trois autres sont identiques au
 > bit. **Seuls les rapports au PIB bougent** : la dette et le déficit en euros ne changent pas, ni les recettes ni
 > les dépenses ; c'est le PIB en valeur publié, au dénominateur, qui est relevé. Dette rapportée au PIB en 2032 :
-> −1,526 et −1,498 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,09 et 1,08 %),
-> −0,580 point pour un programme qui revalorise les enseignants et relève le SMIC, de −0,088 à −0,385 point pour les
-> quatre autres ; déficit 2032 rapporté au PIB plus faible de 0,003 à 0,097 point ; recettes et dépenses rapportées
+> −1,525 et −1,404 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,09 et 1,02 %),
+> −0,487 point pour un programme qui revalorise les enseignants et relève le SMIC, de −0,088 à −0,385 point pour les
+> quatre autres ; déficit 2032 rapporté au PIB plus faible de 0,003 à 0,090 point ; recettes et dépenses rapportées
 > au PIB plus faibles dans la même proportion ; inflation du déflateur publiée plus haute de 0,013 à 0,222 point par
-> an en moyenne sur 2028-2032 (jusqu'à 1,16 point l'année d'une forte hausse) ; indice des prix à la consommation,
+> an en moyenne sur 2028-2032 (jusqu'à 1,10 point l'année d'une forte hausse) ; indice des prix à la consommation,
 > croissance, chômage, Gini et pouvoir d'achat identiques au bit. **Décomposition** (chaque levier compté seul) : le
-> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,429 et 1,377 point ; la revalorisation des
-> enseignants seule de 0,088 à 0,385 point ; la part « agents publics » du SMIC seule de 0,124 à 0,278 point.
+> point d'indice seul abaisse la dette rapportée au PIB de 2032 de 1,429 et 1,375 point ; la revalorisation des
+> enseignants seule de 0,088 à 0,385 point ; la part « agents publics » du SMIC seule de 0,029 à 0,185 point.
 > Méthode : chaque levier est mesuré seul, le coût des autres retiré ; mesurée en retirant la seule part du SMIC de
-> l'ensemble, elle vaut 0,121 à 0,277 point, l'écart venant de ce que les leviers interagissent par le PIB publié.
+> l'ensemble, elle vaut 0,029 à 0,185 point, l'écart venant de ce que les leviers interagissent par le PIB publié.
 > **Rangs.** En pleine précision (comme aux sorties du moteur, à deux décimales) : en dette 2032 rapportée au PIB,
 > deux programmes échangent les 9ᵉ et 10ᵉ rangs ; déficit, croissance, chômage, pouvoir d'achat, compétitivité et
 > Gini : aucun rang ne change. Aux valeurs affichées par le site (une décimale), s'y ajoutent : en dette, deux

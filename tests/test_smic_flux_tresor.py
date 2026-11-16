@@ -26,6 +26,7 @@ from budget_simulator.constants import (
     PIB_BASE_2025_MD_EUR,
     SALAIRES_BRUTS_2017_MD,
     SALAIRES_BRUTS_2025_MD,
+    SMIC_BRUT_MENSUEL_REFERENCE_EUR,
     SMIC_TRESOR_REVENU_BRUT_PAR_POINT_M_EUR_2017,
     SMIC_TRESOR_REVENU_DISPONIBLE_PAR_POINT_M_EUR_2017,
     SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017,
@@ -56,8 +57,8 @@ def _simuler(mesures, annee_debut=None):
 
 
 def _hausse_en_points(sim, montant):
-    """Hausse en points de pourcentage, telle que le levier la lit à cette étape."""
-    return 100.0 * (montant / 1800.0 - 1.0)
+    """Hausse en points de pourcentage, mode historique : contre la référence (tests/test_smic_reference_datee.py)."""
+    return 100.0 * (montant - SMIC_BRUT_MENSUEL_REFERENCE_EUR) / SMIC_BRUT_MENSUEL_REFERENCE_EUR
 
 
 def _echelle(gdp):

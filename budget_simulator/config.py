@@ -77,7 +77,7 @@ def load_default_values():
         # RECHERCHE PUBLIQUE
         'recherche_publique': {'budget': 10},  # 10 Md€ base actuelle
         # NOUVELLES MESURES PRÉSIDENTIELLE 2027
-        'smic': {'montant_brut': 1800},  # ~1800€ brut actuel = 1398€ net
+        'smic': {'montant_brut': 1867.02},  # SMIC_BRUT_MENSUEL_REFERENCE_EUR (JO, 1er juin 2026)
         'isf_climatique': {'intensite': 0},  # 0% = IFI maintenu, 100% = ISF NFP
         'tva_energie': {'taux': 0.20},  # 20% = status quo
         'taxe_superprofits': {'intensite': 0},  # 0-100%

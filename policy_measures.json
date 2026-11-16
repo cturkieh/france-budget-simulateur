@@ -732,13 +732,13 @@
       "cible": "mixte",
       "parametres": {
         "montant_brut": {
-          "valeur_defaut": 1800,
+          "valeur_defaut": 1867.02,
           "min": 1400,
           "max": 2200,
           "step": 50,
           "label": "SMIC brut mensuel (€)",
           "type": "number",
-          "tooltip": "Actuel ~1800€ brut = 1398€ net. Hausse +200€: +0.5% PA, -0.3% compétitivité, Gini -0.02. LFI: 1600€ net = 2050€ brut. Sources: OFCE 2024, DARES 2024."
+          "tooltip": "SMIC au 1er juin 2026 : 1 867,02 € brut, 1 477,93 € net (Journal officiel). Un autre montant est le SMIC de l'année où il s'applique, comparé à ce SMIC porté à cette année avec les prix. Finances publiques : les cinq postes de la DG Trésor (groupe d'experts sur le SMIC, 2017)."
         }
       }
     },

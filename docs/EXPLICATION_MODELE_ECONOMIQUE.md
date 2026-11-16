@@ -473,9 +473,9 @@ comptabilité nationale, ce que produisent les administrations est compté à so
 le point d'indice relève donc le PIB en euros, et ses prix, sans rien changer aux quantités produites (l'Insee l'a
 constaté en 2022). Le moteur l'ajoute désormais au PIB publié, qui sert à calculer la dette et le déficit en part
 du PIB. La dette et le déficit en euros ne changent pas : c'est le PIB en valeur, au dénominateur, qui est relevé.
-La dette rapportée au PIB de 2032 baisse donc d'environ 1,5 point pour les deux programmes qui relèvent
+La dette rapportée au PIB de 2032 baisse donc d'environ 1,4 à 1,5 point pour les deux programmes qui relèvent
 fortement le point d'indice, de 0,1 à 0,4 point pour ceux qui revalorisent les enseignants ; la part de la hausse
-du SMIC versée aux agents publics compte aussi (jusqu'à 0,3 point pour un programme). Les recettes et les dépenses
+du SMIC versée aux agents publics compte aussi (jusqu'à 0,2 point pour un programme). Les recettes et les dépenses
 rapportées au PIB baissent de même, sans que les montants en euros bougent. Les prix à la consommation, la
 croissance, le chômage et le pouvoir d'achat ne changent pas ; la colonne « déflateur du PIB » du simulateur, elle,
 monte (METHODOLOGIE, encadré du lot 5d).

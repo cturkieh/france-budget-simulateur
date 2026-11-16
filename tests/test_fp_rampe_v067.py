@@ -279,8 +279,8 @@ def test_part_fp_du_smic_en_euros_de_l_annee():
     Trésor (260 et 110 M€ de 2017 par point), mis à l'échelle du PIB nominal de
     l'année : en euros de l'année, chaque année (tests/test_smic_flux_tresor.py)."""
     from budget_simulator.constants import (PIB_BASE_2025_MD_EUR, SALAIRES_BRUTS_2017_MD,
-                                            SALAIRES_BRUTS_2025_MD)
-    points = 100 * (2000 - 1800) / 1800
+                                            SALAIRES_BRUTS_2025_MD, SMIC_BRUT_MENSUEL_REFERENCE_EUR as REF)
+    points = 100 * (2000 - REF) / REF
     sim, dep = _depenses_fp({'smic': {'montant_brut': 2000}}, 'smic')
     for annee in range(2026, 2036):
         echelle = (SALAIRES_BRUTS_2025_MD / SALAIRES_BRUTS_2017_MD
