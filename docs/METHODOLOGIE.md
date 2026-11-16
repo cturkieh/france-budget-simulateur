@@ -2700,7 +2700,7 @@ des transferts recalé » du § Multiplicateurs).
 
 | Canal | Pente : bonus par Md€/an d'écart au défaut | Délai | Dépréciation/an | Source de la pente |
 |---|---|---|---|---|
-| **Recherche publique** | +0,032 pt (= 0,06 / 187 Md€) | 5 ans | 15 % | Fieldhouse & Mertens 2024 (élasticité de la R&D civile 0,06) ; stock = 28 Md€/an de R&D des APU / 15 % (INSEE 2025, inventaire permanent) |
+| **Recherche publique** | +0,032 pt par Md€ ajouté au stock (= 0,06 / 187 Md€) | aucun : forme stock, effet l'année qui suit la dépense (lot 2) | 15 % (stock) | Fieldhouse & Mertens 2024 (élasticité de la R&D civile 0,06) ; stock = 28 Md€/an de R&D des APU / 15 % (INSEE 2025, inventaire permanent) |
 | **Transition écologique (investissement)** | +0,005 pt (= 0,106 × 0,87 / 1 855 Md€) | 3 ans | 5 % | Bom & Ligthart 2014 (0,106) ; FMI 2015 (efficience 87 %) ; INSEE, comptes de patrimoine 2025 (actifs non financiers des APU hors terrains) |
 | **Transition écologique (rénovation)** | **0** (aucun effet d'offre) | 2 ans | 3 % | DG Trésor, Trésor-Éco n° 394 (07/2026), ThreeME : +50 % de subvention → PIB +2,2 pt à 1 an, −0,36 à 10 ans, −0,04 à long terme (effet de demande seul) |
 | **Éducation** | +0,0025 pt (moitié du capital public, convention v3.1) | 15 ans (hors horizon) | 5 % | littérature capital humain (délai) ; pente sans source propre, inerte sur l'horizon |
@@ -2754,29 +2754,61 @@ d'absorption qu'à des échelles très supérieures (Gurara, Kpodar, Presbitero 
 unitaires croissants quand l'investissement public approche 10 % du PIB, 7 % si l'efficience est faible ;
 Presbitero 2016, *J. of Development Economics* 120 : effet « relativement petit ») ; le plafond reste une
 convention de prudence, justifiée par l'incertitude sur ε (0,05 chez Ramey 2020, NBER WP 27625 ; 0,12 à long
-terme chez Bom & Ligthart ; 0,06-0,20 pour la R&D) et par le délai de 8-15 ans de la R&D. Conséquence mesurée :
+terme chez Bom & Ligthart ; 0,06-0,20 pour la R&D) ; elle l'était aussi par un « délai de 8-15 ans de la R&D »
+qui sépare en fait un vote de crédits de l'effet, pas une dépense de l'effet (encadré « Recherche publique en
+forme stock » ci-dessous). Conséquence mesurée :
 comme le coût de la dépense croît linéairement et son effet d'offre sature, la dette n'est pas monotone dans le
 montant au-delà du mi-plafond (programme publié sans autre levier d'offre, investissement 0 → 50 Md€, dette 2035 :
 minimum vers 40-45 Md€ ; aucune borne du moteur n'intervient).
 
 **Limites dites, non corrigées** (revue adverse de la release E ; forme et délais : décision du mainteneur en
 attente, passe dédiée) :
-- **Flux, pas stock.** Le bonus d'un canal dépend de l'écart du flux COURANT au défaut, compté après un délai
-  d'années consécutives d'écart ; l'élasticité invoquée porte pourtant sur le stock. Conséquences : un
-  investissement d'une seule année (calendrier « annee ») n'a aucun effet d'offre, quelle que soit sa taille
-  (l'élasticité au stock donnerait ≈ +0,25 % de niveau de PIB pour 50 Md€) ; la recherche n'agit qu'après 5 ans
-  d'écart, donc, pour un programme qui commence en 2028, pas avant 2033 (rien sur le mandat) ; et le flux
-  supplémentaire n'est pas déprécié tant qu'il dure (le stock de R&D, lui, l'est à 15 % par an). Une forme par
-  inventaire permanent (stock déprécié, délai de construction) est la correction envisagée.
+- **Flux, pas stock, pour le capital public, la rénovation et l'éducation.** Le bonus de ces canaux dépend de
+  l'écart du flux COURANT au défaut, compté après un délai d'années consécutives d'écart ; l'élasticité invoquée
+  porte pourtant sur le stock. Conséquences : un investissement d'une seule année (calendrier « annee ») n'a
+  aucun effet d'offre, quelle que soit sa taille (l'élasticité au stock donnerait ≈ +0,25 % de niveau de PIB
+  pour 50 Md€) ; et le flux supplémentaire n'est pas déprécié tant qu'il dure. La recherche publique est passée
+  en forme stock au lot 2 (encadré ci-dessous) ; pour les autres canaux, la dépréciation et le délai d'une
+  forme stock n'ont pas de source rouverte à ce jour.
 - **Plafond ±0,20 pt : une convention**, pas une source (justifiée par l'incertitude sur l'élasticité et par les
   délais) ; il pèse surtout sur les plus gros montants d'investissement et protège le plus gros coupeur de
-  recherche. Les délais (3, 5, 2 et 15 ans) et la dépréciation de la R&D (15 %) ne sont pas ré-audités.
+  recherche. Les délais des autres canaux (3, 2 et 15 ans) ne sont pas ré-audités ; la recherche, en forme stock
+  depuis le lot 2, n'a plus de délai propre.
 
 **Cap total** : ±0,20 pt (convention v3.1, plancher symétrique depuis la v0.6.0), atteint asymptotiquement. Le
 potentiel total peut dépasser d'au plus 0,20 pt son niveau sans effet d'offre (net de la traînée de dette).
 
-**Délai et mandat** : en mode cadre (programme dès 2028, chiffres publiés en 2032), le canal R&D (délai 5 ans,
-non ré-audité) n'agit qu'en 2033 et le capital public (délai 3 ans) en 2031 et 2032 seulement.
+**Délai et mandat** : en mode cadre (programme dès 2028, chiffres publiés en 2032), le canal R&D agit dès 2029
+(forme stock, lot 2 ; jusque-là, délai de 5 ans : pas avant 2033) et le capital public (délai 3 ans) en 2031 et
+2032 seulement.
+
+> **Recherche publique en forme stock (lot 2, 16/11/2026, non publié ; arbitrage du mainteneur du 15/11/2026).**
+> Jusqu'ici, le bonus de la recherche suivait la dépense de l'année, et seulement après cinq années consécutives
+> d'écart au défaut. Une dépense d'une seule année n'avait donc aucun effet, quelle que soit sa taille ; un
+> programme commencé en 2028 n'agissait pas avant 2033, après le mandat ; et un surcroît de dépense qui dure
+> n'était jamais usé. Le moteur suit désormais le **stock** de recherche ajouté par le programme : chaque année,
+> ce stock perd 15 % de sa valeur et reçoit l'écart de dépense de l'année (`A_t = 0,85 × A_{t−1} + Δ_t`, en Md€,
+> nul avant le programme) ; le bonus de croissance potentielle de l'année suivante vaut 0,032 point par Md€
+> ajouté au stock. **Source** : l'étude de la Réserve fédérale de Dallas dont le moteur tire déjà l'élasticité
+> (Fieldhouse & Mertens, Dallas Fed WP 2305, rév. 11/2024) relie la productivité au stock de recherche
+> publique, sans délai propre (éq. (6) : Δtfp_t = ϕ Δk_t, k_t logarithme du stock) ; les auteurs posent ce
+> calendrier, puis le vérifient sur leurs réponses estimées (annexe E.1 : « the timing assumptions implied by
+> the structural equation appear reasonable »). **Réserves** : c'est une hypothèse posée puis vérifiée, pas un
+> délai mesuré ; les données sont américaines ; aucune source française n'a été trouvée. Les « 8 à 15 ans » de
+> la même étude séparent un vote de crédits de l'effet significatif : ils comprennent le temps que mettent les
+> crédits à devenir dépense, que le levier du moteur, une dépense, a déjà franchi ; Khan & Luintel (2006), cités
+> jusqu'ici pour les délais, utilisent des stocks retardés d'un à deux ans. Dépréciation de 15 % par an : OCDE
+> (Guellec & van Pottelsberghe, DSTI/DOC(2001)3, stocks de R&D publique) et Khan & Luintel 2006 ; 0,16 en
+> moyenne au BEA, selon Fieldhouse & Mertens. **Conséquences** : l'effet commence l'année qui suit la dépense ;
+> une dépense d'une seule année donne un gain qui s'use ensuite au rythme de la dépréciation ; une coupe ôte du
+> stock ce qu'une hausse y ajoute. Dans cet état, la saturation commune vers ±0,20 pt s'applique encore au pas
+> annuel du stock : un gros pas est écrêté, les petits pas négatifs qui suivent ne le sont pas, si bien qu'une
+> dépense d'une seule année peut laisser un niveau légèrement négatif ; le commit suivant du lot (forme
+> logarithmique, sans plafond fixe) retire cet effet. **Ce qui bouge** (mode cadre 2028, dix scénarios publiés,
+> par rapport au lot 5) : les trois programmes qui augmentent la recherche, dette 2032 de −1,81 à −1,13 point,
+> déficit 2032 de +0,28 à +0,45, croissance moyenne 2028-2032 de +0,08 à +0,13 point ; les sept autres sont
+> identiques au bit ; cinq rangs de dette 2032 et deux rangs de déficit changent, aucun rang de croissance.
+> Garde : `tests/test_offre_recherche_stock.py`.
 
 > **Corrigé en v0.8.0 (revue adverse de la v0.6.11, échelle)** : jusque-là le bonus d'un canal valait
 > `coeff × log2(1 + |écart|)` (la page écrivait `ln` jusqu'au 07/10/2026 ; le code a toujours calculé `log2`),

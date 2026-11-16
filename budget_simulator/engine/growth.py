@@ -67,7 +67,9 @@ Paire PRODUCTEUR → CONSOMMATEUR inter-méthodes (invariant load-bearing) :
   ``_fiscal_impulses`` (dict {(année, levier, flux, sens): (variation,
   k, profil)}) et ``_niveaux_impulsion`` (effort de chaque (levier, flux) au
   budget précédent), ``_supply_years`` /
-  ``_supply_bonus_by_key`` (dépréciation progressive de l'offre).
+  ``_supply_bonus_by_key`` (dépréciation progressive de l'offre),
+  ``_supply_stock`` / ``_supply_flux`` (canaux en forme stock, lot 2 :
+  stock ajouté et écarts de dépense de chaque année).
   Tous initialisés / réinitialisés par l'hôte (``__init__`` /
   ``_reset_state``), hors périmètre du split (non touché).
 
@@ -586,28 +588,65 @@ class GrowthMixin:
     # public (Bom & Ligthart 2014 ; INSEE 2025 ; FMI 2015), R&D publique
     # (Fieldhouse & Mertens 2024 ; INSEE 2025), rénovation (ThreeME, Trésor-Éco
     # 394 : 0), éducation (convention, délai hors horizon).
-    # Délais et dépréciations : inchangés depuis la v3.1 (Khan & Luintel 2006,
-    # FMI 2015/2020, OCDE/IEA 2014, Hanushek & Woessmann 2010 — non ré-audités).
-    # La dépréciation de la R&D est lue dans DEPRECIATION_RD_PUBLIQUE, dont
-    # dérive aussi le stock CAPITAL_RD_PUBLIC_MD_EUR (inventaire permanent) :
-    # un seul nombre pour le canal et pour sa pente.
+    # Délais et dépréciations des canaux de capital public, de rénovation et
+    # d'éducation : inchangés depuis la v3.1 (FMI 2015/2020, OCDE/IEA 2014,
+    # Hanushek & Woessmann 2010 — non ré-audités).
+    # Recherche publique en forme STOCK (lot 2, arbitrage du mainteneur du
+    # 15/11/2026) : ``'forme': 'stock'``, voir ``_contribution_du_stock``. La
+    # dépréciation est lue dans DEPRECIATION_RD_PUBLIQUE, dont dérive aussi le
+    # stock CAPITAL_RD_PUBLIC_MD_EUR (inventaire permanent) : un seul nombre pour
+    # le canal et pour sa pente. ``delay`` y est le décalage entre la dépense et
+    # son entrée au stock : 0, l'effet commençant l'année qui suit la dépense
+    # (le bonus posé en fin d'année est consommé l'année suivante).
     # Investissement des collectivités (revue adverse de la release E) : capital
     # public comme l'investissement de l'État, même pente, délai et
     # dépréciation ; canal distinct (un paramètre n'alimente qu'un canal), dont
     # la contribution s'ajoute avant la saturation commune.
     SUPPLY_EFFECTS = {
-        'recherche_publique':    {'pente': OFFRE_PENTE_RD_PUBLIQUE,     'delay': 5,  'deprec': DEPRECIATION_RD_PUBLIQUE, 'param': 'budget', 'measure_id': 'recherche_publique'},
+        'recherche_publique':    {'pente': OFFRE_PENTE_RD_PUBLIQUE,     'forme': 'stock', 'delay': 0, 'deprec': DEPRECIATION_RD_PUBLIQUE, 'param': 'budget', 'measure_id': 'recherche_publique'},
         'transition_invest':     {'pente': OFFRE_PENTE_CAPITAL_PUBLIC,  'delay': 3,  'deprec': 0.05, 'param': 'investissement',  'measure_id': 'transition_ecologique'},
         'transition_renovation': {'pente': OFFRE_PENTE_RENOVATION,      'delay': 2,  'deprec': 0.03, 'param': 'renovation',      'measure_id': 'transition_ecologique'},
         'education':             {'pente': OFFRE_PENTE_EDUCATION,       'delay': 15, 'deprec': 0.05, 'param': 'budget',          'measure_id': 'education'},
         'collectivites_invest':  {'pente': OFFRE_PENTE_CAPITAL_PUBLIC,  'delay': 3,  'deprec': 0.05, 'param': 'investissement',  'measure_id': 'collectivites'},
     }
 
+    def _contribution_du_stock(self, key: str, cfg: Dict, delta: float) -> float:
+        """Contribution d'un canal en forme STOCK (lot 2 ; recherche publique).
+
+        Inventaire permanent de l'écart de dépense au défaut, en Md€ :
+        ``A_t = (1 − δ) × A_{t−1} + Δ_{t−L}`` (A = 0 avant le programme, L =
+        ``cfg['delay']``), puis contribution à la croissance potentielle de
+        l'année suivante ``pente × (A_t − A_{t−1})`` : la productivité suit le
+        STOCK, sans délai propre. C'est l'équation structurelle de Fieldhouse &
+        Mertens (Dallas Fed WP 2305, rév. 11/2024, éq. (6) : Δtfp_t = ϕ Δk_t,
+        k_t log du stock de R&D publique), dont le moteur tire déjà l'élasticité ;
+        les auteurs posent ce calendrier puis le vérifient sur leurs réponses
+        estimées (annexe E.1 : « the timing assumptions implied by the structural
+        equation appear reasonable ») — une hypothèse vérifiée, pas un délai
+        mesuré, sur données américaines ; aucune source française trouvée. Les
+        « 8 à 15 ans » de la même étude séparent un VOTE de crédits de l'effet
+        significatif : ils comprennent le passage des crédits à la dépense, que le
+        levier du moteur, une dépense, a déjà franchi. Dépréciation : 15 %/an
+        (OCDE, Guellec & van Pottelsberghe 2001, DSTI/DOC(2001)3, stocks de R&D
+        publique ; Khan & Luintel 2006 ; 0,16 en moyenne pour la R&D publique au
+        BEA selon Fieldhouse & Mertens). Symétrique : une coupe ôte du stock ce
+        qu'une hausse y ajoute ; une dépense d'une seule année donne un gain
+        temporaire, qui s'efface au rythme de la dépréciation."""
+        flux = self._supply_flux.setdefault(key, [])
+        flux.append(delta)
+        decalage = cfg['delay']
+        entree = flux[-1 - decalage] if len(flux) > decalage else 0.0
+        avant = self._supply_stock.get(key, 0.0)
+        apres = (1 - cfg['deprec']) * avant + entree
+        self._supply_stock[key] = apres
+        return cfg['pente'] * (apres - avant)
+
     def update_potential_growth(self, growth: float, year: int):
         """Ajuste la croissance potentielle : hystérèse + effet d'offre structurel.
         Plafond total ±0,20 pt, atteint asymptotiquement (release E, W6 :
-        contributions linéaires dans le flux, saturation tanh de la somme). Dépréciation
-        différenciée par type si dépense ramenée au défaut."""
+        contributions linéaires, saturation tanh de la somme). Recherche publique
+        en forme stock (lot 2, ``_contribution_du_stock``) ; autres canaux dans le
+        flux, dépréciation différenciée par type si dépense ramenée au défaut."""
 
         # --- Hystérèse conjoncturelle ---
         # ×0,997 si croissance < −2 %, ×1,002 si > 2 % (après l'an 3), à
@@ -658,6 +697,10 @@ class GrowthMixin:
                 current_val = propre.get(cfg['param'], default_val)
 
                 delta = current_val - default_val
+
+                if cfg.get('forme') == 'stock':
+                    self._supply_bonus_by_key[key] = self._contribution_du_stock(key, cfg, delta)
+                    continue
 
                 # v0.6.0 (audit 08/2026) : effet SYMÉTRIQUE. Une coupe sous le
                 # défaut érode la croissance potentielle comme une hausse

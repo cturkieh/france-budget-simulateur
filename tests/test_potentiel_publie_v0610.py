@@ -88,9 +88,15 @@ def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
     # de recherche n'en subit plus) : croissance 1,093171 → 1,093483, gap
     # 0,200526 → 0,202340, potentiel consommé 1,047454 → 1,047476 (traînée de
     # dette seule).
-    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.093483, abs=5e-7)
-    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.202340, abs=5e-7)
-    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.047476, abs=5e-7)
+    # Lot 2 (16/11/2026, recherche en forme stock : la dépense agit dès l'année
+    # qui suit, au lieu d'attendre cinq ans) : en 2030, l'offre de la recherche
+    # est déjà consommée — croissance 1,093483 → 1,250270, gap 0,202340 →
+    # 0,199830, potentiel consommé 1,047476 → 1,204798. Le test garde son
+    # pouvoir : le potentiel préparé pour 2031 diffère (1,177678).
+    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.250270, abs=5e-7)
+    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.199830, abs=5e-7)
+    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.204798, abs=5e-7)
+    assert abs(consomme[ANNEE_AUDIT + 1]['total'] - consomme[ANNEE_AUDIT]['total']) * 100 > 0.01
 
     # La colonne publiée est le potentiel consommé, pas celui préparé pour 2031.
     assert detail.loc[ANNEE_AUDIT, 'Croissance_Potentielle_Totale %'] == pytest.approx(

@@ -258,8 +258,9 @@ def test_convergence_nairu_ne_derive_plus_pour_un_levier_offre_existant():
     d'écart d'Okun permanent — et le test chiffre l'artefact retiré.
 
     Le bonus est construit par le VRAI chemin de code
-    (``update_potential_growth`` appelée jusqu'à épuisement du délai de
-    5 ans de ``SUPPLY_EFFECTS['recherche_publique']``), pas injecté à la main.
+    (``update_potential_growth`` appelée sept années de suite sur
+    ``SUPPLY_EFFECTS['recherche_publique']`` ; jusqu'au lot 2, le temps d'épuiser
+    son délai de 5 ans, en forme stock depuis), pas injecté à la main.
     On itère ensuite la récurrence du chômage jusqu'à convergence, avec une
     croissance égale au potentiel total : le seul moteur de dérive possible
     est l'écart d'Okun mal mesuré.

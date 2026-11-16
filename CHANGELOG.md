@@ -4,6 +4,40 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 2 : effet d'offre de la recherche publique
+
+**Statut** : proposée, non publiée, sans numéro de version. Commits d'ÉQUATION, un par équation, qui supposent
+appliqués le lot 1 et le lot 5 ci-dessous ; aucun paramètre ne change. Arbitrage du mainteneur des 15 et
+16/11/2026. Règle suivie : aucune convention inventée ; une forme ou une constante vient d'une source rouverte,
+sinon le point reste en l'état et il est déclaré.
+
+**(1) Recherche publique en forme stock, effet l'année qui suit la dépense.** Le bonus de croissance potentielle
+du canal suivait la dépense de l'année, et seulement après cinq années consécutives d'écart au défaut : une
+dépense d'une seule année n'avait aucun effet, un programme commencé en 2028 n'agissait pas avant 2033, et un
+surcroît de dépense qui dure n'était jamais usé. Le moteur suit désormais le stock de recherche ajouté par le
+programme (inventaire permanent : chaque année, 15 % de dépréciation et l'écart de dépense de l'année), et le
+bonus de l'année suivante vaut 0,032 point par Md€ ajouté au stock. Source : l'étude de la Réserve fédérale de
+Dallas dont le moteur tire déjà l'élasticité (Fieldhouse & Mertens, WP 2305, rév. 11/2024), qui relie la
+productivité au stock sans délai propre (éq. (6)) et vérifie ce calendrier dans son annexe E.1 ; réserves : une
+hypothèse vérifiée, pas un délai mesuré, sur données américaines, sans source française. Les « 8 à 15 ans »
+cités jusqu'ici séparent un vote de crédits de l'effet, pas une dépense de l'effet. Dépréciation de 15 % : OCDE
+2001 et Khan & Luintel 2006 (0,16 au BEA selon Fieldhouse & Mertens), inchangée. Les autres canaux (capital
+public de l'État et des collectivités, rénovation, éducation) restent dans le flux : la dépréciation et le délai
+d'une forme stock n'ont pas de source rouverte pour eux. Test : `tests/test_offre_recherche_stock.py`
+(inventaire permanent exact, effet dès l'année qui suit le début du programme dans les deux modes, gain
+temporaire d'une dépense d'une seule année, coupe et hausse en miroir sur le stock, budget par défaut sans effet,
+stock remis à zéro entre deux simulations du même objet).
+Golden master isolé : seuls bougent les trois scénarios publiés qui augmentent la recherche, dans chaque mode, et
+le mini-scénario de la recherche. Mesuré (mode cadre 2028, dix scénarios publiés, par rapport au lot 5) : dette
+2032 de −1,81 à −1,13 point, déficit 2032 de +0,28 à +0,45, croissance moyenne 2028-2032 de +0,08 à +0,13 point ;
+les sept autres scénarios sont identiques au bit ; cinq rangs de dette 2032 et deux rangs de déficit changent,
+aucun rang de croissance. Limite de cet état, retirée au point (2) : la saturation commune vers ±0,20 pt
+s'applique encore au pas annuel du stock. Tests re-déclarés avec motif daté : la table des canaux (délai de la
+recherche 5 → 0), les attendus de forme, de profil et de solde (`test_effet_offre_echelle_v0612.py`), les
+valeurs V2-02 du potentiel publié ; les deux tests « une année sans effet » et « retour au défaut » de la
+recherche, propres à la forme flux, sont remplacés par le contrat du stock. Instantanés régénérés ; pouvoir
+d'achat 2029 figé non modifié (dans sa tolérance).
+
 ## [non publiée — proposée] — équations du lot 5 : dépense courante symétrique en signe
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des deux blocs du lot 1

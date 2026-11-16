@@ -48,6 +48,15 @@ des valeurs par défaut du registre (``load_default_values``), du droit en
 vigueur (``droit_en_vigueur.json``) ou des délais et dépréciations du socle
 (inchangés par ``1e1f714``, recopiés une fois dans ``DELAIS`` /
 ``DEPRECIATIONS`` avec leur origine, et verrouillés par W6-6).
+
+Lot 2 (16/11/2026, arbitrage du mainteneur du 15/11/2026) : le canal de la
+recherche publique passe en forme STOCK (inventaire permanent, effet dès l'année
+qui suit la dépense, contrat propre dans ``tests/test_offre_recherche_stock.py``).
+Re-déclarés ici, avec ce motif : son délai (5 → 0 : décalage entre la dépense et
+l'entrée au stock), les attendus des tests de forme, de profil et de solde
+(contribution = pas du stock, ``_contribution_attendue``), et deux tests qui ne
+valaient que pour la forme flux (une année sans effet, retour au défaut d'une
+contribution figée), déplacés dans le contrat du stock.
 """
 import contextlib
 import json
@@ -107,8 +116,10 @@ CANAUX = {
     # même délai, même dépréciation).
     'collectivites_invest': ('collectivites', 'investissement'),
 }
-DELAIS = {'recherche_publique': 5, 'transition_invest': 3, 'transition_renovation': 2, 'education': 15,
+# Lot 2 : recherche 5 → 0 (forme stock, décalage dépense → stock ; effet consommé l'année qui suit).
+DELAIS = {'recherche_publique': 0, 'transition_invest': 3, 'transition_renovation': 2, 'education': 15,
           'collectivites_invest': 3}
+FORME_STOCK = {'recherche_publique'}
 DEPRECIATIONS = {'recherche_publique': 0.15, 'transition_invest': 0.05,
                  'transition_renovation': 0.03, 'education': 0.05, 'collectivites_invest': 0.05}
 
@@ -147,12 +158,20 @@ def _bonus_attendu(contributions):
     return p * math.tanh(sum(contributions) / p)
 
 
+def _contribution_attendue(cle, delta, annees):
+    """Contribution d'un canal après ``annees`` années d'un programme constant
+    d'écart ``delta``. Flux : ``pente × Δ`` dès que ``annees ≥ délai`` (compteur
+    d'années actives). Stock (lot 2) : pas du stock de l'année,
+    ``pente × Δ × (1 − δ)^(annees − 1)`` (inventaire permanent sans décalage)."""
+    if cle in FORME_STOCK:
+        return _pentes()[cle] * delta * (1 - DEPRECIATIONS[cle]) ** (annees - 1)
+    return _pentes()[cle] * delta if annees >= DELAIS[cle] else 0.0
+
+
 def _bonus_attendu_apres(mesures, annees):
-    """Bonus attendu après ``annees`` années d'un programme constant : un canal
-    ne contribue que si ``annees ≥ délai`` (compteur d'années actives)."""
-    pentes = _pentes()
-    return _bonus_attendu([pentes[k] * d for k, d in _deltas(mesures).items()
-                           if d != 0 and annees >= DELAIS[k]])
+    """Bonus attendu après ``annees`` années d'un programme constant."""
+    return _bonus_attendu([_contribution_attendue(k, d, annees) for k, d in _deltas(mesures).items()
+                           if d != 0])
 
 
 def _simuler(mesures, annee_debut=None, rampe=None, strict=False):
@@ -667,17 +686,16 @@ def test_w6_8_symetrie_impaire_exacte():
 
 
 def test_w6_8_hausse_et_coupe_de_meme_contribution_s_annulent():
-    """Saturation sur la SOMME : 50 Md€ de capital public (au-delà du
-    mi-plafond seul) et une coupe de recherche de même contribution s'annulent
-    exactement — sous l'ancienne forme (clip de la somme de log2), le bonus
-    restait au plafond."""
-    pc, prd = _c('OFFRE_PENTE_CAPITAL_PUBLIC'), _c('OFFRE_PENTE_RD_PUBLIQUE')
-    coupe = 50 * pc / prd                          # Md€ de recherche de même contribution
-    ref = _defauts()['recherche_publique']
-    assert 0 < coupe < ref                         # dans le domaine du levier
-    b = _bonus_apres({'transition_ecologique': {'investissement': 50},
-                      'recherche_publique': {'budget': ref - coupe}})
+    """Saturation sur la SOMME : une hausse et une coupe de même contribution
+    s'annulent exactement — sous l'ancienne forme (clip de la somme de log2), le
+    bonus restait au plafond. Lot 2 : la coupe était une coupe de recherche de
+    même contribution annuelle ; en forme stock, la contribution de la recherche
+    décroît d'année en année, la compensation exacte se vérifie donc entre deux
+    canaux de capital public, investissement de l'État et des collectivités."""
+    b = _bonus_apres({'transition_ecologique': {'investissement': 10},
+                      'collectivites': {'investissement': -10}})
     assert abs(b) < 1e-15, b
+    assert _bonus_apres({'transition_ecologique': {'investissement': 10}}) > 0
 
 
 def test_w6_8_mi_plafond_et_neuf_dixiemes_exacts():
@@ -688,8 +706,11 @@ def test_w6_8_mi_plafond_et_neuf_dixiemes_exacts():
     pc, prd = _c('OFFRE_PENTE_CAPITAL_PUBLIC'), _c('OFFRE_PENTE_RD_PUBLIQUE')
     ref = _defauts()['recherche_publique']
     assert _invest(p * math.atanh(0.5) / pc) == pytest.approx(0.5 * p, rel=1e-12)
-    assert _recherche(ref + p * math.atanh(0.5) / prd) == pytest.approx(0.5 * p, rel=1e-12)
-    assert _recherche(ref + p * math.atanh(0.9) / prd) == pytest.approx(0.9 * p, rel=1e-12)
+    # Lot 2 : recherche en forme stock, la première année porte le pas entier (pente × Δ).
+    def recherche_an_1(x):
+        return _bonus_apres({'recherche_publique': {'budget': x}}, annees=1)
+    assert recherche_an_1(ref + p * math.atanh(0.5) / prd) == pytest.approx(0.5 * p, rel=1e-12)
+    assert recherche_an_1(ref + p * math.atanh(0.9) / prd) == pytest.approx(0.9 * p, rel=1e-12)
 
 
 # ===========================================================================
@@ -750,13 +771,28 @@ def test_w6_10_droit_en_vigueur_sans_effet_d_offre(annee_debut):
 # W6-11 — profils temporels : délai, origine du programme, rampe
 # ===========================================================================
 
+def _premiere_annee(cle, debut):
+    """Première année où l'offre d'un canal est consommée, pour un programme qui
+    commence en ``debut``. Flux : le compteur atteint le délai à la fin de
+    ``debut + délai − 1``. Stock (lot 2) : la dépense de ``debut`` entre au stock
+    en fin d'année. Dans les deux cas, la contribution est consommée l'année
+    suivante."""
+    return debut + DELAIS[cle] + (1 if cle in FORME_STOCK else 0)
+
+
 def _attendu_par_annee(cle, valeur_de_l_annee, debut, annees):
     """Offre consommée attendue pour UN canal dont l'écart ne s'annule pas après
-    ``debut`` : le compteur atteint le délai à la fin de ``debut + délai − 1`` ;
-    la contribution posée en fin d'année a (pente × Δ de l'année a) est
-    consommée en a + 1."""
+    ``debut`` : la contribution posée en fin d'année a est consommée en a + 1.
+    Flux : pente × Δ de l'année a, une fois le délai atteint. Stock (lot 2) : pas
+    du stock de l'année a, inventaire permanent des écarts depuis ``debut``."""
     pente, defaut = _pentes()[cle], _defauts()[cle]
-    premiere = debut + DELAIS[cle]
+    if cle in FORME_STOCK:
+        stock, pas = 0.0, {}
+        for a in range(debut, max(annees) + 1):
+            avant, stock = stock, (1 - DEPRECIATIONS[cle]) * stock + (valeur_de_l_annee(a) - defaut)
+            pas[a] = stock - avant
+        return {a: (_bonus_attendu([pente * pas[a - 1]]) if a - 1 in pas else 0.0) for a in annees}
+    premiere = _premiere_annee(cle, debut)
     return {a: (_bonus_attendu([pente * (valeur_de_l_annee(a - 1) - defaut)]) if a >= premiere else 0.0)
             for a in annees}
 
@@ -792,14 +828,15 @@ def test_w6_11_cadre_rien_avant_le_debut_du_programme_plus_le_delai():
     assert min(a for a, v in b.items() if v) == 2028 + DELAIS['transition_invest']
 
 
-def test_w6_11_cadre_recherche_hors_du_mandat():
-    """Mode cadre dès 2028 : le canal R&D (délai 5) n'est consommé qu'à partir de
-    2033, après la dernière année du mandat (``ANNEE_DEBUT_MAX``) : il ne pèse
-    sur aucun chiffre publié 2028-2032."""
+def test_w6_11_cadre_recherche_dans_le_mandat():
+    """Mode cadre dès 2028. Jusqu'au lot 2, le canal R&D (délai 5) n'était consommé
+    qu'à partir de 2033, après la dernière année du mandat (``ANNEE_DEBUT_MAX``) :
+    il ne pesait sur aucun chiffre publié 2028-2032. Re-déclaré (lot 2, forme
+    stock) : consommé dès 2029, chaque année du mandat."""
     b = _verifier_profil('recherche_publique', {'recherche_publique': {'budget': 20}}, annee_debut=2028)
-    assert 2028 + DELAIS['recherche_publique'] > ANNEE_DEBUT_MAX
-    assert all(v == 0.0 for a, v in b.items() if a <= ANNEE_DEBUT_MAX)
-    assert all(v > 0 for a, v in b.items() if a >= 2028 + DELAIS['recherche_publique'])
+    assert _premiere_annee('recherche_publique', 2028) == 2029 <= ANNEE_DEBUT_MAX
+    assert all(v == 0.0 for a, v in b.items() if a <= 2028)
+    assert all(v > 0 for a, v in b.items() if a >= 2029)
 
 
 def test_w6_11_rampe_bonus_lineaire_dans_le_niveau_de_l_annee():
@@ -837,9 +874,11 @@ def _suite_de_bonus(cle, valeurs):
     return out
 
 
+# Lot 2 : le cas « recherche » de ces deux tests ne valait que pour la forme flux ;
+# son retour au défaut et sa dépense d'une seule année sont couverts par
+# tests/test_offre_recherche_stock.py (inventaire permanent exact, gain temporaire).
 @pytest.mark.parametrize('cle, ecart, actives, retour', [
     ('transition_invest', 20, 4, 6),
-    ('recherche_publique', -10, 6, 4),
 ])
 def test_w6_12_retour_au_defaut_depreciation_de_la_contribution(cle, ecart, actives, retour):
     """Écart pendant ``actives`` années puis retour au défaut : la contribution
@@ -860,8 +899,7 @@ def test_w6_12_retour_au_defaut_depreciation_de_la_contribution(cle, ecart, acti
     assert abs(obtenu[-1]) < abs(obtenu[actives - 1])
 
 
-@pytest.mark.parametrize('cle, ecart', [('transition_invest', 20), ('recherche_publique', 10),
-                                        ('recherche_publique', -10)])
+@pytest.mark.parametrize('cle, ecart', [('transition_invest', 20)])
 def test_w6_12_une_seule_annee_aucun_bonus(cle, ecart):
     """Un écart d'une seule année n'atteint jamais le délai du canal (≥ 2 ans) :
     aucun bonus, retour exact à 0 (propriété du compteur d'années, inchangée par
@@ -896,25 +934,30 @@ def _solde_primaire_pct(df, det, i):
 
 def _verifier_effet_macro_compte_une_fois():
     """Effet d'offre SEUL = simulation normale − même simulation sans canal
-    d'offre. Avec b = plafond × tanh(pente × Δ / plafond) consommé chaque année
-    à partir de ``début + délai`` et L_n = (1 + b)^n − 1 après n années :
+    d'offre. Avec b_a le bonus consommé attendu de l'année a (``_attendu_par_annee``)
+    et L le niveau acquis, (1 + L_a) = Π (1 + b) depuis la première année consommée :
     (i) avant la première année consommée, les deux simulations sont identiques
     au bit ; (ii) niveau du PIB réel : rapport − 1 = L_n ; (iii) solde primaire :
     + (dépenses primaires / PIB) × L_n / (1 + L_n) (recettes d'élasticité 1 au
     PIB, dépenses en euros inchangées) ; (iv) dette/PIB de signe opposé à Δ."""
     for cle, mesures, annee_debut in CAS_MACRO:
         delta = _deltas(mesures)[cle]
-        b = _bonus_attendu([_pentes()[cle] * delta])
-        premiere = (annee_debut or C.POLICY_START_YEAR) + DELAIS[cle]
+        levier, param = CANAUX[cle]
+        debut = annee_debut or C.POLICY_START_YEAR
+        premiere = _premiere_annee(cle, debut)
         df_on, det_on, _ = _simuler(mesures, annee_debut)
         with _sans_effet_d_offre():
             df_off, det_off, _ = _simuler(mesures, annee_debut)
-        for i, a in enumerate(int(x) for x in df_on['Année']):
-            n = a - premiere + 1
-            if n <= 0:
+        annees = [int(x) for x in df_on['Année']]
+        # Lot 2 : bonus consommé attendu année par année (constant pour un canal en
+        # flux, pas du stock pour la recherche), niveau = produit des (1 + b).
+        consomme = _attendu_par_annee(cle, lambda a: mesures[levier][param], debut, annees)
+        niveau = 0.0
+        for i, a in enumerate(annees):
+            if a < premiere:
                 assert df_on.iloc[i].equals(df_off.iloc[i]) and det_on.iloc[i].equals(det_off.iloc[i]), (cle, a)
                 continue
-            niveau = (1 + b) ** n - 1
+            niveau = (1 + niveau) * (1 + consomme[a]) - 1
             pib = det_on['PIB_Réel_Base2025'].iloc[i] / det_off['PIB_Réel_Base2025'].iloc[i] - 1
             assert pib / niveau == pytest.approx(1, abs=TOLERANCE_PREMIER_ORDRE), (cle, a, pib, niveau)
             attendu = (100 * det_off['Dépenses_Totales'].iloc[i] / df_off['PIB'].iloc[i]

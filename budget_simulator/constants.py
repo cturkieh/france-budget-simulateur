@@ -2739,14 +2739,21 @@ TAUX_IS_REFERENCE_BENEFICES = _defaut_du_registre('impot_societes', 'taux')
 #   Appropriations Shocks », Dallas Fed WP 2305 (rév. 11/2024 ; AER 116(11), 2026) :
 #   élasticité de production du capital de R&D public ≈ 0,11 (total), soit 0,06
 #   pour la R&D NON militaire (note 2 ; +1 % de capital R&D → PGF +0,2 % à long
-#   terme dans la projection de base, délai 8-15 ans ; rendements 140-210 %).
+#   terme dans la projection de base ; rendements 140-210 %). Les « 8-15 ans » de
+#   l'étude séparent un VOTE de crédits de l'effet significatif, pas une dépense
+#   de l'effet : leur équation structurelle (6) relie la productivité au stock
+#   sans délai propre, calendrier vérifié dans leur annexe E.1. D'où la forme
+#   stock du canal, effet l'année qui suit la dépense (lot 2, arbitrage du
+#   mainteneur du 15/11/2026 ; engine/growth.py, _contribution_du_stock).
 #   Retenu : 0,06 (R&D civile — le levier est « recherche fondamentale : CNRS,
 #   CEA, universités » ; borne prudente de la fourchette 0,06-0,20).
 #   K_RD : inventaire permanent sur le flux de R&D des APU, 28 Md€ en 2025 (INSEE
 #   comptes de patrimoine via FIPECO 2026), au taux de dépréciation du canal
 #   (15 %/an, DEPRECIATION_RD_PUBLIQUE, que SUPPLY_EFFECTS['recherche_publique']
-#   lit aussi) : 28 / 0,15 ≈ 187 Md€. AUCUNE statistique publiée du stock de R&D
-#   des APU trouvée (recherche du 02/11/2026) : dérivation déclarée.
+#   lit aussi : OCDE, Guellec & van Pottelsberghe 2001, DSTI/DOC(2001)3, stocks de
+#   R&D publique à 15 % ; Khan & Luintel 2006, 15 % ; 0,16 en moyenne au BEA selon
+#   Fieldhouse & Mertens) : 28 / 0,15 ≈ 187 Md€. AUCUNE statistique publiée du
+#   stock de R&D des APU trouvée (recherche du 02/11/2026) : dérivation déclarée.
 #   → pente = 0,06 / 187 ≈ 3,2e-4 par Md€/an : +0,032 pt par Md€/an.
 # Rénovation énergétique (transition_ecologique.renovation) : PAS d'effet d'offre.
 #   DG Trésor, Trésor-Éco n° 394 (07/2026), « ThreeME : un modèle macroéconomique
@@ -2772,14 +2779,15 @@ TAUX_IS_REFERENCE_BENEFICES = _defaut_du_registre('impot_societes', 'taux')
 #   l'investissement public approche 10 % du PIB, 7 % si l'efficience est faible ;
 #   Presbitero 2016, J. Development Economics 120 : projets lancés en période
 #   d'accélération moins souvent réussis, effet « relativement petit »), mais
-#   l'incertitude sur ε (0,05-0,12 capital public ; 0,06-0,20 R&D) et le délai de
-#   8-15 ans de la R&D justifient de ne pas publier plus de +0,20 pt/an.
+#   l'incertitude sur ε (0,05-0,12 capital public ; 0,06-0,20 R&D) justifie de ne
+#   pas publier plus de +0,20 pt/an (le « délai de 8-15 ans de la R&D » invoqué
+#   jusqu'au lot 2 sépare un vote de crédits de l'effet, pas une dépense).
 ELASTICITE_PIB_CAPITAL_PUBLIC = 0.106      # Bom & Ligthart 2014, moyenne des 578 estimations
 EFFICIENCE_INVESTISSEMENT_PUBLIC = 0.87     # 1 − 0,13 : écart d'efficience des économies avancées (FMI 2015)
 CAPITAL_PUBLIC_PRODUCTIF_MD_EUR = 2945 * (1 - 0.37)  # ≈ 1 855 Md€ : actifs non financiers APU hors terrains (INSEE 2025 via FIPECO)
 ELASTICITE_PIB_CAPITAL_RD_PUBLIC = 0.06    # Fieldhouse & Mertens, R&D civile (note 2)
 INVESTISSEMENT_RD_APU_MD_EUR = 28.0        # flux de R&D des APU 2025 (INSEE via FIPECO)
-DEPRECIATION_RD_PUBLIQUE = 0.15            # taux du canal recherche (inchangé depuis la v3.1), lu par SUPPLY_EFFECTS
+DEPRECIATION_RD_PUBLIQUE = 0.15            # OCDE 2001, Khan & Luintel 2006 (BEA ≈ 0,16) ; stock du canal recherche, lu par SUPPLY_EFFECTS
 CAPITAL_RD_PUBLIC_MD_EUR = INVESTISSEMENT_RD_APU_MD_EUR / DEPRECIATION_RD_PUBLIQUE  # ≈ 187 Md€ (inventaire permanent)
 OFFRE_PENTE_CAPITAL_PUBLIC = (ELASTICITE_PIB_CAPITAL_PUBLIC * EFFICIENCE_INVESTISSEMENT_PUBLIC
                               / CAPITAL_PUBLIC_PRODUCTIF_MD_EUR)   # ≈ 5,0e-5 par Md€/an (+0,005 pt)

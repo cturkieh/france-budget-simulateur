@@ -571,7 +571,8 @@ Les mecanismes suivants ont ete retires car sans base empirique suffisante :
 
 **Sources** : Bom & Ligthart 2014 (élasticité du PIB au capital public), INSEE comptes de patrimoine 2025
 (stock), FMI 2015 (efficience), Fieldhouse & Mertens 2024 (R&D publique), DG Trésor ThreeME 2026
-(rénovation), Khan & Luintel 2006 et FMI 2015/2020 (délais, dépréciations).
+(rénovation), Fieldhouse & Mertens 2024 (calendrier de la recherche), OCDE 2001 et Khan & Luintel 2006
+(dépréciation de la recherche), FMI 2015/2020 (délais et dépréciations des autres canaux).
 
 **Mecanisme** : Les depenses d'investissement productif augmentent la croissance potentielle de maniere
 dynamique, avec des parametres differencies par canal. **v0.8.0** : la pente est dérivée d'une élasticité
@@ -580,7 +581,7 @@ croissance potentielle de ε × Δ / K par an.
 
 | Canal | Pente : bonus par Md€/an d'écart au défaut | Délai | Dépréciation/an | Source de la pente |
 |---|---|---|---|---|
-| **Recherche publique** | +0,032 pt | 5 ans | 15 % | Fieldhouse & Mertens 2024 (0,06) ; stock de R&D des APU ≈ 187 Md€ (inventaire permanent, INSEE 2025) |
+| **Recherche publique** | +0,032 pt par Md€ ajouté au stock | aucun : forme stock, effet l'année qui suit la dépense (lot 2) | 15 % (stock) | Fieldhouse & Mertens 2024 (0,06) ; stock de R&D des APU ≈ 187 Md€ (inventaire permanent, INSEE 2025) |
 | **Transition écologique (investissement)** | +0,005 pt | 3 ans | 5 % | Bom & Ligthart 2014 (0,106) ; FMI 2015 (efficience 87 %) ; INSEE 2025 (1 855 Md€ hors terrains) |
 | **Transition écologique (rénovation)** | **0** | 2 ans | 3 % | DG Trésor, Trésor-Éco n° 394 (2026), ThreeME : effet de demande seul |
 | **Éducation** | +0,0025 pt | 15 ans (hors horizon) | 5 % | convention v3.1 (moitié du capital public) |
@@ -595,7 +596,18 @@ prime (corrigé, cf. METHODOLOGIE). (Cette page écrivait `ln(1 + x)` ; le code 
 **Cap total** : ±0,20 pt (convention), atteint asymptotiquement. La croissance potentielle peut dépasser
 d'au plus 0,20 pt son niveau sans effet d'offre.
 
-**Depreciation progressive** : Si les depenses sont reduites par rapport au niveau par defaut, le bonus acquis ne disparait pas instantanement. Il se deprecie graduellement au taux propre a chaque canal. La recherche publique (15%/an) se deprecie plus vite que la renovation (3%/an), refletant la peremption plus rapide du capital connaissance vs le capital physique.
+**Recherche publique (lot 2, arbitrage du mainteneur du 15/11/2026)** : le moteur compte les connaissances que
+la recherche accumule. Chaque année, 15 % de ce qui a été accumulé se périme, et l'argent dépensé en plus dans
+l'année s'y ajoute. Le gain de croissance de l'année suivante dépend de ce qui a été ajouté à cette réserve : 0,032
+point par milliard d'euros. Conséquences : l'effet commence l'année qui suit la dépense (avant : seulement après
+cinq ans, donc rien pendant le mandat pour un programme qui commence en 2028) ; une dépense faite une seule année
+donne un gain qui s'estompe ensuite ; une baisse du budget retire ce qu'une hausse du même montant ajoute. Source :
+l'étude de la Réserve fédérale de Dallas dont vient déjà le chiffre de l'effet (Fieldhouse & Mertens). Ses
+auteurs supposent que la productivité suit cette réserve sans attendre, puis jugent cette hypothèse raisonnable
+au vu de leurs résultats : ce n'est pas un délai mesuré, les données sont américaines, et aucune étude française
+n'a été trouvée. Détail : METHODOLOGIE, encadré « Recherche publique en forme stock ».
+
+**Depreciation progressive** (autres canaux) : Si les depenses sont reduites par rapport au niveau par defaut, le bonus acquis ne disparait pas instantanement. Il se deprecie graduellement au taux propre a chaque canal. La recherche publique (15%/an) se deprecie plus vite que la renovation (3%/an), refletant la peremption plus rapide du capital connaissance vs le capital physique.
 
 **Bugs corriges (v3.1)** :
 - **Bug abs()** : Les coupes budgetaires (valeurs negatives) etaient prises en valeur absolue et traitees comme des investissements. Corrige : seules les depenses positives au-dessus du defaut generent un bonus.

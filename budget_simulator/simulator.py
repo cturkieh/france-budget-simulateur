@@ -742,6 +742,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._potential_growth_bonus = 0.0   # Bonus potentiel structurel (offre)
         self._supply_years = {}              # {measure_key: années actives}
         self._supply_bonus_by_key = {}       # {measure_key: bonus accumulé} pour dépréciation progressive
+        self._supply_stock = {}              # {measure_key: stock ajouté, Md€} (canaux en forme stock, lot 2)
+        self._supply_flux = {}               # {measure_key: [écart de dépense de chaque année]}
         # Offre de TRAVAIL (v0.6.1) : état dédié, distinct du bonus d'offre
         # structurel ci-dessus. Alimenté par personne à ce stade — le canal
         # emploi seniors est le lot suivant. Il existe déjà parce que le
@@ -835,6 +837,8 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._potential_growth_bonus = 0.0
         self._supply_years = {}
         self._supply_bonus_by_key = {}
+        self._supply_stock = {}
+        self._supply_flux = {}
         # Canal emploi seniors (v0.6.1) : transitoire, jamais reporté d'une
         # simulation à l'autre — les trois états forment un accumulateur.
         self._labour_supply_bonus = 0.0
