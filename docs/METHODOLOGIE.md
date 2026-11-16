@@ -2224,7 +2224,7 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   (Insee, tableau 2.101, D11 = 1 157,166 Md€), soit ≈ 11,57 Md€, calculé à partir de cette donnée ; le maximum du
   curseur, la suppression des 138,2 Md€ de cotisations salariales (D613CE, même tableau, même année), vaut donc
   ≈ 11,94 points : le taux moyen réel. « Baisser de X points » signifie « baisser le taux moyen de X points ».
-  Depuis le lot 3, le point suit son assiette : 1 % de la masse 2025 × PIB nominal de l'année / PIB 2025 (règle
+  Depuis la v0.9.1, le point suit son assiette : 1 % de la masse 2025 × PIB nominal de l'année / PIB 2025 (règle
   « un taux suit son assiette ») ; avant, il restait figé à 11,57 Md€ en euros 2025, si bien qu'une baisse en points
   perdait environ 10 % de sa valeur réelle sur le mandat. Au maximum, la recette supprime la masse de l'année. Un
   programme qui écrit des milliards s'encode en montant (`montant_md`, ci-dessus), constant en euros courants.
