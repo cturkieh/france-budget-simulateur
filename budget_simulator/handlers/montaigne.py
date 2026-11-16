@@ -5,7 +5,7 @@ Mesures couvertes :
   dépenses, avec exclusions optionnelles (dette, défense, UE). À 8 %, la
   note vise 138 Md€ (graphique, p. 84) ou 140 Md€ (texte, p. 83) en 2029 ;
   le moteur calcule le rendement du taux sur ses propres catégories de
-  dépenses.
+  dépenses, en euros de l'année (lot 3).
 
 Convention d'application :
 - Phasing progressif sur 2 ans (50 % la première année, 100 % ensuite)
@@ -89,11 +89,13 @@ class MontaigneMixin(_MixinBase):
         phasing = _year_phasing(years_elapsed, _RABOT_PHASING)
 
         # ===== CALCUL DES ÉCONOMIES PAR CATÉGORIE =====
-        # NOTE: On utilise la base DYNAMIQUE (2025 * spending_factor) pour que le taux
-        # de réduction s'applique aux dépenses réelles de l'année en cours, pas à la
-        # base figée 2025. Sans cela, un rabot de 8% ne représente plus que ~7.3%
-        # des dépenses réelles en 2035 (sous-estimation de ~13 Md€/an à 8%).
-        categories_base = dict(self.spending_categories_base)
+        # Assiette en EUROS DE L'ANNÉE (lot 3) : masse nominale de chaque catégorie
+        # (base 2025 × facteur de volume × indice de prix des dépenses,
+        # masse_categorie_nominale), la méthode de la note (annexe 4, p. 141 :
+        # « tendanciel en volume ajusté par le déflateur du PIB », euros de 2029).
+        # Jusqu'au lot 3, l'assiette était en volume (euros 2025) : un rabot de 8 %
+        # ne valait qu'environ 7,4 % des dépenses de l'année en 2032.
+        masses = {c: self.masse_categorie_nominale(c) for c in self.spending_categories_base}
 
         # Postes incompressibles Institut Montaigne (242 Md€)
         # - Service dette: 107 Md€ (pas dans categories_base, géré séparément)
@@ -104,17 +106,13 @@ class MontaigneMixin(_MixinBase):
         total_coupe = 0
         details_coupes = {}
 
-        for categorie, montant_base in categories_base.items():
+        for categorie, masse in masses.items():
             # Exclusions
             if exclure_defense and categorie == 'defense_equipement':
                 details_coupes[categorie] = 0
                 continue
 
-            # Base dynamique : dépense réelle de l'année (base 2025 × facteur de croissance cumulé)
-            montant_dynamique = montant_base * self._spending_factors.get(categorie, 1.0)
-
-            # Calcul de la coupe sur la base dynamique
-            coupe = montant_dynamique * taux_reduction * phasing
+            coupe = masse * taux_reduction * phasing
             details_coupes[categorie] = coupe
             total_coupe += coupe
 
@@ -162,8 +160,9 @@ class MontaigneMixin(_MixinBase):
         # aux entreprises, UE) passent par la croissance. L'ancien « −0,15 ×
         # taux », réémis chaque année, composait −7,6 pts d'indice en 2035
         # pour un rabot de 7,5 %.
+        # AAH : part en espèces de « dépendance », même assiette (euros de l'année).
         coupe_aah = (AAH_2025_MD_EUR * self._spending_factors.get('dependance', 1.0)
-                     * taux_reduction * phasing)
+                     * self.indice_prix_depenses() * taux_reduction * phasing)
         coupes_prestations = (sum(details_coupes.get(c, 0.0) for c in _CATEGORIES_ESPECES)
                               + coupe_aah)
 

@@ -423,14 +423,14 @@ def test_le_rabot_coupe_la_meme_ligne_que_le_curseur_de_dotation():
 
 class _Rabot(BudgetSimulatorV45):
     """Rabot uniforme : coupe de la ligne « Dotations » de l'année, recalculée comme le levier la calcule
-    (base de l'année × taux × phasing), et part investie publiée dans son impact."""
+    (masse nominale de l'année × taux × phasing), et part investie publiée dans son impact."""
 
     def _apply_rabot_uniforme(self, measure, params, year, gdp, inflation, unemployment):
         dep, rec, imp = super()._apply_rabot_uniforme(measure, params, year, gdp, inflation, unemployment)
         if imp:
             d = imp['rabot_details']
-            coupe = (self.spending_categories_base['collectivites']
-                     * self._spending_factors.get('collectivites', 1.0) * d['taux'] * d['phasing'])
+            # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale).
+            coupe = self.masse_categorie_nominale('collectivites') * d['taux'] * d['phasing']
             self.__dict__.setdefault('_coupes', []).append((coupe, imp['depenses_investissement']))
         return dep, rec, imp
 
@@ -464,15 +464,15 @@ def test_la_coupe_de_dotation_du_rabot_nourrit_l_offre_en_mode_cadre(annee_debut
 
 class _Rabot_par_annee(BudgetSimulatorV45):
     """Rabot uniforme : coupe de la ligne « Dotations » de chaque année civile, recalculée comme le levier la
-    calcule (base de l'année × taux × phasing), et contribution du canal ``collectivites_invest`` de l'année."""
+    calcule (masse nominale de l'année × taux × phasing), et contribution du canal ``collectivites_invest`` de l'année."""
 
     def _apply_rabot_uniforme(self, measure, params, year, gdp, inflation, unemployment):
         dep, rec, imp = super()._apply_rabot_uniforme(measure, params, year, gdp, inflation, unemployment)
         if imp:
             d = imp['rabot_details']
+            # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale).
             self.__dict__.setdefault('_coupe_par_an', {})[year] = (
-                self.spending_categories_base['collectivites'] * self._spending_factors.get('collectivites', 1.0)
-                * d['taux'] * d['phasing'])
+                self.masse_categorie_nominale('collectivites') * d['taux'] * d['phasing'])
         return dep, rec, imp
 
     def update_potential_growth(self, growth, year):

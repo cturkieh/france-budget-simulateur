@@ -515,27 +515,32 @@ _PART_ESPECES_ATTENDUE = {'retraites': 1.0, 'chomage': 1.0, 'minima_sociaux': 1.
 @pytest.mark.parametrize('taux', [0.05, 0.10])
 def test_rabot_details_coupes(taux):
     """Rabot uniforme : seules les coupes de prestations EN ESPÈCES entrent au
-    RDB, au montant de l'année (recalculé depuis les facteurs de volume du
-    moteur et les parts posées à la main) ; linéaire dans le taux."""
+    RDB, au montant de l'année (recalculé depuis les masses nominales du
+    moteur et les parts posées à la main) ; linéaire dans le taux. Lot 3 :
+    assiette en euros de l'année."""
     sim = BudgetSimulatorV45(periods=1, mesures={'rabot_uniforme': {'taux_reduction': taux}})
     _, _, rapport = sim.simulate()
     canal = rapport['measure_impacts_by_year'][1]['rabot_uniforme']['menages']['prestations']
     phasing_2026 = 0.5
-    attendu = -sum(sim.spending_categories_base[c] * sim._spending_factors[c] * part
-                   for c, part in _PART_ESPECES_ATTENDUE.items()) * taux * phasing_2026
+    masses = {c: sim.masse_categorie_nominale(c) for c in sim.spending_categories_base}
+    attendu = -sum(masses[c] * part for c, part in _PART_ESPECES_ATTENDUE.items()) * taux * phasing_2026
     assert canal == pytest.approx(attendu, rel=1e-12)
     assert canal < 0
     assert sim._rdb_trace[AN1].effet_mesures == pytest.approx(canal, rel=1e-12)
 
 
 def _rabot_direct(base_sante=None, base_dependance=None):
-    """Handler du rabot appelé seul (facteurs de volume à 1), bases modifiables."""
+    """Handler du rabot appelé seul (facteurs de volume à 1), bases modifiables.
+    Lot 3 : niveau nominal aligné sur les bases (indice de prix 1) et défense non
+    exclue, pour lire l'effet d'un euro de catégorie seul."""
     sim = BudgetSimulatorV45(periods=1, mesures={})
     if base_sante is not None:
         sim.spending_categories_base['sante'] = base_sante
     if base_dependance is not None:
         sim.spending_categories_base['dependance'] = base_dependance
-    dep, _, imp = sim._apply_rabot_uniforme({}, {'taux_reduction': 0.08}, 2027, 3000.0, 0.02, 0.075)
+    sim.depenses_primaires_precedentes = sum(sim.spending_categories_base.values())
+    dep, _, imp = sim._apply_rabot_uniforme({}, {'taux_reduction': 0.08, 'exclure_defense': 0},
+                                            2027, 3000.0, 0.02, 0.075)
     return dep, imp['menages']['prestations']
 
 

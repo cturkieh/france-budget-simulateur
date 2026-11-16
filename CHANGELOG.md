@@ -90,6 +90,16 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   généré des noms (`_noms_parametres.py`) et registre public régénérés. Golden master isolé : 64 cas sur 64
   identiques au bit (aucun encodage publié n'utilise encore le mode). Re-déclarés : modes exclusifs dérivés (un
   couple de plus), 82 paramètres bornés au lieu de 81, profils éligibles (un montant de plus).
+- **Rabot uniforme : assiette en euros de l'année.** La coupe s'appliquait aux dépenses en volume (euros 2025) :
+  un taux de 8 % ne valait qu'environ 7,4 % des dépenses de l'année en 2032. Désormais masses nominales de l'année
+  (`masse_categorie_nominale`), la méthode de la note source (Institut Montaigne, « Budget base zéro », novembre 2025,
+  annexe 4, p. 141 : « tendanciel en volume ajusté par le déflateur du PIB ») ; AAH à la même assiette. Équation
+  seule : le périmètre des exclusions ne change pas ici. Test rouge puis vert : `tests/test_rabot_assiette_note.py`
+  (nouveau). Golden master isolé : bougent exactement les cas où le rabot est non nul — le scénario de référence de
+  la note (deux modes) et le mini-scénario du levier ; 61 sur 64 identiques au bit. Effet (mode cadre, pile
+  assemblée) : coupe 2029 du scénario de la note 136,46 → 143,97 Md€ ; dette 2032 +0,01 point, déficit +0,13 point
+  de PIB. Re-déclarés : les tests du canal ménages du rabot lisent les masses nominales ; la coupe de dotation du
+  rabot (règle du lot 5c) est recalculée sur la masse nominale, et ses chiffres publiés mis à jour.
 - **Impôts sur le patrimoine : l'assiette suit le PIB nominal** (règle commune « un taux suit son assiette »).
   Le curseur « Fiscalité du patrimoine » est un pourcentage des recettes de l'IFI, des droits de succession et de
   donation et de la taxe foncière : il s'appliquait pourtant à un bloc figé en euros de l'année source (part dans
