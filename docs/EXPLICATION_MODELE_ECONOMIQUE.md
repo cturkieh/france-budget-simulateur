@@ -581,20 +581,41 @@ croissance potentielle de ε × Δ / K par an.
 
 | Canal | Pente : bonus par Md€/an d'écart au défaut | Délai | Dépréciation/an | Source de la pente |
 |---|---|---|---|---|
-| **Recherche publique** | +0,032 pt par Md€ ajouté au stock | aucun : forme stock, effet l'année qui suit la dépense (lot 2) | 15 % (stock) | Fieldhouse & Mertens 2024 (0,06) ; stock de R&D des APU ≈ 187 Md€ (inventaire permanent, INSEE 2025) |
+| **Recherche publique** | +0,032 pt par Md€ ajouté à la réserve de connaissances pour les petits montants, un peu moins ensuite ; hors du plafond | aucun : effet l'année qui suit la dépense (lot 2) | 15 % par an de la réserve | Fieldhouse & Mertens 2024 (0,06) ; stock de R&D des APU ≈ 187 Md€ (inventaire permanent, INSEE 2025) |
 | **Transition écologique (investissement)** | +0,005 pt | 3 ans | 5 % | Bom & Ligthart 2014 (0,106) ; FMI 2015 (efficience 87 %) ; INSEE 2025 (1 855 Md€ hors terrains) |
 | **Transition écologique (rénovation)** | **0** | 2 ans | 3 % | DG Trésor, Trésor-Éco n° 394 (2026), ThreeME : effet de demande seul |
 | **Éducation** | +0,0025 pt | 15 ans (hors horizon) | 5 % | convention v3.1 (moitié du capital public) |
 | **Investissement des collectivités** | +0,005 pt | 3 ans | 5 % | capital public, mêmes sources que l'investissement de l'État |
 
-**Rendements decroissants** : la somme des contributions est saturée en douceur vers le plafond,
+**Rendements decroissants** : pour la recherche, chaque milliard de plus rapporte un peu moins que le précédent
+(lot 2, ci-dessous). Pour les autres canaux, la somme de leurs contributions est saturée en douceur vers le
+plafond,
 `bonus = 0,20 pt × tanh(Σ / 0,20 pt)` — proportionnelle aux petits montants (1 Md€ vaut un dixième de
 10 Md€), mi-plafond vers 22 Md€/an de capital public, 90 % du plafond vers 60 Md€/an. Jusqu'à la v0.8.0,
 la forme `coeff × log2(1 + x)` atteignait le plafond dès 1 Md€ : 1 Md€ et 50 Md€ recevaient la même
 prime (corrigé, cf. METHODOLOGIE). (Cette page écrivait `ln(1 + x)` ; le code calculait `log2`.)
 
-**Cap total** : ±0,20 pt (convention), atteint asymptotiquement. La croissance potentielle peut dépasser
-d'au plus 0,20 pt son niveau sans effet d'offre.
+**Plafond** : ±0,20 pt (convention, sans source), approché sans jamais être atteint par la somme des canaux autres
+que la recherche. Depuis le lot 2, la recherche en est sortie : plus la réserve de connaissances est grande, moins
+un milliard de plus la fait progresser en proportion, si bien que chaque milliard rapporte un peu moins que le
+précédent, sans plafond fixe ; c'est la règle que l'étude de la Réserve fédérale de Dallas propose pour un modèle.
+Une baisse du budget pèse plus qu'une hausse du même montant : à long terme, 45 % de plus pour la plus forte baisse
+possible (10 Md€ par an), 4 % de plus pour 1 Md€. Deux variantes (effet deux ans après la dépense ; 30 % d'une
+hausse absorbés par les salaires des chercheurs) sont mesurées dans METHODOLOGIE, en sensibilité seulement.
+
+**Une hausse de recherche se rembourse dans le moteur avant la fin du mandat.** 5 Md€ de plus par an, à partir de
+2028, font baisser la dette en 2032 de 1,35 point de PIB et de 10,3 Md€, et améliorent le solde de 8,3 Md€ : la
+croissance supplémentaire rapporte plus d'impôts que la dépense ne coûte. C'est ce que dit l'étude dont vient le
+chiffre de l'effet, qui trouve même un rendement plus élevé que celui du moteur. Mais l'étude est américaine, son
+calendrier est une hypothèse jugée raisonnable et non une mesure, et le plus gros programme publié ajoute environ
+un tiers de la réserve de connaissances en cinq ans, bien au-delà des hausses que l'étude observe. Détail et
+chiffres : METHODOLOGIE.
+
+**Investissement : une part de l'effet est comptée deux fois.** L'effet sur l'activité d'un euro investi est réglé
+sur une mesure du FMI qui comprend déjà le surcroît de capacité de production ; le moteur y ajoute son propre effet
+de long terme. Résultat : quatre ans après le début, un euro investi chaque année par l'État ou les collectivités
+donne un peu plus d'activité que la mesure du FMI (environ 1,7 € au lieu de 1,5 €). C'est la raison pour laquelle
+le plafond de ces canaux est conservé ; la correction demande un réglage d'ensemble, qui reste à faire.
 
 **Recherche publique (lot 2, arbitrage du mainteneur du 15/11/2026)** : le moteur compte les connaissances que
 la recherche accumule. Chaque année, 15 % de ce qui a été accumulé se périme, et l'argent dépensé en plus dans
@@ -799,7 +820,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 3. **DECAY_PROFILE differencie** : 3 profils — TAXES (somme 2,00), TRANSFERS (somme 1,77), INVEST (somme 1,98, pic decale Y2). Melange pondere par composition des mesures
 4. **Cicatrice austerite** : RETIREE au lot 1 (15/11/2026) — sans source pour son seuil de 3 % ni pour son sens unique
 5. **Crowding-out differencie** : RETIRE au lot 1 (15/11/2026, option C du 21/10/2026) — sans source et a sens unique ; la dette agit par la prime de taux et la trainee sur le potentiel (la reduction de 5 % des multiplicateurs au-dela de 110 % est absorbee par la calibration dans le domaine publie)
-6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (v0.8.0 : recherche +0,032 pt/Md€, transition +0,005 pt, renovation 0, education +0,0025 pt — elasticites sourcees divisees par les stocks), delais et depreciation differencies, saturation douce vers le plafond ±0,20 pt
+6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (v0.8.0 : recherche +0,032 pt/Md€, transition +0,005 pt, renovation 0, education +0,0025 pt — elasticites sourcees divisees par les stocks), delais et depreciation differencies, saturation douce vers le plafond ±0,20 pt ; lot 2 : recherche en forme stock logarithmique, effet l'annee qui suit la depense, hors du plafond
 7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
 9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe avec garde-fou BCE a 2,0%

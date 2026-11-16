@@ -38,6 +38,41 @@ valeurs V2-02 du potentiel publié ; les deux tests « une année sans effet » 
 recherche, propres à la forme flux, sont remplacés par le contrat du stock. Instantanés régénérés ; pouvoir
 d'achat 2029 figé non modifié (dans sa tolérance).
 
+**(2) Recherche publique : forme logarithmique, hors du plafond.** Le gain de la recherche n'est plus plafonné à
+0,20 point par an : ce plafond, convention de la v3.1, n'avait aucune source et pesait surtout sur le plus gros
+programme de recherche. À la place, la forme à élasticité constante que la même étude donne pour calibrer un
+modèle : 0,06 × la variation du logarithme du stock (187 Md€ au départ, plus le stock ajouté). Rendements
+décroissants doux, sans borne commune ; une coupe pèse plus qu'une hausse du même montant, d'autant plus que
+le montant est grand (à long terme, 4 % de plus pour 1 Md€ par an, 45 % pour la plus forte coupe) ; une dépense
+d'une seule année laisse un niveau acquis positif (la limite du point (1) disparaît). Le plafond ne porte plus
+que sur la somme des canaux en flux (capital public de l'État et des collectivités, rénovation, éducation) : les
+en retirer sans forme stock rendrait leur effet de niveau illimité ; point ouvert, lié à leur forme stock, qui
+attend une source pour sa dépréciation et son délai. La constante `OFFRE_PENTE_RD_PUBLIQUE` est retirée (le canal
+lit l'élasticité et le stock). Test : `tests/test_offre_recherche_stock.py` (forme exacte, aucun plafond pour la
+recherche, niveau acquis ε × ln(1 + A/K), rendements décroissants doux, coupe plus lourde qu'une hausse du même
+montant — jusqu'à 45 % à long terme pour la plus forte coupe du levier, 22 % après cinq ans —, stock de départ
+jamais épuisé sur le domaine du levier). Golden master isolé : seuls bougent les mêmes cas qu'au point (1).
+Mesuré (mode cadre 2028, par rapport au point (1)) : dette 2032 de −1,59 à −0,31 point, déficit 2032 de +0,09 à
++0,43, croissance moyenne 2028-2032 de +0,026 à +0,134 pour les trois programmes qui augmentent la recherche ;
+les sept autres scénarios identiques au bit ; deux rangs de dette 2032, deux de déficit et deux de croissance
+changent. Deux variantes de sensibilité, publiées dans METHODOLOGIE seulement et liées à la mesure par
+`tests/test_offre_recherche_variantes.py` : effet deux ans après la dépense (OCDE 2001), 30 % d'une hausse
+absorbés par les salaires des chercheurs (Goolsbee 1998 : bas de sa fourchette de 30 à 50 %, le cas calculé pour
+l'ensemble de la recherche). Déclaré, chiffres liés à la mesure par `tests/test_offre_chiffres_publies_lot2.py` :
+une hausse de la recherche se rembourse dans le moteur avant la fin du mandat, en part du PIB et en euros (5 Md€
+de plus par an sur le droit en vigueur, mode cadre : dette 2032 plus basse de 1,35 point et de 10,3 Md€, solde
+2032 meilleur de 8,3 Md€), conséquence de l'étude source, dont le rendement estimé (1,71 € de PIB par an et par
+euro de stock, intervalle 1,07 à 2,22) dépasse celui du moteur (0,96 à 1,14), avec ses réserves (étude
+américaine, calendrier posé puis jugé raisonnable, plus gros programme publié hors du domaine estimé) ; le
+périmètre du stock (élasticité du stock civil appliquée à un stock qui comprend la recherche de défense des
+administrations : effet par euro un peu sous-estimé) ; pour les leviers d'investissement, un effet total par euro
+au-dessus de la cible publiée, la demande étant calée sur un effet total qui contient déjà l'offre — raison du
+plafond conservé pour les canaux en flux. Points ouverts pour une release de paramètres : stock de départ figé en
+euros de 2025, formule de l'OCDE, durée de vie retenue par l'Insee. Tests re-déclarés avec motif daté : la forme attendue
+et la symétrie exacte de la recherche, sa sortie du plafond (borne du gros programme, seuils et ordres de
+grandeur de la recherche), la constante retirée (`test_effet_offre_echelle_v0612.py`), les valeurs V2-02.
+Instantanés régénérés ; pouvoir d'achat 2029 figé non modifié (dans sa tolérance).
+
 ## [non publiée — proposée] — équations du lot 5 : dépense courante symétrique en signe
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des deux blocs du lot 1

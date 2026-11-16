@@ -106,22 +106,37 @@ def test_offre_statu_quo_neutre():
 
 
 def test_offre_symetrique():
-    """Une coupe sous le défaut érode la croissance potentielle exactement
-    comme une hausse l'augmente (même délai, même ampleur log2). v0.5.1 :
-    la coupe ne produisait JAMAIS de malus (garde `delta > 0.1` à sens unique)."""
-    bonus = _bonus_apres({'recherche_publique': {'budget': 18}})
-    malus = _bonus_apres({'recherche_publique': {'budget': 2}})
-    assert bonus > 0
-    assert malus == pytest.approx(-bonus, abs=1e-9)
+    """Une coupe sous le défaut érode la croissance potentielle comme une hausse
+    l'augmente. v0.5.1 : la coupe ne produisait JAMAIS de malus (garde
+    `delta > 0.1` à sens unique). Lot 2 (16/11/2026, recherche en forme stock
+    logarithmique) : le stock d'une coupe est exactement l'opposé de celui d'une
+    hausse ; l'effet, logarithmique, pèse un peu plus pour la coupe (jusque-là,
+    égalité exacte). L'égalité exacte reste vérifiée sur un canal en flux."""
+    s_hausse = BudgetSimulatorV45(periods=10, mesures={'recherche_publique': {'budget': 18}})
+    s_coupe = BudgetSimulatorV45(periods=10, mesures={'recherche_publique': {'budget': 2}})
+    for y in range(1, 8):
+        s_hausse.update_potential_growth(0.01, y)
+        s_coupe.update_potential_growth(0.01, y)
+    bonus, malus = s_hausse._potential_growth_bonus, s_coupe._potential_growth_bonus
+    assert bonus > 0 > malus
+    assert s_coupe._supply_stock['recherche_publique'] == -s_hausse._supply_stock['recherche_publique']
+    # Contribution de l'année 7 : la dérivée du logarithme est 1 / (K + A), plus forte
+    # quand le stock baisse ; avec ±8 Md€ pendant sept ans, ≈ 1,5 fois.
+    assert 1 < -malus / bonus < 1.6
+    flux_hausse = _bonus_apres({'collectivites': {'investissement': 8}})
+    flux_coupe = _bonus_apres({'collectivites': {'investissement': -8}})
+    assert flux_hausse > 0 and flux_coupe == pytest.approx(-flux_hausse, abs=1e-15)
 
 
 def test_offre_plancher_symetrique():
     """Plancher −0,20 pt en miroir du cap +0,20 pt (bornes conventionnelles
-    assumées, METHODOLOGIE § design)."""
+    assumées, METHODOLOGIE § design). Lot 2 : la recherche est sortie du plafond
+    (forme logarithmique) ; le plancher ne porte plus que sur les canaux en flux,
+    coupés ici."""
     mesures_coupe_totale = {
-        'recherche_publique': {'budget': 0},
         'education': {'budget': 30},
         'transition_ecologique': {'investissement': 0, 'renovation': 0},
+        'collectivites': {'investissement': -10},
     }
     s = BudgetSimulatorV45(periods=10, mesures=mesures_coupe_totale)
     for y in range(1, 20):

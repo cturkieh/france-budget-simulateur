@@ -2700,7 +2700,7 @@ des transferts recalé » du § Multiplicateurs).
 
 | Canal | Pente : bonus par Md€/an d'écart au défaut | Délai | Dépréciation/an | Source de la pente |
 |---|---|---|---|---|
-| **Recherche publique** | +0,032 pt par Md€ ajouté au stock (= 0,06 / 187 Md€) | aucun : forme stock, effet l'année qui suit la dépense (lot 2) | 15 % (stock) | Fieldhouse & Mertens 2024 (élasticité de la R&D civile 0,06) ; stock = 28 Md€/an de R&D des APU / 15 % (INSEE 2025, inventaire permanent) |
+| **Recherche publique** | forme logarithmique du stock : 0,06 × variation du logarithme du stock (187 Md€ au départ), soit ≈ +0,032 pt par Md€ ajouté pour les petits montants ; hors du plafond (lot 2) | aucun : forme stock, effet l'année qui suit la dépense (lot 2) | 15 % (stock) | Fieldhouse & Mertens 2024 (élasticité de la R&D civile 0,06) ; stock = 28 Md€/an de R&D des APU / 15 % (INSEE 2025, inventaire permanent) |
 | **Transition écologique (investissement)** | +0,005 pt (= 0,106 × 0,87 / 1 855 Md€) | 3 ans | 5 % | Bom & Ligthart 2014 (0,106) ; FMI 2015 (efficience 87 %) ; INSEE, comptes de patrimoine 2025 (actifs non financiers des APU hors terrains) |
 | **Transition écologique (rénovation)** | **0** (aucun effet d'offre) | 2 ans | 3 % | DG Trésor, Trésor-Éco n° 394 (07/2026), ThreeME : +50 % de subvention → PIB +2,2 pt à 1 an, −0,36 à 10 ans, −0,04 à long terme (effet de demande seul) |
 | **Éducation** | +0,0025 pt (moitié du capital public, convention v3.1) | 15 ans (hors horizon) | 5 % | littérature capital humain (délai) ; pente sans source propre, inerte sur l'horizon |
@@ -2747,9 +2747,10 @@ levier est la recherche civile) ; stock de R&D des APU dérivé par inventaire p
 15 %/an) ≈ 187 Md€ — aucune statistique publiée du stock trouvée, dérivation déclarée. Constantes :
 `constants.py`, bloc « RELEASE E — W6 ».
 
-**Rendements décroissants** : ils portent sur la somme, par la saturation vers le plafond — linéaire à l'origine
-(1 Md€ vaut un dixième de 10 Md€ tant que la saturation ne mord pas), mi-plafond à ≈ 22 Md€/an de capital public
-(≈ 3,4 Md€/an de recherche), 90 % du plafond à 59 et 9 Md€/an. La littérature ne trouve de contrainte
+**Rendements décroissants** : pour la recherche, par sa forme logarithmique (lot 2, encadré ci-dessous). Pour les
+canaux en flux, ils portent sur leur somme, par la saturation vers le plafond — linéaire à l'origine (1 Md€ vaut
+un dixième de 10 Md€ tant que la saturation ne mord pas), mi-plafond à ≈ 22 Md€/an de capital public, 90 % du
+plafond à 59 Md€/an. La littérature ne trouve de contrainte
 d'absorption qu'à des échelles très supérieures (Gurara, Kpodar, Presbitero & Tessema, FMI WP 20/48 : coûts
 unitaires croissants quand l'investissement public approche 10 % du PIB, 7 % si l'efficience est faible ;
 Presbitero 2016, *J. of Development Economics* 120 : effet « relativement petit ») ; le plafond reste une
@@ -2771,12 +2772,26 @@ attente, passe dédiée) :
   en forme stock au lot 2 (encadré ci-dessous) ; pour les autres canaux, la dépréciation et le délai d'une
   forme stock n'ont pas de source rouverte à ce jour.
 - **Plafond ±0,20 pt : une convention**, pas une source (justifiée par l'incertitude sur l'élasticité et par les
-  délais) ; il pèse surtout sur les plus gros montants d'investissement et protège le plus gros coupeur de
-  recherche. Les délais des autres canaux (3, 2 et 15 ans) ne sont pas ré-audités ; la recherche, en forme stock
-  depuis le lot 2, n'a plus de délai propre.
+  délais) ; il pèse surtout sur les plus gros montants d'investissement. Depuis le lot 2, il ne porte plus que
+  sur les canaux en flux : la recherche en est sortie, avec sa forme logarithmique. Les en retirer aussi, sans
+  leur donner de forme stock, rendrait leur effet de niveau illimité (une contribution linéaire qui ne s'use
+  pas) : point ouvert, lié à leur forme stock. Les délais des autres canaux (3, 2 et 15 ans) ne sont pas
+  ré-audités ; la recherche, en forme stock depuis le lot 2, n'a plus de délai propre.
+- **Demande et offre, pour les leviers d'investissement : un effet total par euro au-dessus de la cible
+  publiée.** Le coefficient de la famille investissement est calé sur un effet TOTAL mesuré par le FMI (WEO
+  d'octobre 2014, ch. 3 : +1,5 % de PIB quatre ans après une hausse d'un point de PIB d'investissement public),
+  qui contient déjà le surcroît de capacité de production ; le canal d'offre du moteur s'y ajoute. Mesure du
+  moteur actuel, PIB réel par euro dépensé chaque année, quatre ans après le début (15 Md€ par an dès 2026, mode
+  historique) : 1,37 € pour une dépense de la famille investissement sans effet d'offre (le levier du banc de calage), 1,65 € pour l'investissement de l'État, 1,67 € pour celui des collectivités, 4,30 € pour la recherche. Le sens est donc
+  connu : pour ces leviers, le moteur compte une partie de l'effet d'offre deux fois, d'une ampleur inconnue pour
+  la recherche, dont la dépense prend le coefficient de la famille investissement. C'est aussi pourquoi le
+  plafond des canaux en flux est conservé : le retirer, ou donner au capital public une forme stock, ajouterait
+  de l'offre à un effet déjà total. La correction passe par un calage conjoint de la demande et de l'offre, qui
+  n'est pas fait ici. Garde : `tests/test_offre_chiffres_publies_lot2.py`.
 
-**Cap total** : ±0,20 pt (convention v3.1, plancher symétrique depuis la v0.6.0), atteint asymptotiquement. Le
-potentiel total peut dépasser d'au plus 0,20 pt son niveau sans effet d'offre (net de la traînée de dette).
+**Plafond des canaux en flux** : ±0,20 pt (convention v3.1, plancher symétrique depuis la v0.6.0), atteint
+asymptotiquement par leur somme. La recherche s'y ajoute, hors plafond, depuis le lot 2 : le potentiel total
+n'a plus de borne fixe.
 
 **Délai et mandat** : en mode cadre (programme dès 2028, chiffres publiés en 2032), le canal R&D agit dès 2029
 (forme stock, lot 2 ; jusque-là, délai de 5 ans : pas avant 2033) et le capital public (délai 3 ans) en 2031 et
@@ -2801,14 +2816,76 @@ potentiel total peut dépasser d'au plus 0,20 pt son niveau sans effet d'offre (
 > (Guellec & van Pottelsberghe, DSTI/DOC(2001)3, stocks de R&D publique) et Khan & Luintel 2006 ; 0,16 en
 > moyenne au BEA, selon Fieldhouse & Mertens. **Conséquences** : l'effet commence l'année qui suit la dépense ;
 > une dépense d'une seule année donne un gain qui s'use ensuite au rythme de la dépréciation ; une coupe ôte du
-> stock ce qu'une hausse y ajoute. Dans cet état, la saturation commune vers ±0,20 pt s'applique encore au pas
-> annuel du stock : un gros pas est écrêté, les petits pas négatifs qui suivent ne le sont pas, si bien qu'une
-> dépense d'une seule année peut laisser un niveau légèrement négatif ; le commit suivant du lot (forme
-> logarithmique, sans plafond fixe) retire cet effet. **Ce qui bouge** (mode cadre 2028, dix scénarios publiés,
+> stock ce qu'une hausse y ajoute. Dans l'état de ce premier commit, la saturation commune vers ±0,20 pt
+> s'appliquait encore au pas annuel du stock : un gros pas était écrêté, les petits pas négatifs qui suivent ne
+> l'étaient pas, si bien qu'une dépense d'une seule année pouvait laisser un niveau légèrement négatif ; le
+> commit suivant (forme logarithmique, hors plafond) a retiré cet effet. **Ce qui bouge** (mode cadre 2028, dix scénarios publiés,
 > par rapport au lot 5) : les trois programmes qui augmentent la recherche, dette 2032 de −1,81 à −1,13 point,
 > déficit 2032 de +0,28 à +0,45, croissance moyenne 2028-2032 de +0,08 à +0,13 point ; les sept autres sont
 > identiques au bit ; cinq rangs de dette 2032 et deux rangs de déficit changent, aucun rang de croissance.
 > Garde : `tests/test_offre_recherche_stock.py`.
+
+> **Forme logarithmique de la recherche et sortie du plafond (lot 2, 16/11/2026, non publié ; arbitrage du
+> mainteneur du 16/11/2026).** Le gain de la recherche n'est plus plafonné à 0,20 point par an : ce plafond, une
+> convention de la v3.1, n'avait aucune source (aucune étude lue n'en fixe : Fieldhouse & Mertens, FMI Fiscal
+> Monitor 2024, QUEST III, CBO) et il pesait surtout sur le plus gros programme de recherche. À la place, la forme
+> à élasticité constante que la même étude de la Réserve fédérale de Dallas donne pour calibrer un modèle (p. PDF
+> 31, d'où vient déjà le 0,06) : le gain de l'année suivante vaut 0,06 × [ln(187 + A_t) − ln(187 + A_{t−1})],
+> où 187 Md€ est le stock de départ et A le stock ajouté par le programme. Les rendements décroissent doucement :
+> doubler une hausse soutenue ajoute moins que le double, sans jamais buter sur une borne commune ; une coupe pèse
+> plus qu'une hausse du même montant, d'autant plus que le montant est grand (à long terme, effet d'une coupe
+> soutenue supérieur à celui d'une hausse de même montant de 4 % pour 1 Md€ par an, 20 % pour 5 Md€, 45 % pour
+> 10 Md€, la plus forte coupe du levier ; après cinq ans, 22 % pour cette coupe) ; une dépense d'une seule année laisse un
+> niveau acquis positif, qui s'use au rythme du stock. Le plafond ne porte plus que sur les canaux en flux
+> (capital public de l'État et des collectivités, rénovation, éducation) : les en retirer sans forme stock rendrait
+> leur effet de niveau illimité, et leur forme stock attend une source pour sa dépréciation et son délai (point
+> ouvert). **Ce qui bouge** (mode cadre 2028, dix scénarios publiés, par rapport au commit précédent) : les trois
+> programmes qui augmentent la recherche, dette 2032 de −1,59 à −0,31 point, déficit 2032 de +0,09 à +0,43,
+> croissance moyenne 2028-2032 de +0,026 à +0,134 point ; les sept autres sont identiques au bit ; deux rangs de
+> dette 2032, deux de déficit et deux de croissance changent. **Variantes, en sensibilité seulement** (aucune
+> n'entre dans la version principale) : (i) effet deux ans après la dépense, hypothèse de l'OCDE (Guellec & van
+> Pottelsberghe 2001 : retard de deux ans posé a priori pour la recherche publique) ; (ii) « hausse rapide » :
+> 30 % d'une hausse partent en salaires des chercheurs et n'entrent pas au stock. Goolsbee (1998, États-Unis)
+> estime que les études usuelles surestiment l'effet de la recherche publique de « 30 to 50% » : sur la hausse de
+> 1980-1984, l'effort réel de recherche n'augmente que de 7,6 % au lieu de 11 %, « 30% smaller », pour l'ensemble
+> de la recherche, et jusqu'à « 40-50% » de moins si toute la hausse allait aux métiers les plus demandés
+> (physiciens, ingénieurs de l'aéronautique). La variante retient 30 %, le bas de cette fourchette, parce que c'est
+> le cas calculé pour la recherche dans son ensemble, que finance le levier ; elle reste
+> en sensibilité seulement, car l'élasticité de 0,06 est estimée sur un échantillon où cet effet a déjà joué en
+> moyenne : l'appliquer dans la version principale le compterait deux fois. Écart à la version principale, mode
+> cadre 2028, en points : dette 2032 / déficit 2032 / croissance moyenne 2028-2032. Garde :
+> `tests/test_offre_recherche_variantes.py`.
+
+| Écart de recherche du programme en 2032 | (i) Effet deux ans après la dépense | (ii) 30 % d'une hausse en salaires |
+|---|---|---|
+| +26,7 Md€ | +1,36 / −0,32 / −0,092 | +0,95 / −0,24 / −0,073 |
+| +10,7 Md€ | +0,71 / −0,16 / −0,049 | +0,49 / −0,13 / −0,040 |
+| +8,9 Md€ | +0,63 / −0,13 / −0,038 | +0,50 / −0,12 / −0,038 |
+| aucun (sept scénarios) | 0 | 0 |
+| droit en vigueur, +5 Md€ par an (version principale : −1,35 / +0,29 / +0,142) | +0,41 / −0,07 / −0,019 | +0,41 / −0,10 / −0,029 |
+
+> **Ce que cela implique : une hausse de la recherche publique se rembourse dans le moteur avant la fin du
+> mandat, en part du PIB et en euros.** Mesure du moteur actuel, 5 Md€ de plus par an sur le droit en vigueur,
+> mode cadre (programme dès 2028) : dette 2032 plus basse de 1,35 point de PIB et de 10,3 Md€, solde 2032 meilleur
+> de 8,3 Md€ ; la dette en euros passe sous celle de la référence dès 2031. C'est la conséquence de l'étude
+> source, pas un excès du moteur : Fieldhouse & Mertens estiment qu'un euro de stock de recherche publique civile
+> rapporte 1,71 € de PIB par an (tableau 2 ; intervalle 1,07 à 2,22), plus que le rendement implicite du moteur :
+> 0,96 € en 2025, 1,14 € en 2032 (élasticité 0,06 × PIB ÷ stock de 187 Md€) ; seul le bas de leur intervalle
+> recoupe le moteur. Ces auteurs concluent d'ailleurs à un sous-investissement public dans la recherche civile.
+> **Réserves** : l'étude est américaine ; le calendrier (la productivité suit le stock sans attendre) y est posé,
+> puis jugé raisonnable au vu des résultats, pas mesuré ; et le plus gros programme publié sort du domaine estimé
+> (stock ajouté de l'ordre d'un tiers du stock de départ en cinq ans, quand les réponses de l'étude sont mises à
+> l'échelle d'une hausse de 1 % du stock). **Périmètre** : l'élasticité de 0,06 est celle du stock CIVIL (la
+> conversion ×0,5 de l'étude, p. PDF 31, repose sur la part civile américaine, environ la moitié). Le stock de
+> départ vient de l'investissement en recherche des administrations des comptes nationaux (28 Md€ en 2025, Insee
+> via FIPECO), estimé par l'Insee à partir de l'enquête du ministère de la Recherche auprès des administrations,
+> qui couvre la recherche de défense qu'elles exécutent (6 % de cette dépense en 2008, dernière part relevée) :
+> appliquer au stock total l'élasticité du stock civil sous-estime un peu l'effet d'un euro de recherche civile.
+> Aucune valeur ne change ici. **Points ouverts, pour une release de paramètres** : le stock de départ est figé en
+> euros de 2025 alors que le stock ajouté s'accumule en euros courants ; l'OCDE (Guellec & van Pottelsberghe 2001)
+> calcule le stock de départ par dépense ÷ (croissance + dépréciation), soit un stock plus petit ; l'Insee retient,
+> dans les comptes nationaux, une durée de vie conventionnelle de 10 ans pour les actifs de recherche. Garde :
+> `tests/test_offre_chiffres_publies_lot2.py`.
 
 > **Corrigé en v0.8.0 (revue adverse de la v0.6.11, échelle)** : jusque-là le bonus d'un canal valait
 > `coeff × log2(1 + |écart|)` (la page écrivait `ln` jusqu'au 07/10/2026 ; le code a toujours calculé `log2`),

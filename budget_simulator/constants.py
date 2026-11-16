@@ -2708,7 +2708,9 @@ TAUX_IS_REFERENCE_BENEFICES = _defaut_du_registre('impot_societes', 'taux')
 # flux Δ soutenu accroît le stock de Δ par an, donc la croissance potentielle de
 # ε × Δ / K par an (stock K supposé constant sur l'horizon, écart ≤ 3 % du
 # PIB) — puis SATURÉ en douceur vers le plafond conventionnel ±0,20 pt (tanh,
-# borné par construction, voir OFFRE_PLAFOND).
+# borné par construction, voir OFFRE_PLAFOND). La recherche publique est en forme
+# STOCK et LOGARITHMIQUE depuis le lot 2, hors du plafond (ε × Δln(K_RD + A),
+# engine/growth.py, _contribution_du_stock).
 #
 # Capital public (transition_ecologique.investissement) :
 #   ε : Bom & Ligthart (2014), « What Have We Learned From Three Decades of
@@ -2754,7 +2756,13 @@ TAUX_IS_REFERENCE_BENEFICES = _defaut_du_registre('impot_societes', 'taux')
 #   R&D publique à 15 % ; Khan & Luintel 2006, 15 % ; 0,16 en moyenne au BEA selon
 #   Fieldhouse & Mertens) : 28 / 0,15 ≈ 187 Md€. AUCUNE statistique publiée du
 #   stock de R&D des APU trouvée (recherche du 02/11/2026) : dérivation déclarée.
-#   → pente = 0,06 / 187 ≈ 3,2e-4 par Md€/an : +0,032 pt par Md€/an.
+#   → forme du lot 2 (arbitrage du mainteneur du 16/11/2026) : contribution
+#   ε × [ln(K_RD + A_t) − ln(K_RD + A_{t−1})], A le stock ajouté par le programme
+#   — la calibration à ÉLASTICITÉ CONSTANTE que l'étude donne pour un modèle
+#   (p. PDF 31 : « For the purpose of calibrating an aggregate production
+#   function with constant elasticities […] can be multiplied by 0.5 », d'où le
+#   0,06), aux rendements décroissants doux. Pour les petits montants, ε / K_RD ≈
+#   3,2e-4 : +0,032 pt par Md€ ajouté au stock.
 # Rénovation énergétique (transition_ecologique.renovation) : PAS d'effet d'offre.
 #   DG Trésor, Trésor-Éco n° 394 (07/2026), « ThreeME : un modèle macroéconomique
 #   vert… », tableau 1 : une hausse de 50 % des subventions à la rénovation des
@@ -2767,21 +2775,20 @@ TAUX_IS_REFERENCE_BENEFICES = _defaut_du_registre('impot_societes', 'taux')
 #   inerte sur 2026-2035) ; pente posée à la moitié de celle du capital public,
 #   soit le rapport des coefficients de la v3.1 (0,0010 / 0,0020) — CONVENTION
 #   sans source propre, déclarée, sans effet publié.
-# Saturation : plafond ±0,20 pt (OFFRE_PLAFOND, borne conventionnelle de la v3.1,
-#   inchangée, METHODOLOGIE § design) atteint asymptotiquement :
-#   bonus = OFFRE_PLAFOND × tanh(Σ_canaux pente × Δ / OFFRE_PLAFOND). Linéaire à
-#   l'origine (dérivée = pente), monotone, impair (coupe = hausse en miroir),
-#   continu, borné. Mi-plafond à 0,549 × 0,20 / pente : ≈ 22 Md€/an de capital
-#   public, ≈ 3,4 Md€/an de recherche ; 90 % du plafond à 59 et 9 Md€/an. Le
-#   plafond garde son rôle de filet : la littérature ne trouve de contrainte
-#   d'absorption qu'à des échelles très supérieures (Gurara, Kpodar, Presbitero &
-#   Tessema, FMI WP 20/48 : coûts unitaires des projets croissants quand
-#   l'investissement public approche 10 % du PIB, 7 % si l'efficience est faible ;
-#   Presbitero 2016, J. Development Economics 120 : projets lancés en période
-#   d'accélération moins souvent réussis, effet « relativement petit »), mais
-#   l'incertitude sur ε (0,05-0,12 capital public ; 0,06-0,20 R&D) justifie de ne
-#   pas publier plus de +0,20 pt/an (le « délai de 8-15 ans de la R&D » invoqué
-#   jusqu'au lot 2 sépare un vote de crédits de l'effet, pas une dépense).
+# Saturation des canaux en FLUX : plafond ±0,20 pt (OFFRE_PLAFOND, borne
+#   conventionnelle de la v3.1, sans source : aucune étude lue ne fixe de plafond
+#   annuel au gain de croissance — Fieldhouse & Mertens, FMI Fiscal Monitor 2024,
+#   QUEST III, CBO) atteint asymptotiquement :
+#   bonus_flux = OFFRE_PLAFOND × tanh(Σ_canaux en flux pente × Δ / OFFRE_PLAFOND).
+#   Linéaire à l'origine (dérivée = pente), monotone, impair, continu, borné.
+#   Mi-plafond à 0,549 × 0,20 / pente : ≈ 22 Md€/an de capital public ; 90 % à
+#   59 Md€/an. Lot 2 (arbitrage du mainteneur du 16/11/2026) : la recherche sort du
+#   plafond, remplacé pour elle par sa forme logarithmique ; il ne s'applique plus
+#   qu'aux canaux en flux (capital public de l'État et des collectivités,
+#   rénovation, éducation), dont la forme stock attend une source pour sa
+#   dépréciation et son délai. Les en retirer sans forme stock rendrait leur effet
+#   de niveau illimité (contribution linéaire non dépréciée) : point ouvert,
+#   déclaré. Recherche et canaux en flux s'additionnent ensuite.
 ELASTICITE_PIB_CAPITAL_PUBLIC = 0.106      # Bom & Ligthart 2014, moyenne des 578 estimations
 EFFICIENCE_INVESTISSEMENT_PUBLIC = 0.87     # 1 − 0,13 : écart d'efficience des économies avancées (FMI 2015)
 CAPITAL_PUBLIC_PRODUCTIF_MD_EUR = 2945 * (1 - 0.37)  # ≈ 1 855 Md€ : actifs non financiers APU hors terrains (INSEE 2025 via FIPECO)
@@ -2791,9 +2798,8 @@ DEPRECIATION_RD_PUBLIQUE = 0.15            # OCDE 2001, Khan & Luintel 2006 (BEA
 CAPITAL_RD_PUBLIC_MD_EUR = INVESTISSEMENT_RD_APU_MD_EUR / DEPRECIATION_RD_PUBLIQUE  # ≈ 187 Md€ (inventaire permanent)
 OFFRE_PENTE_CAPITAL_PUBLIC = (ELASTICITE_PIB_CAPITAL_PUBLIC * EFFICIENCE_INVESTISSEMENT_PUBLIC
                               / CAPITAL_PUBLIC_PRODUCTIF_MD_EUR)   # ≈ 5,0e-5 par Md€/an (+0,005 pt)
-OFFRE_PENTE_RD_PUBLIQUE = ELASTICITE_PIB_CAPITAL_RD_PUBLIC / CAPITAL_RD_PUBLIC_MD_EUR  # ≈ 3,2e-4 par Md€/an (+0,032 pt)
 OFFRE_PENTE_RENOVATION = 0.0               # ThreeME (Trésor-Éco 394) : aucun effet de niveau durable
 OFFRE_PENTE_EDUCATION = OFFRE_PENTE_CAPITAL_PUBLIC * 0.5  # convention v3.1 (rapport 1/2), canal inerte sur l'horizon
-OFFRE_PLAFOND = 0.002                      # ±0,20 pt de croissance potentielle (convention v3.1, inchangée)
+OFFRE_PLAFOND = 0.002                      # ±0,20 pt, canaux en flux seulement depuis le lot 2 (convention v3.1, sans source)
 
 # === FIN RELEASE E ===

@@ -10,8 +10,9 @@ Méthodes couvertes :
   éviction retirées au lot 1, voir leurs commentaires dans ``calculate_growth``).
 - ``update_potential_growth`` : ajuste la croissance POTENTIELLE
   (hystérèse conjoncturelle + effet d'offre structurel ``SUPPLY_EFFECTS``,
-  release E, W6 : contributions linéaires par Md€/an, sourcées dans
-  constants.py, saturées en douceur vers le plafond ±0,20 pt).
+  release E, W6 : contributions sourcées dans constants.py ; lot 2 : recherche
+  publique en forme stock logarithmique, sans plafond fixe ; somme des canaux en
+  flux saturée vers ±0,20 pt, comme avant).
 
 Constante de classe ``SUPPLY_EFFECTS`` : portée par ce mixin (et non
 plus par ``BudgetSimulatorV45``). Elle était délibérément maintenue sur
@@ -79,8 +80,10 @@ adverse 2026-05-16) : le ``except Exception`` de
 aucune opération du bloc ne peut lever (``_get_default_values`` =
 return dict littéral pur ; ``.get`` sur dict ; ``isinstance`` neutralise
 les types tordus avant arithmétique ; depuis la release E (W6) le calcul
-est ``pente × delta`` puis ``plafond × tanh(Σ / plafond)``, définis et
-bornés pour tout delta fini, jamais d'exception ; depuis v0.6.7
+est ``pente × delta`` puis ``plafond × tanh(Σ / plafond)`` pour les canaux en
+flux, ``ε × log1p(pas / (K + A))`` pour la recherche (lot 2 ; argument
+au-dessus de −1 sur tout le domaine du levier), définis pour tout delta du
+domaine, jamais d'exception ; depuis v0.6.7
 la valeur passe par la porte ``validate_param_domains`` — non finie →
 défaut, hors domaine → clampée —, exactement comme côté handler). Exception
 connue : un entier hors de la plage des flottants (JSON de 400 chiffres)
@@ -108,6 +111,7 @@ Sink de logs : ``self.debug_logs`` via ``_log_debug``.
 Tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 import logging
+import math
 from typing import Dict, NamedTuple, Tuple
 
 import numpy as np
@@ -115,17 +119,18 @@ import numpy as np
 from .._logging import _log_debug
 from .._seniors import offre_seniors_niveau_pib
 from ..constants import (
+    CAPITAL_RD_PUBLIC_MD_EUR,
     CROISSANCE_FILET_MAX,
     CROISSANCE_FILET_MIN,
     DEBT_DRAG_SEUIL,
     DEPRECIATION_RD_PUBLIQUE,
+    ELASTICITE_PIB_CAPITAL_RD_PUBLIC,
     HYSTERESE_POTENTIEL_ECART_BAS,
     HYSTERESE_POTENTIEL_ECART_HAUT,
     HYSTERESE_POTENTIEL_MARGE_BASSE,
     HYSTERESE_POTENTIEL_MARGE_HAUTE,
     OFFRE_PENTE_CAPITAL_PUBLIC,
     OFFRE_PENTE_EDUCATION,
-    OFFRE_PENTE_RD_PUBLIQUE,
     OFFRE_PENTE_RENOVATION,
     OFFRE_PLAFOND,
     OUTPUT_GAP_RAPPEL,
@@ -148,7 +153,7 @@ class PotentielAnnee(NamedTuple):
     dans cet ordre.
     """
     tendanciel: float          # base_params['croissance_potentielle'] (hystérèse)
-    offre_structurelle: float  # _potential_growth_bonus (SUPPLY_EFFECTS, ±0,20 pt)
+    offre_structurelle: float  # _potential_growth_bonus (SUPPLY_EFFECTS : recherche hors plafond, canaux en flux ±0,20 pt)
     offre_travail: float       # _labour_supply_bonus (canal emploi seniors)
     trainee_dette: float       # _debt_drag (au-delà de 90 % de dette/PIB)
     total: float               # croissance_potentielle_totale()
@@ -250,7 +255,9 @@ class GrowthMixin:
           dans ses bornes d'hystérèse (tendanciel de départ −0,4 / +0,1 pt,
           constants.py, HYSTERESE_POTENTIEL_MARGE_*) ;
         - ``_potential_growth_bonus`` — offre STRUCTURELLE (``SUPPLY_EFFECTS``
-          : recherche, éducation, transition, rénovation), plafonnée ±0,20 pt ;
+          : recherche, éducation, transition, rénovation, investissement local) :
+          la recherche en forme stock logarithmique, hors plafond (lot 2), plus
+          la somme des canaux en flux, plafonnée ±0,20 pt ;
         - ``_labour_supply_bonus`` — offre de TRAVAIL (canal emploi seniors,
           v0.6.1) : INCRÉMENT annuel d'un effet de NIVEAU de PIB, produit par
           ``update_labour_supply``.
@@ -603,7 +610,7 @@ class GrowthMixin:
     # dépréciation ; canal distinct (un paramètre n'alimente qu'un canal), dont
     # la contribution s'ajoute avant la saturation commune.
     SUPPLY_EFFECTS = {
-        'recherche_publique':    {'pente': OFFRE_PENTE_RD_PUBLIQUE,     'forme': 'stock', 'delay': 0, 'deprec': DEPRECIATION_RD_PUBLIQUE, 'param': 'budget', 'measure_id': 'recherche_publique'},
+        'recherche_publique':    {'forme': 'stock', 'elasticite': ELASTICITE_PIB_CAPITAL_RD_PUBLIC, 'stock': CAPITAL_RD_PUBLIC_MD_EUR, 'delay': 0, 'deprec': DEPRECIATION_RD_PUBLIQUE, 'param': 'budget', 'measure_id': 'recherche_publique'},
         'transition_invest':     {'pente': OFFRE_PENTE_CAPITAL_PUBLIC,  'delay': 3,  'deprec': 0.05, 'param': 'investissement',  'measure_id': 'transition_ecologique'},
         'transition_renovation': {'pente': OFFRE_PENTE_RENOVATION,      'delay': 2,  'deprec': 0.03, 'param': 'renovation',      'measure_id': 'transition_ecologique'},
         'education':             {'pente': OFFRE_PENTE_EDUCATION,       'delay': 15, 'deprec': 0.05, 'param': 'budget',          'measure_id': 'education'},
@@ -616,8 +623,17 @@ class GrowthMixin:
         Inventaire permanent de l'écart de dépense au défaut, en Md€ :
         ``A_t = (1 − δ) × A_{t−1} + Δ_{t−L}`` (A = 0 avant le programme, L =
         ``cfg['delay']``), puis contribution à la croissance potentielle de
-        l'année suivante ``pente × (A_t − A_{t−1})`` : la productivité suit le
-        STOCK, sans délai propre. C'est l'équation structurelle de Fieldhouse &
+        l'année suivante ``ε × [ln(K + A_t) − ln(K + A_{t−1})]`` (ε =
+        ``cfg['elasticite']``, K = ``cfg['stock']``, le stock de départ) : la
+        productivité suit le STOCK, sans délai propre, à élasticité constante
+        (lot 2, arbitrage du mainteneur du 16/11/2026 : la forme que la même
+        étude donne pour calibrer un modèle, p. PDF 31 ; rendements décroissants
+        doux ; une coupe pèse plus qu'une hausse du même montant, jusqu'à 45 % à
+        long terme pour la plus forte coupe du levier ; aucun plafond fixe).
+        Conséquence déclarée (METHODOLOGIE) : une hausse de recherche se
+        rembourse avant la fin du mandat, le rendement de l'étude (1,71 € de PIB
+        par an et par euro de stock) dépassant celui du moteur (0,96 à 1,14).
+        C'est l'équation structurelle de Fieldhouse &
         Mertens (Dallas Fed WP 2305, rév. 11/2024, éq. (6) : Δtfp_t = ϕ Δk_t,
         k_t log du stock de R&D publique), dont le moteur tire déjà l'élasticité ;
         les auteurs posent ce calendrier puis le vérifient sur leurs réponses
@@ -639,14 +655,17 @@ class GrowthMixin:
         avant = self._supply_stock.get(key, 0.0)
         apres = (1 - cfg['deprec']) * avant + entree
         self._supply_stock[key] = apres
-        return cfg['pente'] * (apres - avant)
+        # ln(K + A_t) − ln(K + A_{t−1}) = log1p(pas / (K + A_{t−1})) : nul au bit
+        # pour un pas nul. K + A reste positif sur tout le domaine du levier
+        # (coupe maximale soutenue : A → −défaut / δ, au-dessus de −K).
+        return cfg['elasticite'] * math.log1p((apres - avant) / (cfg['stock'] + avant))
 
     def update_potential_growth(self, growth: float, year: int):
         """Ajuste la croissance potentielle : hystérèse + effet d'offre structurel.
-        Plafond total ±0,20 pt, atteint asymptotiquement (release E, W6 :
-        contributions linéaires, saturation tanh de la somme). Recherche publique
-        en forme stock (lot 2, ``_contribution_du_stock``) ; autres canaux dans le
-        flux, dépréciation différenciée par type si dépense ramenée au défaut."""
+        Recherche publique en forme stock logarithmique, sans plafond fixe (lot 2,
+        ``_contribution_du_stock``) ; autres canaux linéaires dans le flux, leur
+        somme saturée vers ±0,20 pt comme avant le lot, dépréciation différenciée
+        par type si dépense ramenée au défaut."""
 
         # --- Hystérèse conjoncturelle ---
         # ×0,997 si croissance < −2 %, ×1,002 si > 2 % (après l'an 3), à
@@ -745,16 +764,25 @@ class GrowthMixin:
                     if prev_years > 0:
                         self._supply_years[key] = max(0, prev_years - 1)
 
-            # Plafond +0,20 pt et plancher symétrique −0,20 pt (OFFRE_PLAFOND,
-            # bornes conventionnelles assumées, METHODOLOGIE § design), atteints
-            # ASYMPTOTIQUEMENT (release E, W6) : saturation douce de la somme des
-            # contributions linéaires, plafond × tanh(Σ / plafond) — impaire,
-            # monotone, continue, dérivée 1 à l'origine (les petits montants
-            # restent proportionnels), bornée par construction. Le clip final
-            # est un filet contre l'arithmétique flottante, inerte sinon.
-            somme = float(sum(self._supply_bonus_by_key.values()))
-            self._potential_growth_bonus = float(np.clip(
-                OFFRE_PLAFOND * np.tanh(somme / OFFRE_PLAFOND), -OFFRE_PLAFOND, OFFRE_PLAFOND))
+            # Recherche publique : plus de plafond fixe (lot 2, arbitrage du
+            # mainteneur du 16/11/2026). Le plafond ±0,20 pt (OFFRE_PLAFOND,
+            # convention de la v3.1) qu'aucune étude lue ne fixe pesait surtout sur
+            # le plus gros programme de recherche ; ses rendements décroissants
+            # viennent désormais de sa forme logarithmique, et sa contribution
+            # s'ajoute hors de toute saturation. Canaux en FLUX (capital public de
+            # l'État et des collectivités, rénovation, éducation) : inchangés, leur
+            # somme reste saturée en douceur vers ±0,20 pt, plafond × tanh(Σ /
+            # plafond). Les retirer du plafond sans leur donner de forme stock
+            # rendrait leur effet de niveau illimité (contribution linéaire, sans
+            # dépréciation) ; leur forme stock attend une source pour sa
+            # dépréciation et son délai : point ouvert, déclaré. Le clip final est
+            # un filet contre l'arithmétique flottante, inerte sinon.
+            stock = float(sum(v for k, v in self._supply_bonus_by_key.items()
+                              if self.SUPPLY_EFFECTS.get(k, {}).get('forme') == 'stock'))
+            flux = float(sum(v for k, v in self._supply_bonus_by_key.items()
+                             if self.SUPPLY_EFFECTS.get(k, {}).get('forme') != 'stock'))
+            self._potential_growth_bonus = stock + float(np.clip(
+                OFFRE_PLAFOND * np.tanh(flux / OFFRE_PLAFOND), -OFFRE_PLAFOND, OFFRE_PLAFOND))
 
             if abs(self._potential_growth_bonus) > 0.0001:
                 _log_debug(self.debug_logs,

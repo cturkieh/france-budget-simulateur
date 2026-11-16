@@ -19,8 +19,17 @@ ajouté. Contrat verrouillé ici : inventaire permanent exact, ``A_t = (1 − δ
 ``DEPRECIATION_RD_PUBLIQUE`` : OCDE 2001 et Khan & Luintel 2006 ; 0,16 au BEA selon Fieldhouse & Mertens),
 contribution posée en fin d'année et consommée l'année suivante ; effet dès l'année qui suit le début du
 programme, dans les deux modes ; gain temporaire pour une dépense d'une seule année ; coupe et hausse en miroir
-sur le stock. Les autres canaux (capital public, rénovation, éducation) ne changent pas dans ce commit. Aucune
-donnée du dépôt parent n'est lue.
+sur le stock. Les autres canaux (capital public, rénovation, éducation) restent dans le flux.
+
+Forme logarithmique, sans plafond fixe (arbitrage du mainteneur du 16/11/2026, second commit du lot) : la
+contribution d'un pas de stock vaut ε × [ln(K + A_t) − ln(K + A_{t−1})], la calibration à élasticité constante
+que Fieldhouse & Mertens donnent pour un modèle (p. PDF 31), ε = 0,06, K = 187 Md€ (stock de départ,
+``CAPITAL_RD_PUBLIC_MD_EUR``) ; elle s'ajoute hors de tout plafond (le plafond ±0,20 pt, une convention de la
+v3.1 sans source, ne s'applique plus qu'à la somme des canaux en flux, dont la forme stock attend une source).
+Verrouillé : forme exacte, aucun plafond fixe pour la recherche, niveau acquis
+égal à ε × ln(1 + A/K) (positif après une dépense d'une seule année), rendements décroissants doux, coupe un peu
+plus lourde qu'une hausse du même montant, stock de départ jamais épuisé sur le domaine du levier. Aucune donnée
+du dépôt parent n'est lue.
 """
 import math
 
@@ -35,14 +44,17 @@ CLE = 'recherche_publique'
 DEFAUT = load_default_values()['recherche_publique']['budget']
 
 
+EPS, K0 = C.ELASTICITE_PIB_CAPITAL_RD_PUBLIC, C.CAPITAL_RD_PUBLIC_MD_EUR
+
+
 def _contribution(avant, apres):
-    """Contribution d'un pas de stock à la croissance potentielle (forme du moteur)."""
-    return C.OFFRE_PENTE_RD_PUBLIQUE * (apres - avant)
+    """Contribution d'un pas de stock à la croissance potentielle : ε × [ln(K + A_t) − ln(K + A_{t−1})]."""
+    return EPS * (math.log(K0 + apres) - math.log(K0 + avant))
 
 
 def _bonus(somme):
-    """Bonus total à partir de la somme des contributions (saturation commune du moteur)."""
-    return C.OFFRE_PLAFOND * math.tanh(somme / C.OFFRE_PLAFOND)
+    """Bonus d'un programme de recherche seule : sa contribution, hors plafond (lot 2)."""
+    return somme
 
 
 def _suite_attendue(budgets):
@@ -156,3 +168,92 @@ def test_deux_simulations_du_meme_objet_identiques():
     seconde = s.simulate()
     assert premiere[0].equals(seconde[0]) and premiere[1].equals(seconde[1])
     assert s._supply_stock[CLE] == stock and len(s._supply_flux[CLE]) == len(premiere[0]) - 1
+
+
+# --- Forme logarithmique, sans plafond fixe (second commit du lot 2) ---------------------------------
+
+def test_forme_logarithmique_du_canal():
+    cfg = BudgetSimulatorV45.SUPPLY_EFFECTS[CLE]
+    assert cfg['elasticite'] == C.ELASTICITE_PIB_CAPITAL_RD_PUBLIC == 0.06
+    assert cfg['stock'] == C.CAPITAL_RD_PUBLIC_MD_EUR
+    assert 'pente' not in cfg
+
+
+def test_aucun_plafond_fixe():
+    """La recherche sort du plafond ±0,20 pt : une forte hausse donne, la première année, le gain de sa
+    forme, au-delà de 0,20 pt (0,81 pt pour la borne haute du levier). Le plafond reste celui des seuls canaux
+    en flux : avec une forte hausse d'investissement en plus, la part de ces canaux reste sous ±0,20 pt et la
+    recherche s'y ajoute."""
+    assert not hasattr(C, 'OFFRE_PENTE_RD_PUBLIQUE')
+    from budget_simulator.engine._param_domain import PARAM_DOMAINS
+    haut = PARAM_DOMAINS['recherche_publique']['budget'][1]
+    obtenu, _ = _suite_obtenue([haut])
+    assert obtenu[0] == pytest.approx(EPS * math.log1p((haut - DEFAUT) / K0), abs=1e-15)
+    assert obtenu[0] > C.OFFRE_PLAFOND
+    s = BudgetSimulatorV45(periods=10, mesures={})
+    for y in range(1, 8):
+        s.mesures = {'recherche_publique': {'budget': haut}, 'transition_ecologique': {'investissement': 50}}
+        s.update_potential_growth(0.01, y)
+    flux = s._potential_growth_bonus - s._supply_bonus_by_key[CLE]
+    assert 0 < flux < C.OFFRE_PLAFOND
+    assert flux == pytest.approx(C.OFFRE_PLAFOND * math.tanh(C.OFFRE_PENTE_CAPITAL_PUBLIC * 50 / C.OFFRE_PLAFOND),
+                                 abs=1e-15)
+
+
+def test_niveau_acquis_egal_a_l_elasticite_du_stock():
+    """Les contributions s'additionnent sans écrêtage : le niveau acquis après n années vaut
+    ε × ln(1 + A_n / K) (somme télescopique), positif après une dépense d'une seule année. Dans l'état du
+    premier commit, la saturation du pas annuel le rendait négatif."""
+    budgets = [DEFAUT + 10] + [DEFAUT] * 9
+    obtenu, s = _suite_obtenue(budgets)
+    assert sum(obtenu) == pytest.approx(EPS * math.log1p(s._supply_stock[CLE] / K0), abs=1e-15)
+    assert 0 < sum(obtenu) < obtenu[0]
+
+
+def test_rendements_decroissants_doux_sans_borne_fixe():
+    """Niveau de long terme d'une hausse soutenue de x Md€ : ε × ln(1 + x / (δK)). Croissant en x, mais
+    moins que proportionnellement, et jamais ramené à une borne commune."""
+    def niveau(x, annees=40):
+        obtenu, _ = _suite_obtenue([DEFAUT + x] * annees)
+        return sum(obtenu)
+    n5, n10, n20 = niveau(5), niveau(10), niveau(20)
+    assert 0 < n5 < n10 < n20
+    assert n10 < 2 * n5 and n20 < 2 * n10
+    assert n20 / n10 > 1.5          # pas de saturation : doubler le montant ajoute encore plus de moitié
+
+
+def test_une_coupe_pese_plus_qu_une_hausse_du_meme_montant():
+    """Stock exactement en miroir ; effet logarithmique asymétrique (concavité de ln) : la perte d'une
+    coupe dépasse le gain d'une hausse du même montant, d'autant plus que le montant est grand. À long terme
+    (stock ajouté x / δ), l'écart vaut −ln(1 − x / (δK)) / ln(1 + x / (δK)) − 1 : 4 % pour 1 Md€ par an,
+    20 % pour 5 Md€, 45 % pour 10 Md€ (la plus forte coupe du levier), chiffres de METHODOLOGIE."""
+    hausse, sh = _suite_obtenue([DEFAUT + 7] * 6)
+    coupe, sc = _suite_obtenue([DEFAUT - 7] * 6)
+    assert sc._supply_stock[CLE] == -sh._supply_stock[CLE]
+    assert 1 < -sum(coupe) / sum(hausse) < 1.2
+    dk = C.DEPRECIATION_RD_PUBLIQUE * K0
+    ecarts = {x: round(100 * (-math.log1p(-x / dk) / math.log1p(x / dk) - 1)) for x in (1, 5, 10)}
+    assert ecarts == {1: 4, 5: 20, 10: 45}, ecarts
+    assert DEFAUT == 10   # « 10 Md€, la plus forte coupe du levier » : budget ramené à 0
+    a5 = 10 * (1 - (1 - C.DEPRECIATION_RD_PUBLIQUE) ** 5) / C.DEPRECIATION_RD_PUBLIQUE   # stock après cinq ans
+    coupe5, hausse5 = _suite_obtenue([0.0] * 5)[0], _suite_obtenue([20.0] * 5)[0]
+    assert round(100 * (-math.log1p(-a5 / K0) / math.log1p(a5 / K0) - 1)) == 22
+    assert round(100 * (-sum(coupe5) / sum(hausse5) - 1)) == 22
+    from pathlib import Path
+    import re
+    texte = (Path(__file__).absolute().parent.parent / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
+    texte = ' '.join(re.sub(r'\n>\s?', ' ', texte).split())
+    assert ('de 4 % pour 1 Md€ par an, 20 % pour 5 Md€, 45 % pour 10 Md€, la plus forte coupe du levier ; '
+            'après cinq ans, 22 % pour cette coupe' in texte)
+
+
+def test_stock_de_depart_jamais_epuise_sur_le_domaine():
+    """Coupe maximale du levier (budget à la borne basse) soutenue 60 ans : le stock ajouté tend vers
+    −défaut / δ, au-dessus de −K ; la forme reste définie et le bonus fini."""
+    from budget_simulator.engine._param_domain import PARAM_DOMAINS
+    bas = PARAM_DOMAINS['recherche_publique']['budget'][0]
+    obtenu, s = _suite_obtenue([bas] * 60)
+    assert (bas - DEFAUT) / C.DEPRECIATION_RD_PUBLIQUE > -K0
+    assert K0 + s._supply_stock[CLE] > 0
+    assert all(math.isfinite(b) and b < 0 for b in obtenu)
+

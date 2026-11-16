@@ -57,6 +57,17 @@ l'entrée au stock), les attendus des tests de forme, de profil et de solde
 (contribution = pas du stock, ``_contribution_attendue``), et deux tests qui ne
 valaient que pour la forme flux (une année sans effet, retour au défaut d'une
 contribution figée), déplacés dans le contrat du stock.
+
+Lot 2, second commit (16/11/2026) : la recherche passe en forme logarithmique et
+sort du plafond ±0,20 pt (convention sans source), qui ne s'applique plus qu'à la
+somme des canaux en flux. Re-déclarés avec ce motif : la forme attendue
+(``_bonus_attendu`` : recherche ``ε × Δln(K + A)`` hors plafond, plus la somme
+saturée des canaux en flux), la symétrie impaire exacte et les seuils de
+saturation de la recherche (son stock reste en miroir, l'effet logarithmique
+pèse un peu plus pour une coupe : contrat dans
+``tests/test_offre_recherche_stock.py``), la borne du gros programme (la
+recherche s'ajoute au-delà du plafond), la constante ``OFFRE_PENTE_RD_PUBLIQUE``
+retirée (pente à l'origine ε / K dérivée ici).
 """
 import contextlib
 import json
@@ -124,9 +135,14 @@ DEPRECIATIONS = {'recherche_publique': 0.15, 'transition_invest': 0.05,
                  'transition_renovation': 0.03, 'education': 0.05, 'collectivites_invest': 0.05}
 
 
+def _pente_rd_a_l_origine():
+    """Pente de la forme logarithmique de la recherche pour les petits montants : ε / K (lot 2)."""
+    return _c('ELASTICITE_PIB_CAPITAL_RD_PUBLIC') / _c('CAPITAL_RD_PUBLIC_MD_EUR')
+
+
 def _pentes():
     return {
-        'recherche_publique': _c('OFFRE_PENTE_RD_PUBLIQUE'),
+        'recherche_publique': _pente_rd_a_l_origine(),
         'transition_invest': _c('OFFRE_PENTE_CAPITAL_PUBLIC'),
         'transition_renovation': _c('OFFRE_PENTE_RENOVATION'),
         'education': _c('OFFRE_PENTE_EDUCATION'),
@@ -152,26 +168,39 @@ def _deltas(mesures):
     return out
 
 
-def _bonus_attendu(contributions):
-    """``plafond × tanh(Σ contributions / plafond)`` — forme du plan § 3."""
+def _bonus_attendu(contributions, stock=0.0):
+    """``stock + plafond × tanh(Σ contributions / plafond)`` : contributions des
+    canaux en flux saturées ensemble (forme du plan § 3), plus, hors plafond
+    depuis le lot 2, la contribution de la recherche (``stock``)."""
     p = _plafond()
-    return p * math.tanh(sum(contributions) / p)
+    return stock + p * math.tanh(sum(contributions) / p)
+
+
+def _pas_rd(avant, apres):
+    """Contribution d'un pas du stock de recherche : ε × [ln(K + A_t) − ln(K + A_{t−1})] (lot 2)."""
+    k = _c('CAPITAL_RD_PUBLIC_MD_EUR')
+    return _c('ELASTICITE_PIB_CAPITAL_RD_PUBLIC') * (math.log(k + apres) - math.log(k + avant))
 
 
 def _contribution_attendue(cle, delta, annees):
     """Contribution d'un canal après ``annees`` années d'un programme constant
     d'écart ``delta``. Flux : ``pente × Δ`` dès que ``annees ≥ délai`` (compteur
-    d'années actives). Stock (lot 2) : pas du stock de l'année,
-    ``pente × Δ × (1 − δ)^(annees − 1)`` (inventaire permanent sans décalage)."""
+    d'années actives). Stock (lot 2) : contribution du pas du stock de l'année,
+    stock d'un programme constant ``Δ × (1 − (1 − δ)^n) / δ`` (inventaire
+    permanent sans décalage), forme logarithmique."""
     if cle in FORME_STOCK:
-        return _pentes()[cle] * delta * (1 - DEPRECIATIONS[cle]) ** (annees - 1)
+        d = DEPRECIATIONS[cle]
+        stock = [delta * (1 - (1 - d) ** n) / d for n in (annees - 1, annees)]
+        return _pas_rd(*stock)
     return _pentes()[cle] * delta if annees >= DELAIS[cle] else 0.0
 
 
 def _bonus_attendu_apres(mesures, annees):
     """Bonus attendu après ``annees`` années d'un programme constant."""
-    return _bonus_attendu([_contribution_attendue(k, d, annees) for k, d in _deltas(mesures).items()
-                           if d != 0])
+    ecarts = {k: d for k, d in _deltas(mesures).items() if d != 0}
+    return _bonus_attendu([_contribution_attendue(k, d, annees) for k, d in ecarts.items() if k not in FORME_STOCK],
+                          stock=sum(_contribution_attendue(k, d, annees) for k, d in ecarts.items()
+                                    if k in FORME_STOCK))
 
 
 def _simuler(mesures, annee_debut=None, rampe=None, strict=False):
@@ -263,21 +292,23 @@ def test_pentes_derivees_des_elasticites_et_des_stocks():
     assert _c('OFFRE_PENTE_CAPITAL_PUBLIC') == pytest.approx(
         _c('ELASTICITE_PIB_CAPITAL_PUBLIC') * _c('EFFICIENCE_INVESTISSEMENT_PUBLIC')
         / _c('CAPITAL_PUBLIC_PRODUCTIF_MD_EUR'))
-    assert _c('OFFRE_PENTE_RD_PUBLIQUE') == pytest.approx(
-        _c('ELASTICITE_PIB_CAPITAL_RD_PUBLIC')
-        / (_c('INVESTISSEMENT_RD_APU_MD_EUR') / _c('DEPRECIATION_RD_PUBLIQUE')))
+    assert _c('CAPITAL_RD_PUBLIC_MD_EUR') == pytest.approx(
+        _c('INVESTISSEMENT_RD_APU_MD_EUR') / _c('DEPRECIATION_RD_PUBLIQUE'))
     assert _c('OFFRE_PENTE_RENOVATION') == 0.0
     # Ordres de grandeur sourcés : +0,005 pt par Md€/an de capital public,
-    # +0,03 pt par Md€/an de R&D publique.
+    # +0,03 pt par Md€ ajouté au stock de R&D publique (pente à l'origine de sa
+    # forme logarithmique ; lot 2 : la constante OFFRE_PENTE_RD_PUBLIQUE est retirée).
     assert 4e-5 < _c('OFFRE_PENTE_CAPITAL_PUBLIC') < 6e-5
-    assert 2.5e-4 < _c('OFFRE_PENTE_RD_PUBLIQUE') < 4e-4
+    assert 2.5e-4 < _pente_rd_a_l_origine() < 4e-4
+    assert not hasattr(C, 'OFFRE_PENTE_RD_PUBLIQUE')
     assert _plafond() == 0.002
 
 
 def test_la_table_du_moteur_lit_les_constantes():
     tbl = BudgetSimulatorV45.SUPPLY_EFFECTS
     assert tbl['transition_invest'].get('pente') == _c('OFFRE_PENTE_CAPITAL_PUBLIC')
-    assert tbl['recherche_publique'].get('pente') == _c('OFFRE_PENTE_RD_PUBLIQUE')
+    assert tbl['recherche_publique'].get('elasticite') == _c('ELASTICITE_PIB_CAPITAL_RD_PUBLIC')
+    assert tbl['recherche_publique'].get('stock') == _c('CAPITAL_RD_PUBLIC_MD_EUR')
     assert tbl['transition_renovation'].get('pente') == _c('OFFRE_PENTE_RENOVATION')
     assert tbl['education'].get('pente') == _c('OFFRE_PENTE_EDUCATION')
     assert tbl['collectivites_invest'].get('pente') == _c('OFFRE_PENTE_CAPITAL_PUBLIC')
@@ -316,19 +347,28 @@ def test_proportionnel_aux_petits_montants_1_10_50():
 
 
 def test_impair_symetrie_coupe_hausse():
-    assert _recherche(15) == pytest.approx(-_recherche(5), abs=1e-12)
+    """Lot 2 : exacte pour le capital public ; la recherche, en forme
+    logarithmique, garde un stock en miroir et une coupe un peu plus lourde
+    (tests/test_offre_recherche_stock.py)."""
+    assert _bonus_apres({'collectivites': {'investissement': 7}}) == pytest.approx(
+        -_bonus_apres({'collectivites': {'investissement': -7}}), abs=1e-15)
+    assert -_recherche(5) > _recherche(15) > 0
 
 
 def test_borne_par_le_plafond_sans_marche():
-    """Le plafond ±0,20 pt n'est jamais dépassé, et il n'y a plus de clip actif :
-    à 50 Md€ de capital public + 20 Md€ de recherche, le bonus reste
-    strictement sous le plafond (asymptote)."""
+    """Le plafond ±0,20 pt n'est jamais dépassé par les canaux en flux, et il n'y
+    a plus de clip actif : à 50 Md€ de capital public (et 40 de rénovation), leur
+    part reste strictement sous le plafond (asymptote). Lot 2 : la recherche (ici
+    20 Md€) sort du plafond et s'ajoute à cette part, par sa forme logarithmique ;
+    jusque-là, la somme des deux atteignait plus de 95 % du plafond, sans le
+    dépasser."""
     p = _plafond()
     gros = _bonus_apres({'transition_ecologique': {'investissement': 50, 'renovation': 40},
                          'recherche_publique': {'budget': 20}})
-    assert 0.95 * p < gros < p
-    coupe = _bonus_apres({'recherche_publique': {'budget': 0},
-                          'transition_ecologique': {'investissement': 0, 'renovation': 0},
+    rd = _contribution_attendue('recherche_publique', 10, 7)
+    assert 0.8 * p < gros - rd < p and rd > 0
+    assert gros == pytest.approx(_bonus_attendu([_c('OFFRE_PENTE_CAPITAL_PUBLIC') * 50], stock=rd), abs=1e-15)
+    coupe = _bonus_apres({'transition_ecologique': {'investissement': 0, 'renovation': 0},
                           'education': {'budget': 30}}, annees=19)
     assert -p < coupe <= 0
 
@@ -558,8 +598,6 @@ def test_w6_4_donnees_sourcees_valeurs_centrales_livrees():
     assert _c('OFFRE_PENTE_CAPITAL_PUBLIC') == (
         _c('ELASTICITE_PIB_CAPITAL_PUBLIC') * _c('EFFICIENCE_INVESTISSEMENT_PUBLIC')
         / _c('CAPITAL_PUBLIC_PRODUCTIF_MD_EUR'))
-    assert _c('OFFRE_PENTE_RD_PUBLIQUE') == (_c('ELASTICITE_PIB_CAPITAL_RD_PUBLIC')
-                                             / _c('CAPITAL_RD_PUBLIC_MD_EUR'))
     # Rénovation : ThreeME (Trésor-Éco n° 394), aucun effet de niveau durable.
     assert _c('OFFRE_PENTE_RENOVATION') == 0.0
     # Éducation : convention v3.1 (rapport 1/2 des anciens coefficients).
@@ -570,13 +608,15 @@ def test_w6_4_donnees_sourcees_valeurs_centrales_livrees():
 
 def test_w6_4_ordres_de_grandeur_publies_par_le_plan():
     """Recoupement avec le tableau du plan § 3 (« +0,005 pt », « +0,032 pt » par
-    Md€/an ; mi-plafond 22 et 3,4 Md€/an ; 90 % du plafond à 59 et 9 Md€/an),
-    chaque seuil recalculé depuis les constantes : x = plafond × atanh(f) / pente."""
+    Md€/an ; mi-plafond 22 Md€/an et 90 % du plafond à 59 Md€/an de capital
+    public), chaque seuil recalculé depuis les constantes : x = plafond × atanh(f)
+    / pente. Lot 2 : les seuils de la recherche (3,4 et 9 Md€/an) n'existent plus,
+    elle est hors du plafond."""
     p = _plafond()
-    pc, prd = _c('OFFRE_PENTE_CAPITAL_PUBLIC'), _c('OFFRE_PENTE_RD_PUBLIQUE')
+    pc, prd = _c('OFFRE_PENTE_CAPITAL_PUBLIC'), _pente_rd_a_l_origine()
     assert round(100 * pc, 3) == 0.005 and round(100 * prd, 3) == 0.032
-    assert round(p * math.atanh(0.5) / pc) == 22 and round(p * math.atanh(0.5) / prd, 1) == 3.4
-    assert round(p * math.atanh(0.9) / pc) == 59 and round(p * math.atanh(0.9) / prd) == 9
+    assert round(p * math.atanh(0.5) / pc) == 22
+    assert round(p * math.atanh(0.9) / pc) == 59
 
 
 # ===========================================================================
@@ -586,8 +626,8 @@ def test_w6_4_ordres_de_grandeur_publies_par_le_plan():
 NOMS_W6 = ('ELASTICITE_PIB_CAPITAL_PUBLIC', 'EFFICIENCE_INVESTISSEMENT_PUBLIC',
            'CAPITAL_PUBLIC_PRODUCTIF_MD_EUR', 'ELASTICITE_PIB_CAPITAL_RD_PUBLIC',
            'INVESTISSEMENT_RD_APU_MD_EUR', 'DEPRECIATION_RD_PUBLIQUE', 'CAPITAL_RD_PUBLIC_MD_EUR',
-           'OFFRE_PENTE_CAPITAL_PUBLIC', 'OFFRE_PENTE_RD_PUBLIQUE', 'OFFRE_PENTE_RENOVATION',
-           'OFFRE_PENTE_EDUCATION', 'OFFRE_PLAFOND')
+           'OFFRE_PENTE_CAPITAL_PUBLIC', 'OFFRE_PENTE_RENOVATION',
+           'OFFRE_PENTE_EDUCATION', 'OFFRE_PLAFOND')   # lot 2 : OFFRE_PENTE_RD_PUBLIQUE retirée
 
 
 def test_w6_5_constantes_dans_le_bloc_w6_de_constants_py():
@@ -657,7 +697,9 @@ def _verifier_forme_exacte():
 def test_w6_7_forme_exacte_somme_saturee_des_canaux_actifs():
     """Bonus = plafond × tanh(Σ_{canaux actifs} pente × Δ / plafond), un canal
     étant actif quand son compteur d'années atteint son délai : un seul
-    plafond, appliqué à la SOMME (pas de saturation par canal ni de clip actif)."""
+    plafond, appliqué à la SOMME (pas de saturation par canal ni de clip actif).
+    Lot 2 : la somme saturée est celle des canaux en flux ; la contribution de la
+    recherche (forme stock logarithmique) s'y ajoute hors plafond."""
     _verifier_forme_exacte()
 
 
@@ -678,11 +720,17 @@ def test_w6_7_mutation_canal_compte_deux_fois_rougit():
 # ===========================================================================
 
 def test_w6_8_symetrie_impaire_exacte():
-    """Coupe = hausse en miroir (v0.6.0) : bonus(défaut + x) = −bonus(défaut − x)."""
+    """Coupe = hausse en miroir (v0.6.0) : bonus(défaut + x) = −bonus(défaut − x).
+    Lot 2 : exacte pour le capital public ; pour la recherche, le stock est en
+    miroir et l'effet logarithmique d'une coupe pèse un peu plus
+    (tests/test_offre_recherche_stock.py)."""
+    for x in (0.5, 1, 3, 5, 10):
+        hausse = _bonus_apres({'collectivites': {'investissement': x}})
+        assert hausse == pytest.approx(-_bonus_apres({'collectivites': {'investissement': -x}}), abs=1e-15), x
+        assert hausse > 0
     ref = _defauts()['recherche_publique']
     for x in (0.5, 1, 3, 5, 10):
-        assert _recherche(ref + x) == pytest.approx(-_recherche(ref - x), abs=1e-15), x
-        assert _recherche(ref + x) > 0
+        assert -_recherche(ref - x) > _recherche(ref + x) > 0, x
 
 
 def test_w6_8_hausse_et_coupe_de_meme_contribution_s_annulent():
@@ -700,17 +748,11 @@ def test_w6_8_hausse_et_coupe_de_meme_contribution_s_annulent():
 
 def test_w6_8_mi_plafond_et_neuf_dixiemes_exacts():
     """Seuils dérivés : x(f) = défaut + plafond × atanh(f) / pente donne
-    exactement f × plafond (capital public : mi-plafond ; recherche : mi-plafond
-    et 90 %, dans le domaine [0 ; 20])."""
+    exactement f × plafond (capital public : mi-plafond). Lot 2 : les seuils de
+    la recherche (mi-plafond et 90 %) sont retirés, elle est hors du plafond."""
     p = _plafond()
-    pc, prd = _c('OFFRE_PENTE_CAPITAL_PUBLIC'), _c('OFFRE_PENTE_RD_PUBLIQUE')
-    ref = _defauts()['recherche_publique']
+    pc = _c('OFFRE_PENTE_CAPITAL_PUBLIC')
     assert _invest(p * math.atanh(0.5) / pc) == pytest.approx(0.5 * p, rel=1e-12)
-    # Lot 2 : recherche en forme stock, la première année porte le pas entier (pente × Δ).
-    def recherche_an_1(x):
-        return _bonus_apres({'recherche_publique': {'budget': x}}, annees=1)
-    assert recherche_an_1(ref + p * math.atanh(0.5) / prd) == pytest.approx(0.5 * p, rel=1e-12)
-    assert recherche_an_1(ref + p * math.atanh(0.9) / prd) == pytest.approx(0.9 * p, rel=1e-12)
 
 
 # ===========================================================================
@@ -790,8 +832,8 @@ def _attendu_par_annee(cle, valeur_de_l_annee, debut, annees):
         stock, pas = 0.0, {}
         for a in range(debut, max(annees) + 1):
             avant, stock = stock, (1 - DEPRECIATIONS[cle]) * stock + (valeur_de_l_annee(a) - defaut)
-            pas[a] = stock - avant
-        return {a: (_bonus_attendu([pente * pas[a - 1]]) if a - 1 in pas else 0.0) for a in annees}
+            pas[a] = _pas_rd(avant, stock)
+        return {a: (_bonus_attendu([], stock=pas[a - 1]) if a - 1 in pas else 0.0) for a in annees}
     premiere = _premiere_annee(cle, debut)
     return {a: (_bonus_attendu([pente * (valeur_de_l_annee(a - 1) - defaut)]) if a >= premiere else 0.0)
             for a in annees}
