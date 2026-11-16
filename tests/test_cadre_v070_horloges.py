@@ -129,10 +129,11 @@ def test_c_superprofits_trois_ans_a_partir_du_debut():
 
 
 def test_c_isf_phasage_du_programme_ifi_calendaire():
-    """ISF climatique : phasage 50 % l'année d'entrée (2028), mais l'IFI remplacé
-    suit le PIB de l'année (assiette, pas horloge du programme ; lot 3 : avant, +2 %
-    par an depuis 2026). Différence avec l'entrée en 2026 du mode historique :
-    exactement l'écart d'IFI entre les PIB nominaux des deux années d'entrée."""
+    """ISF climatique : phasage 50 % l'année d'entrée (2028), mais la recette de l'ISF
+    et l'IFI remplacé suivent le PIB de l'année (assiette, pas horloge du programme ;
+    lot 3 : avant, IFI à +2 % par an depuis 2026 et recette fixe). Différence avec
+    l'entrée en 2026 du mode historique : exactement l'écart (ISF à demi-phasage − IFI)
+    entre les PIB nominaux des deux années d'entrée."""
     i = 0.5
     df_c, _, r_c, _ = simuler({'isf_climatique': {'intensite': i}}, annee_debut=DEBUT)
     df_h, _, r_h, _ = simuler({'isf_climatique': {'intensite': i}})
@@ -140,8 +141,9 @@ def test_c_isf_phasage_du_programme_ifi_calendaire():
     hist_2026 = impacts_par_annee(r_h)
     ecart = cadre_2028[DEBUT]['isf_climatique']['recettes'] - hist_2026[2026]['isf_climatique']['recettes']
     pib = lambda df, an: float(df.loc[df['Année'] == an, 'PIB'].iloc[0])
-    ifi = lambda df, an: PATRIMOINE_IFI_MD * pib(df, an) / PIB_BASE_2025_MD_EUR
-    assert ecart == pytest.approx(i * (ifi(df_h, 2026) - ifi(df_c, DEBUT)), rel=1e-9)
+    isf_net_source = 350_000 * (4.8 * (1 - 0.20 * 0.30)) * (0.01 * 0.75) * (1 - 0.15) / 1000
+    ecart_isf_ifi = lambda df, an: (0.5 * isf_net_source - PATRIMOINE_IFI_MD) * pib(df, an) / PIB_BASE_2025_MD_EUR
+    assert ecart == pytest.approx(i * (ecart_isf_ifi(df_c, DEBUT) - ecart_isf_ifi(df_h, 2026)), rel=1e-9)
 
 
 def test_c_seniors_horloge_du_choc_au_debut():

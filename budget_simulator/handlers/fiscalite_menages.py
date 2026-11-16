@@ -67,6 +67,7 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    ANNEE_SOURCE_ISF,
     ANNEE_SOURCE_PATRIMOINE,
     COUT_PAR_POINT_COTIS_SAL,
     CSG_TAUX_DROIT_EN_VIGUEUR_2026,
@@ -737,18 +738,28 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Plafond de 18 Md€ : convention du moteur, sans source (METHODOLOGIE.md,
         # « Plafonds réalistes »). Il ne mord jamais : la recette nette maximale
         # vaut ≈ 10,07 Md€ (350 000 foyers × 4,512 M€ × 0,75 % × 0,85), garde
-        # tests/test_isf_sources_commentaires.py.
+        # tests/test_isf_sources_commentaires.py. Appliqué en euros de l'année
+        # source, avant l'indice d'assiette ci-dessous.
         plafond_max = 18.0
         if recettes_nettes > plafond_max:
             recettes_nettes = plafond_max
 
+        # ===== RECETTE DE L'ANNÉE : SUIT LE PIB =====
+        # Recette nette de l'année source (ANNEE_SOURCE_ISF, celle de l'IFI
+        # remplacé) × PIB nominal de l'année / PIB de l'année source : les deux
+        # côtés de la différence ISF − IFI suivent la même règle (« un taux suit
+        # son assiette »), comme l'impôt plancher. Jusqu'au lot 3, la recette
+        # restait fixe en euros alors que l'IFI déduit suivait le PIB.
+        recettes_nettes_annee = recettes_nettes * self._indice_pib_source(ANNEE_SOURCE_ISF, gdp)
+
         # ===== RECETTES NETTES (après remplacement IFI), INTERPOLÉES =====
         # L'ISF complet REMPLACE l'IFI ; l'intensité règle la part du chemin.
-        delta_revenue = intensite * (recettes_nettes - ifi_actuel)
+        delta_revenue = intensite * (recettes_nettes_annee - ifi_actuel)
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # Basés sur recettes_nettes (assiette totale taxée, effet redistributif absolu)
-        # Sources : OFCE 2024, IPP 2025
+        # en euros de l'année source, HORS indice d'assiette, comme les autres
+        # impôts à taux du moteur. Sources : OFCE 2024, IPP 2025
         # IMPORTANT : Effets NIVEAU (one-time), pas FLUX (recurring)
 
         # Gini (lot 4, méthode unique, constants.py § CANAUX GINI) : coefficient
@@ -779,7 +790,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         _log_debug(self.debug_logs,
             f"Y{year}: ISF climatique - intensité {intensite:.2f} du point NFP (seuil {seuil_entree}M€, taux {taux_max*100:.1f}%), "
             f"Foyers {foyers_concernes/1000:.0f}k, Brutes {recettes_brutes:.1f} Md€, "
-            f"Nettes {recettes_nettes:.1f} Md€, IFI {ifi_actuel:.1f} Md€, Delta {delta_revenue:+.1f} Md€"
+            f"Nettes {recettes_nettes:.1f} Md€ (euros {ANNEE_SOURCE_ISF}), {recettes_nettes_annee:.1f} Md€ de l'année, "
+            f"IFI {ifi_actuel:.1f} Md€, Delta {delta_revenue:+.1f} Md€"
         )
 
         return 0, delta_revenue, impacts

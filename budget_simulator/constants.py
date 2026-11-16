@@ -2961,6 +2961,15 @@ ANNEE_SOURCE_PATRIMOINE = 2025
 PATRIMOINE_IFI_MD = 2.0
 PATRIMOINE_SUCCESSIONS_MD = 15.0
 PATRIMOINE_TAXE_FONCIERE_MD = 36.0
+# Recette de l'ISF (``isf_climatique``) : la recette nette de l'ISF complet est
+# calée en euros de l'année source ANNEE_SOURCE_ISF, puis suit le PIB nominal
+# (règle « un taux suit son assiette », _indice_pib_source), comme l'IFI qu'elle
+# remplace et comme l'impôt plancher. Année source = celle de l'IFI remplacé :
+# convention de symétrie, déclarée (METHODOLOGIE, § ISF climatique). Les
+# chiffrages publiés qui calent la recette (campagne de 2024, recette « par
+# an ») ne fixent pas d'année de base. Jusqu'au lot 3, la recette brute restait
+# fixe en euros alors que l'IFI déduit suivait le PIB.
+ANNEE_SOURCE_ISF = 2025
 # Bornes hautes de trois montants (Md€ par an), décision du mainteneur du
 # 12/11/2026 : les objectifs de dépense qu'un programme publié écrit en part du
 # PIB ou du revenu national brut (RNB) sont comptés pour tous ; chaque borne est

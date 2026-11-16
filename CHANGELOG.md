@@ -66,6 +66,22 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   recette d'année pleine du test du Gini de l'ISF (méthode du lot 4) se lit au PIB de 2025, où l'IFI déduit vaut
   celui de 2025, sans la correction de +2 % par an. Chiffre publié recalculé par sa garde (effet prix des
   rémunérations publiques, METHODOLOGIE) : le point d'indice seul abaisse la dette 2032 de 1,429 et 1,376 point.
+- **ISF : la recette suit le PIB nominal, comme l'IFI qu'elle remplace** (règle commune « un taux suit son
+  assiette », relevé par la relecture adverse du lot). Le commit précédent faisait suivre le PIB à l'IFI déduit,
+  mais pas à la recette de l'ISF, fixe en euros (350 000 foyers × 4,512 M€ × 0,75 %) : la règle ne s'appliquait
+  qu'à un côté de la différence ISF − IFI, qui perdait de son poids dans le PIB chaque année. L'impôt plancher,
+  autre impôt à taux sur le patrimoine, suivait déjà le PIB. Désormais recette nette de l'année source × PIB_t /
+  PIB(`ANNEE_SOURCE_ISF`), année source = 2025, celle de l'IFI remplacé : convention de symétrie, déclarée (les
+  chiffrages publiés qui calent la recette, de 2024, ne fixent pas d'année de base). Plafond de 18 Md€ appliqué en
+  euros de 2025 (ne mord jamais) ; Gini et compétitivité hors indice, comme les autres impôts à taux. Test rouge
+  puis vert : `tests/test_isf_recette_suit_pib.py` (nouveau ; écart ISF − IFI proportionnel au PIB, recette
+  inchangée au PIB de 2025, effets ponctuels hors indice). Golden master isolé : bougent exactement les cas qui
+  portent l'ISF — le scénario qui le pose (deux modes) et le mini-scénario du levier ; 61 sur 64 identiques au bit.
+  Effet (mode cadre, 2032, pleine précision, sur la pile assemblée) : dette −0,05 point, déficit +0,04 point de PIB
+  pour le scénario qui pose l'ISF.
+  Instantanés régénérés une fois (mêmes cas). Re-déclarés : la forme fermée de l'ISF complet (tests de l'ISF
+  continu et de l'horloge) porte l'indice du PIB ; chiffre publié de l'ISF en 2030 (mode cadre) +7,81 → +9,11 Md€,
+  garde de test.
 
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 

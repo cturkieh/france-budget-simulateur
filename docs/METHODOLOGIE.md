@@ -141,9 +141,9 @@ leurs sorties clé par clé. Conséquences :
 - le **choc d'âge** des retraites est daté au plus tôt de l'année de début : ses montées en
   charge (pensions, offre de travail, chômage seniors) partent avec le programme ;
 - restent **calendaires** : le calendrier légal de l'âge (62,75 ans gelés jusqu'en 2027, puis
-  +3 mois par an jusqu'à 64 ans en 2032) et la revalorisation légale de 2026 ; l'IFI que
-  remplacerait un ISF climatique suit le PIB nominal de l'année (son assiette), quelle que soit
-  l'année d'entrée du programme ;
+  +3 mois par an jusqu'à 64 ans en 2032) et la revalorisation légale de 2026 ; la recette
+  d'un ISF climatique et l'IFI qu'il remplacerait suivent le PIB nominal de l'année (leur assiette),
+  quelle que soit l'année d'entrée du programme ;
 - le passage d'une hausse de TVA dans les prix a lieu l'année qui suit son entrée en vigueur,
   sur l'horloge de la TVA ; le coefficient et le plafond sont inchangés.
 
@@ -1857,11 +1857,16 @@ Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`, 
 **Curseur d'intensité — courbe continue (v0.6.7, audit externe Codex 10/2026, arbitrage du
 mainteneur du 07/10/2026)** : `recette totale = IFI + intensité × (ISF complet − IFI)`, donc écart au statu quo =
 `intensité × (ISF complet − IFI)`, où « ISF complet » est le point NFP ci-dessous (seuil 1,3 M EUR,
-taux 1 %, bonus vert 30 % : ≈ 10,07 Md EUR de recette nette, IFI déduit ; +7,81 Md EUR en 2030 en
-mode cadre). L'IFI déduit suit le PIB nominal depuis 2025 (règle « un taux suit son assiette ») ;
-jusqu'au lot 3, il croissait de 2 % par an depuis 2026, une convention propre à ce levier (2,16 Md EUR
-en 2030). La recette brute de l'ISF, elle, ne suit pas le PIB (limite antérieure, signalée). Gini, pouvoir
-d'achat et compétitivité sont interpolés de la même façon. Monotone, nul à 0, identique au bit à 1
+taux 1 %, bonus vert 30 % : ≈ 10,07 Md EUR de recette nette en 2025, IFI déduit ; +9,11 Md EUR en 2030 en
+mode cadre). La recette de l'ISF et l'IFI déduit suivent tous deux le PIB nominal depuis 2025 (règle
+« un taux suit son assiette », comme l'impôt plancher). Jusqu'au lot 3, l'IFI croissait de 2 % par an
+depuis 2026, une convention propre à ce levier (2,16 Md EUR en 2030), et la recette de l'ISF restait
+fixe en euros : la règle ne s'appliquait qu'à un côté de la différence. L'année source de la recette
+(2025, celle de l'IFI remplacé, `ANNEE_SOURCE_ISF`) est une convention de symétrie, déclarée : les
+chiffrages publiés qui calent la recette, de 2024, ne fixent pas d'année de base. Le plafond de 18 Md EUR
+s'applique en euros de 2025 et ne mord jamais. Gini et compétitivité sont comptés hors indice (euros de
+2025), comme pour les autres impôts à taux. Gini, pouvoir d'achat et compétitivité sont interpolés de la
+même façon. Monotone, nul à 0, identique au bit à 1
 (`tests/test_isf_continu_v067.py`, grille de 1 000 points). Jusqu'en v0.6.6, l'intensité pilotait
 seuil, taux et bonus avec des paliers de foyers et d'assiette en escalier : dès 10⁻⁶ l'IFI était
 supprimé alors que le nouvel impôt ne rapportait presque rien (−2,17 Md EUR en 2030), puis deux
@@ -2191,9 +2196,10 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   nominal depuis cette année : la recette ne dépend pas de l'année où le programme commence.
   Un montant en Md€ reste constant en euros courants (règle commune de la release). La règle
   vaut aussi, depuis le lot 3, pour le curseur « Fiscalité du patrimoine » (un pourcentage des
-  recettes de l'IFI, des droits de succession et de donation et de la taxe foncière) et pour l'IFI
-  que remplace l'ISF ; avant, le bloc restait figé en euros de l'année source (sa part dans le PIB
-  baissait d'environ 10 % sur le mandat). Leurs effets ponctuels sur le Gini et la compétitivité
+  recettes de l'IFI, des droits de succession et de donation et de la taxe foncière), pour l'IFI
+  que remplace l'ISF et pour la recette de l'ISF elle-même (même année source que l'IFI qu'il
+  remplace) ; avant, le bloc restait figé en euros de l'année source (sa part dans le PIB
+  baissait d'environ 10 % sur le mandat), et la recette de l'ISF aussi. Leurs effets ponctuels sur le Gini et la compétitivité
   sont comptés hors indice, comme ceux des autres impôts à taux.
 - **Un montant annoncé est un rendement net.** Quand une source donne un montant sans taux,
   le curseur en Md€ (`rendement_*`) remplace le calcul : ni taux, ni réaction, ni assiette
@@ -3756,7 +3762,7 @@ coincident pour tout age different de 62,75, donc pour tous les scenarios publie
 Le modele applique des plafonds pour eviter resultats irrealistes :
 - Fraude fiscale : Max 30 Md EUR esperes (~20,4 recouvres, ~15,9 nets)
 - Fraude sociale : Max 13 Md EUR
-- ISF climatique : Max 18 Md EUR
+- ISF climatique : Max 18 Md EUR (euros de 2025, avant l'indice d'assiette ; ne mord jamais)
 - Taxe superprofits : Max 20 Md EUR
 
 ### Paramètres d'entrée : noms et valeurs

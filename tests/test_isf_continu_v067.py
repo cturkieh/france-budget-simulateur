@@ -26,10 +26,12 @@ def _isf(intensite, year):
 
 
 def _isf_complet(year):
-    """Point NFP en forme fermée (paramètres du handler à l'intensité 1)."""
+    """Point haut en forme fermée (paramètres du handler à l'intensité 1), recette de l'année :
+    euros de l'année source × PIB / PIB 2025 (lot 3 : la recette suit le PIB comme l'IFI
+    qu'elle remplace ; avant, fixe en euros)."""
     phasing = 0.5 if year == POLICY_START_YEAR else 1.0
     brutes = 350_000 * (4.8 * (1 - 0.20 * 0.30)) * (0.01 * 0.75) * phasing / 1000
-    return brutes * (1 - 0.15)
+    return brutes * (1 - 0.15) * GDP / PIB_BASE_2025_MD_EUR
 
 
 def _ifi(year):
@@ -62,8 +64,8 @@ def test_intensite_1_inchangee(year):
     rec, _ = _isf(1.0, year)
     assert rec == pytest.approx(_isf_complet(year) - _ifi(year), rel=1e-12)
     if year == 2030:
-        # ISF complet ≈ 10,07 Md€ moins l'IFI remplacé au PIB du test (2,0 × 3 000 / 2 991).
-        assert rec == pytest.approx(10.0716 - PATRIMOINE_IFI_MD * GDP / PIB_BASE_2025_MD_EUR, abs=5e-3)
+        # ISF complet ≈ 10,07 Md€ moins l'IFI remplacé, les deux au PIB du test (× 3 000 / 2 991).
+        assert rec == pytest.approx((10.0716 - PATRIMOINE_IFI_MD) * GDP / PIB_BASE_2025_MD_EUR, abs=5e-3)
 
 
 def test_effets_macro_interpoles_comme_la_recette():

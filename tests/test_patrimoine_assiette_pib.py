@@ -62,17 +62,14 @@ def test_bloc_patrimoine_ne_depend_pas_de_l_annee_a_pib_egal(annee):
 
 def test_ifi_remplace_par_l_isf_suit_le_pib_et_pas_le_calendrier():
     """À phasage plein, la recette de l'ISF ne dépend du temps que par le PIB : l'IFI remplacé
-    vaut IFI × PIB_t / PIB_2025 (même PIB, années différentes : même recette ; PIB × 1,2 :
-    l'IFI déduit × 1,2)."""
+    vaut IFI × PIB_t / PIB_2025, comme la recette de l'ISF qui le remplace (même PIB, années
+    différentes : même recette ; PIB × 1,2 : écart ISF − IFI × 1,2 ;
+    tests/test_isf_recette_suit_pib.py)."""
     r1, _ = _isf(1.0, 3300.0, 2030)
     r2, _ = _isf(1.0, 3300.0, 2034)
     assert r1 == pytest.approx(r2, abs=1e-12)
     r3, _ = _isf(1.0, 3300.0 * 1.2, 2030)
-    ifi_deduit = r1 - r3  # la recette brute de l'ISF ne dépend pas du PIB (limite déclarée)
-    r4, _ = _isf(1.0, PIB_BASE_2025_MD_EUR, 2030)
-    ifi_2025 = (r4 - r1) / (3300.0 / PIB_BASE_2025_MD_EUR - 1)
-    assert ifi_deduit == pytest.approx(ifi_2025 * 3300.0 * 0.2 / PIB_BASE_2025_MD_EUR, rel=1e-9)
-    assert ifi_2025 > 0
+    assert r3 == pytest.approx(r1 * 1.2, rel=1e-12)
 
 
 def test_chiffre_publie_de_l_isf_en_2030_lie_a_la_mesure():
