@@ -501,6 +501,14 @@ l'année en euros courants (masse nominale de chaque catégorie), la méthode de
 volume (euros 2025) : un rabot de 8 % ne valait qu'environ 7,4 % des dépenses de l'année en 2032. L'AAH, part en
 espèces de la catégorie « dépendance », suit la même assiette.
 
+**Rabot uniforme, exclusion de la défense au-delà des équipements (lot 3, équation).** La défense exclue de la coupe
+vaut une part du PIB de l'année (`MONTAIGNE_DEFENSE_PART_PIB`), dont la catégorie « équipements », exclue en entier.
+Le moteur n'a pas de catégorie « défense » hors équipement : le reste (personnel, pensions, fonctionnement) est
+retiré au prorata des autres catégories, ce qui laisse inchangée la composition sociale de la coupe (convention
+déclarée). L'indice d'inégalités du rabot (coefficient par milliard de prestations en espèces coupées, montant
+d'année pleine de 2025) porte la même part coupée, calculée sur les dépenses et le PIB de 2025. À la valeur neutre 0,
+seule la catégorie « équipements » est exclue, comme avant.
+
 ### Assemblage des Depenses (v4.0 — recurrence unique chainee)
 
 Depuis la refonte « assemblage temporel » (juin 2026), les taux par categorie ci-dessus ne portent plus le NIVEAU des depenses : ils servent de **cle de repartition** dans la croissance en volume agregee. La recurrence appliquee des l'annee 1 est :

@@ -5,7 +5,8 @@ Mesures couvertes :
   dépenses, avec exclusions optionnelles (dette, défense, UE). À 8 %, la
   note vise 138 Md€ (graphique, p. 84) ou 140 Md€ (texte, p. 83) en 2029 ;
   le moteur calcule le rendement du taux sur ses propres catégories de
-  dépenses, en euros de l'année (lot 3).
+  dépenses, en euros de l'année (lot 3), hors défense : la catégorie
+  « équipements » et, au-delà, la part du PIB MONTAIGNE_DEFENSE_PART_PIB.
 
 Convention d'application :
 - Phasing progressif sur 2 ans (50 % la première année, 100 % ensuite)
@@ -31,6 +32,8 @@ from ..constants import (
     GINI_ALLOC_PAR_MD_EUR,
     GINI_PENSIONS_PAR_MD,
     GINI_SOLIDARITE_PAR_MD,
+    MONTAIGNE_DEFENSE_PART_PIB,
+    PIB_BASE_2025_MD_EUR,
 )
 from .._logging import _log_debug
 from ._phasing import _year_phasing
@@ -97,11 +100,24 @@ class MontaigneMixin(_MixinBase):
         # ne valait qu'environ 7,4 % des dépenses de l'année en 2032.
         masses = {c: self.masse_categorie_nominale(c) for c in self.spending_categories_base}
 
-        # Postes incompressibles Institut Montaigne (242 Md€)
-        # - Service dette: 107 Md€ (pas dans categories_base, géré séparément)
-        # - Défense : 91 Md€ en 2029 selon la note (2,7 % du PIB, pensions comprises) ;
-        #   le moteur n'exclut que defense_equipement (25 Md€ en 2025)
-        # - Contribution UE: 44 Md€ (pas dans categories_base)
+        # Postes incompressibles de la note (242 Md€ en 2029, p. 79-82) :
+        # - service de la dette (107 Md€) : hors des catégories du moteur ;
+        # - défense (91 Md€ = 2,7 % du PIB, pensions comprises, p. 81 et note 113) :
+        #   MONTAIGNE_DEFENSE_PART_PIB × PIB de l'année, dont l'équipement
+        #   (catégorie exclue en entier) ; le reste (personnel, pensions,
+        #   fonctionnement) est retiré AU PRORATA des autres catégories, faute de
+        #   catégorie « défense » dans le moteur (convention déclarée : la
+        #   composition sociale de la coupe ne change pas). Jusqu'au lot 3, seul
+        #   l'équipement était exclu (25 Md€ en 2025) ;
+        # - contribution à l'Union européenne (44 Md€) : hors des catégories du
+        #   moteur (ajoutée ci-dessous si elle n'est pas exclue).
+        def _part_coupee(m, pib):
+            if not exclure_defense:
+                return 1.0
+            surplus_defense = max(0.0, MONTAIGNE_DEFENSE_PART_PIB * pib - m['defense_equipement'])
+            return 1.0 - surplus_defense / sum(v for c, v in m.items() if c != 'defense_equipement')
+
+        part_coupee = _part_coupee(masses, gdp)
 
         total_coupe = 0
         details_coupes = {}
@@ -112,7 +128,7 @@ class MontaigneMixin(_MixinBase):
                 details_coupes[categorie] = 0
                 continue
 
-            coupe = masse * taux_reduction * phasing
+            coupe = masse * part_coupee * taux_reduction * phasing
             details_coupes[categorie] = coupe
             total_coupe += coupe
 
@@ -142,15 +158,21 @@ class MontaigneMixin(_MixinBase):
         # rendu au retour à 0). Jusqu'ici 0,10 × taux × part sociale ×
         # phasage, sans source, RÉÉMIS chaque année dans un agrégateur
         # cumulatif : l'indice dérivait tant que le rabot durait.
+        # Lot 3 : le montant porte la même part coupée que la coupe (exclusion de
+        # la défense au-delà de l'équipement), lue sur les masses de 2025 et le
+        # PIB de 2025 — montant de l'année source, hors croissance, comme le
+        # reste de la règle ; part coupée 1 sans exclusion ou à part nulle.
         base_2025 = self.spending_categories_base
+        part_coupee_2025 = _part_coupee(base_2025, PIB_BASE_2025_MD_EUR)
 
         def _effet_rabot_uniforme(p):
-            t = p['taux']
+            t = p['taux'] * p['part_coupee']
             return -(GINI_SOLIDARITE_PAR_MD * (base_2025['minima_sociaux'] * t + AAH_2025_MD_EUR * t)
                      - GINI_ALLOC_PAR_MD_EUR * base_2025['chomage'] * t
                      + GINI_PENSIONS_PAR_MD * base_2025['retraites'] * t)
 
-        impact_gini = self._effet_ponctuel('rabot_uniforme', {'taux': taux_reduction}, _effet_rabot_uniforme)
+        impact_gini = self._effet_ponctuel('rabot_uniforme', {'taux': taux_reduction, 'part_coupee': part_coupee_2025},
+                                           _effet_rabot_uniforme)
 
         # 2. Pouvoir d'achat (v0.6.8) : les coupes de PRESTATIONS EN ESPÈCES
         # (pensions, chômage, minima sociaux, AAH) sont un revenu retiré aux
@@ -160,9 +182,10 @@ class MontaigneMixin(_MixinBase):
         # aux entreprises, UE) passent par la croissance. L'ancien « −0,15 ×
         # taux », réémis chaque année, composait −7,6 pts d'indice en 2035
         # pour un rabot de 7,5 %.
-        # AAH : part en espèces de « dépendance », même assiette (euros de l'année).
+        # AAH : part en espèces de « dépendance », même assiette (euros de l'année,
+        # même part coupée que sa catégorie).
         coupe_aah = (AAH_2025_MD_EUR * self._spending_factors.get('dependance', 1.0)
-                     * self.indice_prix_depenses() * taux_reduction * phasing)
+                     * self.indice_prix_depenses() * part_coupee * taux_reduction * phasing)
         coupes_prestations = (sum(details_coupes.get(c, 0.0) for c in _CATEGORIES_ESPECES)
                               + coupe_aah)
 

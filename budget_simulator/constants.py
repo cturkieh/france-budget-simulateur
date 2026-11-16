@@ -1270,6 +1270,13 @@ REPERCUSSION_BAISSE_FISCALITE_INDIRECTE = 0.5
 # finance un plan d'aide, DREES), hors RDB comme les remboursements de santé.
 # Sert au canal ``prestations`` du rabot uniforme (handlers/montaigne.py).
 AAH_2025_MD_EUR = 15.9
+# Rabot uniforme (handlers/montaigne.py) : part du PIB de la défense exclue de
+# l'assiette, dont la catégorie « équipements » (exclue en entier) ; le reste est
+# retiré au prorata des autres catégories. 0,0 = NEUTRE : seule la catégorie
+# « équipements » est exclue, comme jusqu'ici. La valeur sourcée de la note
+# (2,7 % du PIB, pensions comprises) est posée par la release de paramètres
+# qui suit (règle du projet : équation et valeur dans des commits séparés).
+MONTAIGNE_DEFENSE_PART_PIB = 0.0
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés

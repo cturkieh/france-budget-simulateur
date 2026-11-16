@@ -100,6 +100,16 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   assemblée) : coupe 2029 du scénario de la note 136,46 → 143,97 Md€ ; dette 2032 +0,01 point, déficit +0,13 point
   de PIB. Re-déclarés : les tests du canal ménages du rabot lisent les masses nominales ; la coupe de dotation du
   rabot (règle du lot 5c) est recalculée sur la masse nominale, et ses chiffres publiés mis à jour.
+- **Rabot uniforme : exclusion de la défense au-delà des équipements** (équation, valeur neutre ; relecture adverse :
+  mécanisme séparé de sa valeur). La défense exclue vaut une part du PIB de l'année (`MONTAIGNE_DEFENSE_PART_PIB`),
+  dont la catégorie « équipements » (exclue en entier) ; le reste est retiré au prorata des autres catégories, faute
+  de catégorie « défense » hors équipement (convention déclarée : composition sociale de la coupe inchangée) ; AAH à
+  la même part coupée. Indice d'inégalités (méthode unique du lot 4, coefficient × montant d'année pleine de
+  l'année source) : le montant des prestations en espèces coupées porte la même part coupée, lue sur les masses et
+  le PIB de 2025 (composition des deux règles). Valeur neutre 0 : seule la catégorie « équipements » est exclue,
+  comme avant ; la valeur de la note est posée par la release de paramètres. Test rouge puis vert :
+  `tests/test_rabot_assiette_note.py` (mécanisme sous une part posée par le test ; part nulle = exclusion d'avant ;
+  indice d'inégalités sur la part coupée, 2 rouges avant). Golden master isolé : 64 cas sur 64 identiques au bit.
 - **Impôts sur le patrimoine : l'assiette suit le PIB nominal** (règle commune « un taux suit son assiette »).
   Le curseur « Fiscalité du patrimoine » est un pourcentage des recettes de l'IFI, des droits de succession et de
   donation et de la taxe foncière : il s'appliquait pourtant à un bloc figé en euros de l'année source (part dans
