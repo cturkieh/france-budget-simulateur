@@ -2189,6 +2189,12 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   (≈ 470 Md€) : +1 point de `tva_rate` ≈ 14,2 Md€ au PIB 2025, dont ≈ 4,2 sur l'assiette des taux réduits. Une
   hausse de tous les taux s'encode avec `tva_rate` seul ; encodée avec `tva_rate` et `tva_ciblee`, la part des taux
   réduits serait comptée deux fois (règle d'encodage ; restriction de l'assiette en passe dédiée).
+- **TVA ciblée, coefficients par Md€** (lot 3) : l'effet sur la compétitivité (et sur le Gini, nul depuis le lot 4)
+  d'un Md€ de `fiscalite_indirecte.tva_ciblee` est la règle de `tva_rate` pour +2 points rapportée à une recette de référence
+  figée, celle que rendait la fonction du taux normal à +2 points en v0.8.1 (28,42 Md€ au PIB 2025, même calcul,
+  valeurs identiques au bit). Ces coefficients ne lisent plus la fonction du taux normal : corriger le rendement
+  d'un point du taux normal ne change pas l'effet par Md€ d'un autre levier. Leur révision relève d'une passe
+  dédiée (`tests/test_tva_ciblee_coefficients.py`).
 
 ### Impôts à taux avec comportement
 

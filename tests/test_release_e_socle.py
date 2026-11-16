@@ -221,12 +221,10 @@ DERIVEES = [
     ('COMPET_ISF_EFFECTIF_PAR_MD', lambda: C.ISF_COMPET_PAR_12MD / 12 * C.ISF_PHASAGE[0] ** 2, -0.000042),
     ('GINI_IR_DECOTE_PAR_MD',
      lambda: (C.GINI_BASE - C.GINI_C_DECOTE) / C.MASSE_NIVEAUX_DE_VIE_MD_EUR, 0.000122),
-    ('GINI_TVA_PAR_MD',
-     lambda: C.TVA_GINI_PAR_2PTS / C.recette_tva_taux(0.22, C.PIB_BASE_2025_MD_EUR, C.CHOMAGE_BASE),
-     0.0),  # lot 4 : périmètre INSEE (jusqu'ici 0,00018)
-    ('COMPET_TVA_PAR_MD',
-     lambda: C.TVA_COMPET_PAR_2PTS / C.recette_tva_taux(0.22, C.PIB_BASE_2025_MD_EUR, C.CHOMAGE_BASE),
-     -0.000018),
+    # Lot 3 : recette de référence figée à sa valeur de v0.8.1 (tests/test_tva_ciblee_coefficients.py),
+    # indépendante du rendement d'un point du taux normal ; Gini à 0 depuis le lot 4 (périmètre INSEE).
+    ('GINI_TVA_PAR_MD', lambda: C.TVA_GINI_PAR_2PTS / C.TVA_RECETTE_REFERENCE_TVA_CIBLEE_MD, 0.0),
+    ('COMPET_TVA_PAR_MD', lambda: C.TVA_COMPET_PAR_2PTS / C.TVA_RECETTE_REFERENCE_TVA_CIBLEE_MD, -0.000018),
     ('GINI_TVA_ENERGIE_PAR_MD',
      lambda: C.TVA_ENERGIE_GINI_PAR_TAUX / (C.TVA_ENERGIE_CONSO_ELECTRICITE_MD + C.TVA_ENERGIE_CONSO_GAZ_MD),
      0.0),  # lot 4 : périmètre INSEE (jusqu'ici 0,00042)

@@ -115,6 +115,14 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   Instantanés régénérés une fois (mêmes cas). Re-déclarés : la forme fermée de l'ISF complet (tests de l'ISF
   continu et de l'horloge) porte l'indice du PIB ; chiffre publié de l'ISF en 2030 (mode cadre) +7,81 → +9,11 Md€,
   garde de test.
+- **TVA ciblée : coefficients par Md€ découplés du point du taux normal** (relevé par la relecture adverse du lot,
+  aucune sortie ne change). `GINI_TVA_PAR_MD` et `COMPET_TVA_PAR_MD` (effets par Md€ de
+  `fiscalite_indirecte.tva_ciblee`) étaient dérivés en appelant la fonction du curseur du taux NORMAL : corriger le
+  rendement d'un point de ce taux aurait presque doublé, en silence, l'effet par Md€ d'un autre levier. Leur
+  recette de référence est désormais figée à sa valeur de v0.8.1 (`TVA_RECETTE_REFERENCE_TVA_CIBLEE_MD`, 28,42 Md€
+  pour +2 points au PIB 2025, même calcul, au bit) ; leur révision relève d'une passe dédiée. Test rouge puis vert :
+  `tests/test_tva_ciblee_coefficients.py` (nouveau ; indépendance vérifiée sur l'arbre syntaxique, valeurs au bit).
+  Golden master isolé : 64 cas sur 64 identiques au bit.
 
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 

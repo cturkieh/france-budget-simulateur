@@ -2836,8 +2836,8 @@ def recette_tva_taux(taux: float, pib: float, chomage: float) -> float:
     """Variation de recette (Md€) du levier ``tva_rate`` au taux ``taux``
     (référence 20 %), au PIB nominal ``pib`` et au taux de chômage
     ``chomage``. Extraite AU BIT de ``_apply_tva_rate`` (mêmes opérations,
-    même ordre) : le handler l'appelle, et la dérivation des coefficients par
-    Md€ de la TVA aussi (appel, jamais recopie)."""
+    même ordre) : le handler l'appelle. Les coefficients par Md€ de la TVA
+    ciblée ne la lisent plus (recette de référence figée, lot 3)."""
     consumption_base = 0.53 * pib
     base_elasticity = -0.2 if taux > 0.20 else -0.1
     if chomage > 0.10:
@@ -2878,11 +2878,18 @@ COMPET_PATRIMOINE_PAR_MD = PATRIMOINE_COMPET_PAR_10MD / 10
 COMPET_ISF_EFFECTIF_PAR_MD = ISF_COMPET_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
 # Impôt sur le revenu ciblé : GINI_IR_CIBLE_PAR_MD (zéro faute de source,
 # § CANAUX GINI, lot 4), le même que l'élargissement de l'IR.
-# TVA à taux réduits : règle de ``tva_rate`` rapportée à la recette que rend
-# sa fonction à +2 points (taux 22 %), au PIB et au chômage de l'année de base
-# (0 depuis le lot 4 : périmètre INSEE).
-GINI_TVA_PAR_MD = TVA_GINI_PAR_2PTS / recette_tva_taux(0.22, PIB_BASE_2025_MD_EUR, CHOMAGE_BASE)
-COMPET_TVA_PAR_MD = TVA_COMPET_PAR_2PTS / recette_tva_taux(0.22, PIB_BASE_2025_MD_EUR, CHOMAGE_BASE)
+# TVA à taux réduits : règle de ``tva_rate`` (+2 points) rapportée à une
+# recette de référence FIGÉE, celle que rendait la fonction du taux normal à
+# +2 points (taux 22 %), au PIB et au chômage de l'année de base, en v0.8.1
+# (assiette 0,53 × PIB, élasticité −0,2, × 0,9 ; mêmes opérations, même
+# ordre : valeurs identiques au bit). Lot 3 : ces coefficients d'un AUTRE levier
+# ne lisent plus ``recette_tva_taux`` ; sans cela, corriger le rendement d'un
+# point du taux normal aurait presque doublé en silence l'effet par Md€ de la
+# TVA ciblée (compétitivité ; Gini à 0 depuis le lot 4, périmètre INSEE). Leur
+# révision relève d'une passe dédiée (tests/test_tva_ciblee_coefficients.py).
+TVA_RECETTE_REFERENCE_TVA_CIBLEE_MD = (0.22 - 0.20) * (0.53 * PIB_BASE_2025_MD_EUR * (1 + -0.2 * (0.22 - 0.20))) * 0.9
+GINI_TVA_PAR_MD = TVA_GINI_PAR_2PTS / TVA_RECETTE_REFERENCE_TVA_CIBLEE_MD
+COMPET_TVA_PAR_MD = TVA_COMPET_PAR_2PTS / TVA_RECETTE_REFERENCE_TVA_CIBLEE_MD
 # Accises sur l'énergie : règle de ``tva_energie`` par Md€ de recette (0 depuis
 # le lot 4 : périmètre INSEE).
 GINI_TVA_ENERGIE_PAR_MD = TVA_ENERGIE_GINI_PAR_TAUX / (TVA_ENERGIE_CONSO_ELECTRICITE_MD + TVA_ENERGIE_CONSO_GAZ_MD)
