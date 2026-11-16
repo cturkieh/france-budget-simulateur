@@ -863,10 +863,12 @@ def test_w1_14_horloge_une_annee_niches_fiscales():
 
 
 def test_w1_14_horloge_une_annee_transition_premiere_annee():
-    """``transition_ecologique.investissement`` en ``annee 2032`` : retour
-    fiscal et compétitivité de 2032 = ceux de la PREMIÈRE année d'application
-    (mesurés sur le même investissement appliqué dès 2028, sa première
-    année), et non ceux de la cinquième."""
+    """``transition_ecologique.investissement`` en ``annee 2032`` : compétitivité
+    de 2032 = celle de la PREMIÈRE année d'application (mesurée sur le même
+    investissement appliqué dès 2028, sa première année), et non celle de la
+    cinquième. Lot 2 (16/11/2026) : le retour fiscal propre du levier, qui
+    distinguait aussi la première année de la cinquième, est retiré ; ses
+    recettes sont désormais égales chaque année (taxe carbone seule)."""
     tr = dict(DROIT_REAJUSTE['transition_ecologique'], investissement=20.0)
     prog = programme_sur_droit(transition_ecologique=tr)
     une = impacts_par_annee(_sim(prog, DEBUT, profils={
@@ -880,8 +882,9 @@ def test_w1_14_horloge_une_annee_transition_premiere_annee():
     for cle in ('depenses', 'recettes', 'competitivite'):
         assert ecart(une, FIN, cle) == pytest.approx(ecart(plein, DEBUT, cle), rel=1e-12, abs=1e-15), cle
     # Garde du test : sur l'horloge 2028, 2032 serait la cinquième année
-    # (retour fiscal et compétitivité différents de la première).
-    assert ecart(plein, FIN, 'recettes') != pytest.approx(ecart(plein, DEBUT, 'recettes'))
+    # (compétitivité différente de la première). Lot 2 : jusque-là, le retour
+    # fiscal l'était aussi ; plus de recette propre de l'investissement.
+    assert ecart(plein, FIN, 'recettes') == ecart(plein, DEBUT, 'recettes') == 0
     assert ecart(plein, FIN, 'competitivite') != pytest.approx(ecart(plein, DEBUT, 'competitivite'))
 
 

@@ -103,8 +103,10 @@ def test_meme_ordre_d_effet_que_l_investissement_de_l_etat(annee_debut, annee):
     """10 Md€ d'investissement public par an : même signe d'effet sur la dette
     (une baisse du ratio) et même ordre de grandeur, qu'ils soient portés par
     l'État ou par les collectivités (avant : +0,20 contre −0,40 point en 2032,
-    mode cadre, soit 0,06 point par Md€ d'écart). Le reste d'écart vient de la
-    recette propre du levier de l'État (transition écologique).
+    mode cadre, soit 0,06 point par Md€ d'écart). Le reste d'écart venait de la
+    recette propre du levier de l'État (transition écologique), retirée au lot 2
+    (16/11/2026) : les deux leviers donnent désormais le même effet, au bit
+    (tests/test_transition_sans_retour_fiscal.py).
 
     « Même ordre de grandeur » : écart absolu d'au plus 0,02 point de dette par
     Md€ (l'ancien défaut en donnait 0,06). Jusqu'à v0.8.1, aussi un rapport

@@ -1544,11 +1544,25 @@ pas reecrite.
 - Effet levier important
 - Impact sur emplois verts : 15 000/Md EUR
 
-**Retour fiscal differencie (v3.0)** :
-- Annees 1-2 : 0% (construction)
-- Annees 3-4 : 5% (emplois induits, TVA)
-- Annees 5+ : 8%
-- Source : OECD 2021, Cour des comptes 2023
+**Retour fiscal propre — RETIRÉ (lot 2, 16/11/2026, non publié ; arbitrage du mainteneur du 15/11/2026).**
+Jusqu'ici, le levier ajoutait à ses recettes 0 % de sa dépense d'investissement et de rénovation les deux
+premières années, 5 % les deux suivantes, puis 8 %, au titre des impôts et cotisations de l'activité induite.
+Les deux références citées ne portent pas ce chiffre : OCDE, *Getting Infrastructure Right* (2017, un cadre de
+gouvernance ; aucun taux de retour fiscal, aucune édition 2021 trouvée) et « Cour des comptes 2023, retour TVA
+8-10 % » (introuvable). Surtout, c'était un double compte : les recettes du moteur suivent déjà le PIB nominal,
+avec une élasticité de 1,0 (§ Recettes), et ce canal porte précisément les impôts de l'activité induite ; ni
+l'investissement des collectivités ni la recherche ne recevaient ce surplus. Désormais un euro d'investissement
+public reçoit le même retour, celui de l'élasticité, quel que soit le levier : 10 Md€ par an par l'État ou par
+les collectivités donnent la même dette, au bit. Le levier n'est pas autofinancé : tiré seul sur le droit en
+vigueur, l'investissement comme la rénovation alourdissent la dette et le déficit en euros chaque année de 2028 à
+2035 ; une amélioration en part du PIB vient du dénominateur, pas d'un remboursement. **Ce qui bouge** (mode
+cadre 2028, dix scénarios publiés) : les quatre programmes qui investissent dans la transition, dette 2032 de
++0,01 à +0,04 point, déficit 2032 au plus −0,03 point ; aucun rang ne change ; les six autres scénarios sont
+identiques au bit. Garde : `tests/test_transition_sans_retour_fiscal.py` (recettes propres limitées à la taxe
+carbone ; pas d'autofinancement en euros, et part des recettes dans le PIB jamais relevée par le levier, ce que
+l'ancien barème faisait ; même effet que l'investissement local ; et, pour les cinq leviers d'investissement —
+transition, rénovation, collectivités, recherche, éducation —, aucune recette propre dans les impacts que le
+moteur utilise, de sorte qu'un retour fiscal remis ailleurs que dans le handler fait aussi rougir la garde).
 
 **Mesures d'investissement productif (pour multiplicateur)** : education, transition_eco, recherche (PAS defense)
 
@@ -2635,8 +2649,8 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 | Cicatrice austerite | **RETIRÉE (lot 1, 15/11/2026)** — était : −0,10 × (effort − 3 % du PIB) aux seules consolidations, plafond −0,3 pt/an | Citée jusqu'à v0.8.1 comme « DeLong & Summers 2012 » : à tort. DeLong & Summers (BPEA 2012) et Fatás & Summers (NBER WP 22374, 2016) décrivent un effet de niveau sur le potentiel, proportionnel à l'impulsion, propre aux économies déprimées à la borne zéro ; ni seuil, ni plafond, ni sens unique. Encadré ci-dessus |
 | ~~Confiance Alesina~~ | **SUPPRIME** : bonus de croissance retire en v0.6.0 ; attenuation ÷1,10 des coupes retiree en v0.6.7 (§ Multiplicateurs) | Alesina 2010, conteste IMF 2012 |
 | Crowding-out (éviction) | **RETIRÉE (lot 1, 15/11/2026 ; arbitrage du mainteneur du 21/10/2026, « option C »)** — était : intensité × effort si effort < 0 et dette > 100 % ; intensité 0,002 (relance 100 % investissement productif) à 0,008 (0 %) | Aucune source publiée. Reste le ×0,95 des multiplicateurs au-delà de 110 % : inerte dans le domaine publié, où la dette lue dépasse toujours ce seuil ; aucune réduction des multiplicateurs liée au niveau de dette n'y est modélisée — encadré ci-dessous |
-| Boost potentiel supply-side (v3.1, échelle en v0.8.0) | Par canal, linéaire dans le flux (élasticité / stock), délais et dépréciation différenciés, plafond ±0,20 pt atteint asymptotiquement | Bom & Ligthart 2014 ; INSEE comptes de patrimoine 2025 ; FMI 2015 ; Fieldhouse & Mertens 2024 ; DG Trésor ThreeME 2026 ; Khan & Luintel 2006 (délais) |
-| Retour fiscal transition | 0% Y1-2, 5% Y3-4, 8% Y5+ | OECD 2021 |
+| Boost potentiel supply-side (v3.1, échelle en v0.8.0, lot 2) | Recherche publique : stock, forme logarithmique, effet l'année qui suit la dépense, hors plafond (lot 2). Autres canaux : linéaires dans le flux (élasticité / stock), délais et dépréciation différenciés, leur somme saturée vers ±0,20 pt | Bom & Ligthart 2014 ; INSEE comptes de patrimoine 2025 ; FMI 2015 ; Fieldhouse & Mertens 2024 (élasticité et calendrier de la recherche) ; OCDE 2001 et Khan & Luintel 2006 (dépréciation de la recherche) ; DG Trésor ThreeME 2026 |
+| Retour fiscal transition | **RETIRÉ (lot 2, 16/11/2026)** — était : 0 % Y1-2, 5 % Y3-4, 8 % Y5+ | Double compte avec l'élasticité des recettes au PIB ; références citées (« OECD 2021 », « Cour des comptes 2023 ») sans ce chiffre ou introuvables ; § Investissements verts |
 
 **Éviction (« crowding-out ») — RETIRÉE (lot 1 des corrections d'équations, 15/11/2026, non publié).** Arbitrage du
 mainteneur du 21/10/2026 (« option C » : on ne garde, pour la dette, que le ×0,95 symétrique au-delà de 110 % de dette),
@@ -2722,11 +2736,12 @@ forme un flux distinct, `(collectivites, investissement)` (`INVESTISSEMENT_PRODU
 l'éviction jusqu'à son retrait au lot 1) et réparti dans le temps comme l'investissement productif de l'État (classe `investissement`, profil de
 persistance de l'investissement) ; la dotation garde la classe de la dépense générique. 10 Md€ par an, mesuré en
 v0.8.0 : −0,37 point de dette 2032 (mode cadre) contre −0,40 pour l'État, −0,63 contre −0,71 en 2035 (mode
-historique) ; le reste d'écart est la recette propre du levier de l'État. Mesure du moteur actuel, 10 Md€ par an :
-−0,08 point de dette 2032 (mode cadre) contre −0,11 pour l'État, −0,08 contre −0,18 en 2035 (mode historique)
+historique) ; le reste d'écart était la recette propre du levier de l'État, retirée au lot 2 : les deux leviers
+donnent désormais le même effet, au bit. Mesure du moteur actuel, 10 Md€ par an :
+−0,08 point de dette 2032 (mode cadre) contre −0,08 pour l'État, −0,08 contre −0,08 en 2035 (mode historique)
 (lot 1 : le terme d'effort de l'inflation, retiré, faisait baisser le ratio de toute relance par le dénominateur ;
 lot 5 : la hausse de défense du droit en vigueur, présente dans toute simulation en mode cadre, prend le coefficient
-de la coupe de dépense courante ;
+de la coupe de dépense courante ; lot 2 : retour fiscal propre de l'État retiré ;
 chiffre lié à la mesure par `tests/test_release_e_investissement_local.py`). Trois programmes publiés bougent (dette 2032 en mode cadre
 −0,31 à −0,48 point, dette 2035 en mode historique −0,63 à −0,98) ; les sept autres sont identiques au bit.
 
@@ -2782,7 +2797,7 @@ attente, passe dédiée) :
   d'octobre 2014, ch. 3 : +1,5 % de PIB quatre ans après une hausse d'un point de PIB d'investissement public),
   qui contient déjà le surcroît de capacité de production ; le canal d'offre du moteur s'y ajoute. Mesure du
   moteur actuel, PIB réel par euro dépensé chaque année, quatre ans après le début (15 Md€ par an dès 2026, mode
-  historique) : 1,37 € pour une dépense de la famille investissement sans effet d'offre (le levier du banc de calage), 1,65 € pour l'investissement de l'État, 1,67 € pour celui des collectivités, 4,30 € pour la recherche. Le sens est donc
+  historique) : 1,37 € pour une dépense de la famille investissement sans effet d'offre (le levier du banc de calage), 1,67 € pour l'investissement de l'État ou des collectivités, 4,30 € pour la recherche (1,65 € pour l'État tant que son levier gardait un retour fiscal propre, retiré au lot 2). Le sens est donc
   connu : pour ces leviers, le moteur compte une partie de l'effet d'offre deux fois, d'une ampleur inconnue pour
   la recherche, dont la dépense prend le coefficient de la famille investissement. C'est aussi pourquoi le
   plafond des canaux en flux est conservé : le retirer, ou donner au capital public une forme stock, ajouterait
@@ -2804,7 +2819,7 @@ n'a plus de borne fixe.
 > n'était jamais usé. Le moteur suit désormais le **stock** de recherche ajouté par le programme : chaque année,
 > ce stock perd 15 % de sa valeur et reçoit l'écart de dépense de l'année (`A_t = 0,85 × A_{t−1} + Δ_t`, en Md€,
 > nul avant le programme) ; le bonus de croissance potentielle de l'année suivante vaut 0,032 point par Md€
-> ajouté au stock. **Source** : l'étude de la Réserve fédérale de Dallas dont le moteur tire déjà l'élasticité
+> ajouté au stock (pour les petits montants depuis la forme logarithmique : encadré suivant). **Source** : l'étude de la Réserve fédérale de Dallas dont le moteur tire déjà l'élasticité
 > (Fieldhouse & Mertens, Dallas Fed WP 2305, rév. 11/2024) relie la productivité au stock de recherche
 > publique, sans délai propre (éq. (6) : Δtfp_t = ϕ Δk_t, k_t logarithme du stock) ; les auteurs posent ce
 > calendrier, puis le vérifient sur leurs réponses estimées (annexe E.1 : « the timing assumptions implied by
@@ -2900,10 +2915,11 @@ n'a plus de borne fixe.
 > mode cadre : de 0 à +1,48 pt ; le scénario de référence, les deux autres programmes et le statu quo sont
 > identiques au bit. Le sens est le même pour tous : chaque programme reçoit l'offre de son montant. **Le curseur
 > d'investissement tiré seul fait encore baisser le ratio de dette 2035 pour les petits montants** (droit en
-> vigueur, c'est-à-dire le budget 2026 voté tel que le moteur le tient, mode historique : 149,14 → 148,97 à
+> vigueur, c'est-à-dire le budget 2026 voté tel que le moteur le tient, mode historique : 149,14 → 149,07 à
 > 10 Md€/an ; mesure du moteur actuel) — ce n'est plus un artefact d'échelle mais ce qu'implique l'élasticité
-> centrale (FMI WP 15/95 : « the public-debt-to-GDP ratio may actually decline »). Entre 20 et 30 Md€/an, le coût
-> l'emporte : 0 → 50 Md€/an, 149,14 → 149,97 (canal d'offre coupé : 154,62). Jusqu'à v0.8.1, le terme d'effort de
+> centrale (FMI WP 15/95 : « the public-debt-to-GDP ratio may actually decline »). Entre 10 et 20 Md€/an, le coût
+> l'emporte : 0 → 50 Md€/an, 149,14 → 150,47 (canal d'offre coupé : 155,12) ; jusqu'au lot 2, le retour fiscal
+> propre du levier, retiré, allégeait ce coût. Jusqu'à v0.8.1, le terme d'effort de
 > l'inflation (retiré au lot 1) faisait baisser le ratio de toute relance par le dénominateur (149,91 → 148,25 à
 > 50 Md€/an ; 152,87 sans le canal d'offre ; mesuré en v0.8.1). Dit, non verrouillé en signe, verrouillé en
 > échelle et en forme (rendement par Md€ décroissant) par `tests/test_effet_offre_echelle_v0612.py`, qui
@@ -3452,7 +3468,7 @@ inchangee », la trajectoire est insoutenable.
 
 ### Organismes Internationaux
 
-- **OCDE** - Taxing Wages, Health at a Glance, "Getting Infrastructure Right" (2021)
+- **OCDE** - Taxing Wages, Health at a Glance ; "Getting Infrastructure Right" (2017, cité jusqu'au lot 2 pour un retour fiscal de la transition qu'il ne contient pas)
 - **FMI** - Selected Issues France, Fiscal Monitor 2014
 - **EU Tax Observatory** (Gabriel Zucman)
 - **OMS** (Organisation Mondiale de la Sante)

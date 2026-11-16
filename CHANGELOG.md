@@ -73,6 +73,36 @@ et la symétrie exacte de la recherche, sa sortie du plafond (borne du gros prog
 grandeur de la recherche), la constante retirée (`test_effet_offre_echelle_v0612.py`), les valeurs V2-02.
 Instantanés régénérés ; pouvoir d'achat 2029 figé non modifié (dans sa tolérance).
 
+**(3) Transition écologique : retour fiscal propre retiré.** Le levier ajoutait à ses recettes 0 %, puis 5 %,
+puis 8 % de sa dépense d'investissement et de rénovation. Double compte : les recettes du moteur suivent déjà le
+PIB nominal (élasticité 1,0), qui porte les impôts de l'activité induite ; ni l'investissement des collectivités
+ni la recherche ne recevaient ce surplus. Les deux références citées (OCDE, « Getting Infrastructure Right » ;
+« Cour des comptes 2023 ») ne contiennent pas ce chiffre ou sont introuvables. Retiré sans remplacement : 10 Md€
+par an investis par l'État ou par les collectivités donnent désormais la même dette, au bit. Test :
+`tests/test_transition_sans_retour_fiscal.py` (recettes propres limitées à la taxe carbone ; garde « pas
+d'autofinancement » sur le levier réel, que les gardes de calibrage ne couvraient pas : dette et déficit plus
+lourds en euros chaque année de 2028 à 2035, investissement et rénovation, et part des recettes dans le PIB
+jamais relevée, rouge avec l'ancien barème comme avec un retour qui rembourserait la dépense ; même effet que
+l'investissement local ; propriété générique sur les cinq leviers d'investissement — transition, rénovation,
+collectivités, recherche, éducation — : aucune recette propre dans les impacts utilisés par le moteur, rouge si un
+retour fiscal est remis hors du handler). Golden master isolé : bougent les quatre scénarios publiés qui
+investissent dans la transition (deux modes), le mini-scénario du levier et un delta de référence. Mesuré (mode
+cadre 2028, par rapport au point (2)) : dette 2032 de +0,01 à +0,04 point, déficit 2032 au plus −0,03 ; aucun
+rang ne change ; six scénarios identiques au bit. Tests re-déclarés avec motif daté : l'horloge d'un calendrier
+« une seule année » (`test_release_e_w1.py`, plus de recette propre qui distingue la cinquième année), la
+docstring de l'investissement local, les chiffres liés de l'encadré du curseur vert (le coût l'emporte désormais
+entre 10 et 20 Md€/an) et de l'investissement local (désormais égal à celui de l'État). Instantanés régénérés ;
+pouvoir d'achat 2029 figé non modifié (dans sa tolérance).
+
+**Cumul du lot** (mode cadre 2028, dix scénarios publiés, par rapport au lot 5) : les trois programmes qui
+augmentent la recherche, dette 2032 de −3,37 à −1,67 point, déficit 2032 de +0,41 à +0,86, croissance moyenne
+2028-2032 de +0,134 à +0,266 point ; deux autres programmes, +0,01 et +0,02 point de dette 2032 (retour fiscal
+retiré) ; les cinq autres scénarios identiques au bit. Rangs : six rangs de dette 2032, trois de déficit et deux de
+croissance changent. Points laissés ouverts, déclarés dans METHODOLOGIE : la forme stock des canaux de capital
+public (dépréciation et délai sans source arrêtée) et leur plafond, qui relèvent d'un calage conjoint de la demande
+et de l'offre ; le stock de départ de la recherche (euros de 2025, formule de l'OCDE, durée de vie retenue par
+l'Insee), qui relève d'une release de paramètres.
+
 ## [non publiée — proposée] — équations du lot 5 : dépense courante symétrique en signe
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des deux blocs du lot 1

@@ -603,6 +603,17 @@ Une baisse du budget pèse plus qu'une hausse du même montant : à long terme, 
 possible (10 Md€ par an), 4 % de plus pour 1 Md€. Deux variantes (effet deux ans après la dépense ; 30 % d'une
 hausse absorbés par les salaires des chercheurs) sont mesurées dans METHODOLOGIE, en sensibilité seulement.
 
+**Recherche publique (lot 2, arbitrage du mainteneur du 15/11/2026)** : le moteur compte les connaissances que
+la recherche accumule. Chaque année, 15 % de ce qui a été accumulé se périme, et l'argent dépensé en plus dans
+l'année s'y ajoute. Le gain de croissance de l'année suivante dépend de ce qui a été ajouté à cette réserve : 0,032
+point par milliard d'euros pour les premiers milliards, un peu moins ensuite (voir « Plafond » ci-dessus). Conséquences : l'effet commence l'année qui suit la dépense (avant : seulement après
+cinq ans, donc rien pendant le mandat pour un programme qui commence en 2028) ; une dépense faite une seule année
+donne un gain qui s'estompe ensuite ; une baisse du budget retire ce qu'une hausse du même montant ajoute. Source :
+l'étude de la Réserve fédérale de Dallas dont vient déjà le chiffre de l'effet (Fieldhouse & Mertens). Ses
+auteurs supposent que la productivité suit cette réserve sans attendre, puis jugent cette hypothèse raisonnable
+au vu de leurs résultats : ce n'est pas un délai mesuré, les données sont américaines, et aucune étude française
+n'a été trouvée. Détail : METHODOLOGIE, encadré « Recherche publique en forme stock ».
+
 **Une hausse de recherche se rembourse dans le moteur avant la fin du mandat.** 5 Md€ de plus par an, à partir de
 2028, font baisser la dette en 2032 de 1,35 point de PIB et de 10,3 Md€, et améliorent le solde de 8,3 Md€ : la
 croissance supplémentaire rapporte plus d'impôts que la dépense ne coûte. C'est ce que dit l'étude dont vient le
@@ -617,17 +628,6 @@ de long terme. Résultat : quatre ans après le début, un euro investi chaque a
 donne un peu plus d'activité que la mesure du FMI (environ 1,7 € au lieu de 1,5 €). C'est la raison pour laquelle
 le plafond de ces canaux est conservé ; la correction demande un réglage d'ensemble, qui reste à faire.
 
-**Recherche publique (lot 2, arbitrage du mainteneur du 15/11/2026)** : le moteur compte les connaissances que
-la recherche accumule. Chaque année, 15 % de ce qui a été accumulé se périme, et l'argent dépensé en plus dans
-l'année s'y ajoute. Le gain de croissance de l'année suivante dépend de ce qui a été ajouté à cette réserve : 0,032
-point par milliard d'euros. Conséquences : l'effet commence l'année qui suit la dépense (avant : seulement après
-cinq ans, donc rien pendant le mandat pour un programme qui commence en 2028) ; une dépense faite une seule année
-donne un gain qui s'estompe ensuite ; une baisse du budget retire ce qu'une hausse du même montant ajoute. Source :
-l'étude de la Réserve fédérale de Dallas dont vient déjà le chiffre de l'effet (Fieldhouse & Mertens). Ses
-auteurs supposent que la productivité suit cette réserve sans attendre, puis jugent cette hypothèse raisonnable
-au vu de leurs résultats : ce n'est pas un délai mesuré, les données sont américaines, et aucune étude française
-n'a été trouvée. Détail : METHODOLOGIE, encadré « Recherche publique en forme stock ».
-
 **Depreciation progressive** (autres canaux) : Si les depenses sont reduites par rapport au niveau par defaut, le bonus acquis ne disparait pas instantanement. Il se deprecie graduellement au taux propre a chaque canal. La recherche publique (15%/an) se deprecie plus vite que la renovation (3%/an), refletant la peremption plus rapide du capital connaissance vs le capital physique.
 
 **Bugs corriges (v3.1)** :
@@ -636,17 +636,18 @@ n'a été trouvée. Détail : METHODOLOGIE, encadré « Recherche publique en fo
 
 ---
 
-### 5. Retour Fiscal de la Transition Ecologique
+### 5. Retour Fiscal de la Transition Ecologique — RETIRE (lot 2, 16/11/2026)
 
-**Source** : OECD 2021 "Getting Infrastructure Right", Cour des comptes 2023
+**Ce qu'il faisait** : le levier de transition ajoutait a ses recettes 0 %, puis 5 %, puis 8 % de sa depense
+d'investissement et de renovation (impots et cotisations de l'activite induite).
 
-**Mecanisme** : L'investissement dans la transition ecologique genere des retours fiscaux (emplois induits -> IR + cotisations, activite -> TVA).
-
-| Periode | Taux de retour fiscal |
-|---------|----------------------|
-| Annees 1-2 | 0% (phase construction) |
-| Annees 3-4 | 5% |
-| Annees 5+ | 8% |
+**Pourquoi il est retire** (arbitrage du mainteneur du 15/11/2026) : les recettes du moteur suivent deja le PIB
+(elasticite 1,0), qui porte justement les impots de l'activite induite : le meme euro etait compte deux fois, et
+pour ce seul levier. Les deux references citees (OCDE « Getting Infrastructure Right », Cour des comptes 2023) ne
+contiennent pas ce chiffre ou sont introuvables. Desormais, un euro investi par l'Etat ou par les collectivites a
+le meme effet. Le levier n'est pas autofinance : tire seul, il alourdit la dette et le deficit en euros chaque
+annee ; si le ratio de dette baisse un peu pour les petits montants, c'est parce que le PIB grossit, pas parce que
+la depense se rembourse. Detail : METHODOLOGIE, « Investissements verts ».
 
 ---
 
@@ -821,7 +822,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 4. **Cicatrice austerite** : RETIREE au lot 1 (15/11/2026) — sans source pour son seuil de 3 % ni pour son sens unique
 5. **Crowding-out differencie** : RETIRE au lot 1 (15/11/2026, option C du 21/10/2026) — sans source et a sens unique ; la dette agit par la prime de taux et la trainee sur le potentiel (la reduction de 5 % des multiplicateurs au-dela de 110 % est absorbee par la calibration dans le domaine publie)
 6. **Supply-side dynamique** : Croissance potentielle augmentee par canal (v0.8.0 : recherche +0,032 pt/Md€, transition +0,005 pt, renovation 0, education +0,0025 pt — elasticites sourcees divisees par les stocks), delais et depreciation differencies, saturation douce vers le plafond ±0,20 pt ; lot 2 : recherche en forme stock logarithmique, effet l'annee qui suit la depense, hors du plafond
-7. **Retour fiscal transition** : 0%/5%/8% (phase-in OECD 2021)
+7. **Retour fiscal transition** : RETIRE au lot 2 (16/11/2026) — double compte avec l'elasticite des recettes au PIB, references sans ce chiffre
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
 9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe avec garde-fou BCE a 2,0%
 10. **Phillips ancree (v4.1)** : `(1-rho) x (pi* + 0,20 x gap) + rho x pi(t-1)`, point fixe 1,6% cale sur le deflateur du PIB, gap initial de -0,7% (RAA 2026 / HCFP)

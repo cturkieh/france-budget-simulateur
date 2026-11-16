@@ -436,9 +436,12 @@ def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     baisse de dette par Md€ diminue avec le montant), plus sur sa valeur
     absolue. Le terme d'effort de l'inflation, retiré, faisait baisser le ratio
     de toute relance par le dénominateur ; sans lui, l'effet change de signe
-    entre 20 et 50 Md€ (mesure du moteur actuel : −0,18 point à 20 Md€, +0,83 à 50 Md€) et la
-    valeur absolue remonte alors que le rendement, lui, décroît toujours. Les deux
-    chiffres de cette docstring sont recalculés ci-dessous : ils ne peuvent pas dériver."""
+    plus tôt et la valeur absolue remonte alors que le rendement, lui, décroît
+    toujours. Lot 2 (16/11/2026) : le retour fiscal propre du levier (0 puis 5
+    puis 8 % de la dépense), retiré, allégeait aussi le coût ; l'effet change
+    désormais de signe entre 10 et 20 Md€ (mesure du moteur actuel : 0,02 point à 20 Md€, +1,33 à 50 Md€).
+    Les deux chiffres de cette docstring sont recalculés ci-dessous : ils ne
+    peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)
     d0 = _dette_2035(sc, 'transition_ecologique', 'investissement', 0)
     effets = {x: _dette_2035(sc, 'transition_ecologique', 'investissement', x) - d0 for x in (1, 5, 20, 50)}
@@ -463,14 +466,15 @@ def test_chiffres_publies_de_l_encadre_lies_a_la_mesure():
     donc en CI publique. Un chiffre qui cesse de reproduire fait rougir la CI (il était
     resté à l'état d'un commit intermédiaire)."""
     d = {x: _dette_2035(DROIT, 'transition_ecologique', 'investissement', x) for x in (0, 10, 20, 30, 50)}
-    assert d[20] < d[0] < d[30], d   # « Entre 20 et 30 Md€/an, le coût l'emporte »
+    # Lot 2 (16/11/2026, retour fiscal propre retiré) : « entre 20 et 30 » → « entre 10 et 20 ».
+    assert d[10] < d[0] < d[20], d   # « Entre 10 et 20 Md€/an, le coût l'emporte »
     sans_offre = {k: v for k, v in GrowthMixin.SUPPLY_EFFECTS.items() if k != 'transition_invest'}
     with patch.object(GrowthMixin, 'SUPPLY_EFFECTS', sans_offre):
         d50_sans = _dette_2035(DROIT, 'transition_ecologique', 'investissement', 50)
     texte = (RACINE / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
     texte = ' '.join(re.sub(r'\n>\s?', ' ', texte).split())
     for attendu in (f"{_fr(d[0])} → {_fr(d[10])} à 10 Md€/an",
-                    "Entre 20 et 30 Md€/an, le coût l'emporte",
+                    "Entre 10 et 20 Md€/an, le coût l'emporte",
                     f"0 → 50 Md€/an, {_fr(d[0])} → {_fr(d[50])} (canal d'offre coupé : {_fr(d50_sans)})"):
         assert attendu in texte, attendu
 

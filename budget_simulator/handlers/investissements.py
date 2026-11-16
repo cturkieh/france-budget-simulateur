@@ -21,8 +21,10 @@ Convention d'application :
   (``remunerations_publiques``) et la taxe carbone (``prelevements_indirects``,
   via les prix). Les primes de rénovation sont des aides à l'investissement,
   hors du RDB au sens de l'INSEE.
-- Effet ``recettes`` (transition_ecologique uniquement) : taxe carbone récurrente
-  + retours fiscaux phase-in dès 2027 (5-8 % selon OECD/Cour des comptes).
+- Effet ``recettes`` (transition_ecologique uniquement) : taxe carbone récurrente.
+  Le retour fiscal propre de l'investissement (0 puis 5 puis 8 %) est retiré au
+  lot 2 : double compte avec l'élasticité des recettes au PIB, références
+  introuvables (voir le handler).
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de gating.
 
 Sources principales :
@@ -205,26 +207,22 @@ class InvestissementsMixin(_MixinBase):
         # carbone française gelée depuis 2018), donc delta = (taxe - réf) * 0.06
         recettes_carbone = (carbon_tax - CARBONE_PRIX_REFERENCE_EUR_T) * 0.06
         delta_revenue = recettes_carbone
-        # Horloge du levier (v0.7.0) : retours fiscaux à partir de la 2ᵉ année
-        # d'application (2027 en mode historique, « year >= 2027 » écrit en dur
-        # jusqu'ici), phasage de la compétitivité verte à partir de la 1ʳᵉ.
+        # Horloge du levier (v0.7.0) : phasage de la compétitivité verte à partir
+        # de la 1ʳᵉ année d'application.
         ecoulees = year - self._origine('transition_ecologique')
-        if ecoulees >= 1:
-            # [FIX] Retours fiscaux de la transition — 5-8% avec phase-in.
-            # L'ancien taux de 20% impliquait 16 Md€/an de retour pour 80 Md€ de dépense,
-            # soit ~144 Md€ cumulés sur 10 ans — absurdement élevé.
-            # OECD (2021) "Getting Infrastructure Right" : retour fiscal de l'investissement
-            # public = 5-8% via emplois induits (IR, cotisations) et activité (TVA).
-            # Cour des comptes (2023) : retour TVA sur investissements publics ~8-10%.
-            # Phase-in : années 1-2 = 0% (construction), années 3-4 = 5%, années 5+ = 8%
-            years_since_2027 = ecoulees - 1
-            if years_since_2027 < 2:
-                fiscal_return_rate = 0.0
-            elif years_since_2027 < 4:
-                fiscal_return_rate = 0.05
-            else:
-                fiscal_return_rate = 0.08
-            delta_revenue += delta_spending * fiscal_return_rate
+        # RETOUR FISCAL PROPRE RETIRÉ (lot 2, arbitrage du mainteneur du
+        # 15/11/2026). Le levier ajoutait à ses recettes 0 %, puis 5 %, puis 8 %
+        # de sa dépense (« retours fiscaux » des emplois et de l'activité induits),
+        # avec deux références qui ne portent pas ce chiffre : OCDE, « Getting
+        # Infrastructure Right » (édition 2017, un cadre de gouvernance : aucun taux
+        # de retour fiscal ; aucune édition 2021 trouvée) et « Cour des comptes
+        # 2023, retour TVA 8-10 % » (introuvable). Surtout, c'était un double
+        # compte : les recettes du moteur suivent déjà le PIB nominal, élasticité
+        # 1,0 (engine/revenues.py), et ce canal porte précisément les impôts et
+        # cotisations de l'activité induite ; ni l'investissement des collectivités
+        # ni la recherche ne recevaient ce surplus. Désormais un euro
+        # d'investissement public reçoit le même retour, celui de l'élasticité,
+        # quel que soit le levier. Garde : tests/test_transition_sans_retour_fiscal.py.
 
         years_elapsed = max(0, ecoulees)
 
@@ -271,9 +269,8 @@ class InvestissementsMixin(_MixinBase):
                                     gini_transition)
 
         # === POUVOIR D'ACHAT (v0.6.8) ===
-        # Taxe carbone : prélèvement indirect, via les prix (montant de l'année,
-        # hors retours fiscaux de l'investissement, qui ne sont pas un impôt
-        # nouveau sur les ménages), à la part payée par les ménages (recette
+        # Taxe carbone : prélèvement indirect, via les prix (montant de l'année),
+        # à la part payée par les ménages (recette
         # TOTALE de la composante carbone, PART_MENAGES_COMPOSANTE_CARBONE). Rénovation : aide à l'investissement des
         # ménages, transfert en capital hors RDB (INSEE) — par la croissance.
         # L'ancien « 0,001 × Md€ / 5 » était réémis chaque année et composé.
