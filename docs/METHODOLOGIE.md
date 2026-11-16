@@ -2975,7 +2975,7 @@ d'offre du capital public (`SUPPLY_EFFECTS`), ensemble, l'atteignent pour un lev
   innovation d'une année dont la persistance n'est pas publiée : une partie de l'écart de rythme peut venir de la
   nature du choc.
 
-**Rythme de la dépense courante (option du lot 6, équation, arbitrage du mainteneur à rendre).** La santé et la
+**Rythme de la dépense courante (option du lot 6, équation, retenue par arbitrage du mainteneur du 16/11/2026).** La santé et la
 réforme de l'État prennent le coefficient de la dépense courante depuis la v0.6.0 : « consommation/optimisation
 publique », hors du canal de l'investissement productif. Elles en prennent désormais aussi le rythme
 (`DECAY_PROFILE_TAXES`, celui de toute dépense courante) : elles sortent de `INVESTMENT_FLOW_MEASURES`, qui garde le

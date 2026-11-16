@@ -388,7 +388,7 @@ def test_etats_non_triviaux(trajectoires):
 @pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
 @pytest.mark.parametrize('levier', ['sante', 'fonction_publique_reforme'])
 def test_sante_et_reforme_de_l_etat_au_rythme_de_la_depense_courante(trajectoires, levier, etat, signe):
-    """Option du lot 6 (équation, arbitrage du mainteneur à rendre) : la santé et la réforme de l'État,
+    """Option du lot 6 (équation, retenue par arbitrage du mainteneur du 16/11/2026) : la santé et la réforme de l'État,
     qui prennent le COEFFICIENT de la dépense courante depuis la v0.6.0 (« consommation/optimisation
     publique »), en prennent aussi le RYTHME. Jusque-là, ``INVESTMENT_FLOW_MEASURES`` leur donnait le
     profil de l'investissement (classement de la première version publique, sans source) : 0,28 point

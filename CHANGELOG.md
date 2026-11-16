@@ -6,6 +6,13 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — texte : l'option du lot 6 (santé et réforme de l'État au rythme de la dépense courante) est retenue
+
+**Statut** : commit de TEXTE ; moteur inchangé. L'option était décrite comme « non tranchée » ; elle est retenue
+(arbitrage du mainteneur du 16/11/2026). Mis à jour : le statut du bloc de l'option ci-dessous, l'encadré « Rythme de
+la dépense courante » de METHODOLOGIE et la docstring de son test. Le message du commit de l'option n'est pas
+réécrit.
+
 ## [non publiée — proposée] — texte du lot SMIC : ancrage sur le Trésor et ses trois limites, chiffrées
 
 **Statut** : proposé, non publié. Commit de TEXTE (documentation et garde de chiffres liés) ; moteur, instantanés et
@@ -489,8 +496,9 @@ dépense garde son flux. Sans ce canal, rien ne change. Un levier à coefficient
   français courant), docstrings des handlers et commentaires de `simulator.py` et `_types.py`.
 ## [non publiée — proposée] — option du lot 6 (équation) : santé et réforme de l'État au rythme de la dépense courante
 
-**Statut** : OPTION proposée, non tranchée par le mainteneur, non publiée, sans numéro de version. Commit d'ÉQUATION
-séparé et retirable, au-dessus de la release du profil de l'investissement (bloc suivant).
+**Statut** : OPTION retenue (arbitrage du mainteneur du 16/11/2026), non publiée, sans numéro de version. Commit
+d'ÉQUATION séparé, au-dessus de la release du profil de l'investissement (bloc suivant). Le titre du commit dit
+encore « non tranchée » : il est antérieur à l'arbitrage.
 
 **Le défaut.** `INVESTMENT_FLOW_MEASURES` donnait à la santé et à la réforme de l'État le rythme de l'investissement
 (`DECAY_PROFILE_INVEST`), alors qu'elles prennent depuis la v0.6.0 le coefficient de la dépense courante, le code les
