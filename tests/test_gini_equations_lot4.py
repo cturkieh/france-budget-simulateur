@@ -209,7 +209,10 @@ def test_ecart_en_euros_de_2025_en_simulation(monkeypatch):
 
 def _part_coupee_2025(base):
     """Lot 3 : la défense exclue (part du PIB, au-delà de l'équipement) est retirée au prorata des autres
-    catégories ; part coupée lue sur les masses et le PIB de 2025 (défense exclue par défaut)."""
+    catégories ; part coupée lue sur les assiettes et le PIB de 2025 (défense et contribution à l'UE exclues par
+    défaut ; l'UE est retirée de « autres »)."""
+    base = dict(base)
+    base['autres'] -= min(base['autres'], C.CONTRIBUTION_UE_2025_MD)
     surplus = max(0.0, C.MONTAIGNE_DEFENSE_PART_PIB * C.PIB_BASE_2025_MD_EUR - base['defense_equipement'])
     return 1.0 - surplus / sum(v for c, v in base.items() if c != 'defense_equipement')
 

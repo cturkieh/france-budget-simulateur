@@ -516,6 +516,24 @@ Avec le PIB du moteur, 2,7 % du PIB font 86 Md€ en 2029 (la note suppose un PI
 aucune source ne tranchant : la note fixe ce niveau pour 2029 ; le moteur le garde chaque année du rabot, 2028
 compris, comme il garde le taux de 8 % au-delà de 2029.
 
+**Rabot uniforme, contribution à l'Union européenne (lot 3, correction).** Les catégories du moteur somment la dépense
+primaire des administrations publiques (Insee, tableau 3.201) ; « autres » en est le résidu, et cette dépense compte
+la contribution de la France au budget de l'Union européenne (opération D76, « ressources propres de l'UE fondées sur
+la TVA et le RNB »). Montant 2025 : 22,983 Md€ (Eurostat, comptes nationaux annuels des secteurs, administrations
+publiques, provisoire) ; il suit le chemin de sa catégorie, le moteur ne projetant pas la hausse que la note prévoit
+(44 Md€ en 2029). Avec l'exclusion (`exclure_ue = 1`, celle de la note), la contribution est retirée de l'assiette de
+« autres » ; sans elle, elle est rabotée une fois, dans « autres ». Jusqu'au lot 3, elle restait rabotée même exclue
+(environ 2 Md€ de coupe en trop par an à 8 %), et sans exclusion 44 Md€ × taux étaient ajoutés par-dessus : la même
+dépense coupée deux fois.
+
+**Coupe du scénario de la note et écart à la note (limite déclarée).** Au taux de 8 %, premier budget en 2028, la
+coupe vaut 137,5 Md€ en 2029. La note chiffre 138 Md€ (graphique, p. 84) à 140 Md€ (texte, p. 83), soit 8 % de
+1 741 Md€ (139,3) : le moteur coupe un peu moins, de 0,5 à 2,5 Md€ en 2029. Son assiette 2029 vaut 1 719 Md€ au lieu de
+1 741 : ses propres projections de dépense et de PIB (3 178 Md€ en 2029 ; les 91 Md€ de défense de la note, pour 2,7 %
+du PIB, supposent un PIB de 3 370 Md€). Le périmètre n'est pas réglé pour retrouver la cible : l'écart est déclaré, pas
+corrigé. Enjeu : une coupe de 2 Md€ de plus par an, l'ordre de grandeur de l'écart, baisserait la dette 2032 du
+scénario d'environ 0,01 point (mode cadre).
+
 ### Assemblage des Depenses (v4.0 — recurrence unique chainee)
 
 Depuis la refonte « assemblage temporel » (juin 2026), les taux par categorie ci-dessus ne portent plus le NIVEAU des depenses : ils servent de **cle de repartition** dans la croissance en volume agregee. La recurrence appliquee des l'annee 1 est :
@@ -2822,8 +2840,8 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > publiés, par rapport au lot 5e ; écarts calculés en pleine précision, sans les arrondis de sortie du moteur) :
 > tous, et la référence sans programme, puisque le droit en vigueur porte une dotation sous le défaut ; dette 2032
 > de +0,131 à +0,136 point pour les six qui gardent la dotation du droit (référence : +0,136), de +0,182 à +0,311
-> point pour les trois programmes qui la baissent de 7 à 12 Md€, +0,347 point pour celui qui utilise le rabot
-> uniforme (dont +0,212 pour sa coupe de dotation) ; déficit 2032 de −0,020 à −0,096 point ; croissance moyenne
+> point pour les trois programmes qui la baissent de 7 à 12 Md€, +0,346 point pour celui qui utilise le rabot
+> uniforme (dont +0,211 pour sa coupe de dotation) ; déficit 2032 de −0,020 à −0,096 point ; croissance moyenne
 > 2028-2032 de −0,004 à −0,030 point ; Gini inchangé (écart inférieur à 0,0001). **Décomposition** (même mesure, les
 > trois programmes qui baissent la dotation, en écart à la référence) : le coefficient seul, profil d'origine
 > (mesuré sur le lot 5e seul, avant les lots 2 et 6), +0,126 à +0,246 point ; avec le profil de l'investissement,

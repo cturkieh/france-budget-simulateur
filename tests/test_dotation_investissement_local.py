@@ -421,13 +421,16 @@ def test_le_rabot_coupe_la_meme_ligne_que_le_curseur_de_dotation():
     assert S.COUPES_DE_DOTATION == {'rabot_uniforme'}
 
 
-def _part_coupee_du_rabot(sim, gdp, exclure_defense=True):
+def _part_coupee_du_rabot(sim, gdp, exclure_defense=True, exclure_ue=True):
     """Part coupée des catégories autres que l'équipement de défense (lot 3) : la défense exclue (part du PIB de
     l'année, au-delà de l'équipement) est retirée au prorata ; 1 sans exclusion. Recalculée ici sur les masses
-    nominales de l'année, indépendamment du handler."""
+    nominales de l'année, contribution à l'UE retirée de « autres » si elle est exclue, indépendamment du handler."""
     if not exclure_defense:
         return 1.0
     masses = {c: sim.masse_categorie_nominale(c) for c in sim.spending_categories_base}
+    if exclure_ue:
+        masses['autres'] -= min(masses['autres'], C.CONTRIBUTION_UE_2025_MD * sim._spending_factors.get('autres', 1.0)
+                                * sim.indice_prix_depenses())
     surplus = max(0.0, C.MONTAIGNE_DEFENSE_PART_PIB * gdp - masses['defense_equipement'])
     return 1.0 - surplus / sum(v for c, v in masses.items() if c != 'defense_equipement')
 
@@ -443,7 +446,7 @@ class _Rabot(BudgetSimulatorV45):
             # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale), à la part coupée
             # que laisse la défense exclue.
             coupe = (self.masse_categorie_nominale('collectivites')
-                     * _part_coupee_du_rabot(self, gdp, d['exclusions']['defense']) * d['taux'] * d['phasing'])
+                     * _part_coupee_du_rabot(self, gdp, d['exclusions']['defense'], d['exclusions']['ue']) * d['taux'] * d['phasing'])
             self.__dict__.setdefault('_coupes', []).append((coupe, imp['depenses_investissement']))
         return dep, rec, imp
 
@@ -488,7 +491,7 @@ class _Rabot_par_annee(BudgetSimulatorV45):
             # que laisse la défense exclue.
             self.__dict__.setdefault('_coupe_par_an', {})[year] = (
                 self.masse_categorie_nominale('collectivites')
-                * _part_coupee_du_rabot(self, gdp, d['exclusions']['defense']) * d['taux'] * d['phasing'])
+                * _part_coupee_du_rabot(self, gdp, d['exclusions']['defense'], d['exclusions']['ue']) * d['taux'] * d['phasing'])
         return dep, rec, imp
 
     def update_potential_growth(self, growth, year):

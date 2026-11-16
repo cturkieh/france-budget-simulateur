@@ -519,14 +519,16 @@ def test_rabot_details_coupes(taux):
     RDB, au montant de l'année (recalculé depuis les masses nominales du
     moteur et les parts posées à la main) ; linéaire dans le taux. Lot 3 :
     assiette en euros de l'année, défense de la note (2,7 % du PIB) retirée au
-    prorata des catégories autres que l'équipement."""
+    prorata des catégories autres que l'équipement, contribution à l'UE hors de
+    l'assiette de « autres »."""
     sim = BudgetSimulatorV45(periods=1, mesures={'rabot_uniforme': {'taux_reduction': taux}})
     _, _, rapport = sim.simulate()
     canal = rapport['measure_impacts_by_year'][1]['rabot_uniforme']['menages']['prestations']
     phasing_2026 = 0.5
     masses = {c: sim.masse_categorie_nominale(c) for c in sim.spending_categories_base}
     surplus = C.MONTAIGNE_DEFENSE_PART_PIB * sim._pib_nominal_par_annee[AN1] - masses['defense_equipement']
-    part_coupee = 1 - surplus / sum(m for c, m in masses.items() if c != 'defense_equipement')
+    ue = C.CONTRIBUTION_UE_2025_MD * sim._spending_factors['autres'] * sim.indice_prix_depenses()
+    part_coupee = 1 - surplus / (sum(m for c, m in masses.items() if c != 'defense_equipement') - ue)
     attendu = -sum(masses[c] * part for c, part in _PART_ESPECES_ATTENDUE.items()) * part_coupee * taux * phasing_2026
     assert canal == pytest.approx(attendu, rel=1e-12)
     assert canal < 0

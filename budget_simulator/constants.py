@@ -1282,6 +1282,17 @@ AAH_2025_MD_EUR = 15.9
 # déclarée, METHODOLOGIE). Valeur neutre (0,0) jusqu'au lot 3 : seule la
 # catégorie « équipements » était exclue.
 MONTAIGNE_DEFENSE_PART_PIB = 0.027
+# Rabot uniforme : contribution de la France au budget de l'Union européenne,
+# comprise dans la catégorie « autres » du moteur. Les catégories somment la
+# dépense primaire des administrations publiques (Insee, tableau 3.201) et
+# « autres » en est le résidu ; cette dépense compte l'opération D76
+# « Ressources propres de l'UE fondées sur la TVA et le RNB ». Montant 2025 :
+# Eurostat, comptes nationaux annuels des secteurs (nasa_10_nf_tr), France,
+# administrations publiques (S13), D76 versé = 22 983 M€ (provisoire, mise à
+# jour du 29/10/2026 ; données transmises par l'Insee). Le moteur ne projette
+# pas sa hausse (la note l'estime à 44 Md€ en 2029, nouveau cadre financier et
+# remboursement du plan de relance) : elle suit le chemin de sa catégorie.
+CONTRIBUTION_UE_2025_MD = 22.983
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés

@@ -850,7 +850,7 @@
           "step": 1,
           "label": "Exclure contribution UE",
           "type": "toggle",
-          "tooltip": "1 = Sanctuariser la contribution européenne (~44 Md€). Obligation juridique."
+          "tooltip": "1 = Sanctuariser la contribution à l'Union européenne : 23 Md€ en 2025 (comptes nationaux), comprise dans les autres dépenses ; la note l'estime à 44 Md€ en 2029. Obligation juridique."
         }
       }
     },

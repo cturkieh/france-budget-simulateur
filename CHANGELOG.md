@@ -121,6 +121,22 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   comme avant ; la valeur de la note est posée par la release de paramètres. Test rouge puis vert :
   `tests/test_rabot_assiette_note.py` (mécanisme sous une part posée par le test ; part nulle = exclusion d'avant ;
   indice d'inégalités sur la part coupée, 2 rouges avant). Golden master isolé : 64 cas sur 64 identiques au bit.
+- **Rabot uniforme : la contribution à l'Union européenne est exclue là où elle est comptée** (correction,
+  relevée par la relecture adverse du lot). Les catégories du moteur somment la dépense primaire des administrations
+  (Insee, tableau 3.201) ; « autres » en est le résidu, et cette dépense compte la contribution à l'UE (opération D76).
+  Avec `exclure_ue = 1` (le cas de la note), elle restait pourtant rabotée dans « autres » (environ 2 Md€ de coupe en
+  trop par an à 8 %) ; avec `exclure_ue = 0`, 44 Md€ × taux étaient ajoutés par-dessus, la même dépense coupée deux
+  fois. Désormais `CONTRIBUTION_UE_2025_MD = 22,983` (Eurostat, comptes nationaux annuels des secteurs,
+  administrations publiques, D76 versé en 2025, provisoire), sur le chemin de sa catégorie, est retirée de l'assiette
+  de « autres » quand elle est exclue, et rabotée une fois sinon. Infobulle de l'exclusion : 23 Md€ en 2025 au lieu de
+  « ~44 Md€ ». Test rouge puis vert : `tests/test_rabot_assiette_note.py` (montant, exclusion exacte, pas de double
+  coupe, chiffre publié de la coupe 2029 lié à la mesure). Golden master isolé : mêmes 3 cas ; 61 sur 64 identiques
+  au bit. Effet (mode cadre, pleine précision, pile assemblée) : coupe 2029 du scénario de la note 139,47 → 137,49
+  Md€ ; dette 2032 +0,01 point, déficit −0,02 point de PIB. **Limite déclarée** : la coupe tombe sous la fourchette de
+  la note (138 à 140 Md€ ; 8 % × 1 741 = 139,3), de 0,5 à 2,5 Md€ en 2029, parce que l'assiette 2029 du moteur
+  (1 719 Md€) suit ses propres projections de dépense et de PIB ; le périmètre n'est pas réglé pour retrouver la
+  cible. Indice d'inégalités : la part coupée de la méthode du lot 4 se lit sur les assiettes de 2025, contribution
+  à l'UE retirée si elle est exclue (test rouge puis vert).
 - **Impôts sur le patrimoine : l'assiette suit le PIB nominal** (règle commune « un taux suit son assiette »).
   Le curseur « Fiscalité du patrimoine » est un pourcentage des recettes de l'IFI, des droits de succession et de
   donation et de la taxe foncière : il s'appliquait pourtant à un bloc figé en euros de l'année source (part dans

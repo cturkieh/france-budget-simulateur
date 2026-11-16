@@ -6,7 +6,8 @@ Mesures couvertes :
   note vise 138 Md€ (graphique, p. 84) ou 140 Md€ (texte, p. 83) en 2029 ;
   le moteur calcule le rendement du taux sur ses propres catégories de
   dépenses, en euros de l'année, hors défense au périmètre de la note
-  (2,7 % du PIB, pensions comprises ; lot 3).
+  (2,7 % du PIB, pensions comprises) et hors contribution à l'Union
+  européenne, comprise dans la catégorie « autres » (lot 3).
 
 Convention d'application :
 - Phasing progressif sur 2 ans (50 % la première année, 100 % ensuite)
@@ -29,6 +30,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
     AAH_2025_MD_EUR,
+    CONTRIBUTION_UE_2025_MD,
     GINI_ALLOC_PAR_MD_EUR,
     GINI_PENSIONS_PAR_MD,
     GINI_SOLIDARITE_PAR_MD,
@@ -109,20 +111,35 @@ class MontaigneMixin(_MixinBase):
         #   catégorie « défense » dans le moteur (convention déclarée : la
         #   composition sociale de la coupe ne change pas). Jusqu'au lot 3, seul
         #   l'équipement était exclu (25 Md€ en 2025) ;
-        # - contribution à l'Union européenne (44 Md€) : hors des catégories du
-        #   moteur (ajoutée ci-dessous si elle n'est pas exclue).
+        # - contribution à l'Union européenne (44 Md€ en 2029 selon la note) :
+        #   COMPRISE dans la catégorie « autres », résidu de la dépense des
+        #   administrations, qui compte l'opération D76 (ressources propres de
+        #   l'UE fondées sur la TVA et le RNB) ; CONTRIBUTION_UE_2025_MD sur le
+        #   chemin de sa catégorie (facteur de volume et indice de prix). Exclue,
+        #   elle est retirée de l'assiette de « autres » ; non exclue, elle est
+        #   rabotée une fois, dans « autres ». Jusqu'au lot 3, elle restait rabotée
+        #   même exclue, et sans exclusion 44 Md€ × taux étaient ajoutés par-dessus
+        #   (la même dépense coupée deux fois).
+        assiettes = dict(masses)
+        contribution_ue = 0.0
+        if exclure_ue:
+            contribution_ue = min(masses['autres'],
+                                  CONTRIBUTION_UE_2025_MD * self._spending_factors.get('autres', 1.0)
+                                  * self.indice_prix_depenses())
+            assiettes['autres'] = masses['autres'] - contribution_ue
+
         def _part_coupee(m, pib):
             if not exclure_defense:
                 return 1.0
             surplus_defense = max(0.0, MONTAIGNE_DEFENSE_PART_PIB * pib - m['defense_equipement'])
             return 1.0 - surplus_defense / sum(v for c, v in m.items() if c != 'defense_equipement')
 
-        part_coupee = _part_coupee(masses, gdp)
+        part_coupee = _part_coupee(assiettes, gdp)
 
         total_coupe = 0
         details_coupes = {}
 
-        for categorie, masse in masses.items():
+        for categorie, masse in assiettes.items():
             # Exclusions
             if exclure_defense and categorie == 'defense_equipement':
                 details_coupes[categorie] = 0
@@ -131,12 +148,6 @@ class MontaigneMixin(_MixinBase):
             coupe = masse * part_coupee * taux_reduction * phasing
             details_coupes[categorie] = coupe
             total_coupe += coupe
-
-        # Ajout coupe UE si non exclue (44 Md€ base, pas dans categories)
-        if not exclure_ue:
-            coupe_ue = 44 * taux_reduction * phasing
-            details_coupes['contribution_ue'] = coupe_ue
-            total_coupe += coupe_ue
 
         # Note: La dette (107 Md€) est TOUJOURS incompressible (intérêts contractuels)
         # Elle n'est pas dans spending_categories et ne peut être coupée
@@ -159,11 +170,15 @@ class MontaigneMixin(_MixinBase):
         # phasage, sans source, RÉÉMIS chaque année dans un agrégateur
         # cumulatif : l'indice dérivait tant que le rabot durait.
         # Lot 3 : le montant porte la même part coupée que la coupe (exclusion de
-        # la défense au-delà de l'équipement), lue sur les masses de 2025 et le
-        # PIB de 2025 — montant de l'année source, hors croissance, comme le
+        # la défense au-delà de l'équipement), lue sur les assiettes de 2025
+        # (contribution à l'UE de 2025 retirée de « autres » si elle est exclue)
+        # et le PIB de 2025 — montant de l'année source, hors croissance, comme le
         # reste de la règle ; part coupée 1 sans exclusion ou à part nulle.
         base_2025 = self.spending_categories_base
-        part_coupee_2025 = _part_coupee(base_2025, PIB_BASE_2025_MD_EUR)
+        assiettes_2025 = dict(base_2025)
+        if exclure_ue:
+            assiettes_2025['autres'] = base_2025['autres'] - min(base_2025['autres'], CONTRIBUTION_UE_2025_MD)
+        part_coupee_2025 = _part_coupee(assiettes_2025, PIB_BASE_2025_MD_EUR)
 
         def _effet_rabot_uniforme(p):
             t = p['taux'] * p['part_coupee']
@@ -229,6 +244,7 @@ class MontaigneMixin(_MixinBase):
                 'taux': taux_reduction,
                 'phasing': phasing,
                 'total_coupe': total_coupe,
+                'contribution_ue_exclue': contribution_ue,
                 'exclusions': {
                     'dette': bool(exclure_dette),
                     'defense': bool(exclure_defense),
