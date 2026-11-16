@@ -87,6 +87,17 @@ _GDP, _INFLATION, _UNEMP = 3100.0, 0.015, 0.075
 #: l'ABSENCE de clé ``age_depart``, cf. lot 1).
 AGE_GELE = 62.75
 
+#: Lot 4 : le coefficient redistributif du canal d'âge vaut 0 faute de source
+#: (constants.py). Les tests de son HORLOGE (déclenchement, résidu) éprouvent le
+#: mécanisme, gardé, avec ce coefficient sonde non nul — l'ancienne valeur.
+SONDE_AGE = 0.001 / 1.25
+
+
+@pytest.fixture(autouse=True)
+def _sonde_du_canal_d_age(monkeypatch):
+    import budget_simulator.handlers.depenses as mod_depenses
+    monkeypatch.setattr(mod_depenses, 'RETRAITES_GINI_PAR_ANNEE_ECART', SONDE_AGE)
+
 
 def _serie_gini(age_depart, indexation=1.0, annees=_ANNEES):
     """Série annuelle des émissions ``gini`` du handler retraites.
@@ -107,7 +118,7 @@ def _serie_gini(age_depart, indexation=1.0, annees=_ANNEES):
 def _gini_age_theorique(age_depart, annee):
     """Effet redistributif de NIVEAU de l'année, avant tout gating."""
     ecart = age_depart - retraites_ref_age_ans(annee)
-    return RETRAITES_GINI_PAR_ANNEE_ECART * ecart
+    return SONDE_AGE * ecart
 
 
 # ===========================================================================
@@ -412,9 +423,11 @@ def test_le_lot_ne_touche_pas_la_fenetre_de_p3():
 def test_le_bareme_d_age_lui_meme_est_inchange():
     """Sens du lot, vérifié : hygiène, pas recalibrage.
 
-    Ni le barème plat de 6,0 Md€/an, ni le coefficient redistributif de
-    0,001 par 1,25 année d'écart (§ B.1-13 du dossier : « ne pas l'ajuster
-    hors d'une passe dédiée ») ne bougent.
+    Le barème plat de 6,0 Md€/an ne bouge pas. Le coefficient redistributif
+    (0,001 par 1,25 année d'écart, « ne pas l'ajuster hors d'une passe
+    dédiée », § B.1-13 du dossier) a eu sa passe dédiée : le lot 4 (méthode
+    unique du Gini) le met à ZÉRO faute de source (règle du mainteneur : sans
+    source, zéro et limite déclarée ; constants.py).
     """
     assert RETRAITES_COEFF_AGE_MD_EUR == pytest.approx(6.0)
-    assert RETRAITES_GINI_PAR_ANNEE_ECART == pytest.approx(0.001 / 1.25)
+    assert RETRAITES_GINI_PAR_ANNEE_ECART == 0.0

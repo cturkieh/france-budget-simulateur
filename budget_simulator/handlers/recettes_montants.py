@@ -49,8 +49,8 @@ from .._logging import _log_debug
 from ..constants import (
     COMPET_PATRIMOINE_PAR_MD,
     COMPET_TVA_PAR_MD,
-    GINI_IR_DECOTE_PAR_MD,
-    GINI_PATRIMOINE_PAR_MD,
+    GINI_IR_CIBLE_PAR_MD,
+    GINI_SUCCESSIONS_PAR_MD,
     GINI_TVA_ENERGIE_PAR_MD,
     GINI_TVA_PAR_MD,
     NEUTRES_RELEASE_E,
@@ -97,10 +97,11 @@ class RecettesMontantsMixin(_MixinBase):
         d'évitement : le montant est le rendement écrit par le programme.
         Aucun canal ménages : un droit de mutation à titre gratuit est un
         transfert en capital, hors du revenu disponible (convention du levier
-        ``fiscalite_patrimoine``). Gini et compétitivité ponctuels : règle du
-        levier patrimoine par Md€ (``GINI_PATRIMOINE_PAR_MD``,
-        ``COMPET_PATRIMOINE_PAR_MD``, constantes signées négatives : une
-        hausse de recette réduit le Gini et la compétitivité). Domaine
+        ``fiscalite_patrimoine``). Gini : le même périmètre, 0 par Md€
+        (``GINI_SUCCESSIONS_PAR_MD``, méthode unique du lot 4 ; jusqu'ici la
+        règle du levier patrimoine, −0,001 par Md€). Compétitivité ponctuelle :
+        règle du levier patrimoine par Md€ (``COMPET_PATRIMOINE_PAR_MD``,
+        négative : une hausse de recette réduit la compétitivité). Domaine
         [−DMTG_2025_MD ; DMTG_VARIATION_MAX_MD] : la borne basse est la recette
         2025 sourcée, la borne haute (+25) une décision du mainteneur du
         12/11/2026 ; aucune décote d'évitement (constants.py).
@@ -120,7 +121,7 @@ class RecettesMontantsMixin(_MixinBase):
         niveau = {'variation': variation}
 
         def _effet_droits_succession(p):
-            return GINI_PATRIMOINE_PAR_MD * p['variation']
+            return GINI_SUCCESSIONS_PAR_MD * p['variation']
 
         def _effet_droits_succession_competitivite(p):
             return COMPET_PATRIMOINE_PAR_MD * p['variation']
@@ -148,8 +149,8 @@ class RecettesMontantsMixin(_MixinBase):
         (horloge du levier) : la part TVA (clé ``recettes_tva``) suit la règle
         de ``tva_rate`` (30 % de la recette en % du PIB, plafonné à 0,2 point,
         hausse seulement). Gini ponctuel : règle de ``tva_rate`` par Md€ pour la TVA, de
-        ``tva_energie`` pour les accises (constantes positives : une hausse
-        accroît le Gini) ; compétitivité ponctuelle : TVA seule (convention de
+        ``tva_energie`` pour les accises, nulles depuis le lot 4 (périmètre
+        INSEE : niveau de vie mesuré avant les prix) ; compétitivité ponctuelle : TVA seule (convention de
         ``tva_energie`` : 0 pour les accises, limite dite au contrat).
         Indépendant de ``tva_rate``, ``tva_energie`` et de la taxe carbone
         (règle I) : aucune lecture croisée.
@@ -198,10 +199,10 @@ class RecettesMontantsMixin(_MixinBase):
         """Impôt sur le revenu, mesure ciblée en Md€ par an (contrat § 1.2-10).
 
         Recette = ``montant`` chaque année (R-IDX) ; canal ménages :
-        prélèvement direct du même montant. Gini ponctuel : règle de la décote
-        par Md€ (``GINI_IR_DECOTE_PAR_MD``, positive), seule règle IR du moteur
-        dont l'incidence porte sur le milieu de la distribution (interprétation
-        du contrat) ; compétitivité 0. Indépendant de ``impot_revenu``,
+        prélèvement direct du même montant. Gini ponctuel : ``GINI_IR_CIBLE_PAR_MD``
+        par Md€, zéro faute de source (le levier ne dit pas quel instrument il
+        porte ; limite déclarée, constants.py § CANAUX GINI), le même que
+        l'élargissement de l'IR ; compétitivité 0. Indépendant de ``impot_revenu``,
         ``elargissement_ir`` et ``abattement_retraites`` (règle IR).
         """
         montant = params.get('montant', NEUTRES_RELEASE_E['impot_revenu_cible']['montant'])
@@ -217,7 +218,7 @@ class RecettesMontantsMixin(_MixinBase):
         }
 
         def _effet_impot_revenu_cible(p):
-            return GINI_IR_DECOTE_PAR_MD * p['montant']
+            return GINI_IR_CIBLE_PAR_MD * p['montant']
 
         impacts['gini'] = self._effet_ponctuel(
             'impot_revenu_cible', {'montant': montant}, _effet_impot_revenu_cible)

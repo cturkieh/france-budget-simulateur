@@ -80,7 +80,9 @@ Convention d'application :
   gating, et § "Sante" pour le détail des leviers santé.
 
 Sources principales :
-- COR Rapport annuel 2024, OFCE Brief 124 (15/02/2024) — retraites ;
+- COR Rapport annuel 2024 — retraites (l'OFCE Policy Brief n° 124, cité
+  jusqu'au lot 4 pour le Gini de l'indexation, ne contient aucun indice de
+  Gini : citation retirée, constants.py § canal indexation) ;
   DG Trésor (COR 27/01/2022, doc n° 12) et Cour des comptes 02/2025 T6 p. 72
   pour le barème d'âge ; DREES/DARES via Cour 02/2025 p. 67-68 pour la fuite
   sociale résiduelle (détail et URL : constants.py).
@@ -127,7 +129,6 @@ reproduire le pattern.
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from ..constants import (
-    ASU_GINI_BORNE_PAR_MD_EUR,
     ASU_PERIMETRE_MD_EUR,
     ASU_PLAFONNEMENT_DEFAUT,
     CHOMAGE_DUREE_REF_MOIS,
@@ -136,8 +137,10 @@ from ..constants import (
     CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE,
     CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE,
     COUT_CHOMAGE_MARGINAL_MOIS_MD,
+    GINI_ABATTEMENT_RETRAITES_PAR_MD,
     GINI_ALLOC_PAR_MD_EUR,
     GINI_DUREE_SURPOIDS,
+    GINI_SOLIDARITE_PAR_MD,
     FUITE_SOCIALE_RESIDUELLE,
     PHASING_RETRAITES_5ANS,
     POLICY_START_YEAR,
@@ -433,21 +436,19 @@ class DepensesMixin(_MixinBase):
                                                          origine, deltas))
 
         # === IMPACTS MACROÉCONOMIQUES ===
-        # Gini : Âge départ ↑ = LÉGÈREMENT INÉGALITAIRE
-        # Recul âge pénalise davantage classes populaires (mortalité différentielle)
-        # Ouvriers : espérance vie -6 ans vs cadres, taux emploi 55-64 ans 52% vs 71%
-        # Règle : +1,25 année d'âge au-dessus du droit en vigueur = +0.001 Gini
-        # (COR 2024, « effet hétérogène espérance vie »). v0.6.1 : l'écart est
-        # mesuré par rapport à l'âge légal de l'ANNÉE, comme le canal
-        # budgétaire, pour que le statu quo reste neutre sur les inégalités.
-        # Le coefficient lui-même est INCHANGÉ : l'effet distributif du canal
-        # emploi n'est pas établi (hétérogénéité forte documentée), il ne sera
-        # pas ajusté hors d'une passe dédiée (constants.py, § B.1-13).
+        # Gini du canal d'âge : RETRAITES_GINI_PAR_ANNEE_ECART × écart d'âge à
+        # la référence de l'ANNÉE (v0.6.1 : le statu quo reste neutre). Lot 4 :
+        # coefficient à ZÉRO faute de source (aucune des sources consultées ne
+        # chiffre l'effet d'un âge de départ sur le Gini du niveau de vie) —
+        # limite déclarée, avec son sens, dans constants.py ; jusqu'ici +0,001
+        # par 1,25 année d'écart, sans source. Le mécanisme est gardé.
         gini_age = RETRAITES_GINI_PAR_ANNEE_ECART * ecart_age
 
-        # Gini : Indexation ↓ = paupérisation retraités (régressif)
-        # Règle : Indexation 100%→90% = +0.005 Gini (OFCE Brief 124, 15/02/2024
-        # — valeur et source dans constants.py)
+        # Gini : Indexation ↓ = paupérisation retraités (faiblement régressif)
+        # Règle du code : 0,005 × (1 − indexation), soit +0,0005 pour une
+        # indexation à 90 % (sens et ordre de grandeur, constants.py § canal
+        # indexation ; la citation « OFCE Brief 124 » est retirée au lot 4 : ce
+        # document ne contient aucun indice de Gini)
         gini_indexation = RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1.0 - indexation)
 
         # Guard Gini — plein effet l'année où la mesure OUVRE SON ÉCART, puis
@@ -705,13 +706,18 @@ class DepensesMixin(_MixinBase):
         # (gini −0,002 / PA +0,003 / compétitivité +0,001 par effort) n'avait
         # AUCUNE source : couper 30 Md€ ne coûtait rien dans aucune dimension
         # (repas gratuit). Règle du chantier : contrepartie SOURCÉE ou
-        # neutralité réelle. Seules les FRANCHISES gardent leurs impacts,
-        # eux sourcés (OFCE 2024, INSEE 2024).
-        # Gini: Franchises ↑ = impact RÉGRESSIF (touche + les pauvres)
-        # Règle : Franchises 100%→200% (Bayrou) = +0.003 Gini (OFCE 2024)
-        # Émis au changement, en INCRÉMENT (v0.7.0).
+        # neutralité réelle. Seules les FRANCHISES gardent un impact (pouvoir
+        # d'achat, ci-dessous).
+        # Gini (lot 4, PÉRIMÈTRE) : 0, franchises comprises. Un remboursement
+        # de soins est un transfert EN NATURE, hors du revenu disponible de
+        # l'INSEE (constants.py § CANAUX GINI) : une franchise payée par le
+        # patient ne change pas le niveau de vie mesuré, comme le rabot qui ne
+        # compte pas la santé. Jusqu'ici +0,003 pour un doublement des
+        # franchises (« OFCE 2024 », passage non retrouvé). Le canal pouvoir
+        # d'achat, lui, compte la franchise (reste à charge). Le déclencheur
+        # ponctuel garde sa clé (traqueur du monde inchangé).
         def _effet_sante(p):
-            return 0.003 * (p['franchise'] - 100) / 100
+            return 0.0
 
         gini = self._effet_ponctuel('sante', params_sante, _effet_sante)
 
@@ -1120,23 +1126,17 @@ class DepensesMixin(_MixinBase):
 
         # === GINI ===
         # AUCUNE source ne publie l'effet Gini de l'ASU (les scénarios
-        # officiels donnent un taux de pauvreté). Le moteur ne fabrique pas
-        # la conversion : il retient une BORNE THÉORIQUE déclarée — un
-        # transfert net entièrement reçu par le tout premier centile, cas
-        # limite où l'amélioration est arithmétiquement maximale. Toute
-        # concentration réelle est moins extrême, donc l'effet réel est plus
-        # PETIT : le moteur MAJORE délibérément le bénéfice redistributif,
-        # pour qu'on ne puisse pas lui reprocher de minorer l'apport des
-        # programmes généreux. v0.6.3 (revue) : l'euro de RECOURS entre dans
-        # la borne au même titre que l'euro de barème — le domaine de la
-        # borne est « un transfert net de E Md€ vers le bas », exactement ce
-        # qu'est le recours résorbé ; appliquer la convention quand elle
-        # CHARGE le programme (budget, PA) et la retenir quand elle le
-        # CRÉDITE aurait été l'asymétrie. Un majorant étendu à un second
-        # euro ne peut que surestimer — le sens d'erreur déclaré. À barème
-        # constant (effort nul), il reste donc un gain Gini : il est PAYÉ
-        # (2,4 Md€/an pérennes), plus un free lunch.
-        impacts['gini'] = (-ASU_GINI_BORNE_PAR_MD_EUR
+        # officiels donnent un taux de pauvreté). Lot 4 (arbitrage du
+        # mainteneur) : coefficient des prestations ciblées de l'INSEE au
+        # classement final (GINI_SOLIDARITE_PAR_MD, la famille que l'ASU
+        # fusionne) × le transfert net, au lieu de la borne théorique C = −1
+        # (majorant délibéré jusqu'ici). v0.6.3 (revue) : l'euro de RECOURS
+        # entre dans le transfert au même titre que l'euro de barème — c'est
+        # un transfert net vers le bas, PAYÉ au budget (2,4 Md€/an pérennes) ;
+        # appliquer la règle quand elle CHARGE le programme (budget, PA) et la
+        # retenir quand elle le CRÉDITE aurait été l'asymétrie. Limite de sens
+        # non établi (constants.py, ASU_GINI_BORNE_PAR_MD_EUR).
+        impacts['gini'] = (GINI_SOLIDARITE_PAR_MD
                            * (effort + asu_cout_recours_md_eur(1.0))
                            * increment)
 
@@ -1194,11 +1194,16 @@ class DepensesMixin(_MixinBase):
         # Gini: ONE-TIME (first year only)
         # Réforme = hausse impôts retraités aisés = LÉGÈREMENT PROGRESSIF
         # Mais 10% plus riches = 60% du gain = distribution inégale
-        # Rule: Impact modéré car ciblé
         # Légèrement progressif (taxe les riches) ; en INCRÉMENT (v0.7.0).
+        # Lot 4 (méthode unique) : recette de régime permanent (4 Md€) × le
+        # coefficient à plage publiée GINI_ABATTEMENT_RETRAITES_PAR_MD
+        # (constants.py § CANAUX GINI : la source chiffre la suppression, le
+        # levier décrit le forfait, limite déclarée) ; jusqu'ici −0,004
+        # forfaitaire, sans source (−0,001 par Md€, deux fois la borne
+        # arithmétique d'un prélèvement).
         params_tracking = {'reforme': reforme}
         def _effet_abattement_retraites(p):
-            return -0.004 if p['reforme'] == 1 else 0.0
+            return GINI_ABATTEMENT_RETRAITES_PAR_MD * 4.0 if p['reforme'] == 1 else 0.0
 
         gini = self._effet_ponctuel('abattement_retraites', params_tracking, _effet_abattement_retraites)
 

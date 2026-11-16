@@ -8,7 +8,7 @@ Mesures couvertes (8 handlers) :
 - ``impot_revenu`` : barème IR — taux 5e tranche + décote. Assiette MARGINALE
   (au-dessus de 160 950 €), effet Laffer via ETI tranche supérieure.
 - ``csg`` : taux global CSG (base 9,7 %) + option progressivité par décile
-  (neutre recettes, forte réduction Gini). Recettes RÉCURRENTES, Gini one-time.
+  (neutre recettes ; Gini 0 faute de source, lot 4). Recettes RÉCURRENTES, Gini one-time.
 - ``cotisations_salariales`` : baisse en points (0 à la suppression totale de la
   masse sourcée, release E), 1 % de la masse salariale brute 2025 par point
   (≈ 11,57 Md€). Gini one-time.
@@ -44,8 +44,12 @@ Convention d'application :
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de gating.
 
 Sources principales :
-- OFCE 2024 (TVA et inégalités, CSG régressive), INSEE 2018 (hausse TVA),
-  CAE 2022/2024 (répercussion prix, attractivité).
+- Gini (lot 4, méthode unique) : INSEE, France, portrait social 2025, fiche
+  « Redistribution monétaire », figure 2 (coefficients par Md€,
+  constants.py § CANAUX GINI). Les attributions antérieures « OFCE 2024 »
+  (TVA et inégalités, « CSG régressive ») sont retirées : passages non
+  retrouvés, et le signe de la CSG contredit par l'INSEE.
+- INSEE 2018 (hausse TVA), CAE 2022/2024 (répercussion prix, attractivité).
 - DGFiP POTE 2024, DG Trésor 2018, IPP TAXIPP 2024 (barème IR, Laffer).
 - DREES 2024, OFCE 2023 (progressivité CSG, modèle Allemagne).
 - URSSAF 2024, DARES (cotisations salariales).
@@ -63,7 +67,13 @@ from ..constants import (
     ETI_PLANCHER_FACTEUR,
     ETI_TRANCHE_SUPERIEURE,
     GINI_COTIS_SAL_PAR_MD,
-    IR_GINI_DECOTE,
+    GINI_CSG_PAR_MD,
+    GINI_HAUT_PATRIMOINE_PAR_MD,
+    GINI_CSG_PROGRESSIVE,
+    GINI_IR_CIBLE_PAR_MD,
+    GINI_IR_DECOTE_PAR_MD,
+    GINI_SUCCESSIONS_PAR_MD,
+    GINI_TAXE_FONCIERE_PAR_MD,
     IR_GINI_PAR_5PTS,
     IR_RECETTE_DECOTE,
     ISF_COMPET_PAR_12MD,
@@ -73,7 +83,6 @@ from ..constants import (
     PART_CONSOMMATION_MENAGES_TVA_TOTALE,
     PART_MENAGES_TAXE_FONCIERE,
     PATRIMOINE_COMPET_PAR_10MD,
-    PATRIMOINE_GINI_PAR_10MD,
     POLICY_START_YEAR,
     TVA_COMPET_PAR_2PTS,
     TVA_ENERGIE_CONSO_ELECTRICITE_MD,
@@ -109,9 +118,10 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Impact ONE-TIME (changement structure fiscale), en INCRÉMENT
-        # (v0.7.0, simulator._effet_ponctuel).
-        # Gini : TVA = impôt RÉGRESSIF (touche + les pauvres)
-        # Règle : TVA 20%→22% = +0.005 Gini (OFCE 2024)
+        # (v0.7.0, simulator._effet_ponctuel). Lot 4 : TVA_GINI_PAR_2PTS = 0 —
+        # le Gini publié est celui du niveau de vie de l'INSEE, mesuré avant les
+        # prix (constants.py § CANAUX GINI) ; jusqu'ici +0,005 pour +2 points,
+        # attribué à « OFCE 2024 » sans passage retrouvé.
         def _effet_tva_rate(p):
             return TVA_GINI_PAR_2PTS * (p['rate'] - 0.20) / 0.02
 
@@ -176,9 +186,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         # ménages ni répercussion partielle d'une baisse.
         delta_tva_moyen = ((taux_elec + taux_gaz) / 2) - 0.20
 
-        # Gini : léger effet positif (ménages modestes dépensent + en % pour énergie)
-        # Baisse TVA énergie réduit inégalités (énergie = 15% budget classes populaires vs 7% classes aisées)
-        # Impact appliqué UNE FOIS (changement structure prix relatifs)
+        # Gini : TVA_ENERGIE_GINI_PAR_TAUX = 0 depuis le lot 4 (périmètre INSEE :
+        # niveau de vie mesuré avant les prix, constants.py § CANAUX GINI).
         impact_gini = _one_time_level(years_elapsed, delta_tva_moyen * TVA_ENERGIE_GINI_PAR_TAUX * phasing)
 
         # Compétitivité : neutre (entreprises ont déjà TVA déductible)
@@ -238,9 +247,13 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Gini : Impact ONE-TIME (changement barème fiscal), en INCRÉMENT (v0.7.0)
         # IR = impôt PROGRESSIF (redistribution forte)
         # Règle : Taux sup 45%→50% = -0.008 Gini (OFCE 2023)
-        # Décote : Baisse décote = hausse impôt classes moyennes = +Gini
+        # Décote (lot 4, méthode unique) : Md€ de recette × le coefficient de
+        # la décote GINI_IR_DECOTE_PAR_MD (Conseil des prélèvements
+        # obligatoires, tableau n° 34 ; constants.py § CANAUX GINI) ; jusqu'ici
+        # +0,003 pour 7,5 Md€, sans source.
         def _effet_impot_revenu(p):
-            return IR_GINI_PAR_5PTS * (p['taux_sup'] - 0.45) / 0.05 + IR_GINI_DECOTE * (1.0 - p['decote'])
+            return (IR_GINI_PAR_5PTS * (p['taux_sup'] - 0.45) / 0.05
+                    + GINI_IR_DECOTE_PAR_MD * (1.0 - p['decote']) * IR_RECETTE_DECOTE)
 
         gini = self._effet_ponctuel(
             'impot_revenu', {'taux_sup': taux_sup, 'decote': decote}, _effet_impot_revenu)
@@ -299,12 +312,15 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Pouvoir d'achat (v0.6.8) : la recette EST le revenu retiré aux ménages
         # (canal ``prelevements_directs``) ; l'ancien « −1 pt = −1 % de PA »
         # transmettait 111 % de ses euros au RDB.
-        # Impact Gini du taux : LÉGÈREMENT RÉGRESSIF — CSG touche pensions (taux
-        #   remplacement faible) et patrimoine. Règle : CSG +1 pt = +0.002 Gini
-        #   (OFCE 2024 "CSG légèrement régressive"). CSG 9.7 % (défaut 2025) →
-        #   delta=0 → impact=0 (status quo) ; CSG 10.5 % → delta=+0.8 pt →
-        #   impact=+0.0016 Gini.
-        impact_gini_taux = _one_time_level(years_elapsed, 0.002 * (delta_taux_global / 0.01))
+        # Impact Gini du taux (lot 4, méthode unique) : Md€ de recette ×
+        #   GINI_CSG_PAR_MD, NÉGATIF — l'INSEE classe les contributions sociales
+        #   parmi les prélèvements « faiblement progressifs » (France, portrait
+        #   social 2025, fiche « Redistribution monétaire », figure 2 ;
+        #   constants.py § CANAUX GINI) : une hausse réduit l'indice. Jusqu'ici
+        #   +0,002 par point (« OFCE 2024, CSG légèrement régressive », sans
+        #   passage retrouvé) : le signe était inversé. CSG 9,7 % (défaut 2025)
+        #   → recette nulle → impact nul (statu quo).
+        impact_gini_taux = _one_time_level(years_elapsed, GINI_CSG_PAR_MD * delta_recettes)
 
         # ===== EFFET 2 : PROGRESSIVITÉ (si activée) =====
         impact_gini_progressif = 0.0
@@ -321,10 +337,12 @@ class FiscaliteMenagesMixin(_MixinBase):
             #   bouge pas (transfert entre déciles, porté par le Gini). L'ancien
             #   +0,4 % comptait un effet de consommation, que l'emploi ci-dessous
             #   porte déjà.
-            # Gini : FORTE réduction inégalités (OFCE 2023, modèle Allemagne).
+            # Gini (lot 4) : GINI_CSG_PROGRESSIVE = 0, faute de source (jusqu'ici
+            #   −0,015, « OFCE 2023, modèle Allemagne », sans passage retrouvé) :
+            #   limite déclarée, constants.py § CANAUX GINI.
             # Emploi : via boost consommation (multiplicateur 0.6) — +0.73 %
             #   conso → +0.44 % PIB → -0.15 % chômage (Okun -0.35).
-            impact_gini_progressif = _one_time_level(years_elapsed, -0.015)
+            impact_gini_progressif = _one_time_level(years_elapsed, GINI_CSG_PROGRESSIVE)
             impact_emploi_progressif = _one_time_level(years_elapsed, -0.0015)
 
         # Compétitivité : Impact ONE-TIME (changement structure fiscale)
@@ -488,9 +506,16 @@ class FiscaliteMenagesMixin(_MixinBase):
         }
 
         # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
-        # Légèrement régressif (élargit mais touche classes moyennes D4-D6)
+        # Lot 4 (méthode unique) : Md€ de recette × GINI_IR_CIBLE_PAR_MD, zéro
+        # faute de source (le levier ne dit pas quel instrument fait entrer de
+        # nouveaux foyers dans l'impôt ; constants.py § CANAUX GINI) ;
+        # jusqu'ici +0,005 pour +20 points de foyers (≈ 4,4 Md€, soit 0,0011
+        # par Md€, au-dessus de la borne arithmétique d'un prélèvement), sans
+        # source.
         def _effet_elargissement_ir(p):
-            return 0.005 * ((p['taux_cible'] - TAUX_ACTUEL) / 0.20)
+            return GINI_IR_CIBLE_PAR_MD * (
+                FOYERS_TOTAL * (p['taux_cible'] - TAUX_ACTUEL) * REVENU_MOYEN_NOUVEAUX
+                * TAUX_EFFECTIF_MOYEN / 1e9)
 
         impacts['gini'] = self._effet_ponctuel(
             'elargissement_ir', {'taux_cible': taux_cible}, _effet_elargissement_ir)
@@ -550,9 +575,16 @@ class FiscaliteMenagesMixin(_MixinBase):
         }
 
         # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
-        # Fort effet redistributif si hausse (patrimoine concentré D9-D10)
+        # Lot 4 (méthode unique, constants.py § CANAUX GINI) : chaque impôt à
+        # son coefficient par Md€ — l'IFI à celui de l'INSEE (le prélèvement le
+        # plus progressif) ; les droits de succession (transfert en capital) et
+        # la taxe foncière (hors des impôts directs du revenu disponible) à 0,
+        # le même périmètre que le canal ménages ci-dessus. Jusqu'ici −0,001 par
+        # Md€ du TOTAL (deux fois la borne arithmétique d'un prélèvement).
         def _effet_fiscalite_patrimoine(p):
-            return PATRIMOINE_GINI_PAR_10MD * ((TOTAL_BASE * p['intensite']) / 10.0)
+            return p['intensite'] * (GINI_HAUT_PATRIMOINE_PAR_MD * IFI_BASE
+                                     + GINI_SUCCESSIONS_PAR_MD * SUCCESSION_BASE
+                                     + GINI_TAXE_FONCIERE_PAR_MD * FONCIERE_BASE)
 
         impacts['gini'] = self._effet_ponctuel(
             'fiscalite_patrimoine', {'intensite': intensite}, _effet_fiscalite_patrimoine)

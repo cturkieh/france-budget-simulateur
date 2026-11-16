@@ -35,6 +35,7 @@ import math
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    GINI_SMIC_PAR_HAUSSE,
     PART_NETTE_DU_BRUT_SMIC,
     PART_NETTE_REMUNERATIONS_APU,
     SALAIRES_BRUTS_2017_MD,
@@ -208,10 +209,13 @@ class AdditionnelsMixin(_MixinBase):
         # Élasticité : 0.025 (DG Trésor 2023 - effet modéré car SMIC = 15% masse salariale)
         impact_competitivite = _one_time_level(years_elapsed, -hausse_pct * 0.025)
 
-        # Gini : -0.003 pour +10% SMIC (redistribution vers bas salaires)
-        # Impact permanent sur distribution, mais appliqué une fois (structure revenus)
-        # Élasticité : 0.03 (INSEE 2024 - effet concentré sur D1-D2)
-        impact_gini = _one_time_level(years_elapsed, -hausse_pct * 0.03)
+        # Gini : réduction pour une hausse, appliquée une fois (structure des
+        # revenus). Lot 4 : GINI_SMIC_PAR_HAUSSE, centre de la plage tirée des
+        # gains par dixième du groupe d'experts sur le SMIC (2017, DG Trésor :
+        # graphiques n° 41 et 45), chiffrage statique pour +1 %, extrapolé
+        # linéairement (convention déclarée, constants.py § CANAUX GINI).
+        # Jusqu'ici −0,03 × hausse, « INSEE 2024 », sans passage retrouvé.
+        impact_gini = _one_time_level(years_elapsed, hausse_pct * GINI_SMIC_PAR_HAUSSE)
 
         # Chômage : Hausse SMIC → Hausse coût travail → Destruction emplois non qualifiés (ONE-TIME)
         # IMPORTANT : Impact NÉGATIF sur emploi (hausse SMIC augmente chômage)
@@ -320,12 +324,14 @@ class AdditionnelsMixin(_MixinBase):
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # IMPORTANT : Effets NIVEAU (one-time), pas FLUX (recurring)
-        # Gini : -0.01 (redistribution capital → État)
+        # Gini (lot 4, PÉRIMÈTRE) : 0. Impôt payé par des sociétés, sans canal
+        # ménages (ci-dessous) : il ne touche pas le revenu disponible des
+        # ménages au sens de l'INSEE, comme l'impôt sur les sociétés, dont le
+        # Gini est 0 (constants.py § CANAUX GINI). Jusqu'ici −0,01 pour
+        # 15 Md€, sans source.
         # PA : aucun effet direct (taxe entreprises, pas ménages)
         # Compétitivité : -0.005 (risque délocalisation marginale)
-        impact_gini = _one_time_level(
-            years_elapsed, -0.01 * (delta_revenue / 15) * phasing
-        )
+        impact_gini = 0.0
         impact_competitivite = _one_time_level(
             years_elapsed,
             -0.005 * (delta_revenue / 15) * phasing if tous_secteurs else -0.002,

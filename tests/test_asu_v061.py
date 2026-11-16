@@ -393,15 +393,15 @@ def test_asu_no_free_lunch(year):
     _, _, impacts = _impacts(ASU_PLAFONNEMENT_MIN, year)
     # v0.6.3 (M3) : le Gini suit le transfert TOTAL — effort de barème PLUS
     # recours résorbé (2,4 Md€/an, FACTURÉ au budget). À effort nul il reste
-    # donc un gain Gini : il n'est pas gratuit, il est payé. La borne C = −1
-    # a pour domaine « tout transfert net vers le bas » ; le recours y a le
-    # titre le plus fort (zéro perdant, concentré en bas par construction).
+    # donc un gain Gini : il n'est pas gratuit, il est payé. Lot 4 (arbitrage
+    # du mainteneur) : au coefficient des prestations ciblées de l'INSEE
+    # (GINI_SOLIDARITE_PAR_MD) et non plus à la borne C = −1.
     ph = asu_phasing({'asu': {'asu_activation': 1}}, year)
     ph_prev = asu_phasing({'asu': {'asu_activation': 1}}, year - 1)
-    attendu_gini = -constants.ASU_GINI_BORNE_PAR_MD_EUR \
+    attendu_gini = constants.GINI_SOLIDARITE_PAR_MD \
         * ASU_COUT_RECOURS_MD_EUR * (ph - ph_prev)
     assert impacts.get('gini', 0.0) == pytest.approx(attendu_gini, abs=1e-15), (
-        f"Y{year}: Gini ≠ borne × recours facturé — {impacts.get('gini')!r}")
+        f"Y{year}: Gini ≠ coefficient × recours facturé — {impacts.get('gini')!r}")
     # v0.6.3 : le pouvoir d'achat n'est plus nul à effort de barème nul —
     # mais il n'est PAS gratuit : c'est le recours résorbé (2,4 Md€/an,
     # DGALN), désormais FACTURÉ au budget de façon pérenne. La propriété
@@ -509,13 +509,12 @@ def test_gini_strictement_proportionnel_a_l_effort(year):
 
 
 def test_gini_est_une_borne_haute_declaree():
-    """Le coefficient Gini est une BORNE, pas une estimation (§ B.3-25).
-
-    Aucune source ne publie l'effet Gini de l'ASU : la conversion retenue
-    suppose que la totalité du transfert est reçue par le bas de la
-    distribution (coefficient de concentration = −1), ce qui MAJORE l'effet.
-    Le total accumulé sur l'horizon doit donc rester égal à cette borne, et
-    rester minuscule au regard de l'indice publié.
+    """Lot 4 (arbitrage du mainteneur) : le coefficient Gini de l'ASU est celui
+    des prestations ciblées de l'INSEE (classement final), sous la borne
+    théorique C = −1 qu'il portait jusqu'ici (§ B.3-25 : aucune source ne
+    publie l'effet propre de l'ASU). Le total accumulé sur l'horizon vaut ce
+    coefficient × le transfert total, reste sous la borne et minuscule au
+    regard de l'indice publié.
     """
     # v0.6.3 (M3) : la borne s'applique au transfert TOTAL — effort maximal
     # + recours résorbé (2,4 Md€/an, facturé au budget).
@@ -523,7 +522,9 @@ def test_gini_est_une_borne_haute_declaree():
         ASU_EFFORT_PERENNE_MAX_MD_EUR + ASU_COUT_RECOURS_MD_EUR)
     cumul = sum(_impacts(ASU_PLAFONNEMENT_MAX, y)[2].get('gini', 0.0)
                 for y in range(2025, 2051))
-    assert cumul == pytest.approx(-borne, rel=1e-9)
+    transfert = ASU_EFFORT_PERENNE_MAX_MD_EUR + ASU_COUT_RECOURS_MD_EUR
+    assert cumul == pytest.approx(constants.GINI_SOLIDARITE_PAR_MD * transfert, rel=1e-9)
+    assert -borne < cumul < 0
     assert abs(cumul) < 0.005, (
         f"effet Gini brut {cumul:+.5f} : 4,4 Md€ (2 de barème + 2,4 de "
         f"recours, v0.6.3) sur un revenu disponible de "

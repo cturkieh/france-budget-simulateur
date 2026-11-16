@@ -6,6 +6,76 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — paramètres du lot 4 : méthode unique du Gini (coefficients au classement final, plages publiées, périmètre, base)
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit de PARAMÈTRES ; les équations du même lot
+(tranche supérieure de l'IR, ISF et impôt plancher, indexation des prestations et des pensions en euros, rabot
+émis une fois, hausse 2026 des prélèvements sur le capital, facteur d'atténuation) suivent dans un commit séparé.
+Seule la colonne Gini bouge.
+
+**Le défaut.** Les règles d'effet sur l'indice de Gini venaient de familles différentes (par point de taux, par
+Md€, forfaits), écrites à des époques différentes. Certaines dépassaient l'effet maximal qu'un euro puisse avoir
+sur l'indice (fiscalité du patrimoine : −0,001 par Md€, deux fois la borne d'un prélèvement ; élargissement de
+l'IR : +0,0011 par Md€). D'autres portaient sur des montants hors du revenu disponible que l'indice de l'INSEE
+mesure (droits de succession, taxe foncière, franchises de santé, aides à la rénovation, TVA, accises, taxe
+carbone, impôt sur les superprofits). La CSG portait le mauvais signe (« légèrement régressive », source non
+retrouvée ; l'INSEE la classe parmi les prélèvements faiblement progressifs). Plusieurs règles n'avaient aucune
+source (SMIC « INSEE 2024 », âge de départ, CSG progressive « OFCE 2023 », décote, élargissement de l'IR). La
+base de l'indice (0,29, « INSEE 2024 ») ne correspondait à aucune année récente.
+
+**La correction.** Une seule règle, K × montant, avec K = (C − G) / Y (prestation) ou −(C − G) / Y (prélèvement),
+C au CLASSEMENT FINAL des niveaux de vie, celui de l'indice publié (dérivée de Lerman et Yitzhaki) : INSEE,
+*Revenus et patrimoine des ménages* 2024, fiches 1.3 et 1.4 (composition du niveau de vie par dixième), C et G sur
+les mêmes dixièmes ; Y = 1 380 Md€, la masse des niveaux de vie (et non le revenu disponible brut des comptes
+nationaux : étiquette corrigée) ; `constants.py`, § CANAUX GINI. La figure 2 de la fiche « Redistribution
+monétaire » (*France, portrait social* 2025, classement initial) reste en recoupement publié : ses K dépassent
+ceux du classement final de 19 à 45 %.
+- sourcés : prestations ciblées −0,000521 par Md€ versé (jusqu'ici −0,0008) ; CSG −0,0000863 par Md€ prélevé
+  (jusqu'ici +0,002 par point, signe inversé) ; cotisations salariales +0,0000541 par Md€ rendu (proxy : salaires ;
+  jusqu'ici +0,0001). **Cette valeur remplace l'arbitrage du mainteneur du 12/11/2026** (plage +0,00006 à
+  +0,0001, tirée du classement initial) : arbitrage du mainteneur, la méthode commune au classement final
+  s'applique aussi aux cotisations ; impôt sur le revenu −0,000297 ; allocations chômage +0,000238 par Md€ coupé, en euros (l'ancre DREES
+  n° 1368, en personnes, recalculée à −0,138, reste l'ancre du canal durée) ; IFI −0,000444 (figure 2, conservée) ;
+  décote +0,000122 par Md€ de recette (Conseil des prélèvements obligatoires, rapport particulier n° 2, tableau
+  n° 34 ; classement par revenu déclaré : limite déclarée) ; allocation sociale unique au coefficient des
+  prestations ciblées (arbitrage du mainteneur), au lieu de la borne théorique C = −1, majorant délibéré
+  jusqu'ici (limite de sens non établi : la concentration propre de son transfert net n'est pas publiée) ;
+- plages publiées (bornes recalculées en test depuis les tableaux publiés) : pensions −0,0000685 par Md€, centre
+  de −0,0000474 (toutes pensions, fiche 1.4) à −0,0000895 (gel des pensions de base, IPP 2025, tableau 2.2) ;
+  abattement des retraités −0,0000902, centre de −0,0000855 à −0,0000949 (IPP, suppression ; le levier décrit le
+  forfait de 2 000 € : limite déclarée) ; revenus du capital −0,000398, borne basse sourcée (IPP, suppression du
+  prélèvement forfaitaire unique) d'une plage qui va jusqu'à −0,000506 (borne arithmétique) ; SMIC −0,02375 par
+  unité de hausse, centre de −0,0231 à −0,0244 (groupe d'experts sur le SMIC 2017, gains par dixième, graphiques
+  n° 41 et 45 ; jusqu'ici −0,03, « INSEE 2024 », sans passage), extrapolation linéaire au-delà de +1 % déclarée
+  comme convention ;
+- zéro faute de source, limite déclarée avec son sens : impôt sur le revenu ciblé et élargissement de l'IR (le
+  levier ne dit pas quel instrument il porte ; jusqu'ici une convention « classes moyennes », +0,000255) ; CSG
+  progressive (jusqu'ici −0,015) ; âge de départ (jusqu'ici +0,001 par 1,25 année d'écart ; mécanisme gardé) ;
+- périmètre (0) : droits de succession, taxe foncière, TVA, accises, taxe carbone, franchises de santé, aides à
+  la rénovation, taxe sur les superprofits — hors du revenu disponible de l'INSEE (définition c1458 ; concept
+  strict, prix exclus, arbitrage du mainteneur) ; rémunérations publiques : dans le périmètre, zéro faute de
+  source (arbitrage du mainteneur ; le sens même de l'effet n'est pas assuré, la dispersion des salaires publics
+  étant plus faible que celle de l'ensemble des salariés) ;
+- `GINI_BASE` 0,302 : INSEE, série « Niveau de vie et indicateurs d'inégalités », parue le 09/07/2026, valeur
+  2024. Commun à tous les programmes.
+- Borne arithmétique verrouillée : |K| ≤ (1 − G) / Y pour un prélèvement, (1 + G) / Y pour une prestation, garde
+  d'import et garde de CI qui balaie toutes les constantes Gini par Md€ du module.
+
+Citations retirées : « OFCE Policy Brief n° 124 » pour le Gini des pensions (le document ne contient aucun indice de
+Gini ; le commentaire de la règle se trompait en outre d'un facteur 10), « OFCE 2023 » (chômage, CSG progressive),
+« OFCE 2024 » (TVA, CSG, franchises), « INSEE 2024 » (SMIC), aucune n'ayant de passage retrouvé.
+
+- Tests : `tests/test_gini_methode_unique_lot4.py` (nouveau ; rouge sur l'état d'avant, vert après) : classement
+  et borne de chaque constante, recette exécutée depuis les chiffres publiés (classement final et recoupement de
+  la figure 2), bornes de chaque plage recalculées, zéros faute de source, périmètre (zéro pour chaque montant
+  hors revenu disponible, à l'année d'entrée en vigueur), signe de la CSG, base. Tests re-déclarés, avec leur
+  motif dans le test : socle et chantiers W2 à W4 de la release E (constantes remplacées ; l'IR ciblé, à zéro,
+  éprouvé par un coefficient sonde), arbitrage des cotisations (remplacé, voir ci-dessus), ASU (coefficient des
+  prestations ciblées), canaux de la transition
+  (I28, I29), recette de l'ancre ARE, horloge du canal d'âge (éprouvée par un coefficient sonde), CSG
+  progressive, ancrage (e) de l'assemblage.
+- Golden master isolé : les trois instantanés régénérés ne diffèrent que par la colonne Gini (comparateur
+  colonne par colonne ; toutes les autres colonnes identiques).
 ## [non publiée — proposée] — équation : la croissance n'est plus écrêtée, le filet ne fait plus qu'un avis
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur le lot SMIC.

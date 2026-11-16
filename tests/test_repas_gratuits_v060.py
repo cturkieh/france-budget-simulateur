@@ -38,11 +38,13 @@ def test_efficience_sante_reellement_neutre():
 
 
 def test_franchises_gardent_leurs_impacts_sources():
-    """Franchises doublées : impacts conservés car sourcés (OFCE/INSEE 2024) —
-    régressif sur le Gini, négatif sur le pouvoir d'achat. v0.6.8 : le reste
-    à charge supplémentaire est le montant des franchises (canal
-    ``prestations``), plus un coefficient de −0,001."""
+    """Franchises doublées : impact conservé sur le pouvoir d'achat (reste à
+    charge). v0.6.8 : le reste à charge supplémentaire est le montant des
+    franchises (canal ``prestations``), plus un coefficient de −0,001. Lot 4
+    (méthode unique du Gini, périmètre) : Gini NUL — un remboursement de soins
+    est un transfert en nature, hors du revenu disponible de l'INSEE ;
+    jusqu'ici +0,003 (« OFCE 2024 », passage non retrouvé)."""
     imp = _impacts_sante({'franchise_participation_taux': 200})
-    assert imp['gini'] == pytest.approx(0.003, abs=1e-9)
+    assert imp['gini'] == 0.0
     assert imp['menages']['prestations'] == pytest.approx(imp['franchise_forfaits'], abs=1e-12)
     assert imp['menages']['prestations'] < 0

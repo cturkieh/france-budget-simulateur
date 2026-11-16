@@ -144,10 +144,12 @@ def attendu(levier, params):
     p = {**C.NEUTRES_RELEASE_E[levier], **params}
     if levier == 'droits_succession':
         v = p['variation']
-        # § 1.2-4 : aucun canal ménages (transfert en capital) ; règle du levier
-        # patrimoine (GINI_PATRIMOINE_PAR_MD, COMPET_PATRIMOINE_PAR_MD).
+        # § 1.2-4 : aucun canal ménages (transfert en capital) ; Gini au même
+        # périmètre, 0 par Md€ (GINI_SUCCESSIONS_PAR_MD, méthode unique du
+        # lot 4 ; jusqu'ici la règle du levier patrimoine) ; compétitivité :
+        # règle du levier patrimoine (COMPET_PATRIMOINE_PAR_MD).
         return dict(dep=0.0, rec=v, menages=canaux_menages(),
-                    gini=C.GINI_PATRIMOINE_PAR_MD * v, compet=C.COMPET_PATRIMOINE_PAR_MD * v)
+                    gini=C.GINI_SUCCESSIONS_PAR_MD * v, compet=C.COMPET_PATRIMOINE_PAR_MD * v)
     if levier == 'fiscalite_indirecte':
         t, a = p['tva_ciblee'], p['accises_energie']
         # § 1.2-9 : TVA à 100 % sur les prix des ménages, accises à la part de
@@ -160,9 +162,10 @@ def attendu(levier, params):
                     compet=C.COMPET_TVA_PAR_MD * t)
     if levier == 'impot_revenu_cible':
         m = p['montant']
-        # § 1.2-10 : prélèvement direct ; règle de la décote ; compétitivité 0.
+        # § 1.2-10 : prélèvement direct ; Gini : GINI_IR_CIBLE_PAR_MD, zéro faute
+        # de source au lot 4 (jusqu'ici la règle de la décote) ; compétitivité 0.
         return dict(dep=0.0, rec=m, menages=canaux_menages(prelevements_directs=m),
-                    gini=C.GINI_IR_DECOTE_PAR_MD * m, compet=0.0)
+                    gini=C.GINI_IR_CIBLE_PAR_MD * m, compet=0.0)
     if levier == 'recette_exceptionnelle':
         m = p['montant']
         # § 1.2-11 : canaux ménages nuls, Gini 0, compétitivité 0.
@@ -334,35 +337,45 @@ def test_effet_direct_conforme_au_contrat(levier, params):
 
 @pytest.mark.parametrize('levier, params', CAS, ids=IDS)
 def test_g11_signe_des_effets_ponctuels(levier, params):
-    """G11 : hausse de recette sur le patrimoine → Gini < 0 et compétitivité < 0 ;
-    hausse de taxe indirecte → Gini > 0 ; IR ciblé (règle de la décote) : une
-    hausse → Gini > 0 ; recette exceptionnelle : ni Gini ni compétitivité.
+    """G11 : hausse de recette sur le patrimoine → compétitivité < 0 ; hausse de
+    taxe indirecte → compétitivité < 0 (TVA) ; IR ciblé : Gini nul faute de
+    source (lot 4 : le levier ne dit pas quel instrument il porte), et avec un
+    coefficient sonde le signe suit celui du montant ; recette exceptionnelle :
+    ni Gini ni compétitivité. Lot 4 (méthode unique, périmètre INSEE) : le Gini des droits
+    de succession (transfert en capital) et des taxes sur la consommation
+    (niveau de vie mesuré avant les prix) est NUL dans les deux sens.
     Le signe suit celui du montant (aucun signe ajouté dans le handler)."""
     _, _, impacts = _appel(_sim_neuf(), levier, params)
     gini, compet = impacts.get('gini', 0.0), impacts.get('competitivite', 0.0)
     if levier == 'droits_succession':
         s = math.copysign(1, params['variation'])
-        assert s * gini < 0 and s * compet < 0, (params, gini, compet)
+        assert gini == 0.0 and s * compet < 0, (params, gini, compet)
     elif levier == 'fiscalite_indirecte':
         t, a = params.get('tva_ciblee', 0.0), params.get('accises_energie', 0.0)
+        assert gini == 0.0, (params, gini)
         if t and not a:
-            assert math.copysign(1, t) * gini > 0 and math.copysign(1, t) * compet < 0, (params, gini, compet)
+            assert math.copysign(1, t) * compet < 0, (params, gini, compet)
         if a and not t:
-            assert math.copysign(1, a) * gini > 0 and compet == 0.0, (params, gini, compet)
+            assert compet == 0.0, (params, gini, compet)
     elif levier == 'impot_revenu_cible':
-        assert math.copysign(1, params['montant']) * gini > 0 and compet == 0.0, (params, gini, compet)
+        assert C.GINI_IR_CIBLE_PAR_MD == 0.0
+        assert gini == 0.0 and compet == 0.0, (params, gini, compet)
+        with patch.object(mod_recettes, 'GINI_IR_CIBLE_PAR_MD', SONDE_IR_CIBLE):
+            _, _, sonde = _appel(_sim_neuf(), levier, params)
+        assert math.copysign(1, params['montant']) * sonde['gini'] > 0, (params, sonde)
     else:
         assert gini == 0.0 and compet == 0.0, (params, gini, compet)
 
 
 def test_w3_3_successions_plus_vingt_milliards():
-    """W3-3 (S2) : +20 Md€ → Gini −0,020 et compétitivité −0,004 à 1e-12, canaux
-    ménages nuls. Valeurs attendues dérivées : 20 × GINI_PATRIMOINE_PAR_MD et
-    20 × COMPET_PATRIMOINE_PAR_MD (règle du levier patrimoine)."""
+    """W3-3 (S2) : +20 Md€ → Gini 0 (lot 4 : transfert en capital, hors du
+    revenu disponible ; jusqu'ici −0,020) et compétitivité −0,004 à 1e-12,
+    canaux ménages nuls. Valeurs attendues dérivées : 20 × GINI_SUCCESSIONS_PAR_MD
+    et 20 × COMPET_PATRIMOINE_PAR_MD (règle du levier patrimoine)."""
     haut = _spec('droits_succession', 'variation')['max']
     _, rec, impacts = _appel(_sim_neuf(), 'droits_succession', {'variation': haut})
     assert rec == haut
-    assert impacts['gini'] == pytest.approx(haut * C.PATRIMOINE_GINI_PAR_10MD / 10, abs=1e-12)
+    assert impacts['gini'] == pytest.approx(haut * C.GINI_SUCCESSIONS_PAR_MD, abs=1e-12) == 0.0
     assert impacts['competitivite'] == pytest.approx(haut * C.PATRIMOINE_COMPET_PAR_10MD / 10, abs=1e-12)
     assert impacts['menages'] == canaux_menages()
 
@@ -450,10 +463,10 @@ def test_recette_exceptionnelle_non_signee():
 # --- Coefficients réutilisés : nommés, jamais recopiés (§ 1.1, § 1.3) --------
 
 LECTURES = {
-    'droits_succession': ('GINI_PATRIMOINE_PAR_MD', 'COMPET_PATRIMOINE_PAR_MD'),
+    'droits_succession': ('GINI_SUCCESSIONS_PAR_MD', 'COMPET_PATRIMOINE_PAR_MD'),
     'fiscalite_indirecte': ('GINI_TVA_PAR_MD', 'GINI_TVA_ENERGIE_PAR_MD', 'COMPET_TVA_PAR_MD',
                             'PART_CONSOMMATION_MENAGES_TVA_TOTALE'),
-    'impot_revenu_cible': ('GINI_IR_DECOTE_PAR_MD',),
+    'impot_revenu_cible': ('GINI_IR_CIBLE_PAR_MD',),
 }
 
 
@@ -486,28 +499,37 @@ def test_handler_lit_les_constantes_nommees(levier):
 @pytest.mark.parametrize('levier', list(LECTURES))
 def test_mutation_constante_doublee_double_l_effet(levier, monkeypatch):
     """Le handler LIT la constante du module (pas une copie locale) : doubler
-    chaque coefficient Gini/compétitivité double les effets ponctuels."""
+    chaque coefficient Gini/compétitivité double les effets ponctuels. Lot 4 :
+    un coefficient NUL par périmètre (successions, taxes sur la consommation)
+    est remplacé par une valeur sonde non nulle, et l'effet muté doit être
+    celui que le contrat calcule avec la sonde (le handler lit bien le nom)."""
     params = {p: _mi_haut(levier, p) for p in C.NEUTRES_RELEASE_E[levier]}
     _, _, ref = _appel(_sim_neuf(), levier, params)
     for nom in LECTURES[levier]:
         if nom.startswith(('GINI_', 'COMPET_')):
             assert hasattr(mod_recettes, nom), nom
-            monkeypatch.setattr(mod_recettes, nom, 2 * getattr(C, nom))
+            v = getattr(C, nom)
+            sonde = 2 * v if v else 1e-4
+            monkeypatch.setattr(mod_recettes, nom, sonde)
+            monkeypatch.setattr(C, nom, sonde)
     _, _, mut = _appel(_sim_neuf(), levier, params)
-    assert ref.get('gini', 0.0) != 0.0
-    assert mut.get('gini', 0.0) == pytest.approx(2 * ref['gini'], rel=1e-12)
-    assert mut.get('competitivite', 0.0) == pytest.approx(2 * ref.get('competitivite', 0.0), rel=1e-12)
+    attendu_mute = attendu(levier, params)
+    assert mut.get('gini', 0.0) != 0.0
+    assert mut.get('gini', 0.0) == pytest.approx(attendu_mute['gini'], rel=1e-12)
+    assert mut.get('competitivite', 0.0) == pytest.approx(attendu_mute['compet'], rel=1e-12)
 
 
 @pytest.mark.parametrize('levier, nom', [(l, n) for l, noms in LECTURES.items() for n in noms
                                          if n.startswith('GINI_')])
 def test_mutation_signe_inverse_rougit_g11(levier, nom, monkeypatch):
-    """R-1 (§ 6.8) : G11 rouge si on inverse un signe. Précondition : le
-    vérificateur passe sur le moteur réel."""
+    """R-1 (§ 6.8) : G11 rouge si on inverse un signe (lot 4 : si l'on rend non
+    nul un coefficient nul par périmètre). Précondition : le vérificateur passe
+    sur le moteur réel."""
     params = {p: _mi_haut(levier, p) for p in C.NEUTRES_RELEASE_E[levier]}
     _verifier_effet_direct(levier, params)
     assert hasattr(mod_recettes, nom), nom
-    monkeypatch.setattr(mod_recettes, nom, -getattr(C, nom))
+    v = getattr(C, nom)
+    monkeypatch.setattr(mod_recettes, nom, -v if v else 1e-4)
     with pytest.raises(AssertionError):
         _verifier_effet_direct(levier, params)
 
@@ -1032,16 +1054,30 @@ def test_ad_independance_en_simulation_annee_d_entree(regle):
     _verifier_independance_simulation(regle)
 
 
-def test_ad_successions_meme_traitement_que_le_levier_patrimoine():
-    """§ 1.2-4 et R-2 (iv) : un Md€ de recette patrimoniale a le même effet Gini et
+def test_ad_successions_meme_traitement_que_le_levier_patrimoine(monkeypatch):
+    """§ 1.2-4 et R-2 (iv) : un Md€ de recette patrimoniale a le même effet de
     compétitivité, qu'il passe par ``droits_succession`` ou par
-    ``fiscalite_patrimoine`` (même règle, traitement identique des programmes)."""
+    ``fiscalite_patrimoine`` (même règle, traitement identique des programmes).
+    Gini (lot 4, méthode unique) : le traitement identique se lit désormais
+    PAR IMPÔT — un Md€ de droits de succession a le même effet, qu'il passe par
+    ``droits_succession`` ou par la part successions (15 Md€) de
+    ``fiscalite_patrimoine`` : les deux lisent GINI_SUCCESSIONS_PAR_MD (nul par
+    périmètre ; vérifié avec une valeur sonde)."""
+    import budget_simulator.handlers.fiscalite_menages as mod_fm
     intensite = _sonde('fiscalite_patrimoine')['intensite']
     _, rec_p, imp_p = _appel(_sim_neuf(), 'fiscalite_patrimoine', {'intensite': intensite})
     _, rec_s, imp_s = _appel(_sim_neuf(), 'droits_succession', {'variation': rec_p})
     assert rec_s == rec_p
-    assert imp_s['gini'] == pytest.approx(imp_p['gini'], rel=1e-12)
     assert imp_s['competitivite'] == pytest.approx(imp_p['competitivite'], rel=1e-12)
+    assert imp_s['gini'] == C.GINI_SUCCESSIONS_PAR_MD * rec_p == 0.0
+    sonde = 1e-4
+    monkeypatch.setattr(mod_recettes, 'GINI_SUCCESSIONS_PAR_MD', sonde)
+    monkeypatch.setattr(mod_fm, 'GINI_SUCCESSIONS_PAR_MD', sonde)
+    part_successions = 15.0 * intensite
+    _, _, mut_p = _appel(_sim_neuf(), 'fiscalite_patrimoine', {'intensite': intensite})
+    _, _, mut_s = _appel(_sim_neuf(), 'droits_succession', {'variation': part_successions})
+    assert mut_p['gini'] - imp_p['gini'] == pytest.approx(mut_s['gini'], rel=1e-9)
+    assert mut_s['gini'] == pytest.approx(sonde * part_successions, rel=1e-12)
 
 
 # ===========================================================================
@@ -1074,12 +1110,28 @@ def test_mutation_montant_compte_deux_fois(levier, params, monkeypatch):
             _verifier_r_idx_simulation(levier, params, None, cache=False)
 
 
+# Lot 4 : GINI_IR_CIBLE_PAR_MD vaut 0 faute de source ; les tests de mutation
+# du mécanisme ponctuel l'éprouvent avec un coefficient sonde non nul, lu par le
+# handler et par l'effet attendu.
+SONDE_IR_CIBLE = 1e-4
+
+
+def _sonder_ir_cible(levier, monkeypatch):
+    if levier == 'impot_revenu_cible':
+        monkeypatch.setattr(mod_recettes, 'GINI_IR_CIBLE_PAR_MD', SONDE_IR_CIBLE)
+        monkeypatch.setattr(C, 'GINI_IR_CIBLE_PAR_MD', SONDE_IR_CIBLE)
+
+
 @pytest.mark.parametrize('levier, params', UN_PAR_RECURRENT, ids=[c[0] for c in UN_PAR_RECURRENT])
 def test_mutation_effet_ponctuel_recompte_chaque_annee(levier, params, monkeypatch):
     """L'effet Gini/compétitivité recompté chaque année (déclencheur ponctuel
     remplacé par l'effet du niveau) fait rougir G8 en simulation et au handler.
-    (La recette exceptionnelle n'a pas d'effet ponctuel : mutation sans objet.)"""
-    _verifier_ponctuel_simulation(levier, params, None)
+    (La recette exceptionnelle n'a pas d'effet ponctuel : mutation sans objet.
+    IR ciblé : Gini nul faute de source au lot 4, mécanisme éprouvé avec un
+    coefficient sonde.)"""
+    _sonder_ir_cible(levier, monkeypatch)
+    # Le cache des simulations est rempli sans la sonde : relancer pour l'IR ciblé.
+    _verifier_ponctuel_simulation(levier, params, None, cache=levier != 'impot_revenu_cible')
     _verifier_ponctuel_handler(levier, params)
     monkeypatch.setattr(BudgetSimulatorV45, '_effet_ponctuel',
                         lambda self, cle, params_dict, effet: effet(params_dict))
@@ -1092,7 +1144,9 @@ def test_mutation_effet_ponctuel_recompte_chaque_annee(levier, params, monkeypat
 @pytest.mark.parametrize('levier, params', UN_PAR_RECURRENT, ids=[c[0] for c in UN_PAR_RECURRENT])
 def test_mutation_retour_anticipe_sans_garde_du_traqueur(levier, params, monkeypatch):
     """G8-retour : un handler qui sort au neutre SANS regarder le traqueur garde
-    l'effet Gini cumulé à vie — le vérificateur doit rougir."""
+    l'effet Gini cumulé à vie — le vérificateur doit rougir. (IR ciblé : Gini
+    nul faute de source, mécanisme éprouvé avec un coefficient sonde.)"""
+    _sonder_ir_cible(levier, monkeypatch)
     _verifier_retour_handler(levier, params)
     nom = f'_apply_{levier}'
     original = getattr(BudgetSimulatorV45, nom)

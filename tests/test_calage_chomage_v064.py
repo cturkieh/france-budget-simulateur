@@ -128,10 +128,15 @@ class TestGiniDureeRecale:
         assert 1.29 <= GINI_DUREE_SURPOIDS <= 1.96
 
     def test_la_regle_montant_est_la_source_unique_du_par_euro(self):
-        """GINI_ALLOC_PAR_MD_EUR = 0,004/5 (OFCE 2023) : le canal durée
-        s'exprime en multiple de la règle montant — réviser l'une propage
-        l'autre."""
-        assert GINI_ALLOC_PAR_MD_EUR == pytest.approx(0.004 / 5)
+        """GINI_ALLOC_PAR_MD_EUR = (G − C) / Y au classement final (lot 4,
+        méthode unique du Gini : la règle montant devient physique, tirée des
+        euros d'allocations chômage de l'INSEE, Revenus et patrimoine des
+        ménages 2024 ; l'ancre DREES n° 1368, en personnes, la majorait ;
+        jusqu'ici 0,004/5 attribué à « OFCE 2023 ») : le canal durée s'exprime
+        en multiple de la règle montant — réviser l'une propage l'autre."""
+        import budget_simulator.constants as C
+        assert GINI_ALLOC_PAR_MD_EUR == -C._gini_ecart_rang_final('allocations_chomage')
+        assert 0 < GINI_ALLOC_PAR_MD_EUR < (GINI_BASE - GINI_C_ARE) / C.MASSE_NIVEAUX_DE_VIE_MD_EUR
 
     def test_couper_six_mois_emet_k_fois_la_regle_montant(self):
         """18 → 12 mois à taux de référence : gini = k × 0,0008 × (6 × 0,75)
@@ -179,11 +184,15 @@ class TestGiniDureeRecale:
     @staticmethod
     def _c_are(rang_moyen_d6_d10):
         """C = 2·F̄ − 1 sur les parts publiées DREES E&R n° 1368, graphique 1
-        (personnes en ménages ARE) : D1 13 % (rang 0,05), D2 13 % (0,15),
-        bloc D3-D5 37 % (rang moyen 0,35), D6-D10 37 % (rang moyen r,
-        paramétré — seule grandeur non publiée de la recette)."""
-        f_bar = (0.13 * 0.05 + 0.13 * 0.15 + 0.37 * 0.35
-                 + 0.37 * rang_moyen_d6_d10)
+        (personnes en ménages ARE ; fichier ER 1368_ASS.xlsx) : D1 à D5 13, 13,
+        13, 13, 11 % chacun à son rang médian (0,05 à 0,45), D6-D10 37 % (rang
+        moyen r, paramétré — seule grandeur non publiée de la recette). Lot 4 :
+        chaque dixième à SON rang ; la recette antérieure plaçait le bloc
+        D3-D5 (37 %) au rang 0,35 au lieu de 0,345, d'où −0,134 au lieu de
+        −0,138."""
+        parts = (0.13, 0.13, 0.13, 0.13, 0.11)
+        rangs = (0.05, 0.15, 0.25, 0.35, 0.45)
+        f_bar = sum(p * r for p, r in zip(parts, rangs)) + 0.37 * rang_moyen_d6_d10
         return 2 * f_bar - 1
 
     def test_le_c_implicite_du_canal_duree_reste_arithmetiquement_valide(self):
@@ -201,11 +210,11 @@ class TestGiniDureeRecale:
         # La constante nommée reproduit la recette au point central r = 0,75.
         assert GINI_C_ARE == pytest.approx(self._c_are(0.75), abs=0.001)
         # Sensibilité CALCULÉE (C = 2F̄−1 est croissant en r) : r 0,70 →
-        # −0,171 ; r 0,80 → −0,097. NB : la revue adverse annonçait en prose
+        # −0,175 ; r 0,80 → −0,101. NB : la revue adverse annonçait en prose
         # −0,078/−0,226 avec la direction inversée — c'est PRÉCISÉMENT ce
         # qu'une recette exécutée attrape et qu'une prose laisse passer.
-        assert self._c_are(0.70) == pytest.approx(-0.171, abs=0.001)
-        assert self._c_are(0.80) == pytest.approx(-0.097, abs=0.001)
+        assert self._c_are(0.70) == pytest.approx(-0.175, abs=0.001)
+        assert self._c_are(0.80) == pytest.approx(-0.101, abs=0.001)
         # Invariant arithmétique sur toute la plage de sensibilité :
         # C implicite ≥ −1 ⟺ k ≤ (1+G)/(G − C_ARE) (k_max 2,80 à r = 0,70 ;
         # 3,04 à 0,75 ; 3,33 à 0,80 — le pire cas reste > 2,2, la borne
@@ -214,7 +223,8 @@ class TestGiniDureeRecale:
             c_implicite = GINI_BASE - GINI_DUREE_SURPOIDS * (GINI_BASE - self._c_are(r))
             assert c_implicite >= -1.0
         c_central = GINI_BASE - GINI_DUREE_SURPOIDS * (GINI_BASE - GINI_C_ARE)
-        assert c_central == pytest.approx(-0.39, abs=0.02)
+        # Lot 4 : −0,402 (GINI_BASE 0,302 et C_ARE −0,138 ; −0,39 jusqu'ici).
+        assert c_central == pytest.approx(-0.40, abs=0.02)
 
 
 # ---------------------------------------------------------------------------

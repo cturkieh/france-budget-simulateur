@@ -370,14 +370,15 @@ def test_w2_12_constantes_lues_par_le_handler_identite_d_objet():
 
 
 def test_w2_12_derivation_des_coefficients_recalculee():
-    """§ 1.3, recalculé ici : solidarité = −règle « par Md€ d'allocations » ;
-    pensions = Gini CUMULÉ d'un gel total de l'indexation sur le mandat rapporté
-    à l'économie de fin de mandat, au signe d'une hausse."""
-    n = C.HORIZON_MANDAT_ANNEES
-    assert C.GINI_SOLIDARITE_PAR_MD == -C.GINI_ALLOC_PAR_MD_EUR
-    assert C.GINI_PENSIONS_PAR_MD == (
-        -C.RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1 + C.RETRAITES_GINI_RESIDU_FLUX * (n - 1))
-        / (C.MASSE_RETRAITES_2025_MD_EUR * (1 - (1 + C.INFLATION_STRUCTURELLE) ** -n)))
+    """§ 1.3, re-déclaré au lot 4 (méthode unique du Gini, constants.py § CANAUX
+    GINI) : solidarité = coefficient des prestations ciblées de l'INSEE au
+    classement final (Revenus et patrimoine des ménages 2024, fiches 1.3 et
+    1.4) ; pensions = centre d'une plage publiée (INSEE ; IPP 2025). Jusqu'au
+    lot 4 : −règle chômage « par Md€ d'allocations » et l'émission effective du
+    levier retraites sur le mandat."""
+    assert C.GINI_SOLIDARITE_PAR_MD == C._gini_ecart_rang_final(
+        'prestations_familiales', 'prestations_logement', 'minima_sociaux', 'prime_activite')
+    assert C.GINI_PENSIONS_PAR_MD == sum(C.GINI_PENSIONS_PLAGE_PAR_MD) / 2
 
 
 @pytest.mark.parametrize('params', [

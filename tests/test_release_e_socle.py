@@ -53,23 +53,24 @@ CONSTANTS_PY = RACINE / 'budget_simulator' / 'constants.py'
 # (nom, valeur du littéral remplacé, fichier:handler d'origine). Égalité EXACTE
 # (==, et même type numérique) : une constante « de même valeur » qui différerait
 # d'un ulp changerait les golden masters.
+# Lot 4 (méthode unique du Gini) : PATRIMOINE_GINI_PAR_10MD et IR_GINI_DECOTE
+# sont RETIRÉES (remplacées par des coefficients par Md€ sourcés ou déclarés),
+# TVA_GINI_PAR_2PTS et TVA_ENERGIE_GINI_PAR_TAUX valent 0 (périmètre INSEE) :
+# elles ne sont plus des extractions au bit, et sont verrouillées par
+# tests/test_gini_methode_unique_lot4.py.
 EXTRAITES = [
-    ('PATRIMOINE_GINI_PAR_10MD', -0.010, 'fiscalite_menages._apply_fiscalite_patrimoine'),
     ('PATRIMOINE_COMPET_PAR_10MD', -0.002, 'fiscalite_menages._apply_fiscalite_patrimoine'),
     ('ISF_GINI_PAR_12MD', -0.020, 'fiscalite_menages._apply_isf_climatique'),
     ('ISF_COMPET_PAR_12MD', -0.002, 'fiscalite_menages._apply_isf_climatique'),
     ('ISF_TAUX_MAX', 0.01, 'fiscalite_menages._apply_isf_climatique'),
     ('ISF_PHASAGE', (0.5, 1.0), 'fiscalite_menages._apply_isf_climatique'),
-    ('IR_GINI_DECOTE', 0.003, 'fiscalite_menages._apply_impot_revenu'),
     ('IR_RECETTE_DECOTE', 7.5, 'fiscalite_menages._apply_impot_revenu'),
     ('IR_GINI_PAR_5PTS', -0.008, 'fiscalite_menages._apply_impot_revenu'),
     ('ETI_PLANCHER_FACTEUR', 0.5, 'fiscalite_menages._apply_impot_revenu'),
     # COUT_PAR_POINT_COTIS_SAL (6.0 extrait au bit par le socle) : remplacé par
     # 1 % de la masse salariale brute 2025 (décision du mainteneur du 12/11/2026),
     # tests/test_release_e_arbitrages.py, point 1.
-    ('TVA_GINI_PAR_2PTS', 0.005, 'fiscalite_menages._apply_tva_rate'),
     ('TVA_COMPET_PAR_2PTS', -0.0005, 'fiscalite_menages._apply_tva_rate'),
-    ('TVA_ENERGIE_GINI_PAR_TAUX', 0.05, 'fiscalite_menages._apply_tva_energie'),
     ('TVA_ENERGIE_CONSO_ELECTRICITE_MD', 60.0, 'fiscalite_menages._apply_tva_energie'),
     ('TVA_ENERGIE_CONSO_GAZ_MD', 60.0, 'fiscalite_menages._apply_tva_energie'),
     ('IS_COMPET_PAR_MD', 0.015, 'competitivite._apply_impot_societes'),
@@ -89,12 +90,13 @@ def test_constante_extraite_meme_valeur_meme_type(nom, valeur, origine):
 # Le littéral ne doit plus figurer dans le corps du handler : il lit le nom.
 LITTERAUX_RETIRES = [
     (mod_fiscalite.FiscaliteMenagesMixin._apply_fiscalite_patrimoine,
-     ['PATRIMOINE_GINI_PAR_10MD', 'PATRIMOINE_COMPET_PAR_10MD'], [r'-0\.010\b', r'-0\.002\b']),
+     ['GINI_HAUT_PATRIMOINE_PAR_MD', 'GINI_SUCCESSIONS_PAR_MD', 'GINI_TAXE_FONCIERE_PAR_MD',
+      'PATRIMOINE_COMPET_PAR_10MD'], [r'-0\.010\b', r'-0\.002\b']),
     (mod_fiscalite.FiscaliteMenagesMixin._apply_isf_climatique,
      ['ISF_GINI_PAR_12MD', 'ISF_COMPET_PAR_12MD', 'ISF_TAUX_MAX', 'ISF_PHASAGE'],
      [r'-0\.020\b', r'-0\.002\b', r'taux_max = 0\.01\b', r'\(0\.5, 1\.0\)']),
     (mod_fiscalite.FiscaliteMenagesMixin._apply_impot_revenu,
-     ['IR_GINI_DECOTE', 'IR_RECETTE_DECOTE', 'IR_GINI_PAR_5PTS', 'ETI_PLANCHER_FACTEUR'],
+     ['GINI_IR_DECOTE_PAR_MD', 'IR_RECETTE_DECOTE', 'IR_GINI_PAR_5PTS', 'ETI_PLANCHER_FACTEUR'],
      [r'-0\.008\b', r'0\.003 \*', r'\* 7\.5\b', r'max\(0\.5,']),
     (mod_fiscalite.FiscaliteMenagesMixin._apply_cotisations_salariales,
      ['COUT_PAR_POINT_COTIS_SAL'], [r'COUT_PAR_POINT = 6\.0']),
@@ -145,7 +147,7 @@ def _sim_handler():
 def test_mutation_patrimoine(monkeypatch):
     sim = _sim_handler()
     _, _, ref = sim._apply_fiscalite_patrimoine({}, {'intensite': 0.2}, 2026, 3000.0, 0.02, 0.076)
-    monkeypatch.setattr(mod_fiscalite, 'PATRIMOINE_GINI_PAR_10MD', 2 * C.PATRIMOINE_GINI_PAR_10MD)
+    monkeypatch.setattr(mod_fiscalite, 'GINI_HAUT_PATRIMOINE_PAR_MD', 2 * C.GINI_HAUT_PATRIMOINE_PAR_MD)
     monkeypatch.setattr(mod_fiscalite, 'PATRIMOINE_COMPET_PAR_10MD', 2 * C.PATRIMOINE_COMPET_PAR_10MD)
     sim = _sim_handler()
     _, _, mut = sim._apply_fiscalite_patrimoine({}, {'intensite': 0.2}, 2026, 3000.0, 0.02, 0.076)
@@ -197,32 +199,37 @@ def test_horizon_du_mandat():
     assert C.HORIZON_MANDAT_ANNEES == C.ANNEE_FIN_MANDAT - C.ANNEE_PREMIER_BUDGET_MANDAT + 1 == 5
 
 
-def test_gini_pensions_derive_de_l_emission_effective_des_retraites():
-    n = C.HORIZON_MANDAT_ANNEES
-    attendu = (-C.RETRAITES_GINI_PAR_POINT_DESINDEXATION
-               * (1 + C.RETRAITES_GINI_RESIDU_FLUX * (n - 1))
-               / (C.MASSE_RETRAITES_2025_MD_EUR * (1 - (1 + C.INFLATION_STRUCTURELLE) ** -n)))
-    assert C.GINI_PENSIONS_PAR_MD == attendu
-    # Contrat § 1.3 : −0,005 × 1,4 / 28,96 ≈ −0,00024 (ancien contrat 0,00082).
-    assert C.GINI_PENSIONS_PAR_MD == pytest.approx(-0.00024, abs=0.000005)
+def test_gini_pensions_centre_de_la_plage_publiee_du_lot_4():
+    """Jusqu'au lot 4, GINI_PENSIONS_PAR_MD dérivait de l'émission effective du
+    levier retraites sur le mandat (−0,005 × 1,4 / 28,96 ≈ −0,00024). Lot 4 :
+    centre de la plage publiée (INSEE, Revenus et patrimoine des ménages 2024 ;
+    IPP 2025, tableau 2.2), constants.py § CANAUX GINI ; bornes recalculées par
+    tests/test_gini_methode_unique_lot4.py."""
+    faible, forte = C.GINI_PENSIONS_PLAGE_PAR_MD
+    assert C.GINI_PENSIONS_PAR_MD == (faible + forte) / 2
+    assert forte < C.GINI_PENSIONS_PAR_MD < faible < 0
 
 
 DERIVEES = [
-    ('GINI_SOLIDARITE_PAR_MD', lambda: -C.GINI_ALLOC_PAR_MD_EUR, -0.0008),
-    ('GINI_PATRIMOINE_PAR_MD', lambda: C.PATRIMOINE_GINI_PAR_10MD / 10, -0.001),
+    # Lot 4 (méthode unique) : coefficients tirés de l'INSEE au classement final
+    # (Revenus et patrimoine des ménages 2024) ou d'une plage publiée.
+    ('GINI_SOLIDARITE_PAR_MD', lambda: C._gini_ecart_rang_final(
+        'prestations_familiales', 'prestations_logement', 'minima_sociaux', 'prime_activite'), -0.000521),
+    ('GINI_CAPITAL_PAR_MD', lambda: C.GINI_CAPITAL_PLAGE_PAR_MD[0], -0.000398),
     ('COMPET_PATRIMOINE_PAR_MD', lambda: C.PATRIMOINE_COMPET_PAR_10MD / 10, -0.0002),
     ('GINI_ISF_EFFECTIF_PAR_MD', lambda: C.ISF_GINI_PAR_12MD / 12 * C.ISF_PHASAGE[0] ** 2, -0.00042),
     ('COMPET_ISF_EFFECTIF_PAR_MD', lambda: C.ISF_COMPET_PAR_12MD / 12 * C.ISF_PHASAGE[0] ** 2, -0.000042),
-    ('GINI_IR_DECOTE_PAR_MD', lambda: C.IR_GINI_DECOTE / C.IR_RECETTE_DECOTE, 0.0004),
+    ('GINI_IR_DECOTE_PAR_MD',
+     lambda: (C.GINI_BASE - C.GINI_C_DECOTE) / C.MASSE_NIVEAUX_DE_VIE_MD_EUR, 0.000122),
     ('GINI_TVA_PAR_MD',
      lambda: C.TVA_GINI_PAR_2PTS / C.recette_tva_taux(0.22, C.PIB_BASE_2025_MD_EUR, C.CHOMAGE_BASE),
-     0.00018),
+     0.0),  # lot 4 : périmètre INSEE (jusqu'ici 0,00018)
     ('COMPET_TVA_PAR_MD',
      lambda: C.TVA_COMPET_PAR_2PTS / C.recette_tva_taux(0.22, C.PIB_BASE_2025_MD_EUR, C.CHOMAGE_BASE),
      -0.000018),
     ('GINI_TVA_ENERGIE_PAR_MD',
      lambda: C.TVA_ENERGIE_GINI_PAR_TAUX / (C.TVA_ENERGIE_CONSO_ELECTRICITE_MD + C.TVA_ENERGIE_CONSO_GAZ_MD),
-     0.00042),
+     0.0),  # lot 4 : périmètre INSEE (jusqu'ici 0,00042)
     ('COMPET_IS_PAR_MD', lambda: -C.IS_COMPET_PAR_MD, -0.015),
     ('COMPET_IMPOTS_PRODUCTION_PAR_MD', lambda: -C.IMPOTS_PRODUCTION_COMPET_PAR_MD, -0.020),
     ('COMPET_IS_EXCEPTIONNEL_PAR_MD', lambda: -C.IS_EXCEPTIONNEL_COMPET_PAR_MD, -0.003),
@@ -239,16 +246,18 @@ def test_derivation_recalculee_et_ordre_de_grandeur(nom, formule, ordre):
 
 def test_derivees_ecrites_comme_expressions_des_noms():
     """« Jamais un nombre recopié » : chaque dérivée est une expression qui cite
-    au moins un nom de constante, pas un littéral."""
+    au moins un nom de constante, pas un littéral — ou un appel à une fonction de
+    dérivation du module (``_gini_…``, lot 4, qui lit les chiffres publiés
+    nommés). GINI_PENSIONS_PAR_MD n'est plus une dérivée depuis le lot 4 : c'est
+    le centre d'une plage publiée (test ci-dessus)."""
     source = CONSTANTS_PY.read_text(encoding='utf-8')
-    for nom, _, _ in DERIVEES + [('GINI_PENSIONS_PAR_MD', None, None),
-                                 ('HORIZON_MANDAT_ANNEES', None, None),
+    for nom, _, _ in DERIVEES + [('HORIZON_MANDAT_ANNEES', None, None),
                                  ('EVITEMENT_PLANCHER_DEFAUT', None, None),
                                  ('COTIS_SAL_POINTS_SUPPRESSION', None, None)]:
         m = re.search(rf'^{nom} = (.+)$', source, flags=re.MULTILINE)
         assert m, f"{nom} : définition introuvable en tête de ligne"
         expression = m.group(1).split('#')[0]
-        assert re.search(r'[A-Z][A-Z0-9_]{3,}', expression), (nom, expression)
+        assert re.search(r'[A-Z][A-Z0-9_]{3,}|\b_gini_\w+\(', expression), (nom, expression)
 
 
 # ---------------------------------------------------------------------------
@@ -256,15 +265,18 @@ def test_derivees_ecrites_comme_expressions_des_noms():
 # ---------------------------------------------------------------------------
 
 NEGATIVES = [  # hausse de recette patrimoine/capital, hausse de prestation, impôt d'entreprise
-    'GINI_PATRIMOINE_PAR_MD', 'COMPET_PATRIMOINE_PAR_MD',
+    'GINI_CAPITAL_PAR_MD', 'GINI_HAUT_PATRIMOINE_PAR_MD', 'COMPET_PATRIMOINE_PAR_MD',
     'GINI_ISF_EFFECTIF_PAR_MD', 'COMPET_ISF_EFFECTIF_PAR_MD',
     'GINI_SOLIDARITE_PAR_MD', 'GINI_PENSIONS_PAR_MD',
     'COMPET_IS_PAR_MD', 'COMPET_IMPOTS_PRODUCTION_PAR_MD', 'COMPET_IS_EXCEPTIONNEL_PAR_MD',
     'COMPET_TVA_PAR_MD',
 ]
-POSITIVES = [  # taxe indirecte en plus, impôt des classes moyennes en plus
-    'GINI_TVA_PAR_MD', 'GINI_TVA_ENERGIE_PAR_MD', 'GINI_IR_DECOTE_PAR_MD',
+POSITIVES = [  # décote réduite = impôt en plus au milieu de la distribution (lot 4)
+    'GINI_IR_DECOTE_PAR_MD',
 ]
+# Lot 4 : périmètre INSEE (niveau de vie avant les prix ; transfert en capital) ;
+# IR ciblé : zéro faute de source.
+NULLES = ['GINI_TVA_PAR_MD', 'GINI_TVA_ENERGIE_PAR_MD', 'GINI_SUCCESSIONS_PAR_MD', 'GINI_IR_CIBLE_PAR_MD']
 
 
 @pytest.mark.parametrize('nom', NEGATIVES)
@@ -275,6 +287,11 @@ def test_signe_negatif(nom):
 @pytest.mark.parametrize('nom', POSITIVES)
 def test_signe_positif(nom):
     assert getattr(C, nom) > 0
+
+
+@pytest.mark.parametrize('nom', NULLES)
+def test_nulle_par_perimetre(nom):
+    assert getattr(C, nom) == 0.0
 
 
 def test_solidarite_plus_forte_que_pensions_par_md():

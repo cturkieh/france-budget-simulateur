@@ -50,14 +50,16 @@ CHEMINS = [
     ('csg', ('competitivite',), [{'taux': t, 'progressive': p} for t, p in
                                  ((0.1, 1), (0.105, 1), (0.1, 0))]),
     ('cotisations_salariales', ('gini',), [{'baisse_points': v} for v in (1, 2.5, 4)]),
-    ('elargissement_ir', ('gini',), [{'taux_contribuables_cible': v} for v in (0.5, 0.6, 0.55)]),
     ('fiscalite_patrimoine', ('gini', 'competitivite'), [{'intensite': v} for v in (0.1, 0.3, -0.2)]),
-    ('transition_ecologique', ('gini',),
-     [{'investissement': i, 'renovation': r, 'taxe_carbone': c}
-      for i, r, c in ((10, 5, 60), (20, 10, 80), (5, 2, 50))]),
+    # Lot 4 (méthode unique du Gini) : le Gini de la transition écologique
+    # (rénovation, carbone) et des franchises de santé est nul par périmètre
+    # (hors du revenu disponible de l'INSEE) — leurs entrées « gini » sont
+    # retirées d'ici, la nullité est verrouillée par
+    # tests/test_gini_methode_unique_lot4.py. Même retrait pour l'élargissement
+    # de l'IR, dont le Gini est nul faute de source (GINI_IR_CIBLE_PAR_MD, et
+    # sans autre effet ponctuel).
     ('transition_ecologique', ('competitivite',),   # part carbone seule (investissement nul)
      [{'investissement': 0, 'renovation': 0, 'taxe_carbone': c} for c in (60, 80, 30)]),
-    ('sante', ('gini',), [{'franchise_participation_taux': v} for v in (150, 200, 50)]),
     ('chomage_alloc', ('gini', 'chomage', 'competitivite'),
      [{'taux_remplacement': t, 'duree': d, 'degressivite': g}
       for t, d, g in ((0.65, 24, False), (0.55, 15, True), (0.62, 20, False))]),

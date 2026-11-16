@@ -20,15 +20,21 @@ Propriétés verrouillées :
       à des amplitudes défendables ;
   (d) statu quo inerte : 0 levier → Gini = GINI_BASE constant (pas de dérive
       du mécanisme de convergence à cible nulle) ;
-  (e) ancrage empirique : un programme redistributif figé (A) en 2030 dans
-      [0,255 ; 0,275] (IPP/OFCE : un programme de 5-10 % du PIB ≈ −0,015 à
-      −0,035 de Gini), A et B distincts à 3 décimales (la résolution
-      d'affichage du comparateur). Programmes figés depuis la release de
-      paramètres P (v0.8.1), voir ``tests/snapshots/programmes_figes_gini_v040.json``.
+  (e) ancrage (re-déclaré au lot 4) : deux programmes redistributifs figés,
+      A plus redistributif que B, réduisent l'indice (A < B < base en 2030),
+      d'au plus la réduction que produit le système entier des transferts du
+      champ de l'INSEE (V = 0,0923, France, portrait social 2025, fiche
+      « Redistribution monétaire », figure 2), et A et B restent distincts à 3
+      décimales (la résolution d'affichage du comparateur). Programmes figés
+      depuis la release de paramètres P (v0.8.1), voir
+      ``tests/snapshots/programmes_figes_gini_v040.json``.
 
-Si un recalibrage des sensibilités handlers fait rougir (e), c'est un
-recalibrage de GINI_IMPACT_SCALE qu'il faut discuter — pas un élargissement
-des bornes : elles encodent la littérature, pas l'implémentation.
+Jusqu'au lot 4, (e) exigeait A ∈ [0,255 ; 0,275] en 2030, d'après « IPP/OFCE
+2022 : un programme de 5-10 % du PIB ≈ −0,015 à −0,035 de Gini » — un chiffre
+dont le passage n'a pas été retrouvé, et qui justifiait à lui seul le facteur
+d'atténuation 0,22. Depuis la méthode unique (constants.py § CANAUX GINI), les
+coefficients sont physiques et bornés un par un (garde de CI des coefficients
+par Md€) : l'ancrage porte désormais sur une grandeur publiée.
 """
 import sys
 from pathlib import Path
@@ -36,7 +42,7 @@ from pathlib import Path
 import pytest
 
 from budget_simulator.simulator import BudgetSimulatorV45
-from budget_simulator.constants import GINI_BASE, GINI_SOFT_FLOOR
+from budget_simulator.constants import GINI_BASE, GINI_REDUCTION_VERTICALE_FPS2025, GINI_SOFT_FLOOR
 
 SNAPSHOTS_DIR = Path(__file__).parent / 'snapshots'
 sys.path.insert(0, str(SNAPSHOTS_DIR))
@@ -140,16 +146,20 @@ def test_f_reentrance_sans_fuite_etat():
 
 
 def test_e_ancrage_empirique_et_resolution():
-    """Programme redistributif figé A, 2030, dans la fourchette IPP/OFCE ; A ≠ B
+    """Programmes redistributifs figés A et B, 2030 : A < B < base, réduction
+    au plus celle du système entier des transferts du champ INSEE (V), A ≠ B
     à la résolution d'affichage. Release de paramètres P : l'ancrage porte sur
     deux programmes FIGÉS (``programmes_figes_gini_v040.json``), publiés
     jusqu'à v0.8.0 : il vérifie la calibration du moteur, pas un encodage qui
     suit ses sources (la valeur publiée est dans le golden master)."""
     a = _gini_2030_fige('programme_a')
     b = _gini_2030_fige('programme_b')
-    assert 0.255 <= a <= 0.275, (
-        f"programme figé A, 2030 = {a:.4f} hors fourchette empirique [0,255 ; 0,275] "
-        "(IPP/OFCE : programme 5-10 % PIB ≈ −0,015 à −0,035 de Gini)"
+    assert a < b < GINI_BASE, (
+        f"programmes figés : A={a:.4f}, B={b:.4f}, base={GINI_BASE} — attendu A < B < base"
+    )
+    assert GINI_BASE - a <= GINI_REDUCTION_VERTICALE_FPS2025, (
+        f"programme figé A, 2030 = {a:.4f} : réduction {GINI_BASE - a:.4f} supérieure à celle "
+        f"du système entier des transferts du champ INSEE ({GINI_REDUCTION_VERTICALE_FPS2025})"
     )
     assert round(a, 3) != round(b, 3), (
         f"programmes figés A et B indistincts à 3 décimales (A={a:.4f}, B={b:.4f}) — "

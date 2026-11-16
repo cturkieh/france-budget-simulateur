@@ -93,8 +93,8 @@ from ..constants import (
     COMPET_ISF_EFFECTIF_PAR_MD,
     COMPET_PATRIMOINE_PAR_MD,
     ETI_PLANCHER_FACTEUR,
+    GINI_CAPITAL_PAR_MD,
     GINI_ISF_EFFECTIF_PAR_MD,
-    GINI_PATRIMOINE_PAR_MD,
     ISF_PHASAGE,
     ISF_TAUX_MAX,
     NEUTRES_RELEASE_E,
@@ -299,7 +299,7 @@ def _effet_plancher_competitivite(p: Dict) -> float:
 
 
 def _effet_capital_gini(p: Dict) -> float:
-    return GINI_PATRIMOINE_PAR_MD * variation_capital_hors_indice(p)
+    return GINI_CAPITAL_PAR_MD * variation_capital_hors_indice(p)
 
 
 def _effet_capital_competitivite(p: Dict) -> float:
@@ -421,8 +421,10 @@ class RecettesTauxMixin(_MixinBase):
         ΔR = 0 exactement au neutre. L'élasticité (dividendes déclarés et
         versés, mesure micro) est la seule réaction modélisée (D3). Mode montant (``rendement_md``) : rendement net
         annoncé, constant (R-IDX) ; taux et élasticité ignorés. Canal ménages :
-        prélèvement direct. Gini et compétitivité ponctuels : règle du levier
-        patrimoine par Md€ (arbitrage Q3) × ΔR hors indice. Assiettes
+        prélèvement direct. Gini ponctuel : coefficient « revenus du capital »
+        par Md€ (``GINI_CAPITAL_PAR_MD``, borne basse d'une plage publiée, méthode unique du lot 4 ; jusqu'ici la
+        règle du levier patrimoine) × ΔR hors indice ; compétitivité ponctuelle :
+        règle du levier patrimoine par Md€ (arbitrage Q3) × ΔR hors indice. Assiettes
         disjointes de ``impot_revenu.taux_superieur`` ; part sociale additive à
         une variation générale de ``csg.taux`` (règle K) : aucune lecture
         croisée.

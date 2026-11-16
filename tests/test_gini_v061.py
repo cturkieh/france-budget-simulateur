@@ -25,6 +25,13 @@ Ce que le lot corrige, et pourquoi c'est un enjeu de repo PUBLIC :
 * **I29 — rénovation énergétique.** Même signe mais ~1,7× trop faible, et
   citait une source INTROUVABLE (« ADEME 2024 »).
 
+  Lot 4 (méthode unique du Gini) : I28 et I29 valent désormais 0 par
+  PÉRIMÈTRE — une taxe carbone est un prix, une aide à des travaux un
+  transfert en capital ; ni l'une ni l'autre n'entre dans le revenu
+  disponible de l'INSEE. Les dérivations ci-dessus restent documentées comme
+  variantes d'autres concepts ; les tests de cette section verrouillent le
+  zéro et la symétrie.
+
 * **I30 — recherche publique.** L'effet reste 0,0 — mais le commentaire
   qui le justifiait (« R&D = emplois qualifiés (favorise classes moyennes
   supérieures) ») AFFIRMAIT une incidence distributive sans source. Le
@@ -73,9 +80,7 @@ PIB = 2994.0
 # si un recalibrage les fait rougir, c'est le recalibrage qu'il faut
 # discuter, pas les bornes qu'il faut élargir.
 CARBONE_PAS_EUR_T = 50.0
-CARBONE_CIBLE = (0.0009, 0.0011)
 RENOVATION_PAS_MD_EUR = 5.0
-RENOVATION_CIBLE = (-0.0019, -0.0017)
 
 
 # ---------------------------------------------------------------------------
@@ -238,35 +243,21 @@ def _chaines_du_fallback() -> set[str]:
 # 1. I28 — taxe carbone : le coefficient est celui des sources, pas son double
 # ===========================================================================
 
-def test_gini_carbone_50_euros_dans_la_fourchette_sourcee():
-    """+50 €/tCO2 déplace le Gini de +0,0010 [0,0009 ; 0,0011].
+def test_gini_carbone_nul_par_perimetre_insee():
+    """Lot 4 (méthode unique du Gini, PÉRIMÈTRE) : +50 €/tCO2 émet 0.
 
-    Dérivation : Douenne (2020) et Note IPP n° 34 évaluent le passage
-    22 → 44,6 €/tCO2 (4,1 Md€/an de recettes, hors électricité) ; taux
-    d'effort D1 = 0,55 % du revenu disponible contre D10 = 0,20-0,21 %,
-    soit un coefficient de concentration de la taxe ≈ +0,12 à +0,13, robuste
-    sur 4 spécifications, et +1,1 × 10⁻⁴ de Gini par Md€ de recettes.
-    Le taux de conversion IPP (0,181 Md€ par €/tCO2) donne les +0,0010.
-    """
-    bas, haut = CARBONE_CIBLE
+    La dérivation de la v0.6.1 (Douenne 2020 et Note IPP n° 34 : taux
+    d'effort D1 = 0,55 % contre D10 = 0,20-0,21 %, coefficient de
+    concentration ≈ +0,12 à +0,13, soit +0,0010 pour +50 €/tCO2, fourchette
+    0,0009-0,0011) mesure un niveau de vie NET des taxes sur la consommation,
+    le concept de l'IPP. Le site publie le Gini du niveau de vie de l'INSEE,
+    mesuré avant les prix : une taxe carbone n'y entre pas (arbitrage du
+    mainteneur, constants.py § CANAUX GINI, I28 ; la valeur de l'autre
+    concept reste documentée dans METHODOLOGIE.md comme variante)."""
     obtenu = _gini_transition(_sim(),
                               carbone=CARBONE_PRIX_REFERENCE_EUR_T + CARBONE_PAS_EUR_T)
-    assert bas <= obtenu <= haut, (
-        f"+{CARBONE_PAS_EUR_T:.0f} EUR/tCO2 doit donner un Gini dans "
-        f"[{bas} ; {haut}] (Douenne 2020 + Note IPP n° 34), obtenu {obtenu:.6f}")
-
-
-def test_gini_carbone_est_la_moitie_de_la_v060():
-    """Le sens de la correction : la pénalité Gini du carbone est DIVISÉE PAR 2.
-
-    Le moteur v0.6.0 émettait 0,002 pour +50 €/t, soit exactement le double
-    de ce que les deux sources françaises permettent de dériver. Ce test
-    fixe la DIRECTION (§ C.5 du dossier : divise par deux la pénalité Gini
-    des programmes écologistes) pour qu'un retour en arrière soit visible."""
-    v060 = 0.002 * CARBONE_PAS_EUR_T / 50  # formule littérale de la v0.6.0
-    obtenu = _gini_transition(_sim(),
-                              carbone=CARBONE_PRIX_REFERENCE_EUR_T + CARBONE_PAS_EUR_T)
-    assert obtenu == pytest.approx(v060 / 2, rel=1e-12)
+    assert obtenu == 0.0
+    assert GINI_TAXE_CARBONE_PAR_EUR_TONNE == 0.0
 
 
 @pytest.mark.parametrize("ecart", [-40.0, -20.0, -5.0, 5.0, 20.0, 40.0])
@@ -292,37 +283,19 @@ def test_gini_carbone_nul_au_statu_quo():
 # 2. I29 — rénovation énergétique : coefficient ×1,7
 # ===========================================================================
 
-def test_gini_renovation_5_mds_dans_la_fourchette_sourcee():
-    """+5 Md€ de rénovation déplacent le Gini de −0,0017 [−0,0019 ; −0,0017].
+def test_gini_renovation_nulle_par_perimetre_insee():
+    """Lot 4 (méthode unique du Gini, PÉRIMÈTRE) : +5 Md€ de rénovation émettent 0.
 
-    Dérivation : ONRE/SDES (février 2023) mesure que MaPrimeRénov' concentre
-    60 % des économies d'énergie sur les déciles D1-D4 ; l'ONPE (édition
-    2024, données Anah 2023) relève que 67 % des 505 126 dossiers engagés
-    concernent des ménages modestes et très modestes. D'où un coefficient de
-    concentration C ≈ −0,25 [−0,24 ; −0,26], robuste sur 3 profils de
-    déciles compatibles avec la contrainte ONRE, soit −3,4 × 10⁻⁴ par Md€.
-
-    HYPOTHÈSE DÉCLARÉE (le coefficient est DÉFENDABLE, jamais SOLIDE) :
-    aucune publication ne ventile les MONTANTS par décile — on suppose que
-    les euros suivent le profil des ÉCONOMIES D'ÉNERGIE. Hypothèse
-    conservatrice : les taux de prise en charge plus élevés pour les ménages
-    Bleu/Jaune rendraient le profil en euros PLUS pro-pauvres."""
-    bas, haut = RENOVATION_CIBLE
+    Une aide à des travaux est un transfert en capital, pas une prestation
+    sociale : elle n'entre pas dans le revenu disponible de l'INSEE
+    (définition c1458) ni dans le champ de sa redistribution monétaire. La
+    dérivation de la v0.6.1 (ONRE/SDES février 2023, ONPE 2024 : C ≈ −0,25,
+    −0,0017 pour +5 Md€) reste documentée pour un indicateur élargi aux
+    transferts en capital, qui n'est pas celui du site (constants.py § CANAUX
+    GINI, I29)."""
     obtenu = _gini_transition(_sim(), renovation=RENOVATION_PAS_MD_EUR)
-    assert bas <= obtenu <= haut, (
-        f"+{RENOVATION_PAS_MD_EUR:.0f} Md EUR de rénovation doivent donner un "
-        f"Gini dans [{bas} ; {haut}] (ONRE 2023 + ONPE 2024), "
-        f"obtenu {obtenu:.6f}")
-
-
-def test_gini_renovation_est_1_7_fois_la_v060():
-    """Le sens de la correction : le gain Gini de la rénovation est AMPLIFIÉ.
-
-    v0.6.0 : −0,001 pour +5 Md€ (soit −2,0 × 10⁻⁴/Md€). v0.6.1 :
-    −3,4 × 10⁻⁴/Md€, même signe, 1,7× plus fort."""
-    v060 = -0.001 * RENOVATION_PAS_MD_EUR / 5
-    obtenu = _gini_transition(_sim(), renovation=RENOVATION_PAS_MD_EUR)
-    assert obtenu / v060 == pytest.approx(1.7, abs=0.01)
+    assert obtenu == 0.0
+    assert GINI_RENOVATION_PAR_MD_EUR == 0.0
 
 
 @pytest.mark.parametrize("montant", [-30.0, -5.0, -1.0, 1.0, 5.0, 30.0])
@@ -353,8 +326,8 @@ def test_investissement_vert_seul_n_a_pas_d_effet_gini():
     """L'investissement vert n'a AUCUN canal Gini — et c'est délibéré.
 
     Aucune source ne donne l'incidence distributive d'un euro
-    d'investissement vert (≠ des aides à la rénovation, qui sont un
-    transfert monétaire aux ménages). On ne fabrique pas le chiffre."""
+    d'investissement vert. On ne fabrique pas le chiffre (lot 4 : les aides
+    à la rénovation, transfert en capital, sont au même zéro de périmètre)."""
     assert _gini_transition(_sim(), investissement=50.0) == 0.0
 
 
@@ -831,14 +804,11 @@ def test_aucun_litteral_de_calibration_dans_les_canaux_gini():
 
 
 def test_constantes_gini_dans_les_domaines_attendus():
-    """Signes et ordres de grandeur — garde anti-faute de frappe.
-
-    Le carbone est RÉGRESSIF (signe +, il creuse les inégalités), la
-    rénovation REDISTRIBUTIVE (signe −)."""
-    assert GINI_TAXE_CARBONE_PAR_EUR_TONNE > 0
-    assert GINI_RENOVATION_PAR_MD_EUR < 0
-    assert GINI_TAXE_CARBONE_PAR_EUR_TONNE * CARBONE_PAS_EUR_T == pytest.approx(0.001)
-    assert GINI_RENOVATION_PAR_MD_EUR == pytest.approx(-0.00034)
+    """Valeurs — garde anti-faute de frappe. Lot 4 : les deux canaux valent 0
+    par périmètre (concept INSEE du niveau de vie) ; jusqu'ici +0,0010 pour
+    +50 €/tCO2 et −0,00034 par Md€ de rénovation (variantes documentées)."""
+    assert GINI_TAXE_CARBONE_PAR_EUR_TONNE == 0.0
+    assert GINI_RENOVATION_PAR_MD_EUR == 0.0
     assert CARBONE_PRIX_REFERENCE_EUR_T == 44.6
 
 
@@ -943,11 +913,17 @@ def test_le_golden_master_standalone_couvre_bien_le_gini():
         f"master standalone : {manquants[:5]} — régénérer le snapshot")
 
 
-def test_transition_ecologique_reste_un_effet_de_niveau():
+def test_transition_ecologique_reste_un_effet_de_niveau(monkeypatch):
     """Les deux canaux corrigés restent gatés en NIVEAU one-time.
 
     Contre-épreuve du test précédent côté transition : recalibrer un
-    coefficient ne doit jamais reclasser l'effet en flux."""
+    coefficient ne doit jamais reclasser l'effet en flux. Lot 4 : les deux
+    coefficients valent 0 par périmètre ; la propriété du MÉCANISME est
+    vérifiée avec des valeurs sondes non nulles (un recalibrage futur, ou la
+    variante d'un autre concept, ne doit pas en faire un flux)."""
+    import budget_simulator.handlers.investissements as mod_inv
+    monkeypatch.setattr(mod_inv, 'GINI_TAXE_CARBONE_PAR_EUR_TONNE', 0.001 / 50.0)
+    monkeypatch.setattr(mod_inv, 'GINI_RENOVATION_PAR_MD_EUR', -0.00034)
     serie = _serie_emissions(
         {'transition_ecologique': {'renovation': 20.0, 'taxe_carbone': 100.0}},
         periods=20)

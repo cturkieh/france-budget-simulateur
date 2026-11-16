@@ -337,21 +337,60 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
         # forme du coefficient unitaire : c'est cette forme-là qu'un
         # contradicteur ira comparer à Douenne 2020 / à l'ONRE, et le parseur
         # du verrou ne discrimine pas les valeurs à 1e-5 près.
+        # Lot 4 (méthode unique du Gini) : les deux canaux valent 0 par
+        # périmètre (concept INSEE) ; les valeurs de la v0.6.1 restent dans la
+        # doc comme variantes, le verrou porte sur la valeur publiée.
         CriticalConstant(
             name="Gini — taxe carbone, effet d'un pas de +50 EUR/tCO2",
             source="constants.GINI_TAXE_CARBONE_PAR_EUR_TONNE × 50 EUR/t",
             raw_value=constants.GINI_TAXE_CARBONE_PAR_EUR_TONNE * 50,
-            representations=("0,0010", "0.0010"),
+            representations=("0",),
             must_appear_in=(METHODO, PUBLIC_METHODO),
-            doc_patterns=("+0,0010 de Gini pour",),
+            doc_patterns=("0 de Gini pour +50 EUR/tCO2",),
         ),
         CriticalConstant(
             name="Gini — rénovation énergétique, effet de +5 Md EUR",
             source="constants.GINI_RENOVATION_PAR_MD_EUR × 5 Md EUR",
             raw_value=constants.GINI_RENOVATION_PAR_MD_EUR * 5,
-            representations=("-0,0017", "-0.0017"),
+            representations=("0",),
             must_appear_in=(METHODO, PUBLIC_METHODO),
-            doc_patterns=("-0,0017",),
+            doc_patterns=("0 de Gini pour +5 Md EUR",),
+        ),
+        # Lot 4 : la base de l'indice et les coefficients sourcés de la méthode
+        # unique (classement final), sous la forme « effet de +10 Md€ » (le
+        # parseur ne discrimine pas les valeurs à 1e-4 près ; ×10 rend un
+        # recalibrage de 10 % visible).
+        CriticalConstant(
+            name="GINI_BASE (dernière valeur publiée par l'INSEE)",
+            source="constants.GINI_BASE",
+            raw_value=constants.GINI_BASE,
+            representations=("0,302",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("Base : 0,302",),
+        ),
+        CriticalConstant(
+            name="Gini — prestations ciblées, effet de +10 Md EUR versés",
+            source="constants.GINI_SOLIDARITE_PAR_MD × 10",
+            raw_value=constants.GINI_SOLIDARITE_PAR_MD * 10,
+            representations=("-0,0052",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("-0,0052 pour +10 Md EUR verses",),
+        ),
+        CriticalConstant(
+            name="Gini — CSG, effet de +10 Md EUR prélevés",
+            source="constants.GINI_CSG_PAR_MD × 10",
+            raw_value=constants.GINI_CSG_PAR_MD * 10,
+            representations=("-0,0009",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("-0,0009 pour +10 Md EUR de CSG",),
+        ),
+        CriticalConstant(
+            name="Gini — IFI et hauts patrimoines, effet de +10 Md EUR prélevés",
+            source="constants.GINI_HAUT_PATRIMOINE_PAR_MD × 10",
+            raw_value=constants.GINI_HAUT_PATRIMOINE_PAR_MD * 10,
+            representations=("-0,0044",),
+            must_appear_in=(METHODO, PUBLIC_METHODO),
+            doc_patterns=("-0,0044 pour +10 Md EUR d'IFI",),
         ),
         # --- v0.6.4 (calage chômage) : les 4 grandeurs que la doc cite en
         # clair. Motif d'entrée (revue Altitude) : le « 40 » n'était PAS ici,
@@ -375,7 +414,7 @@ def _critical_constants() -> tuple[CriticalConstant, ...]:
             name="GINI_ALLOC_PAR_MD_EUR (règle montant, Gini par Md EUR)",
             source="constants.GINI_ALLOC_PAR_MD_EUR",
             raw_value=constants.GINI_ALLOC_PAR_MD_EUR,
-            representations=("0,0008",),
+            representations=("0,000238",),
             must_appear_in=(METHODO, PUBLIC_METHODO),
         ),
         CriticalConstant(

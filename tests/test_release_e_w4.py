@@ -233,7 +233,9 @@ def attendu(levier, params, *, gdp, annees_ecoulees=1, autres=None, pib_2026=Non
             d_ref = dr_ref_capital(p['taux_ir_forfaitaire'], p['prelevements_sociaux_capital'],
                                    p['elasticite'])
             rec = d_ref * (gdp / PIB_2025)
-        return (rec, C.GINI_PATRIMOINE_PAR_MD * d_ref, C.COMPET_PATRIMOINE_PAR_MD * d_ref,
+        # Gini : convention « revenus du capital » du lot 4 (jusqu'ici la règle
+        # du levier patrimoine).
+        return (rec, C.GINI_CAPITAL_PAR_MD * d_ref, C.COMPET_PATRIMOINE_PAR_MD * d_ref,
                 canaux_menages(prelevements_directs=rec))
     if levier == 'multinationales':
         r1 = dr1_benefices(p['benefices_recuperes'], _taux_is(autres))
@@ -724,7 +726,7 @@ def test_g11_signes():
 COEFFICIENTS = [
     ('impot_plancher_patrimoine', {'taux': 0.02}, 'GINI_ISF_EFFECTIF_PAR_MD', 'gini'),
     ('impot_plancher_patrimoine', {'taux': 0.02}, 'COMPET_ISF_EFFECTIF_PAR_MD', 'competitivite'),
-    ('fiscalite_capital', {'prelevements_sociaux_capital': 0.22}, 'GINI_PATRIMOINE_PAR_MD', 'gini'),
+    ('fiscalite_capital', {'prelevements_sociaux_capital': 0.22}, 'GINI_CAPITAL_PAR_MD', 'gini'),
     ('fiscalite_capital', {'prelevements_sociaux_capital': 0.22}, 'COMPET_PATRIMOINE_PAR_MD', 'competitivite'),
     ('multinationales', {'benefices_recuperes': 3.0}, 'COMPET_IS_PAR_MD', 'competitivite'),
     ('multinationales', {'taux_tsn': 0.06}, 'COMPET_IMPOTS_PRODUCTION_PAR_MD', 'competitivite'),

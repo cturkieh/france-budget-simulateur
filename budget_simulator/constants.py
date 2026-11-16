@@ -106,7 +106,14 @@ CHOMAGE_DEGRESSIVITE_FACTEUR_HAUSSE = 0.85
 CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE = 1.15
 
 # === INEQUALITY (INSEE 2024) ===
-GINI_BASE = 0.29  # Gini coefficient France
+# Indice de Gini du niveau de vie, dernière valeur publiée : INSEE, « Niveau de
+# vie et indicateurs d'inégalités », série annuelle, parue le 09/07/2026
+# (https://www.insee.fr/fr/statistiques/2491918, fichier
+# reve-niv-vie-indic-inegalite.xlsx) : « Lecture : en 2024, l'indice de Gini du
+# niveau de vie est de 0,302. » Série 2021-2024 : 0,294 ; 0,294 ; 0,297 ; 0,302.
+# Jusqu'au lot 4 : 0,29, étiqueté « INSEE 2024 » à tort (aucune année récente
+# de la série ne vaut 0,29).
+GINI_BASE = 0.302  # Gini du niveau de vie France, 2024 (INSEE, 09/07/2026)
 
 # --- Assemblage Gini (v0.4.0 — réalisme empirique) ---
 # Les handlers émettent des sensibilités Gini par mesure (METHODOLOGIE.md, § par
@@ -129,10 +136,14 @@ if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
     raise ValueError("Constantes d'assemblage Gini hors domaine (SCALE ∈ ]0;1], RATE ∈ ]0;1[)")
 
 # --- Émission Gini du levier chômage (v0.6.4) : deux canaux en € × un poids --
-# Règle montant (canal taux) : « 40→35 Md€ = +0,004 Gini » (OFCE 2023), soit
-# 0,004/5 = 0,0008 par Md€ d'allocations coupées. Source unique du « par
-# euro » : le canal durée s'exprime en MULTIPLE de cette règle.
-GINI_ALLOC_PAR_MD_EUR = 0.004 / 5  # Gini émis par Md€ d'allocations (canal taux, OFCE 2023)
+# Règle montant (canal taux) : GINI_ALLOC_PAR_MD_EUR, définie plus bas avec
+# les coefficients de la méthode unique (§ CANAUX GINI, lot 4) : (G − C) / Y
+# par Md€ d'allocations coupées, C au classement final (INSEE, Revenus et
+# patrimoine des ménages 2024, ligne « Allocations chômage », en euros).
+# Jusqu'au lot 4 : 0,004 / 5 = 0,0008, attribué à « OFCE 2023 » sans passage
+# retrouvé, 2,6 fois la valeur physique de sa propre ancre (constat de ce
+# bloc, ci-dessous). Source unique du « par euro » : le canal durée s'exprime
+# en MULTIPLE de cette règle.
 # Surpoids distributif du canal DURÉE, par euro coupé (v0.6.4, ex-0,002/6 mois
 # qui portait un k implicite de 0,556 SANS SOURCE — différé M35 résolu, choix
 # et limites documentés dans METHODOLOGIE.md § M35). Par euro, une coupe de
@@ -172,25 +183,30 @@ GINI_ALLOC_PAR_MD_EUR = 0.004 / 5  # Gini émis par Md€ d'allocations (canal t
 # DEUX côtés par l'arithmétique, pas seulement ancrée à un ratio (l'objection
 # v0.6.3 « aucune source » est soldée). Limites (détail METHODOLOGIE § M35) :
 # trou des 71 % ; groupes DREES non disjoints ; millésime 2021 pré-réforme ;
-# linéarité assumée. NB inter-familles (cf. « coefficients hérités » sous
-# ASU_GINI_BORNE_PAR_MD_EUR) : ce coefficient rejoint la famille de la règle
-# montant (gonflement ~2,6× vs physique, absorbé par GINI_IMPACT_SCALE) ;
-# l'ASU reste le SEUL levier à émission physiquement calibrée — et le rescale
-# ×0,22 la ramène à 22 % d'une grandeur dérivée comme MAJORANT (un majorant
-# × 0,22 ne majore plus rien). L'homogénéisation v0.7 doit donc ramener l'ASU
-# DANS la famille (ou scinder GINI_IMPACT_SCALE par famille), PAS tirer la
-# famille vers l'ASU — chantier « ne pas bricoler », étendu ici EN ÉCRITURE.
+# linéarité assumée. Lot 4 (méthode unique du Gini, § CANAUX GINI) : la règle
+# montant qui porte ce surpoids est désormais PHYSIQUE, tirée des euros
+# d'allocations au classement final (+0,000238 par Md€ coupé) — le gonflement
+# de l'ancien 0,0008 a disparu, et le canal durée vaut k fois cette valeur,
+# sous la borne arithmétique (1 + G) / Y (garde de CI des coefficients par
+# Md€).
 GINI_DUREE_SURPOIDS = 1.6  # sans dimension : par €, la durée frappe k fois plus bas que le taux
 # Coefficient de concentration des ménages ARE, l'ancre qui rend le surpoids
-# falsifiable (C = 2·F̄ − 1 sur les déciles publiés DREES 1368, graphique 1 —
-# rang moyen D6-D10 posé à r = 0,75 ; sensibilité r 0,70→0,80 ⇒ k_max
-# arithmétique 2,8→3,3). Ne dépend PAS de GINI_BASE (seul le k_max en
-# dépend). Recette de recalcul EXÉCUTÉE, pas en prose :
-# test_le_c_implicite_du_canal_duree_reste_arithmetiquement_valide.
-# ⚠️ Consommée par la garde d'import ci-dessous et par les tests UNIQUEMENT —
-# ancre de falsifiabilité, PAS du code mort : ne pas supprimer au motif
-# qu'aucun handler ne la lit.
-GINI_C_ARE = -0.134
+# falsifiable (lot 4 : elle ne fixe plus la règle montant, tirée des euros
+# d'allocations de l'INSEE) : C = 2·F̄ − 1 sur
+# les parts publiées par la DREES, Études et Résultats n° 1368 (février 2026,
+# graphique 1 et son fichier ER 1368_ASS.xlsx :
+# personnes en ménages bénéficiaires de l'ARE par dixième de niveau de vie, D1
+# à D5 : 13, 13, 13, 13, 11 % ; D6 à D10 : 37 %), chaque dixième à son rang
+# médian (0,05 à 0,45) et D6-D10 au rang moyen posé r = 0,75 (sensibilité
+# r 0,70 → 0,80 : C de −0,175 à −0,101). Recalcul du lot 4 : −0,138 ; la
+# recette antérieure plaçait le bloc D3-D5 au rang 0,35 au lieu de 0,345 (son
+# rang moyen pondéré), d'où −0,134. LIMITES déclarées : les parts sont des
+# PERSONNES, pas des euros (l'ARE croît avec l'ancien salaire, donc les euros
+# sont moins concentrés en bas que les personnes : |C| surestimé, l'effet
+# d'une coupe comme d'une hausse surestimé) ; millésime 2021. Ne dépend PAS de
+# GINI_BASE (seul le k_max en dépend). Recette de recalcul EXÉCUTÉE, pas en
+# prose : test_le_c_implicite_du_canal_duree_reste_arithmetiquement_valide.
+GINI_C_ARE = -0.138
 # Garde de domaine (même famille que les `raise` de l'assemblage ci-dessus) :
 # un surpoids qui impliquerait un coefficient de concentration < −1 serait
 # arithmétiquement impossible (plus concentré que « tout au premier
@@ -1349,14 +1365,20 @@ PRESTATIONS_REVALORISATIONS_MAX = 10
 # Reculer l'âge de départ pénalise davantage les catégories à faible espérance
 # de vie (COR 2024, « effet hétérogène espérance de vie » : ouvriers −6 ans
 # d'espérance de vie vs cadres, taux d'emploi des 55-64 ans 52 % vs 71 %).
-# Règle du moteur : +1,25 année d'écart au droit en vigueur = +0,001 de Gini.
-# VALEUR INCHANGÉE depuis la v0.5.1 et elle doit le rester hors passe dédiée
-# (§ B.1-13 du dossier de sourcing v0.6.1 : l'effet distributif du CANAL
-# EMPLOI n'est pas établi — hétérogénéité forte documentée, les carrières à
-# capital humain élevé se prolongent quand les carrières discontinues
-# basculent en chômage ou en invalidité). Nommée ici, et non écrite en clair
-# dans le handler, pour qu'un auditeur externe puisse la retrouver.
-RETRAITES_GINI_PAR_ANNEE_ECART = 0.001 / 1.25
+# Lot 4 : ZÉRO FAUTE DE SOURCE (règle du mainteneur). Aucune des sources
+# consultées (COR, rapport annuel 2024 ; étude d'impact du PLFRSS 2023 ; DREES,
+# Les retraités et les retraites 2025 ; Insee Première n° 1946 ; Insee
+# Analyses Hauts-de-France n° 155) ne chiffre l'effet d'un âge de départ sur le
+# Gini du niveau de vie ; « COR 2024 » ne documente que l'hétérogénéité
+# d'espérance de vie et d'emploi des seniors. Sens de la limite : un recul de
+# l'âge accroît probablement les inégalités (espérance de vie et emploi des
+# seniors plus faibles chez les ouvriers) — effet omis, à l'avantage des
+# programmes qui reculent l'âge, au détriment de ceux qui l'avancent.
+# Jusqu'au lot 4 : +0,001 par 1,25 année d'écart au droit en vigueur (avant le
+# facteur d'atténuation 0,22), sans source. Le mécanisme (écart à la référence
+# de l'année, résidu des cohortes) est gardé, pour qu'une valeur sourcée
+# puisse y être posée sans toucher au handler.
+RETRAITES_GINI_PAR_ANNEE_ECART = 0.0
 
 # Part de l'effet redistributif ré-émise les années SUIVANT celle où la mesure
 # ouvre son écart. CONVENTION DE MODÉLISATION ASSUMÉE, pas une valeur sourcée :
@@ -1368,13 +1390,20 @@ RETRAITES_GINI_PAR_ANNEE_ECART = 0.001 / 1.25
 RETRAITES_GINI_RESIDU_FLUX = 0.10
 
 # --- Canal indexation : effet redistributif ---------------------------------
-# Désindexer les pensions paupérise les retraités, dont le revenu est
-# concentré dans les déciles médians : l'effet est RÉGRESSIF.
-# Règle : indexation 100 % → 90 % = +0,005 de Gini.
-# Source : OFCE, *Policy Brief* n° 124, 15/02/2024.
-# Valeurs INCHANGÉES depuis la v0.5.1 ; nommées ici au lot 7 pour la même
-# raison que les deux constantes ci-dessus — un coefficient anonyme au milieu
-# d'un handler est intraçable pour un auditeur externe.
+# Désindexer les pensions retire un revenu réparti dans toute la distribution
+# des niveaux de vie, un peu plus lourd en bas : l'effet est faiblement
+# RÉGRESSIF (signe : IPP, chapitre 2 du rapport 2025, figure 2.11, gel des
+# retraites de 2026, « effets relativement répartis tout au long de la
+# distribution des niveaux de vie » ; OFCE, blog du 30/06/2025, profil de
+# l'« année blanche »). Règle du code : 0,005 × (1 − indexation), soit +0,0005
+# pour une indexation à 90 %, et non « +0,005 pour 100 % → 90 % » comme
+# l'écrivait ce commentaire (un facteur 10 ; la version du commentaire
+# dépasserait la borne arithmétique, 0,0024 par Md€ contre (1 + G) / Y ≈
+# 0,00094). La source citée jusqu'au lot 4, OFCE Policy Brief n° 124
+# (15/02/2024), ne contient aucun indice de Gini : citation retirée. Par Md€,
+# cette règle vaut environ −0,00013 à −0,0002, deux à trois fois le
+# coefficient des pensions de la méthode unique (GINI_PENSIONS_PAR_MD,
+# § CANAUX GINI).
 RETRAITES_GINI_PAR_POINT_DESINDEXATION = 0.005
 # (RETRAITES_PA_GEL_TOTAL = 0,007, « −0,7 %/an de pouvoir d'achat pour un gel
 # total », SUPPRIMÉE en v0.6.8 : réémise chaque année, elle composait un niveau
@@ -1894,10 +1923,17 @@ ASU_TRANSITION_ANNEES = 4                    # durée de la montée en charge (A
 # Assiette : le dossier v0.6.1 cite « environ 1 700 Md€ » comme ORDRE DE
 # GRANDEUR non sourcé et renvoie explicitement à l'assiette du moteur. On
 # retient donc les 1 380 Md€ déjà utilisés dans ce fichier pour dériver
-# l'ex-INDEXATION_BASELINE_RATIO (INSEE 2024, revenu disponible brut). L'écart entre
+# l'ex-INDEXATION_BASELINE_RATIO. L'écart entre
 # les deux assiettes n'est pas arbitré : avec 1 700 Md€ l'effet PA serait 19 %
 # plus faible. Sensibilité à publier, pas à masquer.
-RDB_MENAGES_MD_EUR = 1380.0   # assiette « revenus des ménages » du moteur (INSEE 2024, RDB)
+# Lot 4 : ce montant est la MASSE DES NIVEAUX DE VIE du champ de l'INSEE
+# (niveau de vie moyen × nombre d'unités de consommation), et non le revenu
+# disponible brut des comptes nationaux (1 870 Md€, RDB_MENAGES_2025_MD_EUR) :
+# ordre de grandeur déduit, 30 900 € par unité de consommation (INSEE, 2024)
+# × environ 44,5 millions d'unités ≈ 1 370 Md€, ±3 %. L'étiquette « INSEE 2024,
+# RDB » portée jusqu'au lot 4 était fausse ; le nom historique est gardé.
+MASSE_NIVEAUX_DE_VIE_MD_EUR = 1380.0   # Y du Gini : masse des niveaux de vie (voir ci-dessus)
+RDB_MENAGES_MD_EUR = MASSE_NIVEAUX_DE_VIE_MD_EUR   # nom historique (ASU, tests)
 # v0.6.8 : ne sert PLUS qu'à la borne Gini ci-dessous (l'indice de pouvoir
 # d'achat lit RDB_MENAGES_2025_MD_EUR, 1 870 Md€, INSEE). L'aligner
 # changerait le Gini : passe dédiée (colonne Gini figée en v0.6.8).
@@ -1913,14 +1949,18 @@ RDB_MENAGES_MD_EUR = 1380.0   # assiette « revenus des ménages » du moteur (I
 #   du transfert est reçue par le tout premier centile — on obtient la plus
 #   grande amélioration arithmétiquement possible : ΔG = −(E / RDB) × (1 + G).
 # Toute concentration réelle est moins extrême, donc l'effet réel est PLUS
-# PETIT : le moteur MAJORE délibérément le bénéfice redistributif, pour qu'on
-# ne puisse pas lui reprocher de minorer l'apport des programmes généreux.
-# Ordre de grandeur : à +2 Md€/an, l'indice bouge de 0,002 point AVANT
-# rescale — l'ASU n'est une machine à redistribuer dans aucun sens.
-# NB de cohérence interne, signalé et non corrigé ici : les coefficients Gini
-# hérités des autres leviers sociaux sont d'un ordre de grandeur supérieur par
-# euro transféré. Les homogénéiser suppose de re-dériver GINI_IMPACT_SCALE,
-# chantier v0.7 explicitement différé (§ B.4-33 : « ne pas bricoler »).
+# PETIT.
+# Lot 4 (méthode unique, § CANAUX GINI ; arbitrage du mainteneur) : le levier
+# ne retient plus ce majorant. Il prend le coefficient des prestations ciblées
+# de l'INSEE au classement final (GINI_SOLIDARITE_PAR_MD : prestations
+# familiales, aides au logement, minima sociaux, prime d'activité, la famille
+# que l'ASU fusionne), × le transfert net (effort + recours). Limite déclarée,
+# de sens non établi : la concentration propre du transfert net de l'ASU n'est
+# publiée nulle part (le scénario bis DREES/Igas compte 4,6 millions de
+# gagnants et 2,9 millions de perdants, sans les répartir par dixième). Ordre
+# de grandeur : à +2 Md€/an, l'indice baisse d'environ 0,001. La borne
+# ci-dessous reste la borne arithmétique d'une prestation (C = −1), que gardent
+# les tests de borne.
 ASU_GINI_BORNE_PAR_MD_EUR = (1.0 + GINI_BASE) / RDB_MENAGES_MD_EUR
 
 
@@ -2222,13 +2262,25 @@ INDEXATION_DEPENSES_INFLATION_PASSEE = 0.54
 # condition serait une demi-vérité. Le jour où un scénario encode une
 # redistribution forfaitaire des recettes, ce coefficient cesse de valoir.
 #
+# LOT 4 — PÉRIMÈTRE : 0. La dérivation ci-dessus mesure un TAUX D'EFFORT
+# (taxe payée rapportée au revenu disponible), c'est-à-dire un niveau de vie
+# NET des taxes sur la consommation, le concept de l'IPP. L'indicateur publié
+# est le Gini du niveau de vie de l'INSEE, mesuré AVANT les prix : « Le revenu
+# disponible […] comprend les revenus d'activité nets des cotisations
+# sociales, les indemnités de chômage, les retraites et pensions, les revenus
+# du patrimoine […] et les autres prestations sociales perçues, nets des impôts
+# directs » (INSEE, définition c1458). Une taxe sur la consommation n'y entre
+# pas (arbitrage du mainteneur : concept INSEE strict, prix exclus ; même règle
+# pour la TVA et les accises). La valeur de l'autre concept, +0,0010 pour
+# +50 €/tCO2, reste documentée ici et dans METHODOLOGIE.md comme variante.
+#
 # Prix de référence : 44,6 €/tCO2, valeur de la composante carbone française
 # gelée depuis 2018, et cible de la politique évaluée par la Note IPP n° 34.
 # SOURCE UNIQUE : cinq littéraux 44.6 cohabitaient dans le handler (valeur par
 # défaut, recettes, Gini, pouvoir d'achat, compétitivité) — un recalibrage de
 # la référence n'en aurait atteint qu'une partie.
 CARBONE_PRIX_REFERENCE_EUR_T = 44.6
-GINI_TAXE_CARBONE_PAR_EUR_TONNE = 0.001 / 50.0   # +0,0010 de Gini pour +50 EUR/tCO2
+GINI_TAXE_CARBONE_PAR_EUR_TONNE = 0.0   # périmètre INSEE (lot 4) ; concept IPP : +0,0010 pour +50 EUR/tCO2
 #
 # --- I29 : aides à la rénovation énergétique -------------------------------
 # Le moteur v0.6.0 émettait −0,001 pour +5 Md€ (soit −2,0 × 10⁻⁴/Md€) en
@@ -2264,10 +2316,19 @@ GINI_TAXE_CARBONE_PAR_EUR_TONNE = 0.001 / 50.0   # +0,0010 de Gini pour +50 EUR/
 # des ménages « Bleu » et « Jaune » rendraient le profil en euros PLUS
 # pro-pauvres, donc le coefficient plus fort en valeur absolue.
 #
-# Contrairement à l'éducation, l'aide à la rénovation est un transfert
-# MONÉTAIRE aux ménages : elle entre légitimement dans le revenu disponible,
-# le canal est pleinement dans le périmètre de l'indicateur affiché.
-GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
+# LOT 4 — PÉRIMÈTRE : 0. Jusqu'ici ce bloc écrivait que l'aide « entre
+# légitimement dans le revenu disponible ». C'est faux au sens de l'INSEE :
+# le revenu disponible ne comprend, côté transferts, que « les indemnités de
+# chômage, les retraites et pensions […] et les autres prestations sociales
+# perçues » (définition c1458) ; une aide à des TRAVAUX est un transfert en
+# capital (aide à l'investissement), pas une prestation sociale, et elle n'est
+# pas dans le champ de la redistribution monétaire de l'INSEE (France,
+# portrait social 2025, fiche « Redistribution monétaire », définitions :
+# prestations familiales, aides au logement, minima sociaux, prime
+# d'activité). Même règle que l'éducation (I27) et les droits de succession.
+# La dérivation ci-dessus (C ≈ −0,25) reste documentée : elle vaudrait pour un
+# indicateur élargi aux transferts en capital, qui n'est pas celui du site.
+GINI_RENOVATION_PAR_MD_EUR = 0.0   # périmètre INSEE (lot 4) ; hors champ : −0,00034 par Md EUR
 #
 # --- I27 : éducation — zéro PAR CONSTRUCTION, et non par oubli -------------
 # AUCUNE CONSTANTE, délibérément. `_apply_education` émet `'gini': 0.0` en
@@ -2325,6 +2386,287 @@ GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
 # Reste au chantier v0.7 la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 :
 # « non calculable en l'état », « ne pas bricoler ») — elle n'a jamais dépendu
 # de ce fallback.
+#
+# --- LOT 4 : MÉTHODE UNIQUE DU GINI (K × montant) --------------------------
+# Une seule règle pour tout levier dont l'effet passe par le revenu disponible
+# des ménages (périmètre rappelé en tête de ce bloc) :
+#   ΔGini brut = K × Δmontant (Md€, au signe du paramètre du levier),
+#   K = (C − G) / Y pour une prestation (effet d'un Md€ VERSÉ en plus),
+#   K = −(C − G) / Y pour un prélèvement (effet d'un Md€ PRÉLEVÉ en plus),
+# où C est le coefficient de concentration de l'instrument AU CLASSEMENT FINAL
+# des niveaux de vie, G le Gini du niveau de vie et Y la masse des niveaux de
+# vie du champ (MASSE_NIVEAUX_DE_VIE_MD_EUR). C'est la dérivée du Gini publié
+# par rapport à une composante du revenu (Lerman et Yitzhaki, 1985) : elle se
+# calcule au classement de l'indice publié, après redistribution.
+#
+# BORNE ARITHMÉTIQUE (aucune hypothèse) : C ∈ [−1 ; 1]. Un prélèvement ne peut
+# pas réduire l'indice de plus de (1 − G) / Y par Md€ (tout payé par la
+# personne la plus aisée) ; une prestation, pas de plus de (1 + G) / Y (tout
+# versé à la plus modeste), le cas limite que retient l'ASU. Garde d'import
+# ci-dessous, et garde de CI qui balaie toutes les constantes « GINI_…_PAR_MD »
+# du module (tests/test_gini_methode_unique_lot4.py).
+#
+# DONNÉES DU CLASSEMENT FINAL : INSEE, Revenus et patrimoine des ménages,
+# édition 2024 (enquête Revenus fiscaux et sociaux 2021) — fiche 1.4,
+# figure 1 « Composition du niveau de vie selon le dixième de niveau de vie en
+# 2021 » (part de chaque composante dans le niveau de vie de chaque dixième,
+# en %, fichier RPM2024-F4.xlsx) et fiche 1.3, figure 1 (niveau de vie moyen
+# de chaque dixième, de 8 820 à 64 840 €). Montant de la composante par
+# dixième = part × niveau de vie moyen ; C et G sont calculés sur les MÊMES
+# dixièmes (trapèzes), pour que le regroupement pèse sur les deux.
+# Recoupement publié (classement INITIAL) : INSEE, France, portrait social
+# 2025, fiche « Redistribution monétaire », figure 2 (progressivité B et part A
+# de chaque transfert, décomposition de Kakwani). Elle mesure la pente d'un
+# pseudo-Gini (ménages classés avant redistribution) : (V − P) / Y pour une
+# prestation, −(P + V) / Y pour un prélèvement, avec V = Σ |A × B| / 1000. Ces
+# K dépassent ceux du classement final de 19 % (prestations) à 45 % (CSG) ;
+# seul le prélèvement sur les plus hauts patrimoines (IFI), que la fiche 1.4
+# ne sépare pas, garde la figure 2 (le classement change peu tout en haut).
+# LIMITES déclarées : (1) regroupement par dixièmes : les écarts internes à
+# chaque dixième sont ignorés (sur la figure 1 de la fiche « Redistribution
+# monétaire », le regroupement minore les K de 3 à 7 %) ; avec le Gini publié
+# de 2021 (0,294) au lieu de celui des mêmes dixièmes (0,286), les K varient
+# de 1 à 12 % ; (2) premier ordre : linéaire en montant ; un retrait de T Md€
+# vaut T × (C − G) / (Y ± T), soit 8 % d'écart à 120 Md€ ; (3) Y : ordre de
+# grandeur déduit (niveau de vie moyen 2024, 30 900 € par unité de
+# consommation, INSEE, × environ 44,5 millions d'unités de consommation du
+# champ ≈ 1 370 Md€, ±3 %) ; K est inversement proportionnel à Y ; (4) un
+# montant constant en euros courants garde son effet alors que son poids dans
+# un revenu qui croît baisse (environ 3 % par an d'écart à 2025) ; les leviers
+# dont l'assiette suit la masse de dépense (indexation, rabot) lisent leur
+# montant en euros de 2025 ; les montants des programmes sont lus dans l'unité
+# de leur encodage.
+INSEE_RPM2024_NIVEAU_DE_VIE_DIXIEMES = (8820, 14010, 16980, 19590, 21980, 24470, 27310, 31020, 37060, 64840)
+INSEE_RPM2024_COMPOSITION = {
+    # composante : part dans le niveau de vie de chaque dixième (%, valeur
+    # absolue pour les prélèvements), fiche 1.4, figure 1, écrite comme publiée
+    # (entiers compris)
+    'prestations_familiales': (14.7, 8.5, 5.4, 3.7, 2.8, 2.2, 1.6, 1.1, 0.7, 0.2),
+    'prestations_logement': (12.8, 5.5, 2.1, 0.9, 0.5, 0.3, 0.2, 0.2, 0.1, 0.1),
+    'minima_sociaux': (16.7, 7.2, 3.5, 2, 1.1, 0.8, 0.5, 0.4, 0.3, 0.1),
+    'prime_activite': (3, 3.2, 2.4, 1.5, 0.8, 0.6, 0.3, 0.2, 0.1, 0),
+    'pensions_retraites': (16.9, 25.2, 29.2, 29, 26.9, 28.9, 26.5, 25.8, 24.5, 16),
+    'allocations_chomage': (9.2, 6.8, 5.4, 4.5, 3.7, 2.4, 2.3, 2, 1.7, 1.5),
+    'revenus_patrimoine': (2.5, 2.3, 2.8, 2.8, 3, 3.7, 4.5, 5.4, 7.6, 22.7),
+    'salaires': (28.4, 45.6, 55.2, 63.1, 69.2, 70.5, 75.4, 77.3, 78.8, 73.5),
+    'csg_crds': (4.6, 6.5, 8, 8.9, 9.8, 10.2, 10.8, 11.3, 11.9, 14.1),
+    'impot_revenu_patrimoine': (2, 0.4, 0.6, 0.7, 1.4, 1.9, 3.9, 4.8, 7.3, 14),
+}
+
+
+def _concentration_groupee(montants, poids=None) -> float:
+    """Concentration groupée (trapèzes) de montants rangés du groupe le plus
+    modeste au plus aisé ; poids = part de population de chaque groupe
+    (groupes égaux par défaut)."""
+    poids = poids or [1.0 / len(montants)] * len(montants)
+    total, cumul, aire = float(sum(montants)), 0.0, 0.0
+    for m, w in zip(montants, poids):
+        suivant = cumul + m / total
+        aire += w * (cumul + suivant) / 2
+        cumul = suivant
+    return 1.0 - 2.0 * aire
+
+
+GINI_DIXIEMES_RPM2024 = _concentration_groupee(INSEE_RPM2024_NIVEAU_DE_VIE_DIXIEMES)   # 0,286
+
+
+def _gini_ecart_rang_final(*composantes: str) -> float:
+    """(C − G) / Y au classement final, C et G sur les mêmes dixièmes (fiche
+    1.4 × fiche 1.3) : effet d'un Md€ VERSÉ en plus de la composante (son
+    opposé pour un Md€ prélevé ou coupé)."""
+    nv = INSEE_RPM2024_NIVEAU_DE_VIE_DIXIEMES
+    montants = [sum(INSEE_RPM2024_COMPOSITION[c][i] for c in composantes) * nv[i] for i in range(len(nv))]
+    return (_concentration_groupee(montants) - GINI_DIXIEMES_RPM2024) / MASSE_NIVEAUX_DE_VIE_MD_EUR
+
+
+INSEE_FPS2025_REDISTRIBUTION = {
+    # transfert : (part dans le niveau de vie A en %, progressivité B), figure 2
+    'prelevements': (-16.9, 2.2),
+    'prestations': (5.8, 9.5),
+    'cotisations_famille': (-3.1, 0.4),
+    'contributions_sociales': (-7.3, 0.8),
+    'impot_revenu': (-6.4, 4.6),
+    'impot_fortune_immobiliere': (-0.1, 5.2),
+}
+GINI_REDUCTION_VERTICALE_FPS2025 = sum(
+    abs(INSEE_FPS2025_REDISTRIBUTION[k][0]) * INSEE_FPS2025_REDISTRIBUTION[k][1]
+    for k in ('prelevements', 'prestations')) / 1000   # V = 0,0923
+
+
+def _gini_k_prestation(transfert: str) -> float:
+    """Recoupement, classement INITIAL : K d'un Md€ VERSÉ en plus d'une
+    prestation de la figure 2, (V − P) / Y."""
+    return (GINI_REDUCTION_VERTICALE_FPS2025
+            - INSEE_FPS2025_REDISTRIBUTION[transfert][1] / 10) / MASSE_NIVEAUX_DE_VIE_MD_EUR
+
+
+def _gini_k_prelevement(transfert: str) -> float:
+    """Recoupement, classement INITIAL : K d'un Md€ PRÉLEVÉ en plus d'un
+    prélèvement de la figure 2, −(P + V) / Y."""
+    return -(INSEE_FPS2025_REDISTRIBUTION[transfert][1] / 10
+             + GINI_REDUCTION_VERTICALE_FPS2025) / MASSE_NIVEAUX_DE_VIE_MD_EUR
+
+
+GINI_BORNE_PRELEVEMENT_PAR_MD = (1.0 - GINI_BASE) / MASSE_NIVEAUX_DE_VIE_MD_EUR   # 0,00051
+GINI_BORNE_PRESTATION_PAR_MD = (1.0 + GINI_BASE) / MASSE_NIVEAUX_DE_VIE_MD_EUR    # 0,00094
+
+# COEFFICIENTS SOURCÉS AU CLASSEMENT FINAL (fiche 1.4), signés : effet d'un
+# +1 Md€. Prestations ciblées (prestations familiales, aides au logement,
+# minima sociaux, prime d'activité) — levier prestations_menages (solidarité),
+# indexation des prestations, minima et AAH du rabot. Recoupement figure 2 :
+# −0,000622.
+GINI_SOLIDARITE_PAR_MD = _gini_ecart_rang_final(
+    'prestations_familiales', 'prestations_logement', 'minima_sociaux', 'prime_activite')   # −0,000521
+# CSG et CRDS : prélèvement faiblement progressif, une hausse réduit l'indice
+# (jusqu'au lot 4, le levier écrivait le signe contraire, « CSG légèrement
+# régressive », sans passage retrouvé). Recoupement figure 2 : −0,000125.
+GINI_CSG_PAR_MD = -_gini_ecart_rang_final('csg_crds')                      # −0,0000863
+# Cotisations salariales, au signe d'un Md€ RENDU aux salariés (baisse) :
+# estimation de France Budget par un proxy, les salaires de la fiche 1.4 de
+# l'Insee (une baisse proportionnelle au salaire rend des euros répartis comme
+# les salaires). Incertitude d'un facteur 2 environ : les plafonds des
+# cotisations vieillesse les rendent moins concentrées en haut que les
+# salaires (effet probablement SURESTIMÉ). Valable pour une baisse uniforme ;
+# le signe s'inverse pour une baisse ciblée sur les heures supplémentaires
+# (Insee 2020). Recoupements : figure 2 (cotisations famille, classement
+# initial) +0,0000959 ; estimation antérieure par quintiles de l'Insee
+# (décision du mainteneur du 12/11/2026) +0,00006 à +0,0001 — le classement
+# final passe SOUS cette plage.
+GINI_COTIS_SAL_PAR_MD = _gini_ecart_rang_final('salaires')                 # +0,0000541
+# Prélèvements sur les ménages les plus aisés : IFI, « le prélèvement le plus
+# progressif » (figure 2, conservée : la fiche 1.4 ne sépare pas l'IFI) — IFI
+# du levier patrimoine, ISF, impôt plancher, tranche supérieure de l'IR (dont
+# la concentration est au moins celle de l'IFI : valeur prudente, entre ce K
+# et la borne). Recoupement : la transformation de l'ISF en IFI (INSEE,
+# France, portrait social 2019) donne −0,00036 à −0,00040.
+GINI_HAUT_PATRIMOINE_PAR_MD = _gini_k_prelevement('impot_fortune_immobiliere')  # −0,000444
+# Impôt sur le revenu (ligne « Impôt sur le revenu et le patrimoine » de la
+# fiche 1.4). Recoupement figure 2 : −0,000400.
+GINI_IR_PAR_MD = -_gini_ecart_rang_final('impot_revenu_patrimoine')       # −0,000297
+# Allocations chômage (règle montant du levier chomage_alloc, par Md€ COUPÉ,
+# positif) : ligne « Allocations chômage », en euros. Le canal durée en vaut
+# GINI_DUREE_SURPOIDS fois. L'ancre DREES (GINI_C_ARE, en tête de fichier)
+# compte des personnes, pas des euros, et majorait l'effet (+0,000319) : elle
+# reste l'ancre de validité du surpoids de durée.
+GINI_ALLOC_PAR_MD_EUR = -_gini_ecart_rang_final('allocations_chomage')    # +0,000238
+# Hors du revenu disponible (périmètre, voir l'en-tête du bloc) : droits de
+# succession et de donation (transfert en capital ; le levier l'écrit lui-même
+# pour le pouvoir d'achat), taxe foncière (absente de la liste des impôts
+# directs de la définition c1458).
+GINI_SUCCESSIONS_PAR_MD = 0.0
+GINI_TAXE_FONCIERE_PAR_MD = 0.0
+
+# RÈGLES À PLAGE PUBLIÉE : valeur = centre de la plage, sauf mention ; les
+# bornes sont recalculées depuis les tableaux publiés par
+# tests/test_gini_methode_unique_lot4.py.
+# Pensions de retraite, par Md€ VERSÉ (hors du champ de la fiche
+# « Redistribution monétaire », qui compte les pensions dans le revenu
+# initial) :
+# - −0,0000474 : toutes pensions, variation proportionnelle, classement final
+#   (fiche 1.4, « Pensions et retraites ») ;
+# - −0,0000895 : gel des pensions de base, IPP, rapport 2025-2026, chapitre 2,
+#   tableau 2.2 (« Gel retraites 2026 » : −0,21 / −0,17 / −0,10 % du niveau de
+#   vie des 50 % les plus modestes / 50 à 90 % / 10 % les plus aisés), trois
+#   groupes pesés par les parts de masse de l'INSEE 2024 (S50 30,1 %, S90
+#   75,1 %). Sur les dixièmes de l'INSEE, ce regroupement en trois groupes
+#   MAJORE l'écart des pensions de 8 % : la borne n'est pas recalée.
+GINI_PENSIONS_PLAGE_PAR_MD = (-0.0000474, -0.0000895)
+GINI_PENSIONS_PAR_MD = sum(GINI_PENSIONS_PLAGE_PAR_MD) / 2                # −0,0000685
+# Abattement de 10 % sur les pensions (impôt des retraités), par Md€ PRÉLEVÉ :
+# IPP, même tableau, « Suppression abattement retraite » (−0,18 / −0,40 /
+# −0,32 %), trois groupes : −0,0000855 brut ; −0,0000949 corrigé du
+# regroupement (rapport dix dixièmes / trois groupes mesuré sur la CSG, 1,11 ;
+# sur l'IR, 1,03). LIMITE DÉCLARÉE : la source chiffre la SUPPRESSION ; le
+# levier décrit le forfait de 2 000 € du projet de loi de finances 2026, plus
+# progressif par Md€ net (IPP, billet du 29/07/2025 : gains sous le 40e
+# centième, pertes au-dessus du 50e, sans tableau chiffré) : effet
+# probablement sous-estimé en valeur absolue.
+GINI_ABATTEMENT_RETRAITES_PLAGE_PAR_MD = (-0.0000855, -0.0000949)
+GINI_ABATTEMENT_RETRAITES_PAR_MD = sum(GINI_ABATTEMENT_RETRAITES_PLAGE_PAR_MD) / 2   # −0,0000902
+# Revenus du capital (prélèvement forfaitaire, prélèvements sociaux du
+# capital), par Md€ PRÉLEVÉ : plage −0,000398 à −0,000506, valeur = BORNE
+# BASSE sourcée (en valeur absolue) :
+# - −0,000398 : IPP, même tableau, « Suppression PFU » (−0,08 / −0,13 /
+#   −2,26 %), trois groupes : borne basse, le regroupement cache la
+#   concentration du dernier centième ;
+# - −0,000506 : borne arithmétique d'un prélèvement.
+# Plus lâche : la fiche 1.4 (« Revenus du patrimoine », toutes assiettes,
+# livrets exonérés compris) donne −0,000273. Sens : pour une variation du taux
+# des prélèvements sociaux, dont l'assiette est moins concentrée que le gain
+# du prélèvement forfaitaire, l'effet est probablement surestimé ; pour la
+# sortie du prélèvement forfaitaire, sous-estimé.
+GINI_CAPITAL_PLAGE_PAR_MD = (-0.000398, -0.000506)
+GINI_CAPITAL_PAR_MD = GINI_CAPITAL_PLAGE_PAR_MD[0]                         # −0,000398
+# Décote de l'impôt sur le revenu (levier impot_revenu.decote), par Md€ de
+# recette (décote réduite) : Conseil des prélèvements obligatoires, rapport
+# particulier n° 2 (mai 2024), tableau n° 34 (gain de la décote par dixième de
+# revenu déclaré par unité de consommation : 0,0 / 0,0 / 0,1 / 0,8 / 1,6 /
+# 2,0 / 1,8 / 1,0 / 0,2 / 0,1 Md€) : C = 0,134. LIMITE DÉCLARÉE : classement par
+# revenu déclaré, pas par niveau de vie (la seule source qui ventile la décote).
+GINI_C_DECOTE = 0.1342
+GINI_IR_DECOTE_PAR_MD = (GINI_BASE - GINI_C_DECOTE) / MASSE_NIVEAUX_DE_VIE_MD_EUR  # +0,000122
+# SMIC, par unité de hausse relative du SMIC brut mensuel, celle que lit le
+# levier : SMIC du programme rapporté au SMIC de référence de l'année
+# d'application (référence datée, handlers/additionnels.py, _smic_de_reference),
+# moins 1 ; 0,10 = +10 %. Le chiffrage source est lui aussi relatif (une
+# hausse de 1 % du SMIC de l'année), si bien que l'unité ne dépend pas de
+# l'année de la référence. Source : rapport du
+# groupe d'experts sur le SMIC du 1er décembre 2017 (DG Trésor, Saphir 2017,
+# microsimulation statique, à emploi inchangé), gains de revenu disponible
+# d'une hausse de 1 % par dixième de niveau de vie initial : graphique n° 41
+# (30 / 60 / 90 / 100 / 110 / 100 / 80 / 60 / 40 / 20 M€, C = −0,065) et
+# graphique n° 45 (110 M€ au 4e dixième, C = −0,069). Effet de +1 % : −0,080 %
+# de l'indice en 2017 (G 0,289, Y ≈ 1 060 Md€) ; aux grandeurs de 2024 (G 0,302,
+# Y 1 380 Md€, gains × 1,30, la croissance de la masse salariale nominale),
+# −0,0239 à −0,0244 par unité de hausse. Le tableau n° 12 (« Indice de Gini
+# −0,1 % ») en est l'arrondi. Y de 2017 et facteur 1,30 (2017 à 2024) : déduits ;
+# de 2017 à 2025, les salaires bruts des comptes nationaux croissent de 1,314
+# (SALAIRES_BRUTS_2025_MD / SALAIRES_BRUTS_2017_MD), qui donnerait −0,0241 à
+# −0,0247, dans l'arrondi de la plage.
+# CONVENTION DÉCLARÉE : extrapolation linéaire de +1 % aux hausses encodées
+# (jusqu'à +21 %) ; sens : la diffusion au-dessus du SMIC, la dégressivité de
+# la prime d'activité et les effets d'emploi signalés par le même rapport
+# rendent probablement la baisse de l'indice SURESTIMÉE pour les fortes
+# hausses.
+GINI_SMIC_PLAGE_PAR_HAUSSE = (-0.0231, -0.0244)
+GINI_SMIC_PAR_HAUSSE = sum(GINI_SMIC_PLAGE_PAR_HAUSSE) / 2                 # −0,02375
+
+# ZÉRO FAUTE DE SOURCE (règle du mainteneur : sans source, zéro et limite
+# déclarée, avec son sens) :
+# - Impôt sur le revenu ciblé (impot_revenu_cible) et élargissement de l'IR
+#   (elargissement_ir) : ces leviers ne disent pas quel instrument ils portent
+#   (seuil d'entrée, première tranche, décote, exonération ciblée) ; la seule
+#   source consultée qui ventile une baisse d'IR par dixième de niveau de vie
+#   (INSEE, France, portrait social 2022, figure 4 : baisse du taux de la
+#   première tranche de 2020, +0,000109 à +0,000120 par Md€ de baisse, l'indice
+#   MONTE) ne vaut que pour cet instrument. Sens : une mesure qui vise les
+#   dixièmes du milieu (concentration sous G) réduirait l'indice, une baisse du
+#   bas du barème l'augmenterait : le signe dépend de l'instrument.
+GINI_IR_CIBLE_PAR_MD = 0.0
+# - CSG progressive par dixième (recette nulle) : aucun chiffrage retrouvé
+#   (« OFCE 2023, modèle Allemagne », sans passage). Sens : une CSG rendue plus
+#   progressive à recette constante réduirait l'indice : effet omis, au
+#   détriment des programmes qui l'activent (aucun programme publié).
+GINI_CSG_PROGRESSIVE = 0.0
+# - Âge de départ : RETRAITES_GINI_PAR_ANNEE_ECART (bloc des retraites).
+
+# Garde d'import : un recalibrage qui sortirait un coefficient de la borne
+# arithmétique casse ICI, pas en silence (même famille que les gardes de
+# l'assemblage). La garde de CI couvre en plus toutes les constantes du module.
+for _nom, _k, _borne in (
+        ('GINI_SOLIDARITE_PAR_MD', GINI_SOLIDARITE_PAR_MD, GINI_BORNE_PRESTATION_PAR_MD),
+        ('GINI_PENSIONS_PAR_MD', GINI_PENSIONS_PAR_MD, GINI_BORNE_PRESTATION_PAR_MD),
+        ('GINI_ALLOC_PAR_MD_EUR', GINI_ALLOC_PAR_MD_EUR, GINI_BORNE_PRESTATION_PAR_MD),
+        ('GINI_CSG_PAR_MD', GINI_CSG_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD),
+        ('GINI_COTIS_SAL_PAR_MD', GINI_COTIS_SAL_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD),
+        ('GINI_HAUT_PATRIMOINE_PAR_MD', GINI_HAUT_PATRIMOINE_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD),
+        ('GINI_IR_PAR_MD', GINI_IR_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD),
+        ('GINI_CAPITAL_PAR_MD', GINI_CAPITAL_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD),
+        ('GINI_IR_DECOTE_PAR_MD', GINI_IR_DECOTE_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD),
+        ('GINI_ABATTEMENT_RETRAITES_PAR_MD', GINI_ABATTEMENT_RETRAITES_PAR_MD, GINI_BORNE_PRELEVEMENT_PAR_MD)):
+    if not abs(_k) <= _borne:
+        raise ValueError(f"{_nom} = {_k!r} dépasse la borne arithmétique {_borne!r} par Md€")
+del _nom, _k, _borne
 
 
 # ===========================================================================
@@ -2351,8 +2693,8 @@ GINI_RENOVATION_PAR_MD_EUR = -0.00034   # -0,0017 de Gini pour +5 Md EUR
 
 # --- Constantes extraites des handlers existants (valeur et signe inchangés)
 # handlers/fiscalite_menages.py, _apply_fiscalite_patrimoine : +10 Md€ de
-# recette patrimoniale = −0,010 de Gini et −0,002 de compétitivité.
-PATRIMOINE_GINI_PAR_10MD = -0.010
+# recette patrimoniale = −0,002 de compétitivité. (Gini : méthode unique du
+# lot 4, § CANAUX GINI ; jusqu'ici −0,010 pour 10 Md€.)
 PATRIMOINE_COMPET_PAR_10MD = -0.002
 # _apply_isf_climatique : −0,020 de Gini et −0,002 de compétitivité pour
 # 12 Md€ de recette nette ; taux maximal du barème (1 %) ; phasage de la
@@ -2361,10 +2703,10 @@ ISF_GINI_PAR_12MD = -0.020
 ISF_COMPET_PAR_12MD = -0.002
 ISF_TAUX_MAX = 0.01
 ISF_PHASAGE = (0.5, 1.0)
-# _apply_impot_revenu : suppression de la décote = +0,003 de Gini pour
-# 7,5 Md€ de recette ; tranche supérieure +5 points = −0,008 de Gini ;
-# plancher du facteur comportemental (élasticité du revenu imposable).
-IR_GINI_DECOTE = 0.003
+# _apply_impot_revenu : suppression de la décote = 7,5 Md€ de recette (Gini :
+# coefficient de la décote du lot 4, § CANAUX GINI ; jusqu'ici +0,003) ;
+# tranche supérieure +5 points = −0,008 de Gini ; plancher du facteur
+# comportemental (élasticité du revenu imposable).
 IR_RECETTE_DECOTE = 7.5
 IR_GINI_PAR_5PTS = -0.008
 ETI_PLANCHER_FACTEUR = 0.5
@@ -2403,15 +2745,21 @@ COUT_PAR_POINT_COTIS_SAL = SALAIRES_BRUTS_2025_MD / 100
 # Md€ rend le Gini indépendant de la convention du point. Jusqu'à la release E :
 # +0,0027 par point de 6 Md€ (≈ +0,00045 par Md€), attribué à une source
 # introuvable, quatre à sept fois au-dessus de cette estimation.
-GINI_COTIS_SAL_PAR_MD = 0.0001
-# _apply_tva_rate : TVA +2 points = +0,005 de Gini et −0,0005 de
-# compétitivité. La recette du levier est la fonction recette_tva_taux
-# ci-dessous, que le handler APPELLE.
-TVA_GINI_PAR_2PTS = 0.005
+# Lot 4 : GINI_COTIS_SAL_PAR_MD est désormais défini avec la méthode unique
+# (§ CANAUX GINI) : les salaires au classement final de l'INSEE (+0,0000541
+# par Md€ rendu, sous la plage ci-dessus, que tirait le classement initial ;
+# 0,0001 jusqu'au lot 4).
+# _apply_tva_rate : TVA +2 points = −0,0005 de compétitivité. La recette du
+# levier est la fonction recette_tva_taux ci-dessous, que le handler APPELLE.
+# Gini : 0 depuis le lot 4 (périmètre INSEE, niveau de vie mesuré avant les
+# prix ; § CANAUX GINI, I28) ; jusqu'ici +0,005 pour +2 points, attribué à
+# « OFCE 2024 » sans passage retrouvé.
+TVA_GINI_PAR_2PTS = 0.0
 TVA_COMPET_PAR_2PTS = -0.0005
-# _apply_tva_energie : Gini = variation du taux × 0,05 ; consommations
-# d'électricité et de gaz soumises à la TVA (Md€).
-TVA_ENERGIE_GINI_PAR_TAUX = 0.05
+# _apply_tva_energie : consommations d'électricité et de gaz soumises à la TVA
+# (Md€). Gini : 0 depuis le lot 4 (même périmètre) ; jusqu'ici variation du
+# taux × 0,05, sans source.
+TVA_ENERGIE_GINI_PAR_TAUX = 0.0
 TVA_ENERGIE_CONSO_ELECTRICITE_MD = 60.0
 TVA_ENERGIE_CONSO_GAZ_MD = 60.0
 # handlers/competitivite.py : compétitivité par Md€ d'impôt sur les sociétés,
@@ -2453,21 +2801,14 @@ ANNEE_FIN_MANDAT = 2032
 HORIZON_MANDAT_ANNEES = ANNEE_FIN_MANDAT - ANNEE_PREMIER_BUDGET_MANDAT + 1
 
 # --- Coefficients par Md€ des nouveaux leviers (dérivés, signés) -----------
-# Prestations de solidarité : règle « par Md€ d'allocations » du moteur (OFCE
-# 2023, GINI_ALLOC_PAR_MD_EUR), au signe d'une HAUSSE de prestation.
-GINI_SOLIDARITE_PAR_MD = -GINI_ALLOC_PAR_MD_EUR
-# Pensions : émission EFFECTIVE du levier ``retraites`` sur le mandat — Gini
-# CUMULÉ d'un gel total de l'indexation (100 % la première année, puis le
-# résidu de flux chaque année suivante) rapporté à l'économie atteinte en fin
-# de mandat (masse × (1 − (1 + inflation)^−N)), au signe d'une HAUSSE de
-# pension. La règle suit le CODE de _apply_retraites (0,005 × (1 −
-# indexation)), pas le commentaire de RETRAITES_GINI_PAR_POINT_DESINDEXATION
-# (« 100 % → 90 % = +0,005 »), qui en diffère d'un facteur 10 (écart signalé).
-GINI_PENSIONS_PAR_MD = (-RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1 + RETRAITES_GINI_RESIDU_FLUX * (HORIZON_MANDAT_ANNEES - 1))
-                        / (MASSE_RETRAITES_2025_MD_EUR * (1 - (1 + INFLATION_STRUCTURELLE) ** -HORIZON_MANDAT_ANNEES)))
-# Recettes sur le patrimoine (successions, revenus du capital) : règle du
-# levier ``fiscalite_patrimoine``.
-GINI_PATRIMOINE_PAR_MD = PATRIMOINE_GINI_PAR_10MD / 10
+# Prestations de solidarité et pensions : GINI_SOLIDARITE_PAR_MD (sourcé) et
+# GINI_PENSIONS_PAR_MD (plage publiée), définis avec la méthode unique
+# (§ CANAUX GINI, lot 4). Jusqu'au lot 4 : −0,0008 (la règle chômage « OFCE 2023 ») et
+# −0,00024 (l'émission effective du levier retraites sur le mandat).
+# Recettes sur le patrimoine : GINI_SUCCESSIONS_PAR_MD (0, hors revenu
+# disponible) et GINI_CAPITAL_PAR_MD (plage publiée), même bloc ; jusqu'au
+# lot 4, la règle du levier fiscalite_patrimoine (−0,001 par Md€, deux fois
+# la borne arithmétique d'un prélèvement).
 COMPET_PATRIMOINE_PAR_MD = PATRIMOINE_COMPET_PAR_10MD / 10
 # Impôt plancher : émission EFFECTIVE de l'ISF par Md€ de recette d'année
 # pleine. Le phasage entre DEUX fois dans _apply_isf_climatique (dans la
@@ -2476,14 +2817,15 @@ COMPET_PATRIMOINE_PAR_MD = PATRIMOINE_COMPET_PAR_10MD / 10
 # fera ENSEMBLE, jamais l'une sans l'autre.
 GINI_ISF_EFFECTIF_PAR_MD = ISF_GINI_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
 COMPET_ISF_EFFECTIF_PAR_MD = ISF_COMPET_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
-# Impôt sur le revenu ciblé : règle de la décote, seule règle IR du moteur dont
-# l'incidence porte sur le milieu de la distribution.
-GINI_IR_DECOTE_PAR_MD = IR_GINI_DECOTE / IR_RECETTE_DECOTE
+# Impôt sur le revenu ciblé : GINI_IR_CIBLE_PAR_MD (zéro faute de source,
+# § CANAUX GINI, lot 4), le même que l'élargissement de l'IR.
 # TVA à taux réduits : règle de ``tva_rate`` rapportée à la recette que rend
-# sa fonction à +2 points (taux 22 %), au PIB et au chômage de l'année de base.
+# sa fonction à +2 points (taux 22 %), au PIB et au chômage de l'année de base
+# (0 depuis le lot 4 : périmètre INSEE).
 GINI_TVA_PAR_MD = TVA_GINI_PAR_2PTS / recette_tva_taux(0.22, PIB_BASE_2025_MD_EUR, CHOMAGE_BASE)
 COMPET_TVA_PAR_MD = TVA_COMPET_PAR_2PTS / recette_tva_taux(0.22, PIB_BASE_2025_MD_EUR, CHOMAGE_BASE)
-# Accises sur l'énergie : règle de ``tva_energie`` par Md€ de recette.
+# Accises sur l'énergie : règle de ``tva_energie`` par Md€ de recette (0 depuis
+# le lot 4 : périmètre INSEE).
 GINI_TVA_ENERGIE_PAR_MD = TVA_ENERGIE_GINI_PAR_TAUX / (TVA_ENERGIE_CONSO_ELECTRICITE_MD + TVA_ENERGIE_CONSO_GAZ_MD)
 # Impôts d'entreprise : +1 Md€ d'impôt en plus = perte de compétitivité.
 COMPET_IS_PAR_MD = -IS_COMPET_PAR_MD

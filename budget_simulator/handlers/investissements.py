@@ -239,21 +239,24 @@ class InvestissementsMixin(_MixinBase):
         # Émis au CHANGEMENT de paramètres, en INCRÉMENT (v0.7.0,
         # simulator._effet_ponctuel) : un changement d'investissement seul
         # n'émet plus rien (il réémettait le Gini de la rénovation et du carbone).
-        # 1) Aides à la rénovation = REDISTRIBUTIF (v0.6.1, item I29)
+        # LOT 4 — PÉRIMÈTRE : les deux coefficients valent 0 (constants.py
+        # § CANAUX GINI, I28 et I29). Une aide à des travaux est un transfert
+        # en capital et une taxe carbone un prix : ni l'une ni l'autre n'entre
+        # dans le revenu disponible de l'INSEE, dont le site publie le Gini.
+        # Les dérivations ci-dessous restent documentées comme variantes d'un
+        # autre concept (indicateur élargi, niveau de vie net des taxes).
+        # 1) Aides à la rénovation (v0.6.1, item I29) — variante hors champ :
         # -0,00034 de Gini par Md€, soit -0,0017 pour +5 Md€.
         # Sources : ONRE/SDES fév. 2023 (MaPrimeRénov' concentre 60 % des
         # économies d'énergie sur D1-D4) + ONPE 2024 (67 % des dossiers
         # engagés en 2023 = ménages modestes et très modestes).
-        # Contrairement à l'éducation, c'est un transfert MONÉTAIRE aux
-        # ménages : le canal est pleinement dans le périmètre du Gini du
-        # niveau de vie. Le coefficient de la v0.6.0 (-0,001 pour 5 Md€)
-        # avait le bon signe mais était ~1,7× trop faible, et citait une
-        # source introuvable. Détail de la dérivation et hypothèse
-        # déclarée : constants.py § CANAUX GINI.
+        # Le coefficient de la v0.6.0 (-0,001 pour 5 Md€) citait une source
+        # introuvable. Détail de la dérivation et hypothèse déclarée :
+        # constants.py § CANAUX GINI.
         # (formule : gini_transition ci-dessous, rénovation)
 
-        # 2) Taxe carbone = RÉGRESSIF (v0.6.1, item I28)
-        # +0,0010 de Gini pour +50 €/tCO2. Sources : Douenne (2020),
+        # 2) Taxe carbone (v0.6.1, item I28) — variante du concept net des
+        # taxes : +0,0010 de Gini pour +50 €/tCO2. Sources : Douenne (2020),
         # The Energy Journal 41(3) + Note IPP n° 34 (juillet 2018) :
         # taux d'effort D1 = 0,55 % du revenu disponible contre
         # D10 = 0,20-0,21 %. La v0.6.0 était exactement au DOUBLE, sur

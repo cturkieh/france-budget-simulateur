@@ -131,9 +131,13 @@ def test_p1_handler_sans_ancien_commentaire_de_six_milliards():
 # ===========================================================================
 
 def test_p2_coefficient_par_md_nomme():
-    """+0,0001 de Gini par Md€ de cotisations rendu aux salariés : une baisse
-    accroît légèrement les inégalités (signe positif)."""
-    assert C.GINI_COTIS_SAL_PAR_MD == 0.0001
+    """Gini par Md€ de cotisations rendu aux salariés : une baisse accroît
+    légèrement les inégalités (signe positif). Lot 4 : salaires de l'Insee au
+    classement final (+0,0000541), SOUS la plage +0,00006 à +0,0001 de la
+    décision du 12/11/2026, que tirait le classement initial (figure 2 :
+    +0,0000959) ; recette exécutée dans tests/test_gini_methode_unique_lot4.py."""
+    assert C.GINI_COTIS_SAL_PAR_MD == pytest.approx(0.0000541, rel=0.01)
+    assert 0 < C.GINI_COTIS_SAL_PAR_MD < 0.00006
 
 
 def test_p2_coefficient_documente_comme_estimation_de_france_budget():
@@ -174,11 +178,12 @@ def test_p2_gini_ne_depend_que_du_montant(monkeypatch):
 
 
 def test_p2_suppression_totale_ordre_de_grandeur():
-    """Au maximum (138,2 Md€ rendus) : ≈ +0,014 de Gini, contre +0,062 émis par
-    l'ancienne règle (+0,0027 par point de 6 Md€ sur 23 points)."""
+    """Au maximum (138,2 Md€ rendus) : ≈ +0,0075 de Gini (lot 4, classement
+    final), contre +0,062 émis par l'ancienne règle (+0,0027 par point de 6 Md€
+    sur 23 points)."""
     haut = PARAM_DOMAINS[COTIS]['baisse_points'][1]
     assert _gini(haut) == pytest.approx(C.GINI_COTIS_SAL_PAR_MD * C.COTIS_SAL_MASSE_2025_MD, rel=1e-9)
-    assert 0.013 < _gini(haut) < 0.015
+    assert 0.007 < _gini(haut) < 0.008
 
 
 def test_p2_aucune_mention_ofce_2023_pour_ce_levier():

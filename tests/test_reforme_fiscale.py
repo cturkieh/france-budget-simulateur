@@ -13,8 +13,14 @@ d'entrée 2026 l'état du moteur d'avant le lot (au bit, colonne « Multiplicate
 
 import sys
 from effets_directs import SansRetroactionKeynesienne
+
+import pytest
+
+import budget_simulator.engine.orchestrator as orch
+from budget_simulator.simulator import BudgetSimulatorV45
 from budget_simulator.constants import (COUT_PAR_POINT_COTIS_SAL, GINI_CONVERGENCE_RATE,
-                                        GINI_IMPACT_SCALE)
+                                        GINI_CSG_PROGRESSIVE, GINI_HAUT_PATRIMOINE_PAR_MD,
+                                        GINI_IMPACT_SCALE, GINI_IR_CIBLE_PAR_MD)
 
 PA_COL = "Pouvoir d'Achat"
 
@@ -53,12 +59,16 @@ def test_csg_progressive():
     delta_pa = y0_prog[PA_COL] - y0_flat[PA_COL]
 
     print(f"\n  Delta Deficit : {delta_recettes:.2f} Md (attendu: ~0)")
-    print(f"  Delta Gini : {delta_gini:.4f} (attendu: -0.015 brut x {ATTENUATION_Y1:.3f} en sortie Y1)")
+    print(f"  Delta Gini : {delta_gini:.4f} (attendu: 0, GINI_CSG_PROGRESSIVE faute de source)")
     print(f"  Delta PA : {delta_pa:.2f}% (attendu: 0)")
 
     # Validation souple
     assert abs(delta_recettes) < 2.0, f"[X] Neutralite recettes echouee : {delta_recettes:.2f} Md"
-    assert -0.022 * ATTENUATION_Y1 < delta_gini < -0.008 * ATTENUATION_Y1, \
+    # Lot 4 : GINI_CSG_PROGRESSIVE = 0 faute de source (règle du mainteneur :
+    # sans source, zéro et limite déclarée) ; jusqu'ici −0,015 brut, « OFCE
+    # 2023, modèle Allemagne », sans passage retrouvé.
+    assert GINI_CSG_PROGRESSIVE == 0.0
+    assert delta_gini == pytest.approx(GINI_CSG_PROGRESSIVE * ATTENUATION_Y1, abs=1e-12), \
         f"[X] Impact Gini hors cible : {delta_gini:.4f}"
     # v0.6.8 (indice RDB-moteur) : à recette nulle, la progressivité déplace du
     # revenu ENTRE ménages sans changer leur RDB total — effet porté par le
@@ -100,8 +110,12 @@ def test_cotisations_salariales():
 
     print("\n[OK] TEST COTISATIONS SALARIALES REUSSI")
 
-def test_elargissement_ir():
+def test_elargissement_ir(monkeypatch):
     """Test elargissement base IR"""
+    # Lot 4 (méthode unique du Gini) : l'effet par Md€ est physique et petit
+    # (+0,000255 par Md€, convention « classes moyennes ») — sous la résolution
+    # de sortie (3 décimales) : Gini lu en PLEINE PRÉCISION.
+    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
     print("\n" + "="*60)
     print("TEST 3 : ELARGISSEMENT IR")
     print("="*60)
@@ -124,24 +138,29 @@ def test_elargissement_ir():
     y0_elargis = df_elargis.iloc[1]
 
     delta_recettes = y0_elargis['Déficit'] - y0_sq['Déficit']
-    # Gini mesuré à l'HORIZON (Y10) : l'effet année 1 (+0.005 brut x SCALE x RATE
-    # ~ +0.0004) est sous la résolution de sortie (3 decimales) ; a convergence
-    # quasi complete il vaut ~+0.0011 et devient observable. NB : la sortie étant
-    # arrondie a 3 decimales, la fourchette ci-dessous équivaut de fait a
-    # « delta affiché == 0.001 » — toute retouche de calibration bascule en binaire.
+    # Gini mesuré à l'HORIZON (Y10, 10 pas de convergence depuis l'émission de
+    # 2026) : brut × SCALE × (1 − (1 − RATE)^10), pas positif sans
+    # amortissement. Brut (lot 4) = recette du levier × GINI_IR_CIBLE_PAR_MD,
+    # zéro faute de source : le levier ne dit pas quel instrument il porte
+    # (jusqu'ici +0,005 pour +20 points, sans source).
     delta_gini = df_elargis.iloc[10]['Gini'] - df_sq.iloc[10]['Gini']
+    recette = 41_000_000 * (0.63 - 0.45) * 18000 * 0.03 / 1e9
+    attendu = (GINI_IR_CIBLE_PAR_MD * recette * ATTENUATION_HORIZON
+               * (1 - (1 - GINI_CONVERGENCE_RATE) ** 10))
 
     print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +8 a +12 Md)")
-    print(f"  Delta Gini Y10 : {delta_gini:.4f} (attendu: +0.005 brut x {ATTENUATION_HORIZON:.2f} a convergence)")
+    print(f"  Delta Gini Y10 : {delta_gini:.6f} (attendu: {attendu:.6f})")
 
     assert 3 < delta_recettes < 14, f"[X] Recettes hors cible : {delta_recettes:.2f} Md"
-    assert 0.002 * ATTENUATION_HORIZON <= delta_gini <= 0.008 * ATTENUATION_HORIZON, \
-        f"[X] Impact Gini hors cible : {delta_gini:.4f}"
+    assert delta_gini == pytest.approx(attendu, rel=1e-9, abs=1e-15), \
+        f"[X] Impact Gini hors cible : {delta_gini:.6f}"
 
     print("\n[OK] TEST ELARGISSEMENT IR REUSSI")
 
-def test_fiscalite_patrimoine():
+def test_fiscalite_patrimoine(monkeypatch):
     """Test fiscalite patrimoine globale"""
+    # Lot 4 : seul l'IFI (2 Md€ de la base) a un effet Gini, petit : pleine précision.
+    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
     print("\n" + "="*60)
     print("TEST 4 : FISCALITE PATRIMOINE")
     print("="*60)
@@ -160,7 +179,11 @@ def test_fiscalite_patrimoine():
     delta_gini = y0_hausse['Gini'] - y0_sq['Gini']
 
     print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +16 Md)")
-    print(f"  Delta Gini : {delta_gini:.4f} (attendu: -0.016 brut x {ATTENUATION_Y1:.3f} en sortie Y1)")
+    # Lot 4 (méthode unique) : seul l'IFI (2 Md€) compte, au coefficient de
+    # l'INSEE ; successions et taxe foncière hors du revenu disponible (0).
+    # Jusqu'ici −0,016 brut (−0,001 par Md€ du total de 53 Md€).
+    attendu = GINI_HAUT_PATRIMOINE_PAR_MD * 2.0 * 0.30 * ATTENUATION_Y1
+    print(f"  Delta Gini : {delta_gini:.6f} (attendu: {attendu:.6f} en sortie Y1)")
 
     print("\n[4c] Baisse fiscalite patrimoine -30%")
     sim_baisse = SansRetroactionKeynesienne(mesures={'fiscalite_patrimoine': {'intensite': -0.30}})
@@ -172,8 +195,8 @@ def test_fiscalite_patrimoine():
     print(f"  Cout : {delta_recettes_baisse:.2f} Md (attendu: -16 Md)")
 
     assert 13 < delta_recettes < 19, f"[X] Recettes +30% hors cible : {delta_recettes:.2f} Md"
-    assert -0.022 * ATTENUATION_Y1 < delta_gini < -0.010 * ATTENUATION_Y1, \
-        f"[X] Impact Gini hors cible : {delta_gini:.4f}"
+    assert delta_gini == pytest.approx(attendu, rel=1e-9), \
+        f"[X] Impact Gini hors cible : {delta_gini:.6f}"
     assert -19 < delta_recettes_baisse < -13, f"[X] Cout -30% hors cible : {delta_recettes_baisse:.2f} Md"
 
     print("\n[OK] TEST FISCALITE PATRIMOINE REUSSI")
