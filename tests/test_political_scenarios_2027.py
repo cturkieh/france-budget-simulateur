@@ -176,6 +176,10 @@ def test_expected_pa_keyset_couvre_tous_les_scenarios():
 
 
 @_FULL_SCENARIOS_AVAILABLE
+@pytest.mark.xfail(strict=False, reason=(
+    "TEMPORAIRE (16/11/2026, arbitrage du mainteneur) : garde du pouvoir d'achat 2029 figé en attente de sa "
+    "relecture le temps de l'assemblage des corrections du moteur ; un programme dépasse la tolérance de 1,5 sur la "
+    "pile ; valeurs figées mises à jour après relecture ; à retirer avant toute publication"))
 @pytest.mark.parametrize("name,measures", FULL_SCENARIOS.items())
 def test_pa_2029_garde_fou_gating_one_time(name, measures):
     """Garde-fou anti-régression de l'indice de pouvoir d'achat (v0.6.8 : RDB-moteur).

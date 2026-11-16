@@ -1,5 +1,7 @@
 # Changelog — moteur france-budget-simulateur
 
+**BLOQUANT AVANT PUBLICATION : retirer l'échec attendu de la garde du pouvoir d'achat 2029 et mettre à jour les valeurs figées après relecture.**
+
 Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
