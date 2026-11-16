@@ -66,10 +66,17 @@ def mesures(request):
 
 def _niveaux(base, cas):
     yb, yr = base[1]['PIB_Réel_Base2025'], cas[1]['PIB_Réel_Base2025']
-    # impulsion au budget 2026, effet dès 2027 (lag d'un an) : horizon H = index − 1
+    # impulsion au budget 2026 (index 1), qui agit dès 2026 depuis le lot 6 (jusque-là, dès 2027 :
+    # lag d'un an) : horizon H = index − 1, H0 = année du choc, H4 = 2030 (« quatre ans après »)
     return [abs(yr[i] - yb[i]) / yb[i] * 100 for i in range(len(yr))]
 
 
+# Lot 6, commit d'ÉQUATION (calendrier de l'impulsion) : l'impulsion agit dès l'année de son budget ;
+# à coefficients inchangés, le niveau à 4 ans du banc baisse de 9 à 13 % (la trajectoire n'est plus
+# décalée d'un an) et sort de la tolérance pour chaque famille. Le recalage des coefficients sur les
+# MÊMES cibles est un commit de paramètres distinct (règle du projet) : rouge attendu entre les deux,
+# strict (un vert inattendu fait échouer).
+@pytest.mark.xfail(strict=True, reason="lot 6 : coefficients recalés au commit de paramètres suivant")
 @pytest.mark.parametrize('famille', list(FAMILLES))
 def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
     base, cas = mesures

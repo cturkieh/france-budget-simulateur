@@ -570,9 +570,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # (engine/expenditures.py). Init = Σ catégories = primaire INSEE 1649,3.
         self.depenses_primaires_precedentes = sum(self.spending_categories_base.values())
 
-        # Impulsion budgétaire de l'année précédente : la macro de l'année
-        # courante la lit levier par levier dans _last_impacts (lag standard d'un
-        # an — refonte 2026-06). L'effort agrégé de t−1, l'effort intérieur et la
+        # Impulsion budgétaire : celle du budget de l'ANNÉE, évalué hors de son
+        # effet propre, agit dès cette année (lot 6, calendrier de l'impulsion ;
+        # jusque-là, la macro de l'année lisait le budget de t−1 dans
+        # _last_impacts). L'effort agrégé de t−1, l'effort intérieur et la
         # part d'investissement de l'expansion ne sont plus des états (lot 1 :
         # leurs lecteurs, terme d'inflation, cicatrice et éviction, sont retirés).
 
@@ -697,7 +698,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         self._passage_tva_reduite = (0.0, 0.0)
         # croissance_precedente : RETIRÉ (refonte 2026-06) — état devenu write-only
         # (les flux consomment désormais la croissance contemporaine, la macro
-        # l'impulsion t−1 via _last_impacts, levier par levier).
+        # l'impulsion du budget de l'année depuis le lot 6, levier par levier).
 
         self.pib_reel_base2025 = self.base_params['pib_base']
         self.pib_nominal = self.base_params['pib_base']

@@ -232,7 +232,14 @@ def test_g_programme_vide_en_cadre_est_le_droit_en_vigueur():
 
 def test_lecteurs_lateraux_lisent_les_mesures_de_l_annee(monkeypatch):
     """Les 8 lecteurs latéraux du dossier (§ 1) reçoivent le droit en vigueur
-    avant le début et le programme ensuite — jamais le programme dès 2026."""
+    avant le début et le programme ensuite — jamais le programme dès 2026.
+
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : le bloc « demande » de
+    chaque année tourne d'abord hors de l'effet propre de son budget, sur une
+    COPIE profonde de l'état (mesures et mondes compris), puis pour de bon. Un
+    lecteur reçoit donc l'objet des mesures d'une année (droit ou programme), ou
+    sa copie, égale ; chaque lecteur reçoit au moins une fois l'objet lui-même
+    (passage définitif)."""
     vus = {}
 
     def espion(nom, vraie, position_mesures=0, cle_annee=None):
@@ -284,7 +291,8 @@ def test_lecteurs_lateraux_lisent_les_mesures_de_l_annee(monkeypatch):
             assert mesures['asu'] == PROGRAMME_MIXTE['asu'], an
     autorises = {id(m) for m in annees.values()}
     for nom, liste in vus.items():
-        assert all(id(m) in autorises for m in liste), nom
+        assert all(id(m) in autorises or any(m == a for a in annees.values()) for m in liste), nom
+        assert any(id(m) in autorises for m in liste), nom
 
 
 # ---------------------------------------------------------------------------

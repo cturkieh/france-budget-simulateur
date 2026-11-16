@@ -224,20 +224,39 @@ def test_f_etat_chaine_organique_avant_mesures():
     que les notes « DÉSACTIVÉ » de simulate() interdisent) casse ce test
     immédiatement — y compris une variante subtile `+= delta`. Indépendant de
     scenarios.json (tourne aussi dans la CI du repo public standalone).
+
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : chaque année calcule ses
+    flux deux fois, hors de l'effet propre de son budget (sur une copie de
+    l'état, jetée) puis pour de bon. La chaîne se lit sur les appels DÉFINITIFS ;
+    l'appel hors effet propre part du même état chaîné que l'appel définitif de
+    son année (vérifié en plus).
     """
     spy_log = []
+    hors_effet_propre = []
+    entrees_hors_effet_propre = []
 
     class Spy(BudgetSimulatorV45):
+        def _niveaux_hors_effet_propre(self, *args):
+            hors_effet_propre.append(True)
+            try:
+                return super()._niveaux_hors_effet_propre(*args)
+            finally:
+                hors_effet_propre.pop()
+
         def calculate_expenditures(self, *args, **kwargs):
             entry_state = self.depenses_primaires_precedentes
             out = super().calculate_expenditures(*args, **kwargs)
-            spy_log.append((entry_state, out))
+            if hors_effet_propre:
+                entrees_hors_effet_propre.append(entry_state)
+            else:
+                spy_log.append((entry_state, out))
             return out
 
     sim = Spy(periods=5, mesures={'defense': {'budget': 65}})
     sim.simulate()
 
     assert len(spy_log) >= 5
+    assert entrees_hors_effet_propre == [entree for entree, _ in spy_log]
     for n in range(1, len(spy_log)):
         entry_n1, _ = spy_log[n]
         _, return_n = spy_log[n - 1]

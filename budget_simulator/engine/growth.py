@@ -198,6 +198,13 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
     return flux
 
 
+def niveaux_du_budget(impacts: Dict, pib: float, mesures_nettes: frozenset) -> Dict[Tuple[str, str], float]:
+    """Effort de chaque flux d'un budget (``flux_par_levier``), en part du PIB
+    nominal ``pib`` de son année : les NIVEAUX dont la variation d'un budget au
+    suivant est l'impulsion keynésienne (``_stocker_impulsions``)."""
+    return {cle: montant / pib for cle, montant in flux_par_levier(impacts, mesures_nettes).items()}
+
+
 class GrowthMixin:
     """Bloc moteur — Croissance (PIB potentiel + multiplicateur keynésien)."""
 
@@ -304,12 +311,11 @@ class GrowthMixin:
         droit en vigueur se réduit.
 
         Appelée en TÊTE de l'année simulée (``simulate()``), à la différence
-        de ``update_potential_growth`` qui la clôt. Ce n'est pas une entorse
-        au lag d'un an de l'impulsion budgétaire : ce lag existe pour casser
-        la circularité mesures → macro → flux → mesures, alors qu'un choc
-        d'offre de travail ne dépend QUE du paramètre de politique et du
-        calendrier légal — aucune circularité à casser, et lagger décalerait
-        d'un an tout le profil publié.
+        de ``update_potential_growth`` qui la clôt. Un choc d'offre de travail
+        ne dépend QUE du paramètre de politique et du calendrier légal : il
+        n'entre pas dans la circularité mesures → macro → flux → mesures que
+        l'impulsion budgétaire résout par son évaluation hors effet propre
+        (lot 6), et le retarder décalerait d'un an tout le profil publié.
         """
         # Horloge du levier des retraites (v0.7.0, lot C) : le choc d'âge d'un
         # programme s'ouvre au plus tôt à son annee_debut.
@@ -322,16 +328,20 @@ class GrowthMixin:
                 f"Y{year}: Offre de travail seniors = {self._labour_supply_bonus*100:+.3f}% "
                 f"(niveau cumule {niveau*100:+.3f}% de PIB)")
 
-    def _stocker_impulsions(self, year: int, eco_state: Dict) -> None:
+    def _stocker_impulsions(self, year: int, eco_state: Dict, niveaux: Dict = None) -> None:
         """Impulsions budgétaires de l'année, levier par levier (v0.6.7, audit
         10/2026, bloc A constats 1 et 2).
 
         Une impulsion est la VARIATION de l'effort d'un levier entre deux
         budgets successifs, en % du PIB nominal de son année — la définition
-        usuelle de l'impulsion budgétaire (variation du solde, FMI/CE). Elle est
-        lue dans ``_last_impacts`` (budget de t−1 : lag d'un an, cf.
-        l'orchestrateur) et comparée au niveau mémorisé l'appel précédent
-        (``_niveaux_impulsion``). Convention de signe : effort > 0 =
+        usuelle de l'impulsion budgétaire (variation du solde, FMI/CE). Les
+        ``niveaux`` sont ceux du budget de l'ANNÉE : ``simulate()`` les évalue
+        hors de l'effet propre de ce budget (orchestrateur, « calendrier de
+        l'impulsion ») et l'impulsion agit dès son année, âge 0 du profil. Ils
+        sont comparés au niveau mémorisé l'appel précédent
+        (``_niveaux_impulsion``). Sans ``niveaux`` (appel direct, bancs
+        unitaires) : budget tenu dans ``_last_impacts`` au PIB ``pib_nominal``.
+        Convention de signe : effort > 0 =
         consolidation, donc effet sur la croissance = −k × impulsion, k ≥ 0.
 
         Ce que cela remplace (v0.6.6, deux erreurs de calcul) :
@@ -376,9 +386,9 @@ class GrowthMixin:
         [−3,5 % ; +2,5 %] ; l'effet est une convolution finie (6 ans) des
         impulsions, borné par k_max × 1,15 × 1,3 × Σ|impulsions récentes|.
         """
-        pib = self.pib_nominal
-        niveaux: Dict = {cle: montant / pib for cle, montant in flux_par_levier(
-            self._last_impacts, self.multipliers.MESURES_MULTIPLICATEUR_NET).items()}
+        if niveaux is None:
+            niveaux = niveaux_du_budget(self._last_impacts, self.pib_nominal,
+                                        self.multipliers.MESURES_MULTIPLICATEUR_NET)
 
         compositions = {
             'recettes': {'depenses': 0.0, 'recettes': 1.0, 'investissement': 0.0},
@@ -472,7 +482,9 @@ class GrowthMixin:
             'unemployment_gap': unemployment_gap,
             'interest_rate': economic_state.get('interest_rate', 0.023)
         }
-        self._stocker_impulsions(year, eco_state)
+        # Niveaux du budget de l'année (posés par simulate(), cf.
+        # _stocker_impulsions) ; absents en appel direct.
+        self._stocker_impulsions(year, eco_state, economic_state.get('niveaux_impulsion'))
 
         # Résidus de TOUTES les impulsions passées, sans condition sur l'effort
         # courant : jusqu'en v0.6.6 cette somme vivait sous `abs(effort) >

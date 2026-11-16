@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 """
 Test des nouvelles fonctions de reforme fiscale 2025.2
+
+Chaque test lit le COÛT d'une réforme sur l'écart de déficit de l'année
+d'entrée (2026) : effet direct. Jusqu'au lot 6, l'impulsion budgétaire n'y
+agissait pas encore (laguée d'un an) ; depuis, elle agit l'année même, et les
+tests tournent dans le laboratoire des effets directs
+(``tests/effets_directs.py`` : multiplicateurs nuls), qui rend à l'année
+d'entrée 2026 l'état du moteur d'avant le lot (au bit, colonne « Multiplicateur »
+à part ; mode historique, celui de ces tests).
 """
 
 import sys
-from budget_simulator.simulator import BudgetSimulatorV45
+from effets_directs import SansRetroactionKeynesienne
 from budget_simulator.constants import (COUT_PAR_POINT_COTIS_SAL, GINI_CONVERGENCE_RATE,
                                         GINI_IMPACT_SCALE)
 
@@ -26,7 +34,7 @@ def test_csg_progressive():
     print("="*60)
 
     print("\n[1a] CSG flat 9.7% (status quo)")
-    sim_flat = BudgetSimulatorV45(mesures={'csg': {'taux': 0.097, 'progressive': 0}})
+    sim_flat = SansRetroactionKeynesienne(mesures={'csg': {'taux': 0.097, 'progressive': 0}})
     df_flat, _, _ = sim_flat.simulate()
     y0_flat = df_flat.iloc[1]  # Année 2026 (première année avec mesures)
 
@@ -36,7 +44,7 @@ def test_csg_progressive():
     print(f"  PA : {pa_val:.2f}%")
 
     print("\n[1b] CSG progressive activee (taux 9.7%)")
-    sim_prog = BudgetSimulatorV45(mesures={'csg': {'taux': 0.097, 'progressive': 1}})
+    sim_prog = SansRetroactionKeynesienne(mesures={'csg': {'taux': 0.097, 'progressive': 1}})
     df_prog, _, _ = sim_prog.simulate()
     y0_prog = df_prog.iloc[1]
 
@@ -66,12 +74,12 @@ def test_cotisations_salariales():
     print("="*60)
 
     print("\n[2a] Status quo (baisse 0 point)")
-    sim_sq = BudgetSimulatorV45(mesures={})
+    sim_sq = SansRetroactionKeynesienne(mesures={})
     df_sq, _, _ = sim_sq.simulate()
     y0_sq = df_sq.iloc[1]
 
     print("\n[2b] Baisse -3 points cotisations salariales")
-    sim_baisse = BudgetSimulatorV45(mesures={'cotisations_salariales': {'baisse_points': 3.0}})
+    sim_baisse = SansRetroactionKeynesienne(mesures={'cotisations_salariales': {'baisse_points': 3.0}})
     df_baisse, _, _ = sim_baisse.simulate()
     y0_baisse = df_baisse.iloc[1]
 
@@ -99,7 +107,7 @@ def test_elargissement_ir():
     print("="*60)
 
     print("\n[3a] Status quo (45% contribuables)")
-    sim_sq = BudgetSimulatorV45(mesures={})
+    sim_sq = SansRetroactionKeynesienne(mesures={})
     df_sq, _, _ = sim_sq.simulate()
     y0_sq = df_sq.iloc[1]
 
@@ -107,7 +115,7 @@ def test_elargissement_ir():
     # v0.6.10 (porte des noms, V2-04) : `seuil_entree` retiré — le handler ne
     # l'a jamais lu (ignoré en silence avant, rejeté désormais) ; seule la
     # cible de contribuables pilote la mesure.
-    sim_elargis = BudgetSimulatorV45(mesures={
+    sim_elargis = SansRetroactionKeynesienne(mesures={
         'elargissement_ir': {
             'taux_contribuables_cible': 0.63
         }
@@ -139,12 +147,12 @@ def test_fiscalite_patrimoine():
     print("="*60)
 
     print("\n[4a] Status quo (intensite 0%)")
-    sim_sq = BudgetSimulatorV45(mesures={})
+    sim_sq = SansRetroactionKeynesienne(mesures={})
     df_sq, _, _ = sim_sq.simulate()
     y0_sq = df_sq.iloc[1]
 
     print("\n[4b] Hausse fiscalite patrimoine +30%")
-    sim_hausse = BudgetSimulatorV45(mesures={'fiscalite_patrimoine': {'intensite': 0.30}})
+    sim_hausse = SansRetroactionKeynesienne(mesures={'fiscalite_patrimoine': {'intensite': 0.30}})
     df_hausse, _, _ = sim_hausse.simulate()
     y0_hausse = df_hausse.iloc[1]
 
@@ -155,7 +163,7 @@ def test_fiscalite_patrimoine():
     print(f"  Delta Gini : {delta_gini:.4f} (attendu: -0.016 brut x {ATTENUATION_Y1:.3f} en sortie Y1)")
 
     print("\n[4c] Baisse fiscalite patrimoine -30%")
-    sim_baisse = BudgetSimulatorV45(mesures={'fiscalite_patrimoine': {'intensite': -0.30}})
+    sim_baisse = SansRetroactionKeynesienne(mesures={'fiscalite_patrimoine': {'intensite': -0.30}})
     df_baisse, _, _ = sim_baisse.simulate()
     y0_baisse = df_baisse.iloc[1]
 
@@ -177,11 +185,11 @@ def test_package_complet():
     print("="*60)
     print("CSG progressive + Cotisations -4pts + Patrimoine -30%")
 
-    sim_sq = BudgetSimulatorV45(mesures={})
+    sim_sq = SansRetroactionKeynesienne(mesures={})
     df_sq, _, _ = sim_sq.simulate()
     y0_sq = df_sq.iloc[1]
 
-    sim_package = BudgetSimulatorV45(mesures={
+    sim_package = SansRetroactionKeynesienne(mesures={
         'csg': {'taux': 0.097, 'progressive': 1},
         'cotisations_salariales': {'baisse_points': 4.0},
         'fiscalite_patrimoine': {'intensite': -0.30}

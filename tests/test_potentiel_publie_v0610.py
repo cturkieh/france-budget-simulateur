@@ -29,7 +29,7 @@ from budget_simulator.engine import orchestrator as orchestrator_module
 from budget_simulator.simulator import BudgetSimulatorV45
 
 CAS_AUDIT = {'recherche_publique': {'budget': 20}}
-CAS_HYSTERESE = 'levier_transition_invest_50_hysteresis'
+CAS_HYSTERESE = 'levier_rabot_uniforme_8_hysteresis'
 ANNEE_AUDIT = 2030
 
 
@@ -87,18 +87,19 @@ def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
     # potentiel consommé 1,048180 → 1,047454. Puis éviction retirée (la relance
     # de recherche n'en subit plus) : croissance 1,093171 → 1,093483, gap
     # 0,200526 → 0,202340, potentiel consommé 1,047454 → 1,047476 (traînée de
-    # dette seule).
-    # Lot 2 (16/11/2026, recherche en forme stock : la dépense agit dès l'année
-    # qui suit, au lieu d'attendre cinq ans) : en 2030, l'offre de la recherche
-    # est déjà consommée — croissance 1,093483 → 1,250270, gap 0,202340 →
-    # 0,199830, potentiel consommé 1,047476 → 1,204798. Le test garde son
-    # pouvoir : le potentiel préparé pour 2031 diffère (1,177678). Puis forme
-    # logarithmique hors plafond (la recherche n'est plus écrêtée à 0,20 pt) :
-    # croissance 1,250270 → 1,272968, gap 0,199830 → 0,198552, potentiel consommé
-    # 1,204798 → 1,227719 (2031 : 1,186317).
-    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.272968, abs=5e-7)
-    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.198552, abs=5e-7)
-    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.227719, abs=5e-7)
+    # dette seule). Lot 6 (16/11/2026, calendrier de l'impulsion : le budget
+    # agit dès son année, la relance de 2026 arrive en 2026 et non en 2027 ;
+    # en 2030, l'effet de la relance est plus avancé dans son profil) :
+    # croissance 1,093483 → 1,047881, gap 0,202340 → 0,142556, potentiel
+    # consommé 1,047476 → 1,049378 (lot 6 seul). Lot 2 (16/11/2026, recherche en
+    # forme stock puis logarithmique, hors plafond), mesuré seul sur le lot 1 :
+    # croissance 1,272968, gap 0,198552, potentiel consommé 1,227719. Pile
+    # d'intégration (lot 2 puis lot 6) : croissance 1,227499, gap 0,138353,
+    # potentiel consommé 1,229591 ; le potentiel préparé pour 2031 diffère
+    # (1,187852) : le test garde son pouvoir.
+    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.227499, abs=5e-7)
+    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.138353, abs=5e-7)
+    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.229591, abs=5e-7)
     assert abs(consomme[ANNEE_AUDIT + 1]['total'] - consomme[ANNEE_AUDIT]['total']) * 100 > 0.01
 
     # La colonne publiée est le potentiel consommé, pas celui préparé pour 2031.
@@ -136,7 +137,11 @@ CAS = {
     # Hystérèse du tendanciel : seul cas PUBLIC qui le fait bouger (les
     # programmes qui le déclenchent exigent scenarios.json, absent du dépôt
     # public) — sans lui, `Croissance_Potentielle %` n'y serait pas testée.
-    CAS_HYSTERESE: {'transition_ecologique': {'investissement': 50}},
+    # Lot 6 (calendrier de l'impulsion) : l'investissement de 50 Md€ ne la
+    # déclenche plus (son pic de croissance arrive un an plus tôt, avant la
+    # 4e année, où commence le rebond) ; le rabot uniforme de 8 % la
+    # déclenche (rebond des années 4 à 10, après la consolidation).
+    CAS_HYSTERESE: {'rabot_uniforme': {'taux_reduction': 0.08}},
 }
 
 # Demi-unité du dernier chiffre publié (round(·, 2) en points de %) : borne de

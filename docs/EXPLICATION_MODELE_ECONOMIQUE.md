@@ -39,16 +39,19 @@ Ces blocs sont interconnectes par des boucles de retroaction qui capturent les e
 
 **Nouveaute v4.0 (refonte « assemblage temporel », juin 2026)** : les flux budgetaires sont calcules par des recurrences chainees uniques appliquees des l'annee 1 (plus de regime special 2026), les recettes suivent le PIB nominal contemporain avec une elasticite unitaire, la courbe de Phillips converge reellement vers son point fixe, et la boucle annuelle est reordonnee. **Nouveaute v4.1 (aout 2026)** : la courbe de Phillips est ANCREE (le terme d'output gap passe dans l'ancrage, le parametre du code devient directement la pente de moyen terme 0,20) et son point fixe est recale sur le deflateur du PIB a 1,6%.
 
-**Sequence annuelle de calcul (v4.0) :**
+**Sequence annuelle de calcul (v4.0 ; calendrier de l'impulsion corrige au lot 6, non publie) :**
 ```
-1. Macro de l'annee (croissance, inflation) — avec l'impulsion budgetaire de l'annee PRECEDENTE (lag standard)
-2. PIB nominal de l'annee (deflateur contemporain)
-3. Chomage (loi d'Okun sur la croissance de l'annee)
-4. Flux budgetaires organiques AUX PRIX DE L'ANNEE (recettes, depenses)
-5. Mesures de l'annee (impulsion budgetaire stockee pour l'annee suivante)
+1. Budget de l'annee chiffre « hors de son propre effet » : la suite 2 a 5 tourne une premiere fois sans
+   l'effet de ce budget sur l'activite, sur une copie de l'etat, puis cette copie est jetee
+2. Croissance de l'annee — AVEC l'impulsion du budget de l'annee ; prix de l'annee
+3. PIB nominal de l'annee (deflateur contemporain)
+4. Chomage (loi d'Okun sur la croissance de l'annee)
+5. Flux budgetaires organiques AUX PRIX DE L'ANNEE (recettes, depenses), puis mesures de l'annee
 ```
 
-L'ancien ordre calculait les flux avec la croissance et l'inflation de l'annee precedente pendant que le PIB portait celles de l'annee courante : le numerateur des ratios budgetaires vivait un an derriere le denominateur (bug d'assemblage, corrige v4.0). Le lag de l'impulsion budgetaire (etape 1) casse la circularite mesures -> macro -> flux -> mesures sans recherche de point fixe.
+L'ancien ordre calculait les flux avec la croissance et l'inflation de l'annee precedente pendant que le PIB portait celles de l'annee courante : le numerateur des ratios budgetaires vivait un an derriere le denominateur (bug d'assemblage, corrige v4.0).
+
+**Le budget agit des son annee (lot 6).** Jusqu'au lot 6, la croissance de l'annee etait calculee avant les mesures de l'annee et ne voyait que le budget de l'annee precedente : une mesure ne touchait l'activite, et donc les recettes et le chomage qu'elle entraine, qu'a partir de l'annee SUIVANT son premier budget. Le code presentait ce retard comme un « lag standard » qui evitait un calcul en boucle (mesures -> activite -> recettes -> mesures) ; aucune source n'etait citee. Toutes les evaluations publiees relues donnent au contraire un effet des l'annee du choc : pour un point de PIB d'investissement public, +0,46 % de PIB l'annee meme et +1,54 % quatre ans apres (FMI, Perspectives de l'economie mondiale, octobre 2014, chapitre 3, tableau 3.4) ; +1,31 % la premiere annee dans le modele Mesange de l'Insee et de la DG Tresor (2017, p. 102), +0,78 % pour une depense publique generique (p. 105) ; de +0,8 a +1,2 % selon l'instrument dans le modele de l'OFCE (2011, tableau 5). Desormais, le budget de chaque annee agit des cette annee, avec toute sa premiere annee d'effet : Mesange fait demarrer ses chocs au premier trimestre de la premiere annee (p. 100), et le moteur chiffre chaque mesure en annee pleine ; aucune source relue ne retient une demi-annee. La boucle de calcul est evitee sans retard : le budget de l'annee est d'abord chiffre comme si son propre effet sur l'activite n'avait pas encore joue (c'etait deja la facon de le chiffrer avant le lot 6, mais un an plus tard), puis l'annee est calculee avec son effet. Un calcul en boucle jusqu'a stabilisation, ecarte, coutait au moins cinq fois plus de temps de calcul (vingt-deux fois dans le premier prototype), contre deux fois pour la methode retenue. Restent decales d'un an, sans source et declares comme limites : l'effet direct de certaines mesures sur le chomage (cout du travail, SMIC, allocations) et le passage d'une hausse de TVA dans les prix (METHODOLOGIE, « Calendrier de l'impulsion »).
 
 ---
 
@@ -252,8 +255,8 @@ Deficit = Depenses - Recettes
 > **Deux objets a ne pas confondre.** Ci-dessus, le **statu quo NU** : le moteur
 > sans aucune mesure. Ce n'est PAS ce que le site sert : le point de depart du
 > simulateur est le scenario **« Budget 2026 vote, reajuste sur l'execution 2026 »**, qui encode la loi de
-> finances reajustee sur l'execution 2026 et rend -5,45 % de deficit 2026, 129,22 % de
-> dette 2030 et 151,40 % en 2035 (depuis la v0.8.1, la surtaxe d'IS votee pour 2026 seulement
+> finances reajustee sur l'execution 2026 et rend -5,39 % de deficit 2026, 129,32 % de
+> dette 2030 et 151,33 % en 2035 (depuis la v0.8.1, la surtaxe d'IS votee pour 2026 seulement
 > n'y est plus comptee, et ce mode l'applique des 2026 ; le site part de l'atterrissage 2026, -5,5 %). Jusqu'au 26/08/2026 cette page publiait -5,05 / ~129,5 / ~150 % —
 > des valeurs d'avant les lots 8 et 9, perimees de 10 a 12 points. Une garde de
 > la suite moteur (`tests/test_chiffres_publies_v061.py`) recalcule desormais
@@ -832,9 +835,9 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 Le simulateur a ete calibre avec l'assistance d'un agent economiste expert. Les trajectoires baseline sont coherentes :
 - Croissance reelle des depenses primaires : +0,8 a +1,4%/an CHAQUE annee (tendanciel officiel +1,0-1,2%)
 - Elasticite recettes / PIB nominal : 1,00 (ratio recettes/PIB stable ~52,2%)
-- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,45% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
-- Dette 2030 : 129,23% PIB en statu quo NU ; 129,23% pour le scenario de reference (HCFP : >125% sans ajustement)
-- Dette 2035 : 151,32% PIB en statu quo NU ; 151,29% pour le scenario de reference. Deficit 2035 : -9,06% / -9,03%
+- Deficit 2026 : -5,30% PIB en statu quo NU ; **-5,39% pour le scenario de reference** « Budget 2026 vote, reajuste sur l'execution 2026 », qui est ce que le site sert (loi votee : -5,0%)
+- Dette 2030 : 129,23% PIB en statu quo NU ; 129,32% pour le scenario de reference (HCFP : >125% sans ajustement)
+- Dette 2035 : 151,32% PIB en statu quo NU ; 151,33% pour le scenario de reference. Deficit 2035 : -9,06% / -9,03%
 - Croissance potentielle : 1,1% de potentiel TOTAL (sentier de la mission IGF 07/2026), soit un tendanciel de 1,2285 % net de la traînee de la dette heritee (v0.6.7) ; extensible avec investissement soutenu
 - Chomage NAIRU : ~7,5%
 - Inflation : point fixe 1,6% (`INFLATION_STRUCTURELLE`, deflateur du PIB), pente de moyen terme 0,20 (`PHILLIPS_PENTE_MT`), gap initial de -0,7% (`OUTPUT_GAP_INITIAL`), effective statu quo ~1,2-1,5% ; cible BCE 2,0% = garde-fou de surchauffe

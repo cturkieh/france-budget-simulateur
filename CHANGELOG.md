@@ -4,6 +4,83 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équation du lot 6 : le budget agit dès son année (calendrier de l'impulsion)
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, qui suppose appliqués les blocs des
+lots 1 et 5 ci-dessous ; les coefficients sont recalés dans un commit de paramètres distinct (bloc suivant).
+
+**Le défaut.** La croissance de l'année t était calculée avant les mesures de t et ne lisait que l'impulsion du
+budget de t−1 : une mesure n'agissait sur le PIB, les recettes et le chômage induits qu'à partir de l'année qui suit
+son premier budget. Effet nul l'année du premier budget, pour toutes les familles et dans les deux modes. Le code y
+voyait un « lag standard » qui évitait un calcul en boucle ; aucune source n'était citée. Les coefficients étant
+calés sur un niveau « quatre ans après », le niveau visé était atteint à cet horizon, mais toute la trajectoire
+arrivait un an trop tard : dans la fenêtre publiée, une année d'effet sur cinq manquait.
+
+**Ce que disent les sources (rouvertes).** Toutes donnent un effet l'année du choc : FMI, WEO d'octobre 2014, ch. 3,
+tableau 3.4 (investissement public, +0,46 % de PIB l'année du choc, +1,54 % quatre ans après) ; Mésange 2017
+(document de travail Insee G2017/04 : +1,31 la première année pour l'investissement, p. 102 ; +0,78 pour une dépense
+générique, p. 105 ; chocs effectifs au premier trimestre, p. 100) ; OFCE 2011 (tableau 5 : +0,8 à +1,2 selon
+l'instrument) et OFCE 2017 (policy brief n° 17, tableau 5 : −0,6 la première année pour une baisse de la dépense).
+Aucune des sources consultées ne porte de demi-année. Détail, conventions de chaque source et ce qu'elle ne dit pas :
+METHODOLOGIE, « Calendrier de l'impulsion ».
+
+**La correction.** Effet plein l'année du premier budget. Chaque année, le bloc « demande » tourne d'abord sans
+l'impulsion de son propre budget, sur une copie profonde de l'état, pour évaluer les efforts de ce budget
+(`_niveaux_hors_effet_propre`) ; il tourne ensuite pour de bon avec cette impulsion, âge 0 de son profil
+(`_demande_de_l_annee`). C'est la valorisation d'avant (le budget à l'état macro de son année, avant son propre
+effet), appliquée l'année même : seul le calendrier change. Calcul exact, sans tolérance ni itération, déterministe.
+Écartés : le point fixe (impulsion évaluée à l'état final ; temps de calcul ×5 au mieux, ×22 dans le prototype ;
+au plus 0,07 point de dette 2032 d'écart, mode cadre) et le réordonnancement simple (mesures publiées évaluées à un
+PIB qui n'est pas celui de l'année ; au plus 0,02 point). Coût : ×2,0 (15 → 31 ms par simulation, mode cadre,
+médiane des dix programmes publiés). Un avis posé sous la déduplication du journal, que l'évaluation partage,
+était perdu (formule côté recettes) : il est posé hors d'elle, au même texte. Inchangés et déclarés en limites :
+effets directs des mesures sur le chômage et passage de la TVA dans les prix, toujours un an après ; effet d'offre ;
+ancrage de l'assiette de la taxe sur les transactions financières en mode historique ; filet de croissance, que
+deux des dix programmes publiés atteignent dès leur première année en mode historique (aucun en mode cadre).
+
+- Test rouge puis vert : `tests/test_calendrier_impulsion.py` (nouveau) — pour chaque famille (dépense courante en
+  hausse et en baisse, transferts, investissement, impôts en hausse et en baisse, SMIC, fraude fiscale) et dans les
+  deux modes : impulsion stockée l'année du budget, effort ex ante de ±1 point exactement, écart de croissance de
+  l'année égal à −k × impulsion × profil(0) ; année d'avant inchangée ; montant fixe rapporté au PIB hors effet
+  propre (et non au PIB final) ; aucune trace de l'évaluation dans l'état (42 mini-scénarios, deux modes) ni dans
+  les sorties et le rapport (avis, corrections, écrêtages, levier en échec, plafonds) ; niveaux toujours passés par
+  `simulate()` ; prix de l'année identiques dans les deux évaluations. Rouge sur l'état d'avant : 37 sur 37.
+- Gardes ajoutées à la revue adverse du lot : un choc de conjoncture observé n'entre pas dans l'impulsion de son
+  année (les impulsions stockées sont exactement les variations des niveaux évalués hors effet propre, l'année du
+  choc comprise ; rouge si le choc contamine l'impulsion) ; somme des impulsions égale au niveau publié, exactement,
+  quand la rétroaction keynésienne est neutralisée (deux modes) ; gros choc de 2 points gardé : l'écart au miroir
+  est exactement la part écrêtée par le filet de croissance, et le miroir revient filet levé ; limite du filet liée
+  aux instantanés.
+- Banc des multiplicateurs : niveau à 4 ans de 9 à 13 % sous les cibles à coefficients inchangés ; marqué en échec
+  attendu strict jusqu'au commit de paramètres.
+- Re-déclarés un par un, motif daté dans chaque test : bancs d'effet direct de l'année d'entrée (solde égal aux
+  euros du levier, pouvoir d'achat égal au statu quo, indépendance de deux leviers, coût d'une réforme, passage de
+  la TVA réduite dans les prix) dans un laboratoire sans rétroaction keynésienne (`tests/effets_directs.py`,
+  multiplicateurs nuls), le moteur complet gardant le signe et l'ordre de grandeur ; espions de la chaîne organique,
+  des lecteurs latéraux et des handlers (appels de l'évaluation hors effet propre exclus ou acceptés par égalité) ;
+  ordre des appels ; somme des impulsions (exacte au niveau évalué hors effet propre, à 1 % du niveau publié) ;
+  choc de demande observé (valorisation du budget de l'année au PIB qui contient le choc, filet de croissance,
+  hystérèse du chômage) ; flux vers l'étranger (valorisation des autres leviers) ; miroir de la dépense courante
+  (horizons 0 à 5 ; 1,5 point sous le filet, 2 points à la part écrêtée près) ; miroir du curseur de la défense
+  (4e année d'effet à 1 %, année calendaire d'avant le lot à 1,5 %, le curseur étant un montant fixe en Md€) ; recette
+  exceptionnelle (frein l'année même) ; ancrage de l'assiette (D3) ; cas public d'hystérèse du potentiel ; valeurs
+  datées (V2-02, V2-03) ; forme de l'effet d'offre de l'investissement vert (plus de passage à un coût dans le
+  domaine) ; réponse des prix comparée à ThreeME et Mésange.
+- Instantanés régénérés une fois : 41 mini-scénarios sur 42 bougent (tous ceux dont un levier porte une impulsion),
+  les dix scénarios publiés des deux modes. Statu quo en mode historique identique au bit ; en mode cadre, le droit
+  en vigueur 2026-2027 agit un an plus tôt : 2026 inchangé (atterrissage), croissance 2027 +0,08 point, dette 2032
+  −0,03 point. Pouvoir d'achat 2029 figé non modifié (revue humaine).
+- Effet (mode cadre 2028, dix scénarios publiés, dette 2032, coefficients inchangés) : de −2,95 point (la plus
+  forte relance) à +3,32 (le plus fort effort de consolidation) ; référence −0,03. Le retard avantageait les
+  programmes qui consolident.
+- Pile d'intégration (reporté après le lot 2, mesuré contre le lot 2) : de −2,89 à +3,32 point de dette 2032 ;
+  référence −0,03. Chiffres « moteur actuel » du lot 2 recalculés sur la pile (recherche +5 Md€ par an : dette 2032
+  −1,52 point et −15,3 Md€ au lieu de −1,35 et −10,3 ; table des variantes ; courbe de l'investissement vert) ; la
+  propriété « effet total par euro au-dessus de la cible » attend le recalage du commit de paramètres suivant.
+- Docs : METHODOLOGIE (« Calendrier de l'impulsion » : sources, règle, correction, pistes écartées, limites,
+  profils ; boucle annuelle ; chiffres liés à la mesure), EXPLICATION (séquence annuelle en français courant),
+  infobulle du registre (`policy_measures.json`) de la recette exceptionnelle (« freine la croissance la même
+  année »).
 ## [non publiée — proposée] — équations du lot 2 : effet d'offre de la recherche publique
 
 **Statut** : proposée, non publiée, sans numéro de version. Commits d'ÉQUATION, un par équation, qui supposent
@@ -102,6 +179,9 @@ croissance changent. Points laissés ouverts, déclarés dans METHODOLOGIE : la 
 public (dépréciation et délai sans source arrêtée) et leur plafond, qui relèvent d'un calage conjoint de la demande
 et de l'offre ; le stock de départ de la recherche (euros de 2025, formule de l'OCDE, durée de vie retenue par
 l'Insee), qui relève d'une release de paramètres.
+
+Pile d'intégration : les chiffres de ce bloc sont ceux du lot contre son parent (lot 5), inchangé dans la pile ; les
+chiffres « moteur actuel » de METHODOLOGIE qui en viennent sont recalculés au report du lot 6 (bloc du lot 6).
 
 ## [non publiée — proposée] — équations du lot 5 : dépense courante symétrique en signe
 

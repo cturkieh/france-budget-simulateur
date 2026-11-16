@@ -37,6 +37,7 @@ import budget_simulator.constants as C
 import budget_simulator.engine.orchestrator as orch
 from budget_simulator.engine import rdb as rdb_module
 from budget_simulator.engine.growth import GrowthMixin
+from budget_simulator.engine._regimes import en_dessous
 from budget_simulator.engine.unemployment import UnemploymentMixin
 from budget_simulator.simulator import BudgetSimulatorV45
 
@@ -159,6 +160,14 @@ def _idx(annee):
 
 def _lignes(df, annees):
     return {a: df.loc[a].to_dict() for a in annees}
+
+
+def _effet_age0(sim, t):
+    """Effet sur la croissance de l'année d'indice t des impulsions stockées À cette année :
+    celles du budget de l'année, qui agit dès son année depuis le lot 6 (calendrier de
+    l'impulsion), évalué hors de son effet propre — à un PIB qui contient le choc observé de
+    l'année, comme les budgets des années suivantes (effet d'état, pas une impulsion)."""
+    return sum(-k * d * p[0] for cle, (d, k, p) in sim._fiscal_impulses.items() if cle[0] == t)
 
 
 # ---------------------------------------------------------------------------
@@ -347,11 +356,22 @@ def test_choc_ajoute_exactement_a_la_croissance_de_son_annee(nom, annee):
     assert _lignes(det_a, avant) == _lignes(det_s, avant)
     # L'année du choc : même croissance PRODUITE (état d'entrée identique), puis
     # TOUS les lecteurs reçoivent exactement g + choc — ni zéro, ni deux fois.
-    assert avec.espion[t]['g_brut'] == sans.espion[t]['g_brut']
+    # Re-déclaré au lot 6 (calendrier de l'impulsion) : la croissance produite ne
+    # diffère plus que par l'impulsion du budget de l'année, qui agit l'année même
+    # et dont l'effort est rapporté à un PIB qui contient le choc (effet d'état) ;
+    # nulle au statu quo, exacte à 1e-15 sinon.
+    d_g = avec.espion[t]['g_brut'] - sans.espion[t]['g_brut']
+    filet = (C.CROISSANCE_FILET_MIN, C.CROISSANCE_FILET_MAX)
+    if avec.espion[t]['g_brut'] in filet and sans.espion[t]['g_brut'] in filet:
+        assert d_g == 0.0   # croissance écrêtée par le filet dans les deux simulations
+    else:
+        assert d_g == pytest.approx(_effet_age0(avec, t) - _effet_age0(sans, t), abs=1e-15)
+    if nom == 'statu_quo':
+        assert d_g == 0.0
     for cle in CONSOMMATEURS:
         assert avec.espion[t][cle] == avec.espion[t]['g_brut'] + CHOC, cle
     assert df_a.loc[annee, 'Croissance %'] - df_s.loc[annee, 'Croissance %'] == pytest.approx(
-        100 * CHOC, abs=1e-12)
+        100 * (CHOC + d_g), abs=1e-12)
     # Les autres années : aucun ajout direct (seulement les effets d'état).
     for an, e in avec.espion.items():
         if an != t:
@@ -367,11 +387,13 @@ def test_choc_entre_dans_le_niveau_du_pib(nom):
     mutation « choc après le PIB nominal » passait tous les autres tests)."""
     sans, df_s, det_s, *_ = _sans(nom)
     avec, df_a, det_a, *_ = _avec_choc(nom, 2026)
-    g = sans.espion[1]['g_brut']
+    # Lot 6 : croissance produite de l'année propre à chaque simulation (voir
+    # test_choc_ajoute_exactement_a_la_croissance_de_son_annee).
+    g, g_a = sans.espion[1]['g_brut'], avec.espion[1]['g_brut']
     assert df_a.loc[2025, 'PIB'] == df_s.loc[2025, 'PIB']
     assert det_a.loc[2026, 'Déflateur'] == det_s.loc[2026, 'Déflateur']
     assert df_a.loc[2026, 'PIB'] / df_s.loc[2026, 'PIB'] == pytest.approx(
-        (1 + g + CHOC) / (1 + g), rel=1e-14)
+        (1 + g_a + CHOC) / (1 + g), rel=1e-14)
 
 
 def test_choc_hors_du_filet_n_est_pas_ecrete():
@@ -393,14 +415,27 @@ def test_choc_traverse_ecart_de_production_okun_et_phillips(nom):
     - écart de production en NIVEAU : Δgap = (1 + gap_{t−1}) × choc / (1 + g*) ;
     - Okun puis convergence NAIRU : Δu = 0,94 × okun × choc ;
     - Phillips : rien la même année (elle lit l'écart de t−1), l'écart choqué
-      l'année suivante ; le rappel de t+1 lit lui aussi l'écart choqué."""
+      l'année suivante ; le rappel de t+1 lit lui aussi l'écart choqué.
+    Lot 6 : « choc » s'entend de l'écart total de croissance de l'année, choc
+    plus la variation de l'impulsion du budget de l'année (effet d'état, voir
+    test_choc_ajoute_exactement_a_la_croissance_de_son_annee) ; nulle au statu
+    quo."""
     sans, *_ = _sans(nom)
     avec, *_ = _avec_choc(nom, 2026)
     s, a = sans.espion[1], avec.espion[1]
+    ecart = CHOC + a['g_brut'] - s['g_brut']
     assert (a['gap_avant'], a['g_pot']) == (s['gap_avant'], s['g_pot'])
     assert a['gap_apres'] - s['gap_apres'] == pytest.approx(
-        (1 + s['gap_avant']) * CHOC / (1 + s['g_pot']), abs=1e-15)
-    assert a['u'] - s['u'] == pytest.approx(0.94 * avec.economic_coeffs['okun'] * CHOC, abs=1e-15)
+        (1 + s['gap_avant']) * ecart / (1 + s['g_pot']), abs=1e-15)
+    # Hystérèse du chômage (+0,2 pt au plein régime, rampe sur la croissance
+    # cyclique, engine/unemployment.py) : elle s'ajoute quand la croissance de
+    # l'année tombe dans sa zone — désormais possible l'année du choc pour un
+    # programme qui consolide (son effet arrive l'année même, lot 6).
+    def hysterese(e):
+        return 0.002 * en_dessous(e['g_okun'] - e['g_pot'], C.HYSTERESE_CHOMAGE_ECART_BAS,
+                                  C.REGIME_DEMI_LARGEUR_CROISSANCE)
+    assert a['u'] - s['u'] == pytest.approx(
+        0.94 * avec.economic_coeffs['okun'] * ecart + hysterese(a) - hysterese(s), abs=1e-15)
     assert a['inflation'] == s['inflation']
     assert a['gap_lu_phillips'] == s['gap_lu_phillips']
     suivante = avec.espion[2]
@@ -437,14 +472,60 @@ def test_le_choc_n_est_pas_une_impulsion_budgetaire(nom):
     """Les impulsions jusqu'à l'année du choc sont identiques au bit, et aucune
     clé d'impulsion n'apparaît pour un autre levier que les mesures du scénario
     (le choc n'est ni stocké ni multiplié). Après, elles ne bougent que par le
-    PIB nominal, dénominateur de l'effort — un effet d'état, pas une impulsion."""
+    PIB nominal, dénominateur de l'effort — un effet d'état, pas une impulsion.
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : le budget de l'année du
+    choc agit l'année même, évalué au PIB de cette année hors de son effet
+    propre, qui contient le choc. Identiques au bit : les années AVANT le choc ;
+    l'année du choc : mêmes clés, mêmes coefficients et profils (même état
+    d'entrée), efforts chiffrés à l'état de l'année. Que ces efforts ne soient
+    QUE les niveaux de cette évaluation, sans rien du choc, est vérifié par la
+    somme télescopique du test suivant."""
     sans, *_ = _sans(nom)
     avec, *_ = _avec_choc(nom, 2026)
     # Garde intégrée : le choc est bien appliqué (sinon l'égalité serait triviale).
     assert avec.espion[1]['g_gap'] == avec.espion[1]['g_brut'] + CHOC
-    jusqu_au_choc = {k: v for k, v in avec._fiscal_impulses.items() if k[0] <= 1}
-    assert jusqu_au_choc == {k: v for k, v in sans._fiscal_impulses.items() if k[0] <= 1}
+    avant_le_choc = {k: v for k, v in avec._fiscal_impulses.items() if k[0] < 1}
+    assert avant_le_choc == {k: v for k, v in sans._fiscal_impulses.items() if k[0] < 1}
+    l_annee = {k: v for k, v in avec._fiscal_impulses.items() if k[0] == 1}
+    l_annee_sans = {k: v for k, v in sans._fiscal_impulses.items() if k[0] == 1}
+    assert set(l_annee) == set(l_annee_sans)
+    for cle, (_, k, profil) in l_annee.items():
+        assert (k, profil) == l_annee_sans[cle][1:], cle
     assert {k[1] for k in avec._fiscal_impulses} <= set(CAS[nom])
+
+
+@pytest.mark.parametrize('annee', [2026, 2028])
+@pytest.mark.parametrize('nom', [n for n in NOMS if CAS[n]])
+def test_impulsions_egales_aux_variations_des_niveaux_hors_effet_propre(monkeypatch, nom, annee):
+    """Lot 6, revue adverse (proposition du réfutateur, reprise telle quelle sur le fond) : rend à
+    « le choc n'est pas une impulsion » ce qu'il vérifiait l'année du choc avant le lot. Les
+    impulsions stockées sont EXACTEMENT les variations des niveaux rendus par l'évaluation hors
+    effet propre (somme télescopique), chaque année, l'année du choc comprise : un effet d'état par
+    le PIB passe par ces niveaux, une contamination de l'impulsion par le choc (efforts stockés
+    l'année du choc multipliés par 1 + 5 |choc|) casse l'égalité. Rouge sous cette mutation, vert
+    sous une impulsion valorisée au PIB de l'année précédente (ce n'est pas son objet)."""
+    monkeypatch.setattr(C, 'CHOCS_DEMANDE_OBSERVES', {annee: CHOC}, raising=False)
+    monkeypatch.setattr(C, 'COIN_PRIX_CONSOMMATION', {}, raising=False)
+    niveaux = {}
+
+    class _Sonde(BudgetSimulatorV45):
+        def _niveaux_hors_effet_propre(self, year, *args):
+            n = super()._niveaux_hors_effet_propre(year, *args)
+            niveaux[year] = dict(n)
+            return n
+
+    sim = _Sonde(periods=10, mesures=CAS[nom])
+    sim.simulate()
+    # Non-vacuité : l'année du choc est évaluée, et le budget de cette année y a des efforts.
+    assert any(v != 0.0 for v in niveaux[annee].values()), (nom, annee)
+    for an, n in niveaux.items():
+        t = an - sim.annee_base
+        for cle in set(n) | {(m, c) for (a, m, c, _s) in sim._fiscal_impulses if a <= t}:
+            if cle[0] in sim.MESURES_HORS_DEMANDE_INTERIEURE:
+                continue
+            cumul = sum(d for (a, m, c, _s), (d, _k, _p) in sim._fiscal_impulses.items()
+                        if a <= t and (m, c) == cle)
+            assert cumul == pytest.approx(n.get(cle, 0.0), rel=1e-12, abs=1e-15), (nom, an, cle)
 
 
 # ---------------------------------------------------------------------------

@@ -92,6 +92,7 @@ from budget_simulator.simulator import BudgetSimulatorV45
 from cadre_harness import (CAS, DROIT, DROIT_REAJUSTE, PROGRAMME_MIXTE, droit_reajuste_courant,
                            droit_sans_valeurs_datees, egalite_bit_a_bit, impacts_par_annee, pour_le_mode, programme_sur_droit,
                            simuler)
+from effets_directs import SansRetroactionKeynesienne
 from sous_processus import lancer_python
 
 # `.absolute()` et PAS `.resolve()` : tests/ est monté en lien symbolique par le
@@ -703,7 +704,14 @@ def test_profils_effet_direct_signe_symetrie_et_solde(cle, x, forme):
     """Leviers en Md€ à formule (finaux dès le socle) : effet direct de chaque
     année = valeur du profil ; +x et −x opposés au bit (symétrie) ; première
     année d'application : solde primaire = statu quo − x exactement (signe et
-    ordre de grandeur), les années d'avant inchangées."""
+    ordre de grandeur), les années d'avant inchangées.
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : l'impulsion agit dès
+    l'année de son budget. « − x exactement » se vérifie dans le laboratoire
+    des effets directs (multiplicateurs nuls, tests/effets_directs.py) ; dans le
+    moteur complet, le retour de l'année (recettes induites) réduit le coût sans
+    l'inverser, et reste sous la moitié du coût (environ 0,3 dans le moteur ;
+    0,47 la première année dans Mésange 2017, p. 105, pour une dépense
+    générique). Un flux vers l'étranger, sans impulsion, reste à − x exactement."""
     levier, param = cle.split('.')
     neutre = C.NEUTRES_RELEASE_E[levier][param]
 
@@ -729,8 +737,16 @@ def test_profils_effet_direct_signe_symetrie_et_solde(cle, x, forme):
     premiere = forme.get('annee', DEBUT)
     for a in range(2026, premiere):
         assert _primaire(sorties[+1], a) == _primaire(sq, a), a
-    assert _primaire(sorties[+1], premiere) - _primaire(sq, premiere) == pytest.approx(
-        -attendu(premiere, x), abs=1e-9)
+    labo = simuler({levier: {param: x}}, annee_debut=DEBUT, profils={cle: forme},
+                   classe=SansRetroactionKeynesienne)
+    labo_sq = simuler({}, annee_debut=DEBUT, classe=SansRetroactionKeynesienne)
+    cout = attendu(premiere, x)
+    assert _primaire(labo, premiere) - _primaire(labo_sq, premiere) == pytest.approx(-cout, abs=1e-9)
+    ecart = _primaire(sorties[+1], premiere) - _primaire(sq, premiere)
+    if levier in BudgetSimulatorV45.MESURES_HORS_DEMANDE_INTERIEURE:
+        assert ecart == pytest.approx(-cout, abs=1e-9)
+    else:
+        assert cout > 0 and -cout - 1e-9 <= ecart < -0.5 * cout, (ecart, cout)
 
 
 # --- Une seule année ---------------------------------------------------------
@@ -1210,7 +1226,23 @@ def test_w1_7_v4_ecart_de_solde_2027_egal_a_l_effet_isole():
                - sim._solde_isole('is_exceptionnel_tge', {'montant': REAJUSTE_SURTAXE}, 2027, *etat,
                                   DROIT_REAJUSTE))
     assert attendu != 0
-    assert _primaire(out, 2027) - _primaire(ref, 2027) == pytest.approx(attendu, abs=1e-9)
+    # Re-déclaré au lot 6 (calendrier de l'impulsion) : la fin de la surtaxe agit
+    # sur l'activité dès 2027. L'égalité à l'effet isolé se vérifie dans le
+    # laboratoire des effets directs (multiplicateurs nuls, état de 2027 relu dans
+    # ce laboratoire) ; dans le moteur complet, l'écart garde le signe de l'effet
+    # isolé, sans le dépasser.
+    with droit_sans_valeurs_datees():
+        ref_l = simuler({}, annee_debut=DEBUT, classe=SansRetroactionKeynesienne)
+    with droit_de_test(SURTAXE_UN_AN):
+        out_l = simuler({}, annee_debut=DEBUT, classe=SansRetroactionKeynesienne)
+    df_l = out_l[0].set_index('Année')
+    etat_l = (df_l.at[2027, 'PIB'], df_l.at[2027, 'Inflation %'] / 100, df_l.at[2027, 'Chômage %'] / 100)
+    attendu_l = (sim._solde_isole('is_exceptionnel_tge', {'montant': 0}, 2027, *etat_l, DROIT_REAJUSTE)
+                 - sim._solde_isole('is_exceptionnel_tge', {'montant': REAJUSTE_SURTAXE}, 2027, *etat_l,
+                                    DROIT_REAJUSTE))
+    assert _primaire(out_l, 2027) - _primaire(ref_l, 2027) == pytest.approx(attendu_l, abs=1e-9)
+    ecart = _primaire(out, 2027) - _primaire(ref, 2027)
+    assert ecart * attendu > 0 and abs(ecart) <= abs(attendu), (ecart, attendu)
 
 
 def test_w1_7_v5_mode_historique_ne_lit_pas_le_droit(tmp_path):

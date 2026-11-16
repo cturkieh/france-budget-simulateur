@@ -281,19 +281,36 @@ def test_l_offre_de_travail_est_bien_posee_avant_l_output_gap():
     l'output gap. C'est l'objet même de la correction I6 : les trois lisent le
     MÊME potentiel, bonus d'offre inclus, sinon un choc d'offre ouvre un écart
     d'activité qu'il ne devrait pas ouvrir.
+
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : ``calculate_growth`` et
+    ``calculate_unemployment`` vivent dans le bloc « demande »
+    (``_demande_de_l_annee``), que ``simulate`` appelle deux fois par année
+    (hors effet propre du budget, puis pour de bon), toujours APRÈS
+    ``update_labour_supply`` et avant la récurrence de l'output gap.
     """
+    def positions_de(source):
+        positions = {}
+        for noeud in ast.walk(ast.parse(source)):
+            if isinstance(noeud, ast.Call) and isinstance(noeud.func, ast.Attribute):
+                positions.setdefault(noeud.func.attr, noeud.lineno)
+        return positions
+
     source = _corps_de_simulate()
-    arbre = ast.parse(source)
-    positions = {}
-    for noeud in ast.walk(arbre):
-        if isinstance(noeud, ast.Call) and isinstance(noeud.func, ast.Attribute):
-            positions.setdefault(noeud.func.attr, noeud.lineno)
+    positions = positions_de(source)
+    bloc = positions_de(textwrap.dedent(inspect.getsource(
+        orchestrator.OrchestratorMixin._demande_de_l_annee)))
+    hors_effet_propre = positions_de(textwrap.dedent(inspect.getsource(
+        orchestrator.OrchestratorMixin._niveaux_hors_effet_propre)))
     ligne_output_gap = next(
         i + 1 for i, l in enumerate(source.splitlines())
         if l.strip().startswith('output_gap = self.prochain_output_gap('))
 
-    assert positions['update_labour_supply'] < positions['calculate_growth']
-    assert positions['update_labour_supply'] < positions['calculate_unemployment']
+    assert 'calculate_growth' in bloc and 'calculate_unemployment' in bloc
+    assert 'calculate_growth' not in positions and 'calculate_unemployment' not in positions
+    assert '_demande_de_l_annee' in hors_effet_propre
+    assert positions['update_labour_supply'] < positions['_niveaux_hors_effet_propre']
+    assert positions['update_labour_supply'] < positions['_demande_de_l_annee']
+    assert positions['_demande_de_l_annee'] < ligne_output_gap
     assert positions['update_labour_supply'] < ligne_output_gap
     assert ligne_output_gap < positions['update_potential_growth']
 

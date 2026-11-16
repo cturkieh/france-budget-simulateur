@@ -186,25 +186,69 @@ def test_simulation_complete_chaque_variation_est_multipliee_une_fois(monkeypatc
     """Fraude fiscale seule (effort 1,0) : en v0.6.6, UNE impulsion de 0,104 %
     du PIB stockée en 2027 alors que l'effort monte à 0,469 % en 2030. Désormais
     la somme des impulsions stockées jusqu'à l'année t égale le niveau d'effort
-    lu cette année-là (budget de t−1 rapporté au PIB de t−1, lag d'un an) : rien
-    n'est perdu, rien n'est compté deux fois."""
+    du budget de t : rien n'est perdu, rien n'est compté deux fois.
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : jusque-là, ce niveau était
+    celui du budget de t−1 rapporté au PIB de t−1 (impulsion laguée d'un an) ;
+    c'est désormais celui du budget de t, évalué hors de son effet propre
+    (niveaux rendus par ``_niveaux_hors_effet_propre``), qui agit dès son année.
+    Il reste à 1 % près du niveau publié (budget évalué à l'état final) : l'écart est l'effet
+    propre du budget sur le PIB de son année. L'égalité EXACTE au niveau publié est vérifiée là
+    où cet effet est nul (test suivant, sans rétroaction keynésienne)."""
     import budget_simulator.engine.orchestrator as orch
     monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
-    sim = BudgetSimulatorV45(periods=10, mesures={'fraude_fiscale': {'effort': 1.0}})
+    ex_ante = {}
+
+    class _Sonde(BudgetSimulatorV45):
+        def _niveaux_hors_effet_propre(self, year, *args):
+            niveaux = super()._niveaux_hors_effet_propre(year, *args)
+            ex_ante[year] = niveaux.get(('fraude_fiscale', 'solde'), 0.0)
+            return niveaux
+
+    sim = _Sonde(periods=10, mesures={'fraude_fiscale': {'effort': 1.0}})
     df, _, rapport = sim.simulate()
     impacts = rapport['measure_impacts_by_year']
     pib = list(df['PIB'])   # PIB nominal pleine précision, index 0 = 2025
     niveaux = []
-    for t in range(2, 11):
+    for t in range(1, 11):
         cumul = sum(d for (an, m, _c, _s), (d, _k, _p) in sim._fiscal_impulses.items()
                     if m == 'fraude_fiscale' and an <= t)
-        v = impacts[t - 1]['fraude_fiscale']
-        niveaux.append((v['recettes'] - v['depenses']) / pib[t - 1])
+        niveaux.append(ex_ante[2025 + t])
         assert cumul == pytest.approx(niveaux[-1], rel=1e-12, abs=1e-15), t
+        v = impacts[t]['fraude_fiscale']
+        assert niveaux[-1] == pytest.approx((v['recettes'] - v['depenses']) / pib[t], rel=1e-2), t
     # Montée 0,10 % (budget 2026) → 0,47 % (2030), puis décrue : toutes les
     # marches, y compris la décrue, sont des impulsions.
     assert niveaux[0] == pytest.approx(0.00104, abs=2e-5)
     assert max(niveaux) == pytest.approx(0.0047, abs=1e-4)
+
+
+@pytest.mark.parametrize('annee_debut', [None, 2028])
+def test_somme_des_impulsions_egale_au_niveau_publie_sans_retroaction(monkeypatch, annee_debut):
+    """Lot 6, revue adverse : l'ancrage EXACT au niveau publié. Dans le moteur complet, le niveau
+    ex ante (test précédent) est rapporté au PIB de l'année sans l'effet propre du budget, qui
+    n'est pas publié : il s'écarte du niveau publié (budget à l'état final) de cet effet propre,
+    1 % au plus ici, par construction. Quand la rétroaction keynésienne est neutralisée
+    (laboratoire des effets directs, multiplicateurs nuls), l'effet propre est nul, les deux
+    évaluations coïncident, et la somme des impulsions stockées jusqu'à t égale EXACTEMENT
+    l'effort publié du budget de t (impacts du rapport rapportés au PIB nominal publié), chaque
+    année et dans les deux modes : rien n'est perdu, rien n'est compté deux fois."""
+    import budget_simulator.engine.orchestrator as orch
+    from effets_directs import SansRetroactionKeynesienne
+    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
+    sim = SansRetroactionKeynesienne(periods=10, mesures={'fraude_fiscale': {'effort': 1.0}},
+                                     annee_debut=annee_debut)
+    df, _, rapport = sim.simulate()
+    impacts = rapport['measure_impacts_by_year']
+    pib = list(df['PIB'])
+    non_nuls = 0
+    for t in range(1, 11):
+        cumul = sum(d for (an, m, _c, _s), (d, _k, _p) in sim._fiscal_impulses.items()
+                    if m == 'fraude_fiscale' and an <= t)
+        v = impacts[t].get('fraude_fiscale', {'recettes': 0.0, 'depenses': 0.0})
+        publie = (v['recettes'] - v['depenses']) / pib[t]
+        assert cumul == pytest.approx(publie, rel=1e-12, abs=1e-15), t
+        non_nuls += publie != 0.0
+    assert non_nuls >= 5
 
 
 @pytest.mark.parametrize('periods', [1, 3, 10])

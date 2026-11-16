@@ -61,6 +61,7 @@ from budget_simulator.handlers._types import CANAUX_MENAGES, canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45, FiscalMultipliers
 
 from cadre_harness import DROIT, DROIT_REAJUSTE, PROGRAMME_MIXTE, bases_g1, droit_sans_valeurs_datees, pleine_precision
+from effets_directs import SansRetroactionKeynesienne
 
 RACINE = Path(__file__).absolute().parent.parent
 sys.path.insert(0, str(RACINE / 'tests' / 'snapshots'))
@@ -122,12 +123,14 @@ def _canon(x):
     return x
 
 
-def _simuler_brut(mesures, annee_debut=None, strict=False, periods=PERIODES, **kwargs):
-    """(df, détail, rapport, sim) en PLEINE PRÉCISION (``round`` neutralisé)."""
+def _simuler_brut(mesures, annee_debut=None, strict=False, periods=PERIODES,
+                  classe=BudgetSimulatorV45, **kwargs):
+    """(df, détail, rapport, sim) en PLEINE PRÉCISION (``round`` neutralisé).
+    ``classe`` : lot 6, ``SansRetroactionKeynesienne`` pour un banc d'effet direct."""
     with pleine_precision() as mp:
         mp.setenv('BUDGETLAB_STRICT', '1' if strict else '')
-        sim = BudgetSimulatorV45(periods=periods, mesures=copy.deepcopy(mesures),
-                                 annee_debut=annee_debut, **kwargs)
+        sim = classe(periods=periods, mesures=copy.deepcopy(mesures),
+                     annee_debut=annee_debut, **kwargs)
         df, det, rapport = sim.simulate()
     return df, det, rapport, sim
 
@@ -672,15 +675,24 @@ def _grille(levier, param):
 def test_w2_2_g5_signe_et_monotonie_sur_tout_le_domaine(levier, param, annee_debut):
     """G5 : sur tout le domaine, l'effet direct sur le solde PRIMAIRE de l'année
     d'entrée vaut −x (une dépense en plus dégrade le solde) ; strictement
-    décroissant en x ; aucun point de retournement."""
+    décroissant en x ; aucun point de retournement.
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : « −x exactement » se lit
+    dans le laboratoire des effets directs (multiplicateurs nuls,
+    tests/effets_directs.py) ; dans le moteur complet, où l'impulsion agit dès
+    l'année d'entrée, l'effet est du signe de −x, plus petit en valeur absolue
+    (retour de l'année), et reste strictement décroissant en x."""
     debut = _debut(annee_debut)
     ref = _solde_primaire(_sim({}, annee_debut)[1], debut)
+    ref_labo = _solde_primaire(_simuler_brut({}, annee_debut, classe=SansRetroactionKeynesienne)[1], debut)
     effets = []
     for x in _grille(levier, param):
         _, det, rapport, _ = _sim({levier: {param: x}}, annee_debut)
         assert _impact_applique(rapport, levier, debut)['depenses'] == x
+        _, det_labo, _, _ = _simuler_brut({levier: {param: x}}, annee_debut,
+                                          classe=SansRetroactionKeynesienne)
+        assert _solde_primaire(det_labo, debut) - ref_labo == pytest.approx(-x, abs=1e-9), x
         effet = _solde_primaire(det, debut) - ref
-        assert effet == pytest.approx(-x, abs=1e-9), x
+        assert effet * x < 0 and abs(effet) <= abs(x) + 1e-9, (x, effet)
         effets.append(effet)
     assert all(a > b for a, b in zip(effets, effets[1:])), effets
 
@@ -1264,12 +1276,26 @@ def test_w2_depenses_publiques_multiplicateur_generique_profil_taxes(x, sens):
 # 11. W2-15 (T1) — multiplicateur intérieur nul des flux vers l'étranger
 # ---------------------------------------------------------------------------
 
-def _residu_t_plus_1(annee_debut, x):
+def _effet_age0(sim, annee, sauf='transferts_etranger'):
+    """Effet sur la croissance de ``annee`` des impulsions stockées À cette année (budget de
+    l'année, qui agit l'année même depuis le lot 6), hors du levier ``sauf``."""
+    i = annee - sim.annee_base
+    return sum(-k * d * p[0] for cle, (d, k, p) in sim._fiscal_impulses.items()
+               if cle[0] == i and cle[1] != sauf)
+
+
+def _residu_t_plus_1(annee_debut, x, valorisation_second_ordre=True):
     """Écart de croissance réelle de t+1 (fraction) entre ``transferts_etranger
     = x`` et le scénario sans le levier, MOINS le seul canal autre que la
     demande : la TRAÎNÉE DE DETTE (effet d'offre, ``DEBT_DRAG_COEFF`` × écart de
     dette/PIB de fin d'année t, au-delà de ``DEBT_DRAG_SEUIL``). Rend aussi
-    l'écart de PIB réel de t+1 et sa valeur attendue par ce canal. Droit
+    l'écart de PIB réel de t+1 et sa valeur attendue par ce canal.
+    Lot 6 (calendrier de l'impulsion) : le budget de t+1 (droit en vigueur ou
+    programme) agit l'année même, son effort rapporté au PIB de t+1 hors de son
+    effet propre, que la traînée de dette déplace ; cet effet d'ÉTAT sur la
+    valorisation des AUTRES leviers (nul sans autre levier) est retranché et
+    compté dans le PIB attendu. Le flux vers l'étranger n'y entre pas (aucune
+    impulsion, test (a)). Droit
     constant (release P : l'arrêt en 2027 de la surtaxe votée pour 2026 rend
     l'effort de la référence légèrement négatif en 2028, donc une éviction
     dans la référence jusqu'au lot 1, qui l'a retirée ; le canal testé ici est
@@ -1283,10 +1309,13 @@ def _residu_t_plus_1(annee_debut, x):
     ratio_ref, ratio_avec = r_ref.at[t, 'Dette/PIB %'] / 100, r_avec.at[t, 'Dette/PIB %'] / 100
     assert min(ratio_ref, ratio_avec) > C.DEBT_DRAG_SEUIL  # canal actif dans les deux
     canal_dette = C.DEBT_DRAG_COEFF * (ratio_avec - ratio_ref)
+    valorisation = _effet_age0(avec[3], t + 1) - _effet_age0(ref[3], t + 1)
+    if valorisation_second_ordre:   # faux sous mutation (test (b))
+        assert abs(valorisation) < 0.05 * abs(canal_dette), (valorisation, canal_dette)
     ecart_croissance = (r_avec.at[t + 1, 'Croissance %'] - r_ref.at[t + 1, 'Croissance %']) / 100
     ecart_pib = d_avec.at[t + 1, 'PIB_Réel_Base2025'] - d_ref.at[t + 1, 'PIB_Réel_Base2025']
-    pib_attendu = d_ref.at[t, 'PIB_Réel_Base2025'] * canal_dette
-    return ecart_croissance - canal_dette, ecart_pib, pib_attendu
+    pib_attendu = d_ref.at[t, 'PIB_Réel_Base2025'] * (canal_dette + valorisation)
+    return ecart_croissance - canal_dette - valorisation, ecart_pib, pib_attendu
 
 
 @pytest.mark.parametrize('annee_debut', list(MODES.values()), ids=list(MODES))
@@ -1342,7 +1371,7 @@ def test_w2_15_t1_b_mutation_sans_la_garde(monkeypatch, annee_debut):
     coupe porte une impulsion keynésienne : le résidu de t+1 hors canal de dette
     dépasse 1e-6 (le test (c) rougit sans la garde)."""
     monkeypatch.setattr(BudgetSimulatorV45, 'MESURES_HORS_DEMANDE_INTERIEURE', frozenset())
-    residu, _, _ = _residu_t_plus_1(annee_debut, -5.0)
+    residu, _, _ = _residu_t_plus_1(annee_debut, -5.0, valorisation_second_ordre=False)
     assert abs(residu) > 1e-6, residu
 
 
@@ -1397,8 +1426,11 @@ def test_w2_15_f_consolidation_severe_le_flux_n_agit_que_par_la_dette(annee_debu
     ratio_ref, ratio_avec = r_ref.at[t, 'Dette/PIB %'] / 100, r_avec.at[t, 'Dette/PIB %'] / 100
     assert min(ratio_ref, ratio_avec) > C.DEBT_DRAG_SEUIL
     canal_dette = C.DEBT_DRAG_COEFF * (ratio_avec - ratio_ref)
+    # Lot 6 : effet d'état sur la valorisation du budget de t+1 (voir _residu_t_plus_1).
+    valorisation = _effet_age0(avec[3], t + 1) - _effet_age0(ref[3], t + 1)
+    assert abs(valorisation) < 0.05 * abs(canal_dette), (valorisation, canal_dette)
     ecart = (r_avec.at[t + 1, 'Croissance %'] - r_ref.at[t + 1, 'Croissance %']) / 100
-    assert abs(ecart - canal_dette) <= 1e-12, (ecart, canal_dette)
+    assert abs(ecart - canal_dette - valorisation) <= 1e-12, (ecart, canal_dette, valorisation)
 
 
 def test_w2_15_f_la_croissance_ne_lit_plus_l_effort_interieur():

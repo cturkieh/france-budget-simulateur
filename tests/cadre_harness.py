@@ -227,11 +227,13 @@ def rapport_g1(rapport: dict, levier: str) -> dict:
     return out
 
 
-def simuler(mesures, periods=10, strict=False, **kwargs):
-    """(df, det, rapport, sim) pleine précision. ``kwargs`` : annee_debut, rampe."""
+def simuler(mesures, periods=10, strict=False, classe=BudgetSimulatorV45, **kwargs):
+    """(df, det, rapport, sim) pleine précision. ``kwargs`` : annee_debut, rampe.
+    ``classe`` : simulateur à employer (lot 6 : ``effets_directs.SansRetroactionKeynesienne``
+    pour les bancs d'effet direct de l'année d'entrée)."""
     with pleine_precision() as mp:
         mp.setenv('BUDGETLAB_STRICT', '1' if strict else '')
-        sim = BudgetSimulatorV45(periods=periods, mesures=copy.deepcopy(mesures), **kwargs)
+        sim = classe(periods=periods, mesures=copy.deepcopy(mesures), **kwargs)
         df, det, rapport = sim.simulate()
     return df, det, rapport, sim
 

@@ -8,9 +8,13 @@ ménages / prix de la consommation / UC (engine/rdb.py). Chaque défaut prouvé
 est donc re-testé dans la définition B, sur la même identité comptable :
 
 - l'année d'entrée en vigueur (2026), la croissance, l'inflation et la masse
-  salariale publique ne réagissent pas encore aux mesures (impulsion
-  budgétaire laguée d'un an) : l'écart d'indice au statu quo est l'effet
-  DIRECT, comparable aux euros que le levier déplace ;
+  salariale publique ne réagissent pas encore aux mesures : l'écart d'indice
+  au statu quo est l'effet DIRECT, comparable aux euros que le levier déplace.
+  Jusqu'au lot 6, l'impulsion budgétaire était laguée d'un an ; depuis, elle
+  agit l'année même et ces bancs tournent dans le laboratoire des effets
+  directs (``tests/effets_directs.py`` : multiplicateurs nuls), qui rend à
+  l'année d'entrée 2026 l'état du moteur d'avant le lot (au bit, colonne
+  « Multiplicateur » à part ; mode historique, celui de ces bancs) ;
 - l'indice d'une année ne lit que les montants de cette année (aucune
   composition, aucune atténuation calendaire), vérifié sur la décomposition
   non arrondie `sim._rdb_trace`.
@@ -30,14 +34,19 @@ from budget_simulator.constants import (
 from budget_simulator.engine import rdb as rdb_module
 from budget_simulator.handlers._types import canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45
+from effets_directs import SansRetroactionKeynesienne
 
 PA = "Pouvoir d'Achat"
 AN1 = 2026
 
 
-def _run(mesures, periods=10):
-    """(simulateur, impacts par année {année: {mesure: impacts}}) — non arrondi."""
-    sim = BudgetSimulatorV45(periods=periods, mesures=mesures)
+def _run(mesures, periods=10, complet=False):
+    """(simulateur, impacts par année {année: {mesure: impacts}}) — non arrondi.
+    Laboratoire des effets directs (lot 6) : aucune rétroaction keynésienne ;
+    ``complet=True`` pour une propriété du moteur complet (croissance induite
+    par les mesures comprise)."""
+    sim = (BudgetSimulatorV45 if complet else SansRetroactionKeynesienne)(
+        periods=periods, mesures=mesures)
     _, _, rapport = sim.simulate()
     impacts = {an['Année']: an for an in rapport['measure_impacts_by_year']}
     return sim, impacts
@@ -314,7 +323,7 @@ def test_masse_publique_de_base_identique_entre_scenarios(statu_quo):
     from run_scenarios_full import SCENARIOS, pour_le_mode
     for nom, mesures in SCENARIOS.items():
         # Mode historique : mesures telles que le mode les accepte (release P).
-        trace = _run(pour_le_mode(mesures))[0]._rdb_trace
+        trace = _run(pour_le_mode(mesures), complet=True)[0]._rdb_trace
         for an, t in trace.items():
             assert _base_publique_reelle(t) == pytest.approx(
                 _base_publique_reelle(statu_quo[an]), rel=1e-12), (nom, an)
@@ -382,7 +391,7 @@ def test_constats_1_2_masse_publique_de_base_insensible_aux_mesures(statu_quo, m
     production (volume) et l'inflation passée (prix) — rabot 8 % : −16,4 Md€
     nominaux en 2035 ; point d'indice +5 : +2,35 Md€ en 2035 EN PLUS de son
     canal. Désormais identique en réel au statu quo, chaque année."""
-    trace = _run(mesures)[0]._rdb_trace
+    trace = _run(mesures, complet=True)[0]._rdb_trace
     for an, t in trace.items():
         assert _base_publique_reelle(t) == pytest.approx(
             _base_publique_reelle(statu_quo[an]), rel=1e-12), an

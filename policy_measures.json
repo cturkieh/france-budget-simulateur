@@ -1185,7 +1185,7 @@
           "step": 1,
           "label": "Recette exceptionnelle d'une seule année (Md€)",
           "type": "number",
-          "tooltip": "Recette qui ne se répète pas (contribution ponctuelle, cession non comptée). Elle améliore le solde de l'année choisie seulement ; comme tout prélèvement, elle freine la croissance l'année suivante, puis l'effet s'inverse."
+          "tooltip": "Recette qui ne se répète pas (contribution ponctuelle, cession non comptée). Elle améliore le solde de l'année choisie seulement ; comme tout prélèvement, elle freine la croissance la même année, puis l'effet s'inverse."
         }
       }
     }

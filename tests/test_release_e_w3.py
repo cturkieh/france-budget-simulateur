@@ -63,6 +63,7 @@ _DROIT = json.loads((RACINE / 'budget_simulator' / 'data' / 'droit_en_vigueur.js
 sys.path.insert(0, str(RACINE / 'tests' / 'snapshots'))
 from run_scenarios_full import SCENARIOS as _SCENARIOS_PUBLIES  # noqa: E402
 from cadre_harness import bases_g1  # noqa: E402
+from effets_directs import SansRetroactionKeynesienne  # noqa: E402
 
 # Leviers du chantier (contrat § 1.1, colonne « Chantier » = W3).
 W3 = ('droits_succession', 'fiscalite_indirecte', 'impot_revenu_cible', 'recette_exceptionnelle')
@@ -204,19 +205,22 @@ def _canon(x):
 _CACHE = {}
 
 
-def _simuler(mesures, annee_debut=None, strict=False, *, cache=True, pleine=False):
+def _simuler(mesures, annee_debut=None, strict=False, *, cache=True, pleine=False, labo=False):
     """(df, détail, rapport) ; ``cache=False`` pour un moteur muté ;
     ``pleine=True`` neutralise l'arrondi des sorties tabulaires de
     l'orchestrateur (même procédé que ``cadre_harness.pleine_precision``), pour
-    les égalités à 1e-9 sur des montants quelconques."""
-    cle = (json.dumps(mesures, sort_keys=True), annee_debut, strict, pleine)
+    les égalités à 1e-9 sur des montants quelconques ; ``labo=True`` (lot 6) :
+    laboratoire des effets directs, sans rétroaction keynésienne
+    (tests/effets_directs.py)."""
+    cle = (json.dumps(mesures, sort_keys=True), annee_debut, strict, pleine, labo)
     if cache and cle in _CACHE:
         return _CACHE[cle]
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv('BUDGETLAB_STRICT', '1' if strict else '')
         if pleine:
             mp.setattr(mod_orchestrateur, 'round', lambda x, n=None: float(x), raising=False)
-        sortie = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=annee_debut).simulate()
+        classe = SansRetroactionKeynesienne if labo else BudgetSimulatorV45
+        sortie = classe(periods=10, mesures=mesures, annee_debut=annee_debut).simulate()
     if cache:
         _CACHE[cle] = sortie
     return sortie
@@ -629,9 +633,13 @@ IDS_SOLDE = [f"{i}-{'historique' if ad is None else 'cadre2028'}"
 @pytest.mark.parametrize('levier, params, annee_debut', CAS_SOLDE, ids=IDS_SOLDE)
 def test_g5_signe_et_ordre_de_grandeur_du_solde(levier, params, annee_debut):
     """Solde primaire (Md€), écart au même scénario sans le levier :
-    - année d'entrée : = Δrec exactement (1e-9) — les impulsions agissent en t+1
-      (``_stocker_impulsions`` lit ``_last_impacts``) et le levier n'a pas
-      d'effet direct sur l'emploi ;
+    - année d'entrée : = Δrec exactement (1e-9) — le levier n'a pas d'effet
+      direct sur l'emploi. Re-déclaré au lot 6 (calendrier de l'impulsion) :
+      jusque-là, les impulsions agissaient en t+1 ; elles agissent désormais
+      l'année même, et l'égalité se vérifie dans le laboratoire des effets
+      directs (multiplicateurs nuls, tests/effets_directs.py) ; dans le moteur
+      complet, l'écart de l'année d'entrée est du signe du montant, sans le
+      dépasser (le retour de l'année réduit l'effet sans l'inverser) ;
     - avant : 0 ;
     - après, pour un levier récurrent : du signe du montant chaque année (le
       retour du multiplicateur fiscal ne renverse jamais le sens de l'effet).
@@ -652,7 +660,14 @@ def test_g5_signe_et_ordre_de_grandeur_du_solde(levier, params, annee_debut):
     ecart = {an: b - a for an, a, b in zip(annees, _solde_primaire(d0), _solde_primaire(d1))}
     rec = attendu(levier, params)['rec']
     debut = annee_debut or DEBUT
-    assert ecart[debut] == pytest.approx(rec, abs=1e-9), (levier, params, ecart)
+    _, l0, _ = _simuler({}, annee_debut, pleine=True, labo=True)
+    _, l1, _ = _simuler({levier: params}, annee_debut, pleine=True, labo=True)
+    ecart_labo = {an: b - a for an, a, b in zip(annees, _solde_primaire(l0), _solde_primaire(l1))}
+    assert ecart_labo[debut] == pytest.approx(rec, abs=1e-9), (levier, params, ecart_labo)
+    if rec:
+        assert ecart[debut] * rec > 0 and abs(ecart[debut]) <= abs(rec) + 1e-9, (levier, params, ecart)
+    else:
+        assert abs(ecart[debut]) <= 1e-9, ecart
     assert all(abs(ecart[an]) <= 1e-9 for an in annees if an < debut), ecart
     if levier in RECURRENTS and rec == 0 and params.get('tva_ciblee', 0.0) > 0:
         assert all(abs(ecart[an]) <= 1e-9 for an in annees if an <= debut), ecart
@@ -997,9 +1012,12 @@ def _verifier_independance_simulation(regle, *, cache=True):
     levier, params, autres, annee_debut = REGLES[regle]
     base = {a: _bloc(a) for a in autres}
     entree = annee_debut or DEBUT
-    sans = _par_annee(_simuler(base, annee_debut, cache=cache)[2])[entree]
-    avec = _par_annee(_simuler({**base, levier: params}, annee_debut, cache=cache)[2])[entree]
-    seul = _par_annee(_simuler({levier: params}, annee_debut, cache=cache)[2])[entree]
+    # Lot 6 (calendrier de l'impulsion) : l'impulsion du levier W3 agit l'année
+    # même ; « même état macro avec et sans le levier » se lit dans le laboratoire
+    # des effets directs (multiplicateurs nuls, tests/effets_directs.py).
+    sans = _par_annee(_simuler(base, annee_debut, cache=cache, labo=True)[2])[entree]
+    avec = _par_annee(_simuler({**base, levier: params}, annee_debut, cache=cache, labo=True)[2])[entree]
+    seul = _par_annee(_simuler({levier: params}, annee_debut, cache=cache, labo=True)[2])[entree]
     assert levier in avec and not avec[levier].get(HANDLER_FAILED_KEY), avec.get(levier)
     assert avec[levier]['recettes'] == pytest.approx(attendu(levier, params)['rec'], abs=1e-12)
     for autre in autres:
@@ -1480,16 +1498,20 @@ def test_x1_successions_et_patrimoine_exclusifs(annee_debut):
 
 
 def test_recette_exceptionnelle_effet_transitoire_annonce():
-    """§ 1.2-11 (relecture I8) : l'infobulle dit qu'une recette exceptionnelle
-    freine la croissance l'année suivante, « puis l'effet s'inverse ». Montant de
-    l'exemple du contrat (50 Md€ en 2028) ; signes seulement."""
+    """§ 1.2-11 (relecture I8) : une recette exceptionnelle freine la croissance,
+    « puis l'effet s'inverse ». Montant de l'exemple du contrat (50 Md€ en
+    2028) ; signes seulement. Re-déclaré au lot 6 (calendrier de l'impulsion) :
+    le frein agit l'année de la recette, et non plus l'année suivante (le texte
+    de l'infobulle du site, « l'année suivante », est à mettre à jour) ;
+    l'inversion suit, dès l'année suivante, quand la recette cesse."""
     m = 50.0
     df0, _, _ = _simuler_profils({}, DEBUT_CADRE, {})
     df1, _, _ = _simuler_profils({'recette_exceptionnelle': {'montant': m}}, DEBUT_CADRE, {})
     c0 = dict(zip(df0['Année'], df0['Croissance %']))
     c1 = dict(zip(df1['Année'], df1['Croissance %']))
-    assert c1[DEBUT_CADRE + 1] < c0[DEBUT_CADRE + 1]
-    assert any(c1[an] > c0[an] for an in range(DEBUT_CADRE + 2, FIN_MANDAT + 1)), (c0, c1)
+    assert all(c1[an] == c0[an] for an in range(2026, DEBUT_CADRE)), (c0, c1)
+    assert c1[DEBUT_CADRE] < c0[DEBUT_CADRE]
+    assert any(c1[an] > c0[an] for an in range(DEBUT_CADRE + 1, FIN_MANDAT + 1)), (c0, c1)
 
 
 # ---------------------------------------------------------------------------
@@ -1499,12 +1521,12 @@ def test_recette_exceptionnelle_effet_transitoire_annonce():
 # non (−0,05) : 0,35 point de dette 2032 d'écart par ce seul canal.
 # ---------------------------------------------------------------------------
 
-def _inflation(mesures, annee_debut, profils=None):
+def _inflation(mesures, annee_debut, profils=None, classe=BudgetSimulatorV45):
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv('BUDGETLAB_STRICT', '')
         mp.setattr(mod_orchestrateur, 'round', lambda x, n=None: float(x), raising=False)
-        df, _, rapport = BudgetSimulatorV45(periods=10, mesures=mesures, annee_debut=annee_debut,
-                                            profils=profils).simulate()
+        df, _, rapport = classe(periods=10, mesures=mesures, annee_debut=annee_debut,
+                                profils=profils).simulate()
     return df.set_index('Année')['Inflation %'], rapport
 
 
@@ -1517,14 +1539,22 @@ def test_tva_reduite_meme_passage_dans_les_prix_a_recette_egale(annee_debut, tau
     l'inflation de cette année-là (écart de production et chômage de fin
     d'année d'entrée, effort intérieur, recette de TVA de l'année d'entrée)
     sont les mêmes. Non-vacuité : cet écart est positif (passage dans les
-    prix)."""
+    prix).
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : l'impulsion de chaque
+    levier agit dès l'année d'entrée, évaluée hors de son effet propre ; à
+    recette PUBLIÉE égale, les deux impulsions diffèrent au second ordre (la
+    recette du taux normal suit l'effet propre, pas un montant fixe), donc
+    l'écart de production de fin d'année aussi. Le canal de PRIX, objet du
+    test, se lit dans le laboratoire des effets directs (multiplicateurs nuls,
+    tests/effets_directs.py), où l'écart de production ne bouge pas."""
     t = annee_debut or DEBUT
-    ref, _ = _inflation({}, annee_debut)
-    normale, rapport = _inflation({'tva_rate': {'taux': taux}}, annee_debut)
+    labo = SansRetroactionKeynesienne
+    ref, _ = _inflation({}, annee_debut, classe=labo)
+    normale, rapport = _inflation({'tva_rate': {'taux': taux}}, annee_debut, classe=labo)
     recette = _par_annee(rapport)[t]['tva_rate']['recettes']
     # Taux choisis pour une recette dans le domaine du montant (sans écrêtage).
     assert 0 < recette < _spec('fiscalite_indirecte', 'tva_ciblee')['max'], recette
-    reduite, _ = _inflation({'fiscalite_indirecte': {'tva_ciblee': recette}}, annee_debut)
+    reduite, _ = _inflation({'fiscalite_indirecte': {'tva_ciblee': recette}}, annee_debut, classe=labo)
     d_normale, d_reduite = normale[t + 1] - ref[t + 1], reduite[t + 1] - ref[t + 1]
     assert d_normale > 0, ('NON_VACUITE', d_normale)
     assert abs(d_reduite - d_normale) <= 1e-12, (d_normale, d_reduite)

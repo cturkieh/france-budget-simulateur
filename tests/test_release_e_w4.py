@@ -63,6 +63,7 @@ from budget_simulator.handlers._types import canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45
 
 from cadre_harness import PROGRAMME_MIXTE, SCENARIOS as _SCENARIOS_PUBLIES, bases_g1, simuler
+from effets_directs import SansRetroactionKeynesienne
 
 RACINE = Path(__file__).absolute().parent.parent
 REGISTRE = {m['id']: m for m in json.loads(
@@ -318,12 +319,39 @@ def _debut(annee_debut):
     return DEBUT_HISTORIQUE if annee_debut is None else annee_debut
 
 
+_EVALUATION_HORS_EFFET_PROPRE = []
+
+
+def _marquer_evaluation_hors_effet_propre(mp):
+    """Lot 6 (calendrier de l'impulsion) : chaque année, le bloc « demande » tourne d'abord hors de
+    l'effet propre de son budget, sur une copie de l'état ensuite jetée. Ses appels de handlers ne
+    sont pas des appels de la simulation : l'espion ne les enregistre pas (le rejeu, séquentiel,
+    recompterait sinon les effets ponctuels de l'année)."""
+    actuel = BudgetSimulatorV45._niveaux_hors_effet_propre
+    if getattr(actuel, '_marqueur', False):
+        return
+
+    def marque(self, *args, **kwargs):
+        _EVALUATION_HORS_EFFET_PROPRE.append(True)
+        try:
+            return actuel(self, *args, **kwargs)
+        finally:
+            _EVALUATION_HORS_EFFET_PROPRE.pop()
+
+    marque._marqueur = True
+    mp.setattr(BudgetSimulatorV45, '_niveaux_hors_effet_propre', marque)
+
+
 def _espionner(mp, methode, journal):
-    """Enregistre chaque appel du handler ``methode`` (entrées, état lu, sortie)."""
+    """Enregistre chaque appel du handler ``methode`` (entrées, état lu, sortie), hors de
+    l'évaluation hors effet propre de chaque année (lot 6)."""
     original = getattr(BudgetSimulatorV45, methode)
+    _marquer_evaluation_hors_effet_propre(mp)
 
     def espion(self, measure, params, year, gdp, inflation, unemployment):
         sortie = original(self, measure, params, year, gdp, inflation, unemployment)
+        if _EVALUATION_HORS_EFFET_PROPRE:
+            return sortie
         journal.append({'params': copy.deepcopy(params), 'year': year, 'gdp': gdp,
                         'inflation': inflation, 'unemployment': unemployment,
                         'sortie': copy.deepcopy(sortie),
@@ -1749,21 +1777,33 @@ def test_g8_simulation_effet_emis_une_fois_et_rien_avant_le_debut(levier, annee_
 @pytest.mark.parametrize('levier', W4)
 def test_solde_signe_et_ordre_de_grandeur(levier, annee_debut):
     """Signe et ordre de grandeur du solde : l'année d'entrée, Δ recettes
-    totales = Δ solde primaire = recette du levier (à 1e-9 ; l'effet de demande
-    n'arrive qu'en t+1) ; en fin de mandat, le solde public est meilleur que
-    sans le levier (hausse de recette)."""
+    totales = Δ solde primaire = recette du levier (à 1e-9) ; en fin de mandat,
+    le solde public est meilleur que sans le levier (hausse de recette).
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : jusque-là, l'effet de
+    demande n'arrivait qu'en t+1 ; il agit désormais l'année même. Les égalités
+    de l'année d'entrée se vérifient dans le laboratoire des effets directs
+    (multiplicateurs nuls, tests/effets_directs.py) ; dans le moteur complet, le
+    solde primaire de l'année d'entrée s'améliore, sans dépasser la recette du
+    levier (le recul de l'activité en reprend une part)."""
     debut = _debut(annee_debut)
     a_df, a_det, _, _ = simuler({}, annee_debut=annee_debut)
     b_df, b_det, rapport, _ = simuler({levier: BLOCS[levier]}, annee_debut=annee_debut)
     _sans_echec(rapport, levier)
-    rec = _impacts_du_levier(rapport, levier)[debut]['recettes']
+    _, la_det, _, _ = simuler({}, annee_debut=annee_debut, classe=SansRetroactionKeynesienne)
+    _, lb_det, l_rapport, _ = simuler({levier: BLOCS[levier]}, annee_debut=annee_debut,
+                                      classe=SansRetroactionKeynesienne)
+    rec = _impacts_du_levier(l_rapport, levier)[debut]['recettes']
     assert rec > 0.1, ('NON_VACUITE', rec)
     a, b = a_df.set_index('Année'), b_df.set_index('Année')
     ad, bd = a_det.set_index('Année'), b_det.set_index('Année')
-    assert bd.at[debut, 'Recettes_Totales'] - ad.at[debut, 'Recettes_Totales'] == pytest.approx(rec, abs=1e-9)
+    lad, lbd = la_det.set_index('Année'), lb_det.set_index('Année')
+    assert lbd.at[debut, 'Recettes_Totales'] - lad.at[debut, 'Recettes_Totales'] == pytest.approx(rec, abs=1e-9)
+    primaire_labo = (lbd.at[debut, 'Recettes_Totales'] - lbd.at[debut, 'Dépenses_Totales']) \
+        - (lad.at[debut, 'Recettes_Totales'] - lad.at[debut, 'Dépenses_Totales'])
+    assert primaire_labo == pytest.approx(rec, abs=1e-9)
     primaire = (b.at[debut, 'Déficit'] + bd.at[debut, 'Intérêts_Dette']) \
         - (a.at[debut, 'Déficit'] + ad.at[debut, 'Intérêts_Dette'])
-    assert primaire == pytest.approx(rec, abs=1e-9)
+    assert 0 < primaire <= rec + 1e-9, (primaire, rec)
     assert b.at[FIN_MANDAT, 'Déficit/PIB %'] > a.at[FIN_MANDAT, 'Déficit/PIB %']
 
 
@@ -1795,9 +1835,25 @@ def test_g10_le_levier_entre_dans_le_total_mesure(levier, monkeypatch):
 DEFENSE_DEFAUT = REGISTRE['defense']['parametres']['budget']['valeur_defaut']
 
 
+ANNEE_SOURCE = {'impot_plancher_patrimoine': C.ANNEE_SOURCE_PLANCHER,
+                'fiscalite_capital': C.ANNEE_SOURCE_CAPITAL,
+                'multinationales': C.ANNEE_SOURCE_TSN,
+                'operations_financieres': C.ANNEE_SOURCE_TTF}
+
+
 def _verifier_d3_macro(levier, annee_debut):
     """Deux scénarios ne différant que par un levier étranger (défense + 20 Md€
-    sur son défaut) : ΔR_t / PIB_t du levier identique à 1e-12."""
+    sur son défaut) : ΔR_t / PIB_t du levier identique à 1e-12, une fois rapporté
+    au PIB de l'année source de son assiette (règle R-IDX : l'assiette, sourcée
+    une année donnée, suit le PIB nominal depuis cette année).
+    Re-déclaré au lot 6 (calendrier de l'impulsion) : en mode historique,
+    l'année source de la taxe sur les transactions financières (2026) est aussi
+    la première année du programme, dont le budget agit désormais l'année même ;
+    le PIB qui ancre l'assiette diffère donc d'un scénario à l'autre (seul ce
+    levier, seul ce mode ; limite déclarée, METHODOLOGIE). Le comportement, lui,
+    ne lit toujours aucun état macro : le produit (R_t / PIB_t) × PIB(source) est
+    identique. Pour une année source 2025 (PIB de base du moteur) ou en mode
+    cadre, il se réduit à la condition d'avant."""
     bloc = BLOCS[levier]
     _, _, r1, s1 = simuler({levier: bloc}, annee_debut=annee_debut)
     _, _, r2, s2 = simuler({levier: bloc, 'defense': {'budget': DEFENSE_DEFAUT + 20}}, annee_debut=annee_debut)
@@ -1807,9 +1863,13 @@ def _verifier_d3_macro(levier, annee_debut):
     assert sorted(i1) == list(range(debut, FIN_SIMULATION + 1)), ('NON_VACUITE', sorted(i1))
     ecarts = [abs(s1._pib_nominal_par_annee[an] - s2._pib_nominal_par_annee[an]) for an in i1]
     assert max(ecarts) > 1.0, ('NON_VACUITE', 'le levier étranger ne change pas le PIB')
+    source = ANNEE_SOURCE[levier]
+
+    def pib_source(sim):
+        return PIB_2025 if source == 2025 else sim._pib_nominal_par_annee[source]
     for an in i1:
-        a = i1[an]['recettes'] / s1._pib_nominal_par_annee[an]
-        b = i2[an]['recettes'] / s2._pib_nominal_par_annee[an]
+        a = i1[an]['recettes'] / s1._pib_nominal_par_annee[an] * pib_source(s1)
+        b = i2[an]['recettes'] / s2._pib_nominal_par_annee[an] * pib_source(s2)
         assert a == pytest.approx(b, rel=1e-12), ('DOUBLE_COMPTE', levier, an, a, b)
 
 
@@ -1887,10 +1947,16 @@ def _verifier_independance(w4, bloc_w4, autres, *, rejouer_w4=False, toutes_anne
     if rejouer_w4:
         assert journaux[w4], ('NON_VACUITE', w4)
         _rejouer_et_comparer(f'_apply_{w4}', journaux[w4], {w4: bloc_w4}, f'{w4} sans {sorted(autres)}')
+    # Lot 6 (calendrier de l'impulsion) : le levier W4 agit sur l'activité dès la
+    # première année d'application ; « état macro encore identique » se lit dans
+    # le laboratoire des effets directs (multiplicateurs nuls,
+    # tests/effets_directs.py). Toutes les années (handler qui ne lit pas le PIB) :
+    # moteur complet, l'état macro y diffère.
+    classe = BudgetSimulatorV45 if toutes_annees else SansRetroactionKeynesienne
     for annee_debut in (None, 2028):
         debut = _debut(annee_debut)
-        _, _, sans_w4, _ = simuler(autres, annee_debut=annee_debut)
-        _, _, avec_w4, _ = simuler(mesures, annee_debut=annee_debut)
+        _, _, sans_w4, _ = simuler(autres, annee_debut=annee_debut, classe=classe)
+        _, _, avec_w4, _ = simuler(mesures, annee_debut=annee_debut, classe=classe)
         annees = range(debut, FIN_SIMULATION + 1) if toutes_annees else [debut]
         for m in autres:
             i_sans, i_avec = _impacts_du_levier(sans_w4, m), _impacts_du_levier(avec_w4, m)

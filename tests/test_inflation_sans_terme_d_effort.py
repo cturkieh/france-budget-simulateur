@@ -157,7 +157,11 @@ def test_chiffres_publies_du_banc_lies_a_la_mesure(chocs):
     texte = (Path(__file__).resolve().parents[1] / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
     texte = ' '.join(re.sub(r'\n>\s?', ' ', texte).split())
     assert attendu in texte, attendu
-    # « un peu plus de la moitié de ThreeME (0,89 %) et un tiers environ de Mésange (1,3 à 1,5 %) »
-    assert 'un peu plus de la moitié de ThreeME (0,89 %) et un tiers environ de Mésange (1,3 à 1,5 %)' in texte
-    assert 0.5 < hausse_5 / 0.89 < 2 / 3, hausse_5
-    assert 0.3 < hausse_5 / 1.5 and hausse_5 / 1.3 < 0.45, hausse_5
+    # « environ les quatre cinquièmes de ThreeME (0,89 %) et la moitié environ de Mésange (1,3 à
+    # 1,5 %) ». Re-déclaré au lot 6 (calendrier de l'impulsion) : l'écart de production s'ouvre
+    # l'année du choc, les prix ont une année de plus pour réagir à 5 ans (+0,55 → +0,70 %) ;
+    # jusque-là « un peu plus de la moitié de ThreeME et un tiers environ de Mésange ».
+    assert ('environ les quatre cinquièmes de ThreeME (0,89 %) et la moitié environ de Mésange '
+            '(1,3 à 1,5 %)') in texte
+    assert 0.75 < hausse_5 / 0.89 < 0.85, hausse_5
+    assert 0.45 < hausse_5 / 1.5 and hausse_5 / 1.3 < 0.6, hausse_5

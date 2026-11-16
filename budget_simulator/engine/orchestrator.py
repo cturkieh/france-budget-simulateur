@@ -32,14 +32,17 @@ Le SEUL invariant que ce mixin porte en propre (non documentable côté
 producteur, car imposé par ``simulate`` seul) est le CONTRAT D'ORDRE
 des appels dans la boucle annuelle (refonte « assemblage temporel »
 2026-06) :
-``calculate_growth`` (+ choc de demande OBSERVÉ de l'année, v0.6.9,
-ajouté avant tout lecteur de la croissance) / ``calculate_inflation``
-(macro de l'année, consomment l'impulsion budgétaire de t−1 :
-``_last_impacts``, d'où sont tirées les impulsions par levier) → mise à jour PIB (déflateur
-contemporain) → ``calculate_unemployment`` (Okun sur la croissance de
-l'année) → ``calculate_revenues`` / ``calculate_expenditures`` (flux
-organiques AUX PRIX DE L'ANNÉE) → ``apply_measures`` (deltas mesures ;
-``budget_effort`` de l'année stocké pour t+1) →
+``_niveaux_hors_effet_propre`` (lot 6 : le bloc « demande » ci-après tourne
+une première fois sans l'impulsion du budget de l'année, sur une copie de
+l'état, et rend les efforts de ce budget) → ``_demande_de_l_annee`` :
+``calculate_growth`` (impulsion du budget de l'année, âge 0 ; + choc de
+demande OBSERVÉ de l'année, v0.6.9, ajouté avant tout lecteur de la
+croissance) / ``calculate_inflation`` (écart de production et TVA de t−1)
+→ mise à jour PIB (déflateur contemporain) → ``calculate_unemployment``
+(Okun sur la croissance de l'année) → ``calculate_revenues`` /
+``calculate_expenditures`` (flux organiques AUX PRIX DE L'ANNÉE) →
+``apply_measures`` (deltas mesures ; ``budget_effort`` de l'année pour la
+prime de taux) →
 ``potentiel_de_l_annee`` (photographie du potentiel CONSOMMÉ, lue par
 la récurrence de l'output gap et les colonnes publiées — v0.6.10, V2-02)
 → ``update_potential_growth`` (clôt l'année). Réordonner ces appels casse
@@ -79,11 +82,12 @@ pose ``HANDLER_FAILED_KEY`` dans ``impacts`` + escalade si
 Sink de logs : ``self.debug_logs`` via ``_log_debug``.
 Tous attributs d'instance de ``BudgetSimulatorV45``.
 """
+import copy
 import functools
 import logging
 import os
 from contextlib import contextmanager
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -113,6 +117,7 @@ from .cadre import (
     creer_mondes,
     verifier_grandeur,
 )
+from .growth import niveaux_du_budget
 from .rdb import borner_canaux, rdb_annee
 from ._param_domain import (
     EntreeInvalide,
@@ -148,6 +153,36 @@ def _entree_retablie(simulate):
         finally:
             self.mesures = brutes
     return enveloppe
+
+
+class DemandeAnnee(NamedTuple):
+    """Sorties du bloc « demande » d'une année (``_demande_de_l_annee``)."""
+    growth: float
+    inflation: float
+    gdp_real: float
+    gdp_nominal: float
+    unemployment: float
+    revenues_base: float
+    spending_base: float
+    spending_after: float
+    revenues_after: float
+    impacts: Dict
+
+
+# Attributs d'instance que l'évaluation du budget hors de son effet propre
+# (``_niveaux_hors_effet_propre``) partage avec la simulation au lieu de les
+# copier. Les six premiers ne sont jamais modifiés par le bloc « demande »
+# (deux ne se copient pas : handlers liés à l'instance, interpréteur ASTEVAL) ;
+# ``_fiscal_impulses`` ne l'est pas quand l'impulsion propre est nulle, ce qui
+# est le cas de cette évaluation. ``_domain_clamp_warned`` est partagé à dessein :
+# il ne sert qu'à ne journaliser qu'une fois un avertissement (aucune
+# correction ni aucun avis n'en dépend), et une évaluation suivie de la
+# définitive ne doit pas le journaliser deux fois. Vérifié, attribut par
+# attribut, par tests/test_calendrier_impulsion.py.
+_ETAT_PARTAGE_HORS_EFFET_PROPRE = frozenset({
+    'measure_handlers', 'aeval', 'measure_registry', 'policy_config', 'multipliers',
+    'validator', '_cadre', '_fiscal_impulses', '_domain_clamp_warned',
+})
 
 
 def _borner_variation(valeur: float, borne: float) -> tuple[float, bool]:
@@ -604,6 +639,12 @@ class OrchestratorMixin:
                         logger.warning(
                             "Formule %s côté recettes sans canal ménages : effet direct "
                             "sur le pouvoir d'achat compté nul", measure_id)
+                    # Avis HORS de la déduplication du journal (lot 6) : le jeu
+                    # _domain_clamp_warned est partagé avec l'évaluation hors effet
+                    # propre de l'année, dont l'état est ensuite jeté ; un avis posé
+                    # sous sa garde serait perdu. setdefault : texte de la première
+                    # année, comme avant.
+                    if delta_revenue:
                         self._avis.setdefault(
                             (measure_id, 'FORMULE_MENAGES'),
                             f"{measure_id} : mesure « formule » côté recettes, sans "
@@ -839,6 +880,135 @@ class OrchestratorMixin:
                                        'vivier'),
                 'annee': derniere}
 
+    def _demande_de_l_annee(self, year: int, year_idx: int, etat_croissance: Dict,
+                            niveaux: Dict, conjoncture, etat_inflation: Dict,
+                            inflation_prev_year: float, gdp_real: float,
+                            unemployment: float, output_gap: float) -> DemandeAnnee:
+        """Bloc « demande » de l'année (boucle annuelle de ``simulate``) :
+        croissance avec l'impulsion du budget dont ``niveaux`` donne les efforts
+        (âge 0 de son profil), prix de l'année, PIB au déflateur contemporain,
+        chômage, flux organiques aux prix de l'année, puis mesures de l'année.
+        Appelé deux fois par année : hors de l'effet propre du budget
+        (``_niveaux_hors_effet_propre``, sur une copie de l'état), puis pour de
+        bon. Ordre des appels inchangé depuis la refonte « assemblage temporel »
+        (2026-06)."""
+        growth = self.calculate_growth(year_idx, dict(etat_croissance, niveaux_impulsion=niveaux))
+        # Choc de demande OBSERVÉ (v0.6.9, constants.py) : ajouté ICI, après
+        # la croissance modélisée et AVANT tous ses lecteurs — PIB, Okun,
+        # recettes, écart de production et hystérèse du potentiel (fin
+        # d'année). Ni impulsion budgétaire (aucun multiplicateur), ni choc
+        # d'offre (le potentiel ne le voit que par l'hystérèse, sur la croissance
+        # cyclique) ; la Phillips le lit en t+1 par l'écart de production, comme
+        # tout choc de demande — calculate_inflation, ci-dessous, ne lit pas la
+        # croissance de l'année. Hors du filet [−3,5 % ; +2,5 %] de
+        # calculate_growth : c'est une donnée constatée, pas une sortie du
+        # modèle. Absent de la table = aucune opération (bit-identique).
+        choc_demande = conjoncture.CHOCS_DEMANDE_OBSERVES.get(year)
+        if choc_demande is not None:
+            growth = growth + choc_demande
+            _log_debug(self.debug_logs,
+                f"Y{year_idx}: Choc de demande observé {choc_demande*100:+.2f} pt")
+        # Atterrissage (lot E) : croissance OBSERVÉE de l'année injectée, au
+        # même point d'application que le choc de demande v0.6.9 (choc =
+        # cible − croissance du modèle, publié ; jamais forcée en 2027+).
+        growth = self._atterrir(year, 'croissance', growth)
+        _log_debug(self.debug_logs, f"Y{year_idx}: Croissance = {growth:.3f}")
+
+        inflation = self.calculate_inflation(year_idx, etat_inflation)
+        # Atterrissage (lot E) : DÉFLATEUR du PIB sourcé, imposé s'il est
+        # donné (2026 : 1,5 % injecté ; null = déflateur du modèle). Jamais
+        # l'IPC : il passe par le coin de prix de la consommation (bloc
+        # pouvoir d'achat).
+        inflation_atterrie = self._atterrir(year, 'deflateur', inflation)
+        if inflation_atterrie != inflation:
+            inflation = inflation_atterrie
+            self.inflation_precedente = inflation
+        _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")
+
+        # [SUPPRIMÉ Phase 2 — 2026-05-16, option B] Un ajustement
+        # d'élasticité recettes sur la VARIATION d'inflation se
+        # trouvait après le calcul d'inflation (`revenues_after *= 1 +
+        # (inflation - inflation_precedente) * 0.5`). NE PAS
+        # réactiver : (1) mort par construction — calculate_inflation
+        # réécrit self.inflation_precedente avant ce point (0/10 ans) ;
+        # (2) double-comptage — calculate_revenues (engine/revenues.py)
+        # modélise déjà inflation→recettes via l'élasticité au PIB
+        # nominal. Réactivation = biais optimiste systématique de la
+        # dette. Chiffrage + décision : docs/REFACTOR_SPLIT_PLAN.md
+        # (item Phase 2 résolu).
+
+        # PIB de l'année (déflateur contemporain)
+        gdp_real = gdp_real * (1 + growth)
+        self.deflateur_cumule *= (1 + inflation)
+        gdp_nominal = gdp_real * self.deflateur_cumule
+        _log_debug(self.debug_logs, f"Y{year_idx}: PIB nominal = {gdp_nominal:.1f}")
+
+        # Chômage contemporain (Okun sur la croissance de l'année). Impacts
+        # DIRECTS des mesures : budget de t−1 (_last_impacts) — retard sans
+        # source, déclaré en limite (METHODOLOGIE, « Calendrier de l'impulsion »).
+        unemployment = self.calculate_unemployment(growth, unemployment, year_idx, self._last_impacts)
+        # Atterrissage (lot E) : taux de chômage observé, après Okun et
+        # avant les flux (la dépense chômage de l'année le suit).
+        unemployment = self._atterrir(year, 'chomage', unemployment)
+
+        # Flux budgétaires aux prix de l'année
+        revenues_base = self.calculate_revenues(gdp_nominal, growth, inflation, year_idx)
+        spending_base = self.calculate_expenditures(
+            gdp_nominal,
+            inflation,            # déflateur contemporain (part non indexée)
+            inflation_prev_year,  # part indexée sur l'inflation passée
+            unemployment,
+            year_idx,
+            output_gap
+        )
+        _log_debug(self.debug_logs, f"Y{year_idx}: Base: rec={revenues_base:.1f}, dep={spending_base:.1f}")
+
+        # Mesures de l'année (handlers à l'inflation contemporaine). Mémoire de
+        # l'inflation par année civile, lue par les handlers qui cumulent un
+        # écart de prix sur plusieurs revalorisations (v0.6.7 : désindexation
+        # des prestations — sans elle, l'écart passé était réécrit à l'inflation
+        # du jour).
+        self._inflation_par_annee[year] = inflation
+        spending_after, revenues_after, impacts = self.apply_measures(
+            year, spending_base, revenues_base, gdp_nominal,
+            inflation, unemployment
+        )
+        return DemandeAnnee(growth, inflation, gdp_real, gdp_nominal, unemployment, revenues_base,
+                            spending_base, spending_after, revenues_after, impacts)
+
+    def _niveaux_hors_effet_propre(self, year: int, year_idx: int, etat_croissance: Dict,
+                                   conjoncture, etat_inflation: Dict,
+                                   inflation_prev_year: float, gdp_real: float,
+                                   unemployment: float, output_gap: float) -> Dict:
+        """Efforts du budget de l'année, en part du PIB, évalués HORS de son
+        effet propre (lot 6, calendrier de l'impulsion) : le bloc « demande » de
+        l'année tourne avec l'impulsion de ce budget nulle (niveaux mémorisés du
+        budget précédent), sur l'état macro que lui laissent les budgets passés,
+        et rend les efforts de ses mesures au PIB nominal de cet état. C'est la
+        valorisation qu'avait l'impulsion avant ce lot (le budget de t−1 évalué
+        à l'état de t−1, avant son propre effet), appliquée l'année même : seul
+        le calendrier change. Une impulsion ainsi mesurée est « ex ante » au
+        sens des variantes publiées (Mésange 2017 : chocs fiscaux de « 1 % du
+        PIB ex ante ») : la variation du rendement d'une mesure due à son
+        propre effet sur l'activité joue sur le solde (mesures publiées, évaluées
+        ensuite à l'état final), pas sur l'impulsion. Le bloc tourne sur une
+        COPIE profonde de l'état d'instance (``_ETAT_PARTAGE_HORS_EFFET_PROPRE``
+        excepté) : les originaux sont remis tels quels ensuite, y compris sur
+        exception, et les attributs créés pendant l'évaluation retirés."""
+        originaux = {k: v for k, v in vars(self).items() if k not in _ETAT_PARTAGE_HORS_EFFET_PROPRE}
+        vars(self).update(copy.deepcopy(originaux))
+        try:
+            demande = self._demande_de_l_annee(
+                year, year_idx, etat_croissance, self._niveaux_impulsion, conjoncture,
+                etat_inflation, inflation_prev_year, gdp_real, unemployment, output_gap)
+        finally:
+            for cle in [k for k in vars(self) if k not in originaux
+                        and k not in _ETAT_PARTAGE_HORS_EFFET_PROPRE]:
+                delattr(self, cle)
+            vars(self).update(originaux)
+        return niveaux_du_budget(demande.impacts, demande.gdp_nominal,
+                                 self.multipliers.MESURES_MULTIPLICATEUR_NET)
+
     @_entree_retablie
     def simulate(self) -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
         """
@@ -986,11 +1156,11 @@ class OrchestratorMixin:
 
                 # Canal d'offre de travail seniors (v0.6.1, I7) : posé en TÊTE
                 # d'année, avant calculate_growth. Contrairement à l'impulsion
-                # budgétaire (laguée d'un an pour casser la circularité
-                # mesures → macro → flux → mesures), un choc d'offre de travail
-                # ne dépend que du paramètre de politique et du calendrier légal
-                # de l'AOD : rien à casser, et le lagger décalerait d'un an tout
-                # le profil publié. Conséquence recherchée : croissance, Okun et
+                # budgétaire (évaluée hors de son effet propre pour casser la
+                # circularité mesures → macro → flux → mesures, lot 6), un choc
+                # d'offre de travail ne dépend que du paramètre de politique et
+                # du calendrier légal de l'AOD : rien à casser, et le retarder
+                # décalerait d'un an tout le profil publié. Conséquence recherchée : croissance, Okun et
                 # output gap de l'année lisent TOUS le même potentiel, bonus
                 # inclus — le choc d'offre n'ouvre donc aucun écart (I6).
                 self.update_labour_supply(year)
@@ -998,19 +1168,31 @@ class OrchestratorMixin:
                 _log_debug(self.debug_logs, f"Y{year_idx}: Output gap = {output_gap:.3f}")
 
                 # ============================================================
-                # REFONTE « assemblage temporel » (2026-06) — ordre de calcul :
-                #   1. macro de l'année (growth, inflation) avec l'IMPULSION
-                #      BUDGÉTAIRE DE t−1 (lag standard : casse la circularité
-                #      mesures→macro→flux→mesures sans recherche de point fixe) ;
-                #   2. PIB nominal de l'année (déflateur contemporain) ;
-                #   3. chômage contemporain (Okun sur la croissance de l'année) ;
-                #   4. flux budgétaires AUX PRIX DE L'ANNÉE ;
-                #   5. mesures de l'année, impulsion stockée pour t+1.
-                # L'ancien ordre calculait les flux avec growth/inflation de
-                # t−1 pendant que le PIB portait celles de t : le numérateur
+                # BOUCLE ANNUELLE — ordre de calcul (refonte « assemblage
+                # temporel » 2026-06 ; calendrier de l'impulsion, lot 6) :
+                #   1. budget de l'année évalué HORS de son effet propre
+                #      (_niveaux_hors_effet_propre : bloc « demande » sans
+                #      l'impulsion de ce budget, sur une copie de l'état) ;
+                #   2. bloc « demande » AVEC cette impulsion, âge 0 de son
+                #      profil (_demande_de_l_annee) : croissance, prix (Phillips
+                #      sur l'écart de fin t−1, passage de la TVA), PIB au
+                #      déflateur contemporain, chômage, flux aux prix de
+                #      l'année, mesures publiées ;
+                #   3. taux, solde, dette, écart de production, potentiel.
+                # Jusqu'au lot 6, l'impulsion du budget de t n'agissait qu'en
+                # t+1 (« lag standard » pour casser la circularité mesures →
+                # macro → flux → mesures, sans source) : effet nul l'année du
+                # premier budget, contre 0,3 à 1,3 point de PIB dans les
+                # variantes publiées (METHODOLOGIE, « Calendrier de
+                # l'impulsion »). L'évaluation hors effet propre casse la même
+                # circularité sans retard ni recherche de point fixe : c'est la
+                # valorisation d'avant (le budget à l'état macro de son année,
+                # avant son propre effet), appliquée l'année même. L'ordre
+                # d'avant la refonte calculait les flux avec growth/inflation
+                # de t−1 pendant que le PIB portait celles de t : le numérateur
                 # des ratios vivait un an derrière le dénominateur (bug
-                # d'assemblage, cf. docs/plans/refonte-annee1-assemblage.md
-                # du repo parent, diagnostic 2026-06-10).
+                # d'assemblage, cf. docs/plans/refonte-annee1-assemblage.md du
+                # repo parent, diagnostic 2026-06-10).
                 # ============================================================
 
                 # π_{t−1} sauvegardée AVANT calculate_inflation (qui réécrit
@@ -1018,43 +1200,19 @@ class OrchestratorMixin:
                 # indexée sur l'inflation passée dans calculate_expenditures.
                 inflation_prev_year = self.inflation_precedente
 
-                # --- 1. Macro de l'année, impulsion budgétaire de t−1 ---
                 economic_state_growth = {
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
                     # Ni effort net ni composition de l'expansion (lot 1) : leur
                     # dernier lecteur, l'éviction, est retiré (engine/growth.py,
                     # « RETIRÉE ») ; l'effort intérieur l'avait été avec la
-                    # cicatrice d'austérité. Les impulsions sont tirées de
-                    # _last_impacts, levier par levier.
+                    # cicatrice d'austérité. Les impulsions sont tirées des
+                    # niveaux du budget de l'année, levier par levier.
                     'debt_ratio': debt_ratio,
                     'interest_rate': self.base_params['taux_interet_base'],
                     'unemployment': unemployment,
                     'deficit_ratio': deficit / gdp_nominal  # déficit t−1 / PIB fin t−1
                 }
-                growth = self.calculate_growth(year_idx, economic_state_growth)
-                # Choc de demande OBSERVÉ (v0.6.9, constants.py) : ajouté ICI, après
-                # la croissance modélisée et AVANT tous ses lecteurs — PIB (étape 2),
-                # Okun (3), recettes (4), écart de production et hystérèse du
-                # potentiel (fin d'année). Ni impulsion budgétaire (les impulsions
-                # sont lues dans _last_impacts, budget de t−1), ni choc d'offre (le
-                # potentiel ne le voit que par l'hystérèse, sur la croissance
-                # cyclique) ; la Phillips le lit en t+1 par l'écart de production,
-                # comme tout choc de demande — calculate_inflation, ci-dessous, ne
-                # lit pas la croissance de l'année. Hors du filet [−3,5 % ; +2,5 %]
-                # de calculate_growth : c'est une donnée constatée, pas une sortie
-                # du modèle. Absent de la table = aucune opération (bit-identique).
-                choc_demande = conjoncture.CHOCS_DEMANDE_OBSERVES.get(year)
-                if choc_demande is not None:
-                    growth = growth + choc_demande
-                    _log_debug(self.debug_logs,
-                        f"Y{year_idx}: Choc de demande observé {choc_demande*100:+.2f} pt")
-                # Atterrissage (lot E) : croissance OBSERVÉE de l'année injectée, au
-                # même point d'application que le choc de demande v0.6.9 (choc =
-                # cible − croissance du modèle, publié ; jamais forcée en 2027+).
-                growth = self._atterrir(year, 'croissance', growth)
-                _log_debug(self.debug_logs, f"Y{year_idx}: Croissance = {growth:.3f}")
-
                 economic_state_inflation = {
                     'output_gap': output_gap,
                     'unemployment_gap': unemployment_gap,
@@ -1062,14 +1220,16 @@ class OrchestratorMixin:
                     # Phillips est retiré (engine/inflation.py, « RETIRÉ ») ; le
                     # budget n'agit sur les prix que par l'écart de production et
                     # par le passage de la TVA.
-                    # Impacts de t−1 (_last_impacts) : les mesures de t ne sont
-                    # pas encore calculées. Le gate temporel (one-shot à
-                    # year == 2) vit dans calculate_inflation — source unique.
+                    # Impacts de t−1 (_last_impacts) : le passage de la TVA dans
+                    # les prix a lieu l'année qui SUIT l'entrée en vigueur du
+                    # taux — conséquence de l'ordre de calcul, sans source,
+                    # déclarée en limite (METHODOLOGIE, « Calendrier de
+                    # l'impulsion »). Le gate temporel (one-shot) vit dans
+                    # calculate_inflation — source unique.
                     'tva_impact': self._last_impacts.get('tva_rate', {}).get('recettes', 0) / gdp_nominal,
-                    # Horloge de la TVA (v0.7.0, lot C) : le passage dans les
-                    # prix a lieu l'année qui SUIT l'entrée en vigueur du taux
-                    # (index d'année 2 = 2027 en mode historique). Formule
-                    # inchangée, seule l'année suit l'horloge du levier.
+                    # Horloge de la TVA (v0.7.0, lot C) : index d'année 2 = 2027
+                    # en mode historique. Formule inchangée, seule l'année suit
+                    # l'horloge du levier.
                     'annee_pass_through_tva': self._origine('tva_rate') - self.annee_base + 1,
                     # TVA à taux réduits (revue adverse de la release E, puis
                     # contre-vérification I1) : sa recette de t−1 en Md€ (part
@@ -1080,66 +1240,18 @@ class OrchestratorMixin:
                                                .get('recettes_tva', 0)),
                     'pib_nominal': gdp_nominal,
                 }
-                inflation = self.calculate_inflation(year_idx, economic_state_inflation)
-                # Atterrissage (lot E) : DÉFLATEUR du PIB sourcé, imposé s'il est
-                # donné (2026 : 1,5 % injecté ; null = déflateur du modèle). Jamais
-                # l'IPC : il passe par le coin de prix de la consommation (bloc
-                # pouvoir d'achat).
-                inflation_atterrie = self._atterrir(year, 'deflateur', inflation)
-                if inflation_atterrie != inflation:
-                    inflation = inflation_atterrie
-                    self.inflation_precedente = inflation
-                _log_debug(self.debug_logs, f"Y{year_idx}: Inflation = {inflation:.3f}")
 
-                # [SUPPRIMÉ Phase 2 — 2026-05-16, option B] Un ajustement
-                # d'élasticité recettes sur la VARIATION d'inflation se
-                # trouvait après le calcul d'inflation (`revenues_after *= 1 +
-                # (inflation - inflation_precedente) * 0.5`). NE PAS
-                # réactiver : (1) mort par construction — calculate_inflation
-                # réécrit self.inflation_precedente avant ce point (0/10 ans) ;
-                # (2) double-comptage — calculate_revenues (engine/revenues.py)
-                # modélise déjà inflation→recettes via l'élasticité au PIB
-                # nominal. Réactivation = biais optimiste systématique de la
-                # dette. Chiffrage + décision : docs/REFACTOR_SPLIT_PLAN.md
-                # (item Phase 2 résolu).
+                # --- 1. Budget de l'année hors de son effet propre ---
+                arguments = (year, year_idx, economic_state_growth, conjoncture,
+                             economic_state_inflation, inflation_prev_year, gdp_real,
+                             unemployment, output_gap)
+                niveaux_budget = self._niveaux_hors_effet_propre(*arguments)
 
-                # --- 2. PIB de l'année (déflateur contemporain) ---
-                gdp_real *= (1 + growth)
-                self.deflateur_cumule *= (1 + inflation)
-                gdp_nominal = gdp_real * self.deflateur_cumule
-                _log_debug(self.debug_logs, f"Y{year_idx}: PIB nominal = {gdp_nominal:.1f}")
-
-                # --- 3. Chômage contemporain (impacts directs des mesures :
-                #        t−1 via _last_impacts, cohérent avec l'impulsion macro
-                #        laguée d'un an) ---
-                unemployment = self.calculate_unemployment(growth, unemployment, year_idx, self._last_impacts)
-                # Atterrissage (lot E) : taux de chômage observé, après Okun et
-                # avant les flux (la dépense chômage de l'année le suit).
-                unemployment = self._atterrir(year, 'chomage', unemployment)
-
-                # --- 4. Flux budgétaires aux prix de l'année ---
-                revenues_base = self.calculate_revenues(gdp_nominal, growth, inflation, year_idx)
-                spending_base = self.calculate_expenditures(
-                    gdp_nominal,
-                    inflation,            # déflateur contemporain (part non indexée)
-                    inflation_prev_year,  # part indexée sur l'inflation passée
-                    unemployment,
-                    year_idx,
-                    output_gap
-                )
-
-                _log_debug(self.debug_logs, f"Y{year_idx}: Base: rec={revenues_base:.1f}, dep={spending_base:.1f}")
-
-                # --- 5. Mesures de l'année (handlers à l'inflation contemporaine) ---
-                # Mémoire de l'inflation par année civile, lue par les handlers
-                # qui cumulent un écart de prix sur plusieurs revalorisations
-                # (v0.6.7 : désindexation des prestations — sans elle, l'écart
-                # passé était réécrit à l'inflation du jour).
-                self._inflation_par_annee[year] = inflation
-                spending_after, revenues_after, impacts = self.apply_measures(
-                    year, spending_base, revenues_base, gdp_nominal,
-                    inflation, unemployment
-                )
+                # --- 2. Demande de l'année avec l'impulsion de son budget ---
+                demande = self._demande_de_l_annee(
+                    year, year_idx, economic_state_growth, niveaux_budget, *arguments[3:])
+                (growth, inflation, gdp_real, gdp_nominal, unemployment, revenues_base,
+                 spending_base, spending_after, revenues_after, impacts) = demande
 
                 self._last_impacts = impacts
                 if year in self._journal_atterrissage:
@@ -1184,11 +1296,11 @@ class OrchestratorMixin:
 
                 _log_debug(self.debug_logs, f"Y{year_idx}: Effort budgétaire = {budget_effort:.3f}")
 
-                # Impulsion budgétaire de l'année : la macro de t+1 la lit dans
-                # self._last_impacts (lag standard d'un an, cf. en-tête du bloc
-                # REFONTE ci-dessus), levier par levier. L'effort agrégé de
-                # l'année ne nourrit plus que la prime de taux ci-dessous et la
-                # colonne publiée (lot 1 : ses lecteurs macro sont retirés).
+                # Impulsion budgétaire de l'année : déjà stockée et appliquée
+                # (étape 2 de la boucle, lot 6), levier par levier. L'effort
+                # agrégé de l'année ne nourrit plus que la prime de taux
+                # ci-dessous et la colonne publiée (lot 1 : ses lecteurs macro
+                # sont retirés).
 
                 revenues = revenues_after
                 spending = spending_after

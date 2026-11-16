@@ -24,12 +24,13 @@ Contrat verrouillé ici, dans le moteur complet :
    qui stocke une hausse de dépense courante est sondé, et un test vérifie que chaque levier de
    dépense du registre est rangé dans une famille gardée par un test ;
 2. une hausse et une baisse permanentes d'un point de PIB d'une même dépense courante déplacent le
-   PIB réel en miroir, à 1 % près, 2, 4 et 6 ans après le premier budget, pour chaque levier dérivé
+   PIB réel en miroir, à 1 % près, les six premières années d'effet, pour chaque levier dérivé
    et un levier synthétique absent de toute liste, dans cinq états (banc historique, mode cadre
    2028, dette haute, écart de production négatif, écart de production positif). Aucune
    non-linéarité n'est neutralisée : la seule précaution est la pleine précision des sorties
-   (arrondi de l'orchestrateur retiré, comme dans les autres bancs). Au-delà de 6 ans, le niveau
-   revient vers zéro et le rapport de deux petits nombres n'est plus une mesure (1,7 % à 8 ans) ;
+   (arrondi de l'orchestrateur retiré, comme dans les autres bancs). Au-delà de six années d'effet,
+   le niveau revient vers zéro et le rapport de deux petits nombres n'est plus une mesure (1,9 % la
+   8e année d'effet) ;
 3. le même miroir par le vrai curseur de la défense (±10 Md€ autour de sa valeur de référence),
    handler compris ;
 4. le coefficient de la hausse de dépense courante n'est lu par aucun autre flux : lui donner une
@@ -115,8 +116,12 @@ ETATS = {
     'ecart_negatif': dict(annee_debut=None, debut=2026, ecart=-0.03),
     'ecart_positif': dict(annee_debut=None, debut=2026, ecart=+0.015),
 }
-HORIZONS = (1, 2, 3, 4, 5, 6)
-# Hors du domaine publié (dette à 180 % ou à 85 % du PIB en 2025) et choc de 2 points de PIB : le
+# Lot 6 (calendrier de l'impulsion) : l'impulsion agit dès l'année de son budget, horizon 0. Les
+# horizons 0 à 5 sont les six premières années d'effet, celles que couvraient les horizons 1 à 6
+# quand l'effet commençait un an après le budget ; l'horizon 6 vaut désormais la 7e année d'effet,
+# où le rapport de deux petits nombres n'est plus une mesure (1,2 % à l'état « écart positif »).
+HORIZONS = (0, 1, 2, 3, 4, 5)
+# Hors du domaine publié (dette à 180 % ou à 85 % du PIB en 2025) et gros choc (1,5 point de PIB) : le
 # miroir n'y est vérifié que la première année d'effet. Au-delà, des non-linéarités légitimes,
 # communes à toutes les familles, l'écartent de plus de 1 % (prime de taux plafonnée, facteur
 # « dette élevée » franchi à 110 %, taille du choc) ; la première année, il est exact à 0,01 % près.
@@ -224,9 +229,10 @@ def test_chaque_levier_de_depense_du_registre_est_range_dans_une_famille_gardee(
 @pytest.mark.parametrize('etat', ETATS_MIROIR)
 @pytest.mark.parametrize('levier', LEVIERS)
 def test_hausse_et_baisse_de_depense_courante_en_miroir(trajectoires, levier, etat, horizon):
-    """±1 point de PIB permanent : la hausse rapporte ce que la baisse coûte, à 1 % près, 2, 4 et
-    6 ans après le premier budget. Rouge avant le lot 5 : rapport de 1,05 à 1,10 (hausse au
-    coefficient des transferts) ; après : de 0,995 à 1,007."""
+    """±1 point de PIB permanent : la hausse rapporte ce que la baisse coûte, à 1 % près, chacune
+    des six premières années d'effet (horizons 0 à 5 depuis le lot 6, 1 à 6 avant). Rouge avant le
+    lot 5 : rapport de 1,05 à 1,10 (hausse au coefficient des transferts) ; après : de 0,995 à
+    1,007 ; après le lot 6 : de 0,996 à 1,006."""
     assert famille(levier) == 'dépense courante'
     hausse = _niveau(trajectoires, etat, levier, +0.01, horizon)
     baisse = _niveau(trajectoires, etat, levier, -0.01, horizon)
@@ -237,17 +243,118 @@ def test_hausse_et_baisse_de_depense_courante_en_miroir(trajectoires, levier, et
         f'(rapport {rapport:.4f})')
 
 
+# Gros choc : 1,5 point de PIB, où le filet de croissance ne mord pas. Lot 6 (calendrier de
+# l'impulsion) : à 2 points, la hausse atteint le filet (+2,5 %, borne de validité des
+# multiplicateurs linéaires) dès sa première année d'effet, désormais l'année du budget ; ce cas
+# est gardé ci-dessous (test_gros_choc_…), qui exige que l'écart au miroir soit exactement la part
+# écrêtée.
 @pytest.mark.parametrize('etat, taille', [('dette_tres_haute', 0.01), ('dette_basse', 0.01),
-                                           ('banc_historique', 0.02), ('cadre_2028', 0.02)])
+                                           ('banc_historique', 0.015), ('cadre_2028', 0.015)])
 @pytest.mark.parametrize('levier', LEVIERS)
 def test_miroir_la_premiere_annee_hors_du_domaine_et_pour_un_gros_choc(trajectoires, levier, etat, taille):
     """La première année d'effet, hausse et baisse sont en miroir à 0,1 % près, aussi pour une dette
-    hors du domaine publié et pour un choc de 2 points de PIB : une asymétrie réservée aux dettes
+    hors du domaine publié et pour un choc de 1,5 point de PIB : une asymétrie réservée aux dettes
     très hautes ou basses, ou aux gros montants, s'y verrait. Mesuré : 0,01 % au plus."""
-    hausse = _niveau(trajectoires, etat, levier, +taille, 1)
-    baisse = _niveau(trajectoires, etat, levier, -taille, 1)
+    # Première année d'effet = horizon 0 depuis le lot 6 (calendrier de l'impulsion).
+    hausse = _niveau(trajectoires, etat, levier, +taille, 0)
+    baisse = _niveau(trajectoires, etat, levier, -taille, 0)
     assert hausse > 0 > baisse
     assert abs(abs(baisse) / hausse - 1) < 0.001, (levier, etat, taille, hausse, baisse)
+
+
+# Gros choc à 2 points de PIB (lot 6, revue adverse) : gardé, sous la forme qui DIT ce qu'il montre.
+GROS_CHOC = 0.02
+
+
+def _premiere_annee(etat, levier, x0, filet_leve=False):
+    """(niveau du PIB réel en % de la référence, croissance de référence, écrêtage consigné par le
+    filet l'année du budget ou None), la première année d'effet, pleine précision."""
+    import budget_simulator.engine.growth as growth
+    i = _indice(etat, 0)
+    with pytest.MonkeyPatch.context() as mp:
+        if filet_leve:
+            mp.setattr(growth, 'CROISSANCE_FILET_MAX', 1.0)
+        ref = _pib_reel(_simulateur(etat))
+        sim = _simulateur(etat, levier, x0)
+        y = _pib_reel(sim)
+    assert y[i - 1] == ref[i - 1]          # l'année d'avant le budget ne bouge pas
+    ecretage = [(calculee, ecretee) for annee, calculee, ecretee in sim._filet_croissance
+                if annee == ETATS[etat]['debut']]
+    return (y[i] / ref[i] - 1) * 100, ref[i] / ref[i - 1] - 1, (ecretage[0] if ecretage else None)
+
+
+@pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
+@pytest.mark.parametrize('levier', LEVIERS)
+def test_gros_choc_l_ecart_au_miroir_est_exactement_la_part_ecretee_par_le_filet(pleine_precision, levier, etat):
+    """À 2 points de PIB, la hausse peut atteindre le filet de croissance (+2,5 %,
+    ``CROISSANCE_FILET_MAX``, borne de validité des multiplicateurs linéaires) dès sa première année
+    d'effet, qui est depuis le lot 6 l'année de son budget. Le filet n'est pas une asymétrie de la
+    dépense courante ; ce test le montre au lieu de retirer le cas :
+
+    1. la baisse n'est jamais écrêtée ;
+    2. filet levé, hausse et baisse sont en miroir à 0,1 % près, comme pour 1,5 point ;
+    3. filet en place, si la hausse est écrêtée, l'écart au miroir est EXACTEMENT la part écrêtée :
+       niveau de la hausse + (croissance calculée − croissance écrêtée) / (1 + croissance de
+       référence) = niveau de la hausse filet levé, à 1e-9 point près ;
+    4. sinon (leviers au profil de l'investissement, dont la première année est plus faible), rien
+       ne change en levant le filet.
+
+    Mesuré au commit d'équation du lot 6, levier synthétique : hausse +1,245 % contre baisse
+    −1,250 % au banc historique (écart au miroir 0,4 %, croissance calculée 2,505 %), +1,211 %
+    contre −1,255 % en mode cadre 2028 (3,6 %, croissance calculée 2,544 %) ; santé et réforme de
+    l'État (profil de l'investissement) ne sont pas écrêtées."""
+    hausse, g_ref, ecrete = _premiere_annee(etat, levier, +GROS_CHOC)
+    baisse, _, ecrete_baisse = _premiere_annee(etat, levier, -GROS_CHOC)
+    hausse_libre, _, ecrete_libre = _premiere_annee(etat, levier, +GROS_CHOC, filet_leve=True)
+    assert ecrete_baisse is None and ecrete_libre is None
+    assert hausse_libre > 0 > baisse
+    assert abs(abs(baisse) / hausse_libre - 1) < 0.001, (levier, etat, hausse_libre, baisse)
+    if ecrete is None:
+        assert hausse == hausse_libre, (levier, etat)
+    else:
+        calculee, ecretee = ecrete
+        assert calculee > ecretee
+        part = (calculee - ecretee) / (1 + g_ref) * 100
+        assert hausse + part == pytest.approx(hausse_libre, abs=1e-9), (levier, etat, hausse, part)
+
+
+@pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
+def test_gros_choc_le_filet_mord_bien_sur_le_levier_synthetique(pleine_precision, etat):
+    """Non-vacuité du test précédent : à 2 points, la hausse du levier synthétique est écrêtée
+    l'année de son budget, et l'asymétrie qui en résulte dépasse la tolérance de 0,1 % des autres
+    premières années (c'est elle que le passage à 1,5 point avait fait disparaître)."""
+    hausse, _, ecrete = _premiere_annee(etat, 'depense_courante_synthetique', +GROS_CHOC)
+    baisse, _, _ = _premiere_annee(etat, 'depense_courante_synthetique', -GROS_CHOC)
+    assert ecrete is not None
+    assert abs(baisse) / hausse - 1 > 0.001, (etat, hausse, baisse)
+
+
+NOMBRES = {0: 'aucun', 1: 'un seul', 2: 'deux', 3: 'trois', 4: 'quatre', 5: 'cinq'}
+
+
+def test_limite_du_filet_la_premiere_annee_declaree_et_liee_aux_instantanes():
+    """METHODOLOGIE (§ « Calendrier de l'impulsion », limites) déclare combien de programmes publiés
+    atteignent le filet de croissance dès leur première année : mode historique, budget 2026 ; mode
+    cadre, budget 2028. Les nombres sont relus dans les instantanés des programmes publiés
+    (``tests/snapshots``), pas recopiés."""
+    import json as _json
+    from budget_simulator.constants import CROISSANCE_FILET_MAX
+    snap = Path(__file__).resolve().parent / 'snapshots'
+    texte = ' '.join((Path(__file__).resolve().parent.parent / 'docs' / 'METHODOLOGIE.md')
+                     .read_text(encoding='utf-8').split())
+
+    def au_filet(fichier, indice):
+        programmes = _json.loads((snap / fichier).read_text(encoding='utf-8'))
+        return len(programmes), sum(1 for p in programmes.values()
+                                    if p['data']['Croissance %'][indice] >= CROISSANCE_FILET_MAX * 100 - 1e-9)
+    total, historique = au_filet('golden_master_v1.json', 1)
+    total_cadre, cadre = au_filet('golden_master_cadre_2028.json', 3)
+    assert total == total_cadre == 10
+    assert historique >= 1, 'NON_VACUITE'
+    attendu = (f'En mode historique (non publié), {NOMBRES[historique]} des dix programmes publiés '
+               f"l'atteignent dès leur première année (2026)")
+    assert attendu in texte, attendu
+    assert f'en mode cadre (publié), {NOMBRES[cadre]}.' in texte, cadre
 
 
 def test_etats_non_triviaux(trajectoires):
@@ -265,30 +372,47 @@ def test_etats_non_triviaux(trajectoires):
     ecarts = []
     origine = sim._stocker_impulsions
 
-    def espion(year, eco_state):
+    def espion(year, eco_state, niveaux=None):
         ecarts.append(eco_state['output_gap'])
-        return origine(year, eco_state)
+        return origine(year, eco_state, niveaux)
     sim._stocker_impulsions = espion
     sim.simulate()
-    assert ecarts[1] > 0.005, ecarts   # premier stockage de l'impulsion : écart de production > 0,5 %
+    # Premier stockage de l'impulsion (budget 2026, stocké en 2026 depuis le lot 6 ; deux appels par
+    # année, hors effet propre puis définitif) : écart de production > 0,5 %.
+    assert ecarts[0] == ecarts[1] > 0.005, ecarts
 
 
 # --- 3. Le vrai curseur : défense ±10 Md€ autour de sa référence ---------------------------------
 
+# Lot 6 (calendrier de l'impulsion) : deux horizons, l'année d'effet d'avant le lot et l'année
+# calendaire d'avant le lot (voir la docstring).
+@pytest.mark.parametrize('horizon, tolerance', [(3, 0.01), (4, 0.015)])
 @pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
-def test_curseur_defense_en_miroir(pleine_precision, etat):
+def test_curseur_defense_en_miroir(pleine_precision, etat, horizon, tolerance):
     """Handler réel (``defense.budget``), ±10 Md€ autour de la valeur par défaut (mode historique)
     ou du droit en vigueur (mode cadre, où la baisse fait passer le flux d'une hausse à une coupe :
-    l'impulsion est scindée en zéro). Rouge avant le lot 5 : 1,089 et 1,031 ; après : 1,007."""
+    l'impulsion est scindée en zéro). Rouge avant le lot 5 : 1,089 et 1,031 ; après : 1,007.
+
+    Re-déclaré au lot 6 (calendrier de l'impulsion), deux horizons au lieu d'un :
+    - horizon 3, la 4e année d'effet, celle que lisait l'horizon 4 avant le lot (l'effet commençait
+      un an après le budget) : tolérance de 1 % inchangée ;
+    - horizon 4, l'année calendaire d'avant le lot (budget 2026 → 2030), devenue la 5e année
+      d'effet : tolérance de 1,5 %. Le curseur est un montant FIXE en Md€, et l'écart au miroir
+      croît d'environ 0,2 point par année d'effet ; mesuré au banc historique, années d'effet 2 à 6 :
+      1,0034 / 1,0056 / 1,0080 / 1,0099 / 1,0121 au commit d'équation, 1,0020 / 1,0044 / 1,0073 /
+      1,0099 / 1,0130 avant le lot (mode cadre 2028 : 1,0082 et 1,0099 aux horizons 3 et 4). Le même
+      levier en part FIXE du PIB (banc générique ci-dessus, ±0,33 point) reste sous 0,2 % la 5e
+      année. 1,5 % couvre cette dérive connue et rougit toujours l'asymétrie de coefficient que la
+      garde vise (1,089 et 1,031 avant le lot 5)."""
     ref = 50.0 if ETATS[etat]['annee_debut'] is None else float(
         charger_droit_en_vigueur().mesures['defense']['budget'])
-    i = _indice(etat, 4)
+    i = _indice(etat, horizon)
     y0 = _pib_reel(_simulateur(etat, mesures={'defense': {'budget': ref}}))
     yh = _pib_reel(_simulateur(etat, mesures={'defense': {'budget': ref + 10}}))
     yb = _pib_reel(_simulateur(etat, mesures={'defense': {'budget': ref - 10}}))
     hausse, baisse = yh[i] / y0[i] - 1, yb[i] / y0[i] - 1
     assert hausse > 0 > baisse
-    assert abs(abs(baisse) / hausse - 1) < 0.01, (etat, hausse, baisse)
+    assert abs(abs(baisse) / hausse - 1) < tolerance, (etat, horizon, hausse, baisse)
 
 
 # --- 4. Le coefficient n'est lu par aucun autre flux -----------------------------------------------
