@@ -56,6 +56,19 @@ def test_la_coupe_suit_les_prix_pas_seulement_le_volume():
     assert coupes[2032] > 0.08 * c['phasing'] * volume * 1.05
 
 
+def test_part_reelle_de_l_ancienne_assiette_publiee_liee_a_la_mesure():
+    """METHODOLOGIE et CHANGELOG écrivent qu'avec l'ancienne assiette en volume, un rabot de 8 % ne valait
+    qu'environ 7,4 % des dépenses de l'année en 2032 : 8 % / indice de prix des dépenses de 2032."""
+    from pathlib import Path
+    _, ctx = _coupes({'rabot_uniforme': {'taux_reduction': 0.08, 'exclure_defense': 0, 'exclure_ue': 0}})
+    part = f"{8 / ctx[2032]['indice_prix']:.1f}".replace('.', ',')
+    assert part == '7,4'
+    racine = Path(__file__).absolute().parent.parent
+    for doc in ('docs/METHODOLOGIE.md', 'CHANGELOG.md'):
+        texte = ' '.join((racine / doc).read_text(encoding='utf-8').split())
+        assert f"environ {part} % des dépenses de l'année en 2032" in texte, doc
+
+
 # --- Défense : mécanisme de retrait au-delà des équipements (équation, valeur neutre) ------------------
 # La défense exclue vaut une part du PIB de l'année (MONTAIGNE_DEFENSE_PART_PIB), dont la catégorie
 # « equipements » (exclue en entier) ; le reste est retiré AU PRORATA des autres catégories, faute de catégorie
