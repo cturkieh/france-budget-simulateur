@@ -163,7 +163,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | collectivites | dotation | 116.6 | 116.6 | 116.6 | 109.6 | 116.6 | 104.6277 | 109.1 | 116.6 | 116.6 | 116.6 |
 | collectivites | investissement | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | cotisations_patronales | taux | 0.27 | 0.27 | 0.27 | 0.27 | 0.27 | 0.2538 | 0.27 | 0.28 | 0.27 | 0.27 |
-| cotisations_salariales | baisse_points | 0 | 0 | 0 | 0.4321 | 0 | 1.2965 | 0 | 0 | 0 | 10.3702 |
+| cotisations_salariales | baisse_points | 0 | 0 | 0 | — | 0 | — | 0 | 0 | 0 | — |
+| cotisations_salariales | montant_md | — | — | — | 5 | — | 15 | — | — | — | 120 |
 | csg | progressive | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | csg | taux | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.098039 | 0.108039 | 0.098039 | 0.098039 |
 | defense | budget | 58 | 58 | 58 | 58 | 58 | 58.1 | 58 | 58 | 58 | 58 |
@@ -269,9 +270,9 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 - Calendrier, Programme Les Écologistes Tondelier 2027, `prestations_menages.solidarite` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `transition_ecologique.investissement` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme Nouvelle Énergie Lisnard 2027, `cotisations_salariales.baisse_points` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme Nouvelle Énergie Lisnard 2027, `cotisations_salariales.montant_md` : montant fixé pour chaque année, 2028 : 48, 2029 : 66, 2030 : 84, 2031 : 102, 2032 : 120 (valeurs)
 - Calendrier, Programme Nouvelle Énergie Lisnard 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme Nouvelle Énergie Lisnard 2027, `impots_production.montant` : montée progressive jusqu'à la fin du mandat (rampe)
+- Calendrier, Programme Nouvelle Énergie Lisnard 2027, `impots_production.montant` : montant fixé pour chaque année, 2028 : 81, 2029 : 75, 2030 : 69, 2031 : 63, 2032 : 57 (valeurs)
 - Calendrier, Programme Nouvelle Énergie Lisnard 2027, `prestations_menages.solidarite` : montée progressive jusqu'à la fin du mandat (rampe)
 <!-- SCENARIO_PARAMS:END -->
 

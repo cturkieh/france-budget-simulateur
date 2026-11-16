@@ -2843,7 +2843,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > les deux autres » et « offre du rabot doublée » : toutes rouges). **Ce qui bouge** (mode cadre 2028, dix scénarios
 > publiés, par rapport au lot 5e ; écarts calculés en pleine précision, sans les arrondis de sortie du moteur) :
 > tous, et la référence sans programme, puisque le droit en vigueur porte une dotation sous le défaut ; dette 2032
-> de +0,131 à +0,136 point pour les six qui gardent la dotation du droit (référence : +0,136), de +0,182 à +0,311
+> de +0,134 à +0,136 point pour les six qui gardent la dotation du droit (référence : +0,136), de +0,182 à +0,311
 > point pour les trois programmes qui la baissent de 7 à 12 Md€, +0,346 point pour celui qui utilise le rabot
 > uniforme (dont +0,211 pour sa coupe de dotation) ; déficit 2032 de −0,020 à −0,096 point ; croissance moyenne
 > 2028-2032 de −0,004 à −0,030 point ; Gini inchangé (écart inférieur à 0,0001). **Décomposition** (même mesure, les

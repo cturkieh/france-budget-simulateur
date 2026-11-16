@@ -6,6 +6,19 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — instantanés et bloc généré des scénarios sur l'encodage du site du lot 3
+
+**Statut** : proposée, non publiée, sans numéro de version. Aucun calcul ne change : régénération sur le fichier des
+scénarios du site qui accompagne le lot (trois programmes encodés en milliards d'euros pour la baisse des cotisations
+salariales, au lieu de points ; pour l'un d'eux, cotisations et impôts de production au rythme écrit par sa source,
+montants année par année ; SMIC des fiches au dernier SMIC paru au Journal officiel).
+
+- Instantanés : en mode cadre, seul le programme dont le calendrier change bouge ; en mode historique, un programme
+  bouge de quelques millièmes (15 Md€ au lieu de 1,2965 point × 11,57 Md€). Le réencodage seul laisse les 990 valeurs
+  publiées identiques (banc d'atterrissage).
+- `docs/SCENARIOS_POLITIQUES.md` : bloc généré (`scripts/generate_scenario_params.py`) ; chiffres publiés de l'encadré
+  du lot 5c (METHODOLOGIE) recalculés par leur garde sur ce fichier.
+
 ## [non publiée — proposée] — paramètres du lot 3 : valeurs officielles
 
 **Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc « défauts du
