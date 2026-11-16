@@ -56,7 +56,8 @@ Sources principales :
 - DREES 2024 (CSG ; « OFCE 2023, modèle Allemagne », cité jusqu'au lot 4 pour la
   progressivité, sans passage retrouvé : Gini de l'option progressive à zéro).
 - URSSAF 2024, DARES (cotisations salariales).
-- EU Tax Observatory 2024, Gabriel Zucman, IPP 2025 (ISF climatique).
+- IPP 2025 (ISF climatique) ; taux d'évasion de l'ISF : convention de Saez et
+  Zucman (2019), pas une mesure française (voir ``_apply_isf_climatique``).
 
 Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 - Lit ``self.debug_logs`` et la méthode ``self._effet_ponctuel`` (base
@@ -626,7 +627,7 @@ class FiscaliteMenagesMixin(_MixinBase):
 
     def _apply_isf_climatique(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """ISF climatique. Slider intensité 0-100%. NFP: seuil 1.3M€, taux 1%, bonus 30% → 0-18 Md€. Remplace IFI (2 Md€).
-        Sources: NFP 2027, OFCE 2024, EU Tax Observatory 2024. Voir METHODOLOGIE.md § Mesures Presidentielles 2027."""
+        Sources : OFCE 2024 (point haut du barème, METHODOLOGIE.md § Mesures Presidentielles 2027) ; évasion : convention de Saez et Zucman (2019)."""
         # ===== PARAMÈTRES - SLIDER INTENSITÉ UNIQUE =====
         # v0.6.7 (audit Codex 10/2026, bloc B constat 5 — arbitrage du mainteneur) :
         # COURBE CONTINUE. Recette totale = IFI (droit en vigueur) + intensité ×
@@ -693,13 +694,21 @@ class FiscaliteMenagesMixin(_MixinBase):
         recettes_brutes = foyers_concernes * assiette_nette * taux_effectif_moyen * phasing / 1000  # Md€
 
         # ===== ÉVASION FISCALE =====
-        # Exil fiscal et optimisation (Suisse, Luxembourg, trust)
-        # Sources : EU Tax Observatory 2024, Gabriel Zucman
+        # Exil fiscal et optimisation (Suisse, Luxembourg, trust) : part du
+        # patrimoine qui échappe à l'impôt. Convention de Saez et Zucman (2019),
+        # « Progressive Wealth Taxation », Brookings Papers on Economic Activity,
+        # automne 2019, tableau 2 p. 461 (« Strong enforcement: 15% evasion
+        # rate », scénario d'un impôt américain à assiette complète) : pas une
+        # mesure française (METHODOLOGIE.md, § Hypothèses de comportement des
+        # impôts à taux).
         taux_evasion = 0.15  # 15% patrimoine échappe à l'impôt
         recettes_nettes = recettes_brutes * (1 - taux_evasion)
 
         # ===== PLAFOND RÉALISTE =====
-        # EU Tax Observatory 2024 : plafond 18 Md€ (scénarios ambitieux possibles)
+        # Plafond de 18 Md€ : convention du moteur, sans source (METHODOLOGIE.md,
+        # « Plafonds réalistes »). Il ne mord jamais : la recette nette maximale
+        # vaut ≈ 10,07 Md€ (350 000 foyers × 4,512 M€ × 0,75 % × 0,85), garde
+        # tests/test_isf_sources_commentaires.py.
         plafond_max = 18.0
         if recettes_nettes > plafond_max:
             recettes_nettes = plafond_max

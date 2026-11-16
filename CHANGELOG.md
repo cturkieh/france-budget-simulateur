@@ -28,6 +28,13 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   comme hors domaine (`tests/test_param_domains_guard.py`) ; l'âge de départ booléen n'est plus ramené à 60 ans
   par les canaux macro (`tests/test_cloture_revue_lot3.py`). Sorties identiques au bit, en pleine précision, sur
   les 64 cas du golden master (dix scénarios publiés des deux modes, mini-scénarios, statu quo).
+- **Sources de l'ISF dans le code** (aucun calcul ne change). Les commentaires de
+  `handlers/fiscalite_menages.py` attribuaient le taux d'évasion de 15 % et le plafond de 18 Md€ à l'« EU Tax
+  Observatory 2024 », dont le rapport ne contient aucun des deux. Ils disent désormais ce que la documentation
+  publique dit déjà : 15 % est une convention de Saez et Zucman (2019, *Brookings Papers on Economic Activity*,
+  tableau 2 p. 461, scénario « contrôle fort » d'un impôt américain à assiette complète), pas une mesure
+  française ; 18 Md€ est un plafond sans source, qui ne mord jamais (recette nette maximale ≈ 10,07 Md€). Garde :
+  `tests/test_isf_sources_commentaires.py` (nouveau ; rouge avant). Sorties identiques au bit.
 
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 
