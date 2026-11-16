@@ -123,6 +123,19 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   pour +2 points au PIB 2025, même calcul, au bit) ; leur révision relève d'une passe dédiée. Test rouge puis vert :
   `tests/test_tva_ciblee_coefficients.py` (nouveau ; indépendance vérifiée sur l'arbre syntaxique, valeurs au bit).
   Golden master isolé : 64 cas sur 64 identiques au bit.
+- **Point de TVA du taux normal : rendement net du seul taux de 20 %** (équation ; V1 et V2 l'étiquetaient à tort
+  « paramètres »). L'assiette d'un point était toute la consommation des ménages, taux réduits compris, × 0,9
+  (0,53 × PIB × 0,9 = 14,24 Md€ au PIB 2025, plus que le point brut de tous les taux, 13,7) : un point de TVA était
+  surestimé de 90 %. Désormais le point net du seul taux de 20 %, 7,5 Md€ au PIB 2025 (DG Trésor, Trésor-Éco n° 371,
+  septembre 2025, p. 4, tableau 2, rouvert), en part du PIB de l'année, sans le facteur 0,9 (le point est calé sur
+  les recettes encaissées, note 5). Élasticités, majoration en chômage élevé et coude au-delà de 22 % inchangés
+  (conventions du moteur). Les coefficients par Md€ de `tva_ciblee` ne changent pas (recette de référence figée au
+  point précédent). Part du canal des ménages laissée à 1,0 (borne haute, limite déclarée : la part des ménages du
+  seul taux normal n'est pas publiée). Aucun scénario publié ne bouge ; golden master isolé : seul le mini-scénario
+  de `tva_rate` bouge, 63 sur 64 identiques au bit. Visiteur (budget voté, mode cadre, 2032, pile assemblée) : +1
+  point = déficit −0,22 point de PIB et dette −0,68 (−0,43 et −1,32 avant). Test rouge puis vert : `tests/test_tva_point_net.py`
+  (nouveau ; un point statique = 7,5 Md€ au PIB 2025, assiette en part du PIB, rapport constant à l'ancienne
+  formule hors facteur 0,9).
 
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 

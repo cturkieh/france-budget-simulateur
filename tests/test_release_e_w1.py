@@ -1277,7 +1277,8 @@ def test_mutation_valeurs_datees_ignorees_la_surtaxe_est_comptee_chaque_annee():
 # ===========================================================================
 
 # Programmes au-delà du seuil : le programme mixte du harnais sous un seuil
-# abaissé (toujours disponible, ~1,4 à 2,1 % du PIB par an), et, au seuil réel,
+# abaissé (toujours disponible ; impact maximal 1,44 % du PIB depuis le point
+# net de TVA du lot 3, 1,90 % avant : seuil du cas 1,5 → 1,2 %), et, au seuil réel,
 # chaque scénario publié qui le dépasse (trouvé par sa propriété, jamais nommé ;
 # un seul aujourd'hui) quand scenarios.json est présent.
 def _scenarios_publies_au_dela_du_seuil():
@@ -1285,7 +1286,7 @@ def _scenarios_publies_au_dela_du_seuil():
             and simuler(copy.deepcopy(m), annee_debut=DEBUT)[2]['cadre']['plafond_total']['annees']]
 
 
-CAS_PLAFOND = [('programme_mixte', 0.015)] + [(nom, None) for nom in _scenarios_publies_au_dela_du_seuil()]
+CAS_PLAFOND = [('programme_mixte', 0.012)] + [(nom, None) for nom in _scenarios_publies_au_dela_du_seuil()]
 IDS_PLAFOND = [c[0] for c in CAS_PLAFOND]
 
 

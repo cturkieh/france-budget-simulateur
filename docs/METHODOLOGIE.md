@@ -2184,11 +2184,19 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   version émettait +0,0027 par point de 6 Md€ (≈ +0,00045 par Md€, +0,062 au maximum), attribué à une source
   introuvable, quatre à sept fois au-dessus de cette estimation, et la note « Inégalités » saturait au-delà
   d'environ 15 points.
-- **TVA, assiette du taux normal** (limite dite, non corrigée, antérieure à la release) : la recette du curseur
-  `tva_rate` est calculée sur toute la consommation des ménages (0,53 × PIB × 0,9), biens aux taux réduits compris
-  (≈ 470 Md€) : +1 point de `tva_rate` ≈ 14,2 Md€ au PIB 2025, dont ≈ 4,2 sur l'assiette des taux réduits. Une
-  hausse de tous les taux s'encode avec `tva_rate` seul ; encodée avec `tva_rate` et `tva_ciblee`, la part des taux
-  réduits serait comptée deux fois (règle d'encodage ; restriction de l'assiette en passe dédiée).
+- **TVA, assiette du taux normal** (corrigée au lot 3, équation) : un point du curseur `tva_rate` vaut le
+  rendement net du seul taux de 20 %, 7,5 Md€ au PIB 2025 (DG Trésor, Trésor-Éco n° 371, septembre 2025, p. 4,
+  tableau 2 ; net = après la TVA payée par les administrations sur leurs propres achats, que le moteur, qui compte le
+  solde de toutes les administrations, ne fait pas varier ; point calé sur les recettes encaissées, note 5), en part
+  du PIB de l'année. Jusqu'au lot 3 : 0,53 × PIB × 0,9 = 14,24 Md€ par point, toute la consommation des ménages,
+  taux réduits compris, plus que le point brut de tous les taux (13,7) : l'effet d'un point était surestimé de 90 %.
+  Les élasticités de l'assiette (−0,2 en hausse, −0,1 en baisse), la majoration en chômage élevé et le coude au-delà
+  de 22 % sont inchangés (conventions du moteur, sans source écrite ; le chiffrage du Trésor est statique). Une
+  hausse de tous les taux s'encode désormais avec `tva_rate` (taux normal) et `tva_ciblee` pour les taux réduits
+  (0,4 + 2,0 + 1,6 = 4,0 Md€ net par point, même tableau). Aucun scénario publié ne bouge (taux normal à 20 % partout,
+  `tva_ciblee` nul). Pour un visiteur (budget voté, mode cadre, 2032) : +1 point améliore le déficit de 0,22 point
+  de PIB et baisse la dette de 0,68 point (0,43 et 1,32 avant). Les coefficients par Md€ de `tva_ciblee` ne changent
+  pas : leur recette de référence est figée (point suivant).
 - **TVA ciblée, coefficients par Md€** (lot 3) : l'effet sur la compétitivité (et sur le Gini, nul depuis le lot 4)
   d'un Md€ de `fiscalite_indirecte.tva_ciblee` est la règle de `tva_rate` pour +2 points rapportée à une recette de référence
   figée, celle que rendait la fonction du taux normal à +2 points en v0.8.1 (28,42 Md€ au PIB 2025, même calcul,
@@ -4082,7 +4090,7 @@ dès la première année. La méthode unique (coefficients physiques et bornés)
   | γ (UC) | 0,4 %/an | INSEE : effet « par UC » −0,5 pt (2024), −0,3 pt (2025), Insee Première n° 2105 ; 0,4 implicite dans la prévision 2026 (Note de conjoncture de juin 2026 : −0,3 % / −0,7 % par UC) |
   | n | 0,535 | FIPECO 2025 : 247,6 Md€ bruts / 370,0 Md€ cotisations employeurs incluses × 0,80 du brut au net (taux de service-public.fr F468 ; part de primes ~25 % **non sourcée**) ; avant impôt sur le revenu |
   | R_pub | n × 370,0 ≈ 198 Md€ | idem |
-  | p_m (TVA taux normal) | 1,0 | la base du levier est la consommation des ménages (0,53 × PIB ≈ (1 − s) × RDB) : toute la recette pèse sur elle |
+  | p_m (TVA taux normal) | 1,0 (borne haute, limite déclarée) | depuis le lot 3, l'assiette du levier est le point net du seul taux de 20 % (Trésor-Éco n° 371, tableau 2 : 7,5 Md€ en 2025), payé par les ménages et par les entreprises qui ne récupèrent pas la TVA ; la part des ménages n'est publiée que tous taux confondus (65,1 % des recettes nettes en 2022, administrations comprises) : la recette entière reste comptée sur les ménages, ce qui majore l'effet sur le pouvoir d'achat (+1 point : −0,65 point d'indice en 2032 à 1,0, contre −0,53 à 0,758 et −0,48 à 0,652, budget voté, mode cadre) |
   | p_m (TVA énergie) | 56,0 % | base = toute l'énergie, entreprises comprises. DG Trésor, *Analyse de la composition des recettes de TVA* (2022), citée par le Sénat (rapport n° 942, 2024-2025) : 65,1 % des recettes de TVA nette proviennent des ménages, « dont 86 % de leur consommation et 14 % de leurs investissements » ; 0,651 × 0,86. Moyenne tous biens appliquée à l'énergie faute de répartition propre sourcée (approximation) |
   | p_m (taxe carbone) | 64,6 % | recette totale de la composante carbone. Conseil général de l'économie, *Les outils de régulation économique du carbone*, § 5.6 : 5,3 Md€ payables par les ménages sur 8,2 Md€ (2019) |
   | τ+ / τ− | 1,0 / 0,5 | Benzarti, Carloni, Harju & Kosonen, JPE 128(12), 2020 : « prices respond twice as much to VAT increases as to VAT decreases » ; Carbonnier, JPubE 91(5-6), 2007 : baisses répercutées à 57 % et 77 % ; Benzarti & Carloni, AEJ:EP 11(1), 2019 : baisse de la restauration, consommateurs les moins bénéficiaires |

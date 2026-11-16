@@ -148,8 +148,10 @@ class FiscaliteMenagesMixin(_MixinBase):
             'recettes': delta_revenue,
             'gini': gini,
             'competitivite': competitivite,
-            # Base = consommation des ménages : toute la recette pèse sur
-            # elle (part 1,0, constants.py § part de la fiscalité indirecte).
+            # Toute la recette est comptée sur les ménages (part 1,0, borne
+            # haute depuis que la base est le point net du taux de 20 %, qui
+            # inclut la TVA non récupérée des entreprises : constants.py §
+            # part de la fiscalité indirecte, limite déclarée).
             'menages': canaux_menages(prelevements_indirects=delta_revenue),
         }
         return 0, delta_revenue, impacts

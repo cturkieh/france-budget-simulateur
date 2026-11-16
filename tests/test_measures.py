@@ -14,10 +14,9 @@ def test_apply_tva_rate(simulator):
     inflation = 0.01
     unemployment = 0.076
     delta_spending, delta_revenue, impacts = simulator._apply_tva_rate(measure, params, year, gdp, inflation, unemployment)
-    # TVA rate is now handled by _apply_tva_rate function
-    # Expected: consumption_base = 0.53 * 2994, elasticity adj, then (0.21-0.20) * adjusted * 0.9
-    assert delta_revenue > 10, f"Expected positive revenue > 10 Md€, got {delta_revenue:.1f}"
-    assert delta_revenue < 20, f"Expected revenue < 20 Md€, got {delta_revenue:.1f}"
+    # Lot 3 : un point = rendement net du seul taux de 20 % (7,5 Md€ au PIB 2025, Trésor-Éco n° 371,
+    # tableau 2), en part du PIB, moins l'élasticité de l'assiette (jusqu'au lot 3 : 0,53 × PIB × 0,9).
+    assert 7.0 < delta_revenue < 8.0, f"Expected ≈ 7,5 Md€, got {delta_revenue:.2f}"
     assert 'recettes' in impacts
     assert any("tva_rate" in s.lower() or "TVA" in s for s in simulator.debug_logs)
 

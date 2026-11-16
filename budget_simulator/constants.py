@@ -1204,9 +1204,11 @@ PART_NETTE_DU_BRUT_SMIC = SMIC_NET_MENSUEL_REFERENCE_EUR / SMIC_BRUT_MENSUEL_REF
 # PART DE LA FISCALITÉ INDIRECTE QUI PÈSE SUR LA CONSOMMATION DES MÉNAGES — elle
 # dépend de la BASE de chaque handler (revue passe 1 v0.6.8, M2), et c'est le
 # handler qui l'applique en émettant le canal ``prelevements_indirects`` :
-#  - TVA taux normal (``_apply_tva_rate``) : base = consommation des ménages
-#    (0,53 × PIB ≈ (1 − 17,9 %) × RDB) → part 1,0, aucune constante (la part
-#    TVA totale ci-dessous réduirait deux fois une recette déjà « ménages ») ;
+#  - TVA taux normal (``_apply_tva_rate``) : part 1,0, aucune constante. Depuis
+#    le lot 3, la base est le point net du taux de 20 % (Trésor-Éco n° 371),
+#    payé par les ménages ET par les entreprises qui ne récupèrent pas la TVA ;
+#    la part des ménages n'est publiée que tous taux confondus : 1,0 est une
+#    borne haute, limite déclarée (METHODOLOGIE, tableau des canaux) ;
 #  - TVA énergie (``_apply_tva_energie``) : base = TOUTE la consommation
 #    d'électricité et de gaz (120 Md€, entreprises comprises) → part de la TVA
 #    nette qui pèse sur la consommation des ménages : 65,1 % des recettes de
@@ -2832,18 +2834,40 @@ IS_EXCEPTIONNEL_COMPET_PAR_MD = 0.003
 MASSE_RETRAITES_2025_MD_EUR = 380
 
 
+# _apply_tva_rate (curseur du taux NORMAL) : rendement NET d'un point du seul
+# taux de 20 % en 2025, 7,5 Md€ (DG Trésor, Trésor-Éco n° 371, septembre 2025,
+# « Analyse de la composition des recettes de TVA », p. 4, tableau 2
+# « Rendement d'un point TVA 2025 net total et par taux » : ensemble 11,4 ;
+# 2,1 % 0,4 ; 5,5 % 2,0 ; 10 % 1,6 ; 20 % 7,5). Net = après retrait de la TVA
+# payée par les administrations publiques sur leurs propres achats (brut du
+# taux de 20 % : 8,9, tableau 1) : le moteur compte le solde de toutes les
+# administrations et n'augmente pas leur dépense quand la TVA monte. Le point
+# est « vieilli avec l'évolution des recettes totales de TVA en comptabilité
+# nationale » (note 5), donc calé sur les recettes encaissées. Chiffrage
+# statique (« hors effets induits sur les comportements de consommation ») :
+# les élasticités de recette_tva_taux restent celles du moteur (convention
+# sans source écrite). Assiette exprimée en part du PIB de l'année (elle suit
+# le PIB nominal). Jusqu'au lot 3 : 0,53 × PIB × 0,9 = 14,24 Md€ par point au
+# PIB 2025, toute la consommation des ménages, taux réduits compris — plus que
+# le point brut de TOUS les taux (13,7).
+TVA_POINT_NET_TAUX_NORMAL_2025_MD = 7.5
+TVA_ASSIETTE_TAUX_NORMAL_PART_PIB = TVA_POINT_NET_TAUX_NORMAL_2025_MD / (0.01 * PIB_BASE_2025_MD_EUR)
+
+
 def recette_tva_taux(taux: float, pib: float, chomage: float) -> float:
     """Variation de recette (Md€) du levier ``tva_rate`` au taux ``taux``
     (référence 20 %), au PIB nominal ``pib`` et au taux de chômage
-    ``chomage``. Extraite AU BIT de ``_apply_tva_rate`` (mêmes opérations,
-    même ordre) : le handler l'appelle. Les coefficients par Md€ de la TVA
-    ciblée ne la lisent plus (recette de référence figée, lot 3)."""
-    consumption_base = 0.53 * pib
+    ``chomage``. Le handler l'appelle ; les coefficients par Md€ de la TVA
+    ciblée ne la lisent pas (recette de référence figée). Assiette : point net du taux
+    de 20 % (TVA_ASSIETTE_TAUX_NORMAL_PART_PIB, part du PIB de l'année) ;
+    élasticité de l'assiette, majoration en chômage élevé et coude au-delà de
+    22 % : conventions du moteur, inchangées."""
+    assiette = TVA_ASSIETTE_TAUX_NORMAL_PART_PIB * pib
     base_elasticity = -0.2 if taux > 0.20 else -0.1
     if chomage > 0.10:
         base_elasticity *= 1.2
-    adjusted_base = consumption_base * (1 + base_elasticity * (taux - 0.20))
-    delta_revenue = (taux - 0.20) * adjusted_base * 0.9
+    adjusted_base = assiette * (1 + base_elasticity * (taux - 0.20))
+    delta_revenue = (taux - 0.20) * adjusted_base
     if taux > 0.22:
         delta_revenue *= (1 - 0.2 * (taux - 0.22) / 0.03)
     return delta_revenue
