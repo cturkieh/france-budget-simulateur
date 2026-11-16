@@ -1331,30 +1331,35 @@ def test_w3_11_lineaire_de_cinq_au_maximum(points):
 
 @pytest.mark.parametrize('annee_debut', [None, DEBUT_CADRE], ids=['historique', 'cadre2028'])
 def test_w3_11_au_maximum_simulation_sans_clip_ni_correction(annee_debut):
-    """Au maximum : recette = −masse chaque année d'application, aucun écrêtage,
-    rapport valide, et le plafond de 5 % du PIB par mesure ne mord pas (masse
-    D613CE < 5 % du PIB 2025, contrat W3-11)."""
+    """Au maximum : recette = −masse de l'année chaque année d'application (lot 3 :
+    masse 2025 × PIB de l'année / PIB 2025, le point suivant son assiette), aucun
+    écrêtage, rapport valide, et le plafond de 5 % du PIB par mesure ne mord pas
+    (masse D613CE < 5 % du PIB, une part constante, contrat W3-11)."""
     assert C.COTIS_SAL_MASSE_2025_MD < 0.05 * C.PIB_BASE_2025_MD_EUR  # plafond par mesure, orchestrator.apply_measures
     haut = _max_cotis()
-    _, _, rapport = _simuler({COTIS: {'baisse_points': haut}}, annee_debut)
+    df, _, rapport = _simuler({COTIS: {'baisse_points': haut}}, annee_debut, pleine=True)
+    pib = dict(zip(df['Année'].astype(int), df['PIB']))
     assert rapport['valid'] is True, rapport['warnings']
     assert rapport['leviers_ecretes'] == []
     assert not any(COTIS in w and '5 %' in w for w in rapport['warnings']), rapport['warnings']
     debut = annee_debut or DEBUT
     for an, e in _effets(rapport, COTIS).items():
         if an >= debut:
-            assert e['recettes'] == pytest.approx(-C.COTIS_SAL_MASSE_2025_MD, abs=1e-9), (an, e)
+            assert e['recettes'] == pytest.approx(
+                -C.COTIS_SAL_MASSE_2025_MD * pib[an] / C.PIB_BASE_2025_MD_EUR, rel=1e-12), (an, e)
 
 
 def test_w3_11_au_dela_du_maximum_ecretage_trace_et_strict_refuse():
     haut = _max_cotis()
     demande = haut + 1
-    _, _, rapport = _simuler({COTIS: {'baisse_points': demande}}, None)
+    df, _, rapport = _simuler({COTIS: {'baisse_points': demande}}, None, pleine=True)
+    pib = dict(zip(df['Année'].astype(int), df['PIB']))
     assert rapport['valid'] is False
     lignes = [l for l in rapport['leviers_ecretes'] if l['levier'] == f'{COTIS}.baisse_points']
     assert lignes and lignes[0]['applique'] == pytest.approx(haut, abs=1e-9), rapport['leviers_ecretes']
-    assert all(e['recettes'] == pytest.approx(-C.COTIS_SAL_MASSE_2025_MD, abs=1e-9)
-               for e in _effets(rapport, COTIS).values())
+    assert all(e['recettes'] == pytest.approx(-C.COTIS_SAL_MASSE_2025_MD * pib[an] / C.PIB_BASE_2025_MD_EUR,
+                                              rel=1e-12)
+               for an, e in _effets(rapport, COTIS).items())
     with patch.dict(os.environ, {'BUDGETLAB_STRICT': '1'}):
         assert _leve_entree_invalide(lambda: BudgetSimulatorV45(
             periods=10, mesures={COTIS: {'baisse_points': demande}}).simulate())
@@ -1412,9 +1417,13 @@ def _verifier_independance_cotis_csg():
     assert _canon(avec) == _canon(sans)
     # Simulation, année d'entrée.
     e0 = _par_annee(_simuler({'csg': p_csg}, None)[2])[DEBUT]
-    e1 = _par_annee(_simuler({'csg': p_csg, COTIS: p_cotis}, None)[2])[DEBUT]
+    df1, _, r1 = _simuler({'csg': p_csg, COTIS: p_cotis}, None, pleine=True)
+    e1 = _par_annee(r1)[DEBUT]
+    pib = dict(zip(df1['Année'].astype(int), df1['PIB']))
     assert _canon(e1['csg']) == _canon(e0['csg'])
-    assert e1[COTIS]['recettes'] == pytest.approx(-C.COTIS_SAL_MASSE_2025_MD, abs=1e-9)
+    # Lot 3 : la masse de l'année d'entrée (le point suit son assiette).
+    assert e1[COTIS]['recettes'] == pytest.approx(
+        -C.COTIS_SAL_MASSE_2025_MD * pib[DEBUT] / C.PIB_BASE_2025_MD_EUR, rel=1e-12)
 
 
 def test_ad_regle_d_cotisations_et_csg_independantes():

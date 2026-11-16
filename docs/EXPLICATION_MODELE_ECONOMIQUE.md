@@ -195,8 +195,9 @@ croissance comme pour tout impôt. Une hausse de TVA sur les produits à taux r�
 dans les prix l'année suivante, comme une hausse du taux normal du même montant ; une hausse progressive se
 répercute marche par marche, et une hausse retirée fait redescendre les prix d'autant. Le curseur des cotisations salariales va jusqu'à leur suppression
 totale (138 milliards d'euros en 2025), hors CSG et CRDS, qui ont leur propre curseur ; un point y vaut 1 % de la
-masse salariale brute 2025 (11,6 milliards d'euros, Insee), si bien que la suppression totale vaut 11,9 points, le
-taux moyen réel de ces cotisations.
+masse salariale brute (11,6 milliards d'euros en 2025, Insee, puis davantage chaque année, comme les salaires), si
+bien que la suppression totale vaut 11,9 points, le taux moyen réel de ces cotisations. Un programme qui annonce sa
+baisse en milliards d'euros est compté en milliards, le même montant chaque année.
 
 **Impôts écrits en taux (v0.8.0).** Quand un programme écrit un taux d'impôt, le simulateur ne recopie
 pas le montant annoncé : il calcule la recette à partir d'une assiette sourcée, puis retire la part que

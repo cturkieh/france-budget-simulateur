@@ -2224,14 +2224,18 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   (Insee, tableau 2.101, D11 = 1 157,166 Md€), soit ≈ 11,57 Md€, calculé à partir de cette donnée ; le maximum du
   curseur, la suppression des 138,2 Md€ de cotisations salariales (D613CE, même tableau, même année), vaut donc
   ≈ 11,94 points : le taux moyen réel. « Baisser de X points » signifie « baisser le taux moyen de X points ».
+  Depuis le lot 3, le point suit son assiette : 1 % de la masse 2025 × PIB nominal de l'année / PIB 2025 (règle
+  « un taux suit son assiette ») ; avant, il restait figé à 11,57 Md€ en euros 2025, si bien qu'une baisse en points
+  perdait environ 10 % de sa valeur réelle sur le mandat. Au maximum, la recette supprime la masse de l'année. Un
+  programme qui écrit des milliards s'encode en montant (`montant_md`, ci-dessus), constant en euros courants.
   C'est un majorant du rendement d'une baisse d'un point du taux légal (une partie des salaires bruts est hors
   assiette) ; la valeur de la Commission des comptes de la Sécurité sociale pour les seuls salariés, cotisation
   déplafonnée (9,74 Md€ en 2026, octobre 2026, encadré 2), en est la borne basse sourcée. **Corrigé avant
   publication** (décision du mainteneur du 12/11/2026) : la première version comptait 6 Md€ par point, sans source
   (vraisemblablement un point sur l'assiette du seul secteur privé vers 2018-2019), et la borne valait 23,03 points,
   près de deux fois le taux réel. Un programme écrit en points voit son montant presque doubler (× 1,93) ; ceux
-  qu'on a encodés en points à partir d'un montant en Md€ seront reconvertis depuis ce montant à la release de
-  paramètres (leur solde ne bougera alors pas). L'effet sur les inégalités est un coefficient PAR Md€ rendu aux salariés : +0,0000541 de Gini par
+  qu'on avait encodés en points à partir d'un montant en Md€ s'encodent désormais en montant (`montant_md`, lot 3) :
+  leurs chiffres ne bougent pas. L'effet sur les inégalités est un coefficient PAR Md€ rendu aux salariés : +0,0000541 de Gini par
   Md€ (constante `GINI_COTIS_SAL_PAR_MD` ; lot 4 : les salaires de l'Insee au classement final, sous la plage
   ci-dessous, que tirait le classement initial ; jusqu'ici +0,0001), émis une fois à l'entrée en vigueur, en incréments sous un calendrier
   progressif. C'est une **estimation de France Budget** : aucune étude publiée ne chiffre une baisse uniforme de

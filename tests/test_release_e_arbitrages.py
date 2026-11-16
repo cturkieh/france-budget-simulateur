@@ -92,7 +92,9 @@ def _verifier_recette_d_un_point(sim=None):
     sim = sim if sim is not None else _sim_neuf()
     dep, rec, impacts = _appel(sim, COTIS, {'baisse_points': 1.0})
     assert dep == 0
-    assert rec == pytest.approx(-C.SALAIRES_BRUTS_2025_MD / 100, rel=1e-12), rec
+    # Lot 3 : le point suit la masse salariale (au PIB nominal) depuis 2025.
+    indice = ETAT['gdp'] / C.PIB_BASE_2025_MD_EUR
+    assert rec == pytest.approx(-C.SALAIRES_BRUTS_2025_MD / 100 * indice, rel=1e-12), rec
     assert impacts['menages'] == canaux_menages(prelevements_directs=rec)
 
 
@@ -103,7 +105,8 @@ def test_p1_un_point_rend_un_pour_cent_de_la_masse_salariale():
 def test_p1_au_maximum_la_recette_supprime_exactement_la_masse_sourcee():
     haut = PARAM_DOMAINS[COTIS]['baisse_points'][1]
     _, rec, _ = _appel(_sim_neuf(), COTIS, {'baisse_points': haut})
-    assert rec == pytest.approx(-C.COTIS_SAL_MASSE_2025_MD, abs=1e-9)
+    # Lot 3 : la masse supprimée est celle de l'année (masse 2025 × PIB / PIB 2025).
+    assert rec == pytest.approx(-C.COTIS_SAL_MASSE_2025_MD * ETAT['gdp'] / C.PIB_BASE_2025_MD_EUR, rel=1e-12)
 
 
 def test_p1_infobulle():

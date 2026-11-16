@@ -77,3 +77,29 @@ def test_rampe_d_un_montant_lineaire_de_zero_a_la_cible():
     recettes = [imp[a]['cotisations_salariales']['recettes'] for a in range(2028, 2033)]
     assert recettes == pytest.approx([-24.0, -48.0, -72.0, -96.0, -120.0], abs=1e-9)
     assert imp[2035]['cotisations_salariales']['recettes'] == pytest.approx(-120.0, abs=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Mode en points : le point suit son assiette (la masse salariale, au PIB nominal)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('points', [0.5, 2.0, 10.0])
+@pytest.mark.parametrize('facteur', [1.0, 1.1, 1.25])
+def test_le_point_suit_le_pib_nominal_depuis_2025(points, facteur):
+    """Un point = 1 % de la masse salariale brute 2025 × PIB_t / PIB_2025 (règle « un taux suit son
+    assiette ») ; Gini hors indice (euros de l'année source), comme les autres impôts à taux."""
+    gdp = C.PIB_BASE_2025_MD_EUR * facteur
+    rec, imp = _handler({'baisse_points': points}, gdp)
+    assert rec == pytest.approx(-points * C.COUT_PAR_POINT_COTIS_SAL * facteur, rel=1e-12)
+    assert imp['menages']['prelevements_directs'] == pytest.approx(rec, rel=1e-12)
+    assert imp['gini'] == pytest.approx(C.GINI_COTIS_SAL_PAR_MD * points * C.COUT_PAR_POINT_COTIS_SAL, rel=1e-12)
+
+
+def test_un_point_et_son_montant_coincident_en_2025_seulement():
+    """Au PIB 2025, 1 point = 11,57 Md€ dans les deux modes ; ensuite le point grandit, le montant non."""
+    r_pt, _ = _handler({'baisse_points': 1.0}, float(C.PIB_BASE_2025_MD_EUR))
+    r_md, _ = _handler({'montant_md': C.COUT_PAR_POINT_COTIS_SAL}, float(C.PIB_BASE_2025_MD_EUR))
+    assert r_pt == pytest.approx(r_md, rel=1e-12)
+    r_pt2, _ = _handler({'baisse_points': 1.0}, C.PIB_BASE_2025_MD_EUR * 1.2)
+    r_md2, _ = _handler({'montant_md': C.COUT_PAR_POINT_COTIS_SAL}, C.PIB_BASE_2025_MD_EUR * 1.2)
+    assert r_pt2 == pytest.approx(1.2 * r_pt, rel=1e-12) and r_md2 == r_md

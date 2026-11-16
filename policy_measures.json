@@ -567,7 +567,7 @@
           "step": 0.5,
           "label": "Baisse des cotisations salariales (points)",
           "type": "number",
-          "tooltip": "Cotisations sociales prélevées sur le salaire brut, hors CSG et CRDS (curseur CSG). 1 point = 1 % de la masse salariale brute 2025 (11,6 Md€) ; au maximum, suppression des 138 Md€ de cotisations salariales (2025, Insee), soit 11,9 points, le taux moyen réel."
+          "tooltip": "Cotisations sociales prélevées sur le salaire brut, hors CSG et CRDS (curseur CSG). 1 point = 1 % de la masse salariale brute 2025 (11,6 Md€), puis de la masse de l'année (elle suit le PIB) ; au maximum, suppression des 138 Md€ de cotisations salariales (2025, Insee), soit 11,9 points, le taux moyen réel."
         },
         "montant_md": {
           "min": 0,

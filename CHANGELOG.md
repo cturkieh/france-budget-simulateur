@@ -4,6 +4,28 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — cotisations salariales : le point suit son assiette (publication suivante)
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, le dernier de la pile, seul et
+détachable. **Contrainte de publication (arbitrage du mainteneur : deux publications)** : ce changement part dans une
+publication SUIVANTE, après celle du mode montant (`montant_md`) et le réencodage en milliards des programmes du site
+qui écrivent leur baisse en milliards. Sur ce réencodage, aucun scénario publié ne bouge. Publié avant lui, il
+déplacerait les trois programmes encodés en points : dette 2032 jusqu'à +0,30 point en mode cadre, dette 2035 jusqu'à
++3,75 points en mode historique (mesuré sur la pile assemblée). Un client de l'API qui envoie des points voit son
+résultat changer : c'est l'objet de la correction.
+
+- **Le point suit son assiette.** Un point valait 1 % de la masse salariale brute 2025, figé en euros (11,57 Md€
+  chaque année) : une baisse en points perdait environ 10 % de sa valeur réelle sur le mandat, contrairement à la
+  règle commune des impôts à taux. Désormais 1 % de la masse 2025 × PIB_t / PIB_2025 (`_indice_pib_source`,
+  `ANNEE_SOURCE_COTIS_SAL`) ; au maximum, la recette supprime la masse de l'année. Indice d'inégalités : méthode
+  unique du lot 4 (coefficient × montant), montant en euros 2025 du point, hors indice. Le mode montant reste
+  constant en euros courants.
+- Test rouge puis vert : `tests/test_cotisations_montant_md.py` (le point suit le PIB, coïncide avec son montant au
+  PIB de 2025 seulement). Golden master isolé : bouge exactement le mini-scénario du levier, 63 sur 64 identiques au
+  bit (les programmes publiés sont encodés en milliards). Instantanés régénérés une fois. Re-déclarés : recette d'un
+  point et du maximum (masse de l'année) dans les tests de la release E. METHODOLOGIE, EXPLICATION et infobulle du
+  registre public mises à jour.
+
 ## [v0.9.0] — 2026-11-16 — corrections du moteur : mécanismes sans source retirés, calendrier du budget, méthode unique des inégalités, SMIC daté, paramètres officiels
 
 Une version qui regroupe les corrections de novembre 2026, par lot :

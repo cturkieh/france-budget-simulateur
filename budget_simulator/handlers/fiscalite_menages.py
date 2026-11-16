@@ -67,6 +67,7 @@ Couplages avec ``BudgetSimulatorV45`` (instance hôte du mixin) :
 from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
+    ANNEE_SOURCE_COTIS_SAL,
     ANNEE_SOURCE_ISF,
     ANNEE_SOURCE_PATRIMOINE,
     COUT_PAR_POINT_COTIS_SAL,
@@ -456,13 +457,16 @@ class FiscaliteMenagesMixin(_MixinBase):
             return 0.0, 0.0, {}
 
         # ===== COÛT BUDGÉTAIRE =====
-        # Un point de baisse = 1 % de la masse salariale brute 2025 rendu aux
-        # salariés (COUT_PAR_POINT_COTIS_SAL, constants.py) ; en mode montant,
-        # le montant lui-même.
+        # Un point de baisse = 1 % de la masse salariale brute de l'année rendu
+        # aux salariés : 1 % de la masse 2025 (COUT_PAR_POINT_COTIS_SAL,
+        # constants.py) × PIB nominal de l'année / PIB 2025 (règle « un taux
+        # suit son assiette », lot 3 ; avant : figé en euros 2025). En mode
+        # montant, le montant lui-même, constant en euros courants.
         if 'montant_md' in niveau:
             delta_revenue = -niveau['montant_md']
         else:
-            delta_revenue = -niveau['baisse_points'] * COUT_PAR_POINT_COTIS_SAL
+            delta_revenue = (-niveau['baisse_points'] * COUT_PAR_POINT_COTIS_SAL
+                             * self._indice_pib_source(ANNEE_SOURCE_COTIS_SAL, gdp))
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         impacts = {
@@ -476,7 +480,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         # salaires : le Gini du niveau de vie AUGMENTE (baisse_points positif →
         # Gini +). Coefficient PAR Md€ rendu aux salariés
         # (GINI_COTIS_SAL_PAR_MD, estimation de France Budget, constants.py) :
-        # le Gini ne dépend pas de la convention du point.
+        # le Gini ne dépend pas de la convention du point. Euros HORS indice
+        # d'assiette (euros 2025 du point), comme les autres impôts à taux.
         def _effet_cotisations_salariales(p):
             if 'montant_md' in p:
                 return GINI_COTIS_SAL_PAR_MD * p['montant_md']

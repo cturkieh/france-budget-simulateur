@@ -2809,6 +2809,10 @@ ETI_PLANCHER_FACTEUR = 0.5
 # Sécurité sociale, octobre 2026, encadré 2).
 SALAIRES_BRUTS_2025_MD = 1157.166
 COUT_PAR_POINT_COTIS_SAL = SALAIRES_BRUTS_2025_MD / 100
+# Lot 3 : le point est un taux, il suit son assiette (la masse salariale, au PIB
+# nominal) depuis l'année de la masse (_indice_pib_source) ; un programme qui
+# écrit des Md€ s'encode en montant (``montant_md``), constant en euros courants.
+ANNEE_SOURCE_COTIS_SAL = 2025
 
 # _apply_cotisations_salariales : effet sur l'indice de Gini PAR Md€ de
 # cotisations rendu aux salariés (baisse), positif : une baisse proportionnelle
