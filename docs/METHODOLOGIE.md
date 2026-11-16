@@ -53,7 +53,7 @@ Ce document detaille les **hypotheses economiques** et les **mecanismes de calcu
 **Changements majeurs v4.0 (refonte « assemblage temporel ») :**
 - **Depenses** : recurrence unique chainee des l'annee 1 — `Dep(t) = Dep(t-1) x (1 + g_vol) x (1 + pi_idx)`. Plus de regime special 2026 (« bridging year ») ni de taux d'amorcage exogene. Indexation mixte : 54% de la depense suit l'inflation PASSEE (pensions, prestations), 46% le deflateur contemporain
 - **Recettes** : elasticite unitaire au PIB nominal contemporain (`ELASTICITE_PO_PIB = 1,0`, HCFP note 2023-01). Supprimes : elasticite differenciee par regime de croissance (1,00/1,06/1,08/1,12), erosion forfaitaire 0,2%/an, rustines de transition 2026
-- **Boucle annuelle reordonnee** : macro de l'annee (avec impulsion budgetaire de t-1) -> PIB (deflateur contemporain) -> chomage -> flux aux prix de l'annee -> mesures (impulsion stockee pour t+1). **Lot 6 (non publie)** : le budget de l'annee agit des cette annee ; il est d'abord evalue hors de son effet propre, puis l'annee est calculee avec son impulsion (§ « Calendrier de l'impulsion »)
+- **Boucle annuelle reordonnee** : macro de l'annee (avec impulsion budgetaire de t-1) -> PIB (deflateur contemporain) -> chomage -> flux aux prix de l'annee -> mesures (impulsion stockee pour t+1). **Lot 6 (v0.9.0)** : le budget de l'annee agit des cette annee ; il est d'abord evalue hors de son effet propre, puis l'annee est calculee avec son impulsion (§ « Calendrier de l'impulsion »)
 - **Phillips ANCREE** : formule `(1-rho) x (pi* + kappa x gap) + rho x pi(t-1)` — `INFLATION_STRUCTURELLE` (1,6%) est le point de convergence REEL et `PHILLIPS_PENTE_MT` (0,20) est DIRECTEMENT la pente de moyen terme ; rappel BCE a 2,0% en garde-fou de surchauffe, plancher a 0,8% desormais inerte en statu quo
 - **Baseline honnete** : l'« assainissement implicite gratuit » (~24 Md EUR/an) de l'ancien assemblage a disparu. **Chiffres recales le 26/08/2026** — ceux publies ici jusque-la (deficit 2026 -5,05 %, dette 2030 ~129,5 %, dette 2035 ~150 %) dataient d'AVANT les lots 8 et 9, qui les ont deplaces de 10 a 12 points. Et ils melangeaient deux objets : le **statu quo NU** (le moteur sans aucune mesure, objet de calibration, servi nulle part) et le **scenario de reference** `plf_2026` (« Budget 2026 vote, reajuste sur l'execution 2026 » depuis le 08/11/2026, ce que le site sert comme point de depart). Les deux, mesures sur l'etat livre :
 
@@ -270,7 +270,7 @@ comme tout avis, il n'invalide pas le rapport. La même information est publiée
 dans le bloc `cadre.filet_croissance` (bornes en %, années, et pour chaque année la croissance calculée
 et la croissance retenue), toujours présent, vide quand le filet ne mord pas.
 
-**Écrêtage retiré (arbitrage du mainteneur du 16/11/2026, non publié).** L'écrêtage de la croissance dans
+**Écrêtage retiré (arbitrage du mainteneur du 16/11/2026, v0.9.0).** L'écrêtage de la croissance dans
 [−3,5 % ; +2,5 %] ne venait d'aucune source. Il est supprimé : une croissance hors de ce domaine est publiée
 telle qu'elle est calculée. Les bornes restent celles du domaine de validité des multiplicateurs linéaires,
 et l'avis comme le bloc `cadre.filet_croissance` le signalent toujours, au même format (croissance retenue
@@ -495,7 +495,7 @@ Le simulateur distingue trois logiques d'evolution :
 
 **Rabot uniforme (v3.0)** : Utilise desormais la base de depenses dynamique de l'annee en cours, et non plus la base figee 2025. Cela evite la sous-estimation de l'impact des coupes dans le temps.
 
-**Rabot uniforme, assiette en euros de l'année (lot 3, proposé après v0.8.1).** La coupe s'applique aux dépenses de
+**Rabot uniforme, assiette en euros de l'année (lot 3, v0.9.0).** La coupe s'applique aux dépenses de
 l'année en euros courants (masse nominale de chaque catégorie), la méthode de la note de l'Institut Montaigne
 (annexe 4, p. 141 : « tendanciel en volume ajusté par le déflateur du PIB »). Jusqu'au lot 3, l'assiette était en
 volume (euros 2025) : un rabot de 8 % ne valait qu'environ 7,4 % des dépenses de l'année en 2032. L'AAH, part en
@@ -1633,7 +1633,7 @@ pas reecrite.
 - Effet levier important
 - Impact sur emplois verts : 15 000/Md EUR
 
-**Retour fiscal propre — RETIRÉ (lot 2, 16/11/2026, non publié ; arbitrage du mainteneur du 15/11/2026).**
+**Retour fiscal propre — RETIRÉ (lot 2, 16/11/2026, v0.9.0 ; arbitrage du mainteneur du 15/11/2026).**
 Jusqu'ici, le levier ajoutait à ses recettes 0 % de sa dépense d'investissement et de rénovation les deux
 premières années, 5 % les deux suivantes, puis 8 %, au titre des impôts et cotisations de l'activité induite.
 Les deux références citées ne portent pas ce chiffre : OCDE, *Getting Infrastructure Right* (2017, un cadre de
@@ -1807,7 +1807,7 @@ deployee — hypothese conservatrice assumee).
 
 ### SMIC
 
-**La règle (lot SMIC, arbitrage du mainteneur du 16/11/2026, non publiée).** Le curseur est le SMIC brut
+**La règle (lot SMIC, arbitrage du mainteneur du 16/11/2026, v0.9.0).** Le curseur est le SMIC brut
 mensuel. Pour les finances publiques, le moteur reprend les cinq postes qu'a publiés le groupe d'experts sur le
 SMIC pour une hausse de 1 % (rapport 2017, tableau 9, PDF p. 82 ; modèle Saphir de la DG Trésor ; sans effet sur
 l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
@@ -1953,7 +1953,7 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 - PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : prélèvement direct, −1 € de RDB par €
 - Competitivite : -0,002 (risque exil entrepreneurs)
 
-**Combiné avec « Fiscalité du patrimoine » (IFI compté une seule fois, proposé après v0.8.1).** L'ISF
+**Combiné avec « Fiscalité du patrimoine » (IFI compté une seule fois, v0.9.0).** L'ISF
 d'intensité i remplace la part i de l'IFI. Le curseur du patrimoine, qui fait varier IFI, successions et
 taxe foncière, ne fait donc varier que l'IFI encore en vigueur, (1 − i) × IFI : à l'intensité 1, il ne
 touche plus l'IFI. Avant, il faisait varier l'IFI entier, déjà supprimé : pour ISF 1 et patrimoine
@@ -2213,7 +2213,7 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   première marche, et une baisse des taux réduits annulait la hausse du taux normal la même année.
 - **Recette exceptionnelle** : comme tout prélèvement, elle freine la croissance l'année de la recette (l'année
   suivante jusqu'au lot 6, calendrier de l'impulsion), puis l'effet s'inverse. Elle s'applique une seule année (calendrier « annee », obligatoire ; refusée en mode historique).
-- **Cotisations salariales, mode montant** (proposé après v0.8.1) : un programme qui écrit sa baisse en milliards
+- **Cotisations salariales, mode montant** (v0.9.0) : un programme qui écrit sa baisse en milliards
   d'euros (et non en points) s'encode avec `cotisations_salariales.montant_md`, Md€ par an rendus aux salariés,
   constants en euros courants (règle commune des montants), de 0 à 138,217 Md€ (la masse des cotisations salariales de
   2025) ; il admet la rampe et les valeurs annuelles, comme les autres montants (référence de la rampe : 0). Mode
@@ -2516,7 +2516,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 | Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 | 0,65 (k = 0,674) ; 0,01 / 0,45 |
 | Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 | 0,65 (k = 0,674) ; 0,03 / 0,46 |
 
-> **Coefficient des transferts recalé (lot 1, release de paramètres, 15/11/2026, non publiée).** `MULT_TRANSFERTS`
+> **Coefficient des transferts recalé (lot 1, release de paramètres, 15/11/2026, v0.9.0).** `MULT_TRANSFERTS`
 > 0,71 → **0,688**. Le 0,71 avait été calé (v0.6.7) sur une relance 100 % transferts SOUS éviction ; l'éviction
 > retirée (équation 3 du lot), il donnait 0,672 à 4 ans au lieu de la cible de 0,65 (Gechert 2015), +3,4 %.
 > Bissection sur le banc de `tests/test_multiplicateurs_centraux_v067.py`, moteur sans les trois mécanismes
@@ -2532,7 +2532,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > de dépense courante prend `MULT_COUPE_DEPENSES` : une asymétrie de signe pour la dépense courante (0,74 en hausse,
 > 0,79 en baisse à 4 ans au banc), antérieure au lot 1.
 
-> **Dépense courante symétrique en signe (lot 5, équation, 15/11/2026, non publiée).** Convention du mainteneur
+> **Dépense courante symétrique en signe (lot 5, équation, 15/11/2026, v0.9.0).** Convention du mainteneur
 > (v0.6.7, « pas prouvé = valeur centrale ») : pas d'asymétrie de signe retenue — même instrument, même
 > coefficient, en hausse comme en baisse. La méta-analyse citée pour les valeurs (Gechert 2015) classe les
 > multiplicateurs par instrument ; elle ne teste pas le signe : l'égalité des deux sens est une convention, pas un
@@ -2606,7 +2606,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > Le lot 5 rend chaque classe symétrique ; il ne change aucun de ces classements.
 
 > **Rémunérations publiques à effectifs constants au traitement des transferts (lot 5b, équation, 16/11/2026,
-> non publiée).** Arbitrage du mainteneur du 16/11/2026 : une hausse (ou une baisse) de rémunération des agents
+> v0.9.0).** Arbitrage du mainteneur du 16/11/2026 : une hausse (ou une baisse) de rémunération des agents
 > publics à effectifs constants est un revenu versé aux agents ; pour la croissance, elle prend le traitement des
 > transferts — coefficient `MULT_TRANSFERTS` et profil `DECAY_PROFILE_TRANSFERS` —, dans les deux sens. Elle vaut
 > pour le point d'indice (`fonction_publique`, jusqu'ici de la dépense courante : 0,79 point de PIB à 4 ans par
@@ -2742,7 +2742,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > compétitivité et Gini : aucun rang ne change.
 
 > **Prestations en espèces émises hors des leviers de transfert : traitement des transferts (lot 5e, équation,
-> 16/11/2026, non publiée).** Même règle que le lot 5b : le montant qu'un levier émet au canal ménages `prestations`
+> 16/11/2026, v0.9.0).** Même règle que le lot 5b : le montant qu'un levier émet au canal ménages `prestations`
 > et qui n'est pas déjà traité comme un transfert (levier hors `TRANSFER_MEASURES`, hors coefficient propre) forme
 > un flux distinct, `(levier, 'prestations')` dans `flux_par_levier` (`engine/growth.py`), au coefficient et au
 > profil des transferts (`MULT_TRANSFERTS`, `DECAY_PROFILE_TRANSFERS`), dans les deux sens ; le reste du levier
@@ -2777,7 +2777,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > de chômage.
 
 > **Dotation aux collectivités : la moitié d'une variation comptée comme de l'investissement local (lot 5c,
-> équation, 16/11/2026, non publiée).** Arbitrage du mainteneur du 16/11/2026 : une variation de la dotation aux
+> équation, 16/11/2026, v0.9.0).** Arbitrage du mainteneur du 16/11/2026 : une variation de la dotation aux
 > collectivités (`collectivites.dotation`) est prise pour moitié (`PART_DOTATION_INVESTIE` = 0,5, `constants.py`)
 > comme une variation d'investissement local, pour l'autre moitié comme de la dépense courante, dans les deux sens.
 > La moitié investie prend le traitement du curseur d'investissement local (`collectivites.investissement`) : flux
@@ -2985,7 +2985,7 @@ dedie, pas d'un coefficient.
 
 **Portes d'activation (même lot).** Une porte est un seuil sous lequel un effet PROPORTIONNEL à la taille d'un levier est mis à zéro : l'effet vaut déjà 0 en 0, la porte ne fait que créer une marche à son seuil. Quatre sont retirées : effet d'offre (100 M€ d'écart au défaut), pass-through TVA (0,3 % du PIB), effet de l'effort budgétaire sur l'inflation (0,1 % du PIB), et le filtre des impacts de l'orchestrateur (|Δ| ≤ 0,1 Md€ et effets micro ≤ 10⁻⁴) — qui comptait le BUDGET d'un petit levier sans son multiplicateur, ni son effet direct sur le chômage, ni son impact TVA : c'est lui qui faisait « apparaître » la prévention de `im_rabot_2029` à 7,6 Md€. Ce filtre ne décide plus que de ce que l'API PUBLIE (`measure_impacts`, identique sur les 44 cas du golden master) ; le moteur lit tous les leviers évalués. Effet sur les scénarios publiés : au plus 0,02 pt de dette 2035 (Écologistes −0,02, Renaissance +0,01) ; la variante ASU « à coût constant » coûte +0,46 pt au lieu de +0,59 (son effort de 0,08 % du PIB a désormais son effet prix). Après les deux corrections, le balayage complet ne trouve plus aucun saut au-dessus de 0,001 pt (460 balayages × 41 points), hors interrupteurs 0/1. Verrouillé par `tests/test_portes_activation_v067.py`. Limite de l'outil, déclarée : le balayage repère un saut par contraste avec ses voisins ; la porte TVA, noyée dans la pente de la TVA, a été trouvée par lecture du code, pas par lui.
 
-### Calendrier de l'impulsion (lot 6, équation, 16/11/2026, non publiée)
+### Calendrier de l'impulsion (lot 6, équation, 16/11/2026, v0.9.0)
 
 **Le défaut.** Jusqu'au lot 6, la croissance de l'année t était calculée AVANT les mesures de t et ne lisait que
 l'impulsion du budget de t−1 (`_last_impacts`) : une mesure n'agissait sur le PIB, et donc sur les recettes et le
@@ -3085,7 +3085,7 @@ cadre (médiane des dix programmes publiés, machine de développement), soit ×
   des programmes publiés de 0,03 point au plus (mesuré à la revue du lot). À trancher. Celui du SMIC est retiré
   depuis (lot SMIC, § SMIC) ; reste celui de la fraude fiscale.
 
-**Recalage des coefficients (lot 6, release de paramètres, 16/11/2026, non publiée).** À coefficients inchangés, la
+**Recalage des coefficients (lot 6, release de paramètres, 16/11/2026, v0.9.0).** À coefficients inchangés, la
 correction du calendrier faisait baisser le niveau à 4 ans du banc de 9 à 13 % : la trajectoire n'est plus décalée
 d'un an, et le niveau « quatre ans après » est désormais celui de la cinquième année d'effet. Les cibles
 (`MULT_CIBLE_NIVEAU_4ANS`) ne changent pas ; chaque coefficient est recalé, par la méthode de la sécante sur le banc
@@ -3274,7 +3274,7 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 | **Garde-fou BCE haut** | Si inflation > 2,0% (cible BCE, `BCE_CIBLE_INFLATION`) → blend 50/50 vers la cible | Garde-fou de SURCHAUFFE (v4.0) : contient l'inflation au-dessus de la cible. Ne se declenche pas en statu quo. |
 | **Garde-fou BCE bas** | Si inflation < 0,8 % (`BCE_PLANCHER_ACCOMMODANT`) → blend 70/30 vers la TENDANCIELLE 1,6% | Politique monetaire accommodante, tiree vers le point fixe du regime. **v4.1** : ce plancher se declenchait DES L'ANNEE 1 du statu quo (0,725% pre-garde -> 0,95% publiee), c'est-a-dire que la calibration etait portee par un clip. Les deux garde-fous sont desormais INERTES en statu quo, verifie par test. |
 
-> **Terme d'effort de l'inflation retiré (lot 1, 15/11/2026, non publié).** Jusqu'à v0.8.1, `calculate_inflation`
+> **Terme d'effort de l'inflation retiré (lot 1, 15/11/2026, v0.9.0).** Jusqu'à v0.8.1, `calculate_inflation`
 > ajoutait −0,12 × effort (consolidation) ou +0,08 × |effort| (expansion), l'effort étant l'écart du solde de
 > t−1 au statu quo en part du PIB. Revue des sources de novembre 2026 : aucun des modèles institutionnels lus
 > (Mésange 2017 ; Largier et al., OFCE WP 2026-9, Mésange et ThreeME ; Kilponen et al. 2019, quinze modèles du
@@ -3347,7 +3347,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 
 ### Mecanismes de Second Ordre
 
-> **Cicatrice d'austérité retirée (lot 1, 15/11/2026, non publié).** Le seuil de 3 % du PIB avait été choisi
+> **Cicatrice d'austérité retirée (lot 1, 15/11/2026, v0.9.0).** Le seuil de 3 % du PIB avait été choisi
 > « pour éviter le piège où l'utilisateur ne peut trouver aucune solution viable », pas d'après une source ; la
 > pénalité s'ajoutait chaque année tant que l'effort durait, au lieu d'un recul ponctuel du niveau du PIB, et
 > n'avait aucun pendant pour une relance. Sources rouvertes : DeLong & Summers, « Fiscal Policy in a Depressed
@@ -3378,7 +3378,7 @@ Sens économique : le **potentiel** g* est la vitesse de croisière ; un écart 
 | Boost potentiel supply-side (v3.1, échelle en v0.8.0, lot 2) | Recherche publique : stock, forme logarithmique, effet l'année qui suit la dépense, hors plafond (lot 2). Autres canaux : linéaires dans le flux (élasticité / stock), délais et dépréciation différenciés, leur somme saturée vers ±0,20 pt | Bom & Ligthart 2014 ; INSEE comptes de patrimoine 2025 ; FMI 2015 ; Fieldhouse & Mertens 2024 (élasticité et calendrier de la recherche) ; OCDE 2001 et Khan & Luintel 2006 (dépréciation de la recherche) ; DG Trésor ThreeME 2026 |
 | Retour fiscal transition | **RETIRÉ (lot 2, 16/11/2026)** — était : 0 % Y1-2, 5 % Y3-4, 8 % Y5+ | Double compte avec l'élasticité des recettes au PIB ; références citées (« OECD 2021 », « Cour des comptes 2023 ») sans ce chiffre ou introuvables ; § Investissements verts |
 
-**Éviction (« crowding-out ») — RETIRÉE (lot 1 des corrections d'équations, 15/11/2026, non publié).** Arbitrage du
+**Éviction (« crowding-out ») — RETIRÉE (lot 1 des corrections d'équations, 15/11/2026, v0.9.0).** Arbitrage du
 mainteneur du 21/10/2026 (« option C » : on ne garde, pour la dette, que le ×0,95 symétrique au-delà de 110 % de dette),
 appliqué au lot 1 après deux reports. Jusqu'à v0.8.1, `engine/growth.py` (`effet_eviction`) ôtait à la croissance de
 l'année t :
@@ -3543,7 +3543,7 @@ n'a plus de borne fixe.
 (forme stock, lot 2 ; jusque-là, délai de 5 ans : pas avant 2033) et le capital public (délai 3 ans) en 2031 et
 2032 seulement.
 
-> **Recherche publique en forme stock (lot 2, 16/11/2026, non publié ; arbitrage du mainteneur du 15/11/2026).**
+> **Recherche publique en forme stock (lot 2, 16/11/2026, v0.9.0 ; arbitrage du mainteneur du 15/11/2026).**
 > Jusqu'ici, le bonus de la recherche suivait la dépense de l'année, et seulement après cinq années consécutives
 > d'écart au défaut. Une dépense d'une seule année n'avait donc aucun effet, quelle que soit sa taille ; un
 > programme commencé en 2028 n'agissait pas avant 2033, après le mandat ; et un surcroît de dépense qui dure
@@ -3571,7 +3571,7 @@ n'a plus de borne fixe.
 > identiques au bit ; cinq rangs de dette 2032 et deux rangs de déficit changent, aucun rang de croissance.
 > Garde : `tests/test_offre_recherche_stock.py`.
 
-> **Forme logarithmique de la recherche et sortie du plafond (lot 2, 16/11/2026, non publié ; arbitrage du
+> **Forme logarithmique de la recherche et sortie du plafond (lot 2, 16/11/2026, v0.9.0 ; arbitrage du
 > mainteneur du 16/11/2026).** Le gain de la recherche n'est plus plafonné à 0,20 point par an : ce plafond, une
 > convention de la v3.1, n'avait aucune source (aucune étude lue n'en fixe : Fieldhouse & Mertens, FMI Fiscal
 > Monitor 2024, QUEST III, CBO) et il pesait surtout sur le plus gros programme de recherche. À la place, la forme
@@ -3854,7 +3854,7 @@ Le modele applique des plafonds pour eviter resultats irrealistes :
 
 Un levier ne lit que les paramètres de son contrat (`budget_simulator/engine/_noms_parametres.py` et `docs/MEASURE_REGISTRY.md`, générés depuis le code des handlers et des formules). Trois leviers ont des modes exclusifs : avec `intensite`, les clés héritées de `taxe_superprofits` et d'`exonerations_salaires` ne sont pas lues ; avec `taux_remplacement`, `chomage_alloc.montant` non plus. Une valeur hors domaine est ramenée à la borne (rejetée en mode strict), une valeur non finie est retirée, et chaque correction invalide le résultat (`report.valid: false`).
 
-**Booléens et nombres (gardes d'entrée, proposées après v0.8.1).** Un booléen n'est pas un nombre : sur une quantité bornée (`fonction_publique.effectifs`, une intensité, un taux, un montant), `true` ou `false` fait échouer le levier comme une valeur non numérique (effet compté nul, `report.valid: false` ; 422 en mode strict). Avant, `true` valait 1 en silence : un poste créé, ou l'ISF complet pour `isf_climatique.intensite`. Un booléen reste lu comme 0/1 sur un interrupteur, c'est-à-dire un paramètre que le registre public déclare `toggle` ou de domaine 0 à 1 au pas de 1 (`csg.progressive`, `asu.asu_activation`, exclusions du rabot), comme avant. Inversement, un paramètre déclaré booléen (`chomage_alloc.degressivite`) n'admet que `true`, `false`, 0 et 1 : une autre valeur (5, 0,5) activait la dégressivité en silence ; elle est désormais retirée (le levier applique son défaut, pas de dégressivité) avec une correction (`report.valid: false`), et refusée en mode strict. Les canaux qui lisent ces valeurs hors de la porte suivent la même règle et voient le levier refusé au neutre : offre et chômage des seniors (âge de départ), point d'indice lu par le SMIC, intensité de l'ISF lue par l'impôt plancher, taux d'IS lu par les bénéfices récupérés, effet d'offre (un levier refusé n'éteint plus celui des autres), conditions des exclusions mutuelles. Les deux listes sont dérivées du registre public (`PARAM_INTERRUPTEURS`, `PARAM_BOOLEENS`, `constants.py`), jamais écrites à la main ; verrouillé par `tests/test_gardes_booleens.py`. Aucune entrée valide ne change de résultat. Limite déclarée : un levier refusé compte pour zéro en entier, y compris la valeur de droit en vigueur qu'il porte en mode cadre (`fonction_publique.effectifs: true` sur la loi de finances votée perd les suppressions de postes du droit en vigueur, alors qu'une clé absente les garde) ; c'est le traitement antérieur d'une chaîne de caractères, étendu aux booléens.
+**Booléens et nombres (gardes d'entrée, v0.9.0).** Un booléen n'est pas un nombre : sur une quantité bornée (`fonction_publique.effectifs`, une intensité, un taux, un montant), `true` ou `false` fait échouer le levier comme une valeur non numérique (effet compté nul, `report.valid: false` ; 422 en mode strict). Avant, `true` valait 1 en silence : un poste créé, ou l'ISF complet pour `isf_climatique.intensite`. Un booléen reste lu comme 0/1 sur un interrupteur, c'est-à-dire un paramètre que le registre public déclare `toggle` ou de domaine 0 à 1 au pas de 1 (`csg.progressive`, `asu.asu_activation`, exclusions du rabot), comme avant. Inversement, un paramètre déclaré booléen (`chomage_alloc.degressivite`) n'admet que `true`, `false`, 0 et 1 : une autre valeur (5, 0,5) activait la dégressivité en silence ; elle est désormais retirée (le levier applique son défaut, pas de dégressivité) avec une correction (`report.valid: false`), et refusée en mode strict. Les canaux qui lisent ces valeurs hors de la porte suivent la même règle et voient le levier refusé au neutre : offre et chômage des seniors (âge de départ), point d'indice lu par le SMIC, intensité de l'ISF lue par l'impôt plancher, taux d'IS lu par les bénéfices récupérés, effet d'offre (un levier refusé n'éteint plus celui des autres), conditions des exclusions mutuelles. Les deux listes sont dérivées du registre public (`PARAM_INTERRUPTEURS`, `PARAM_BOOLEENS`, `constants.py`), jamais écrites à la main ; verrouillé par `tests/test_gardes_booleens.py`. Aucune entrée valide ne change de résultat. Limite déclarée : un levier refusé compte pour zéro en entier, y compris la valeur de droit en vigueur qu'il porte en mode cadre (`fonction_publique.effectifs: true` sur la loi de finances votée perd les suppressions de postes du droit en vigueur, alors qu'une clé absente les garde) ; c'est le traitement antérieur d'une chaîne de caractères, étendu aux booléens.
 
 **Écrêtage visible (v0.7.2).** Une valeur ramenée à sa borne figure aussi, sous forme
 structurée, dans `report.leviers_ecretes` : une entrée par paramètre écrêté, avec le levier

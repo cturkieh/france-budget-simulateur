@@ -40,7 +40,7 @@ Ces blocs sont interconnectes par des boucles de retroaction qui capturent les e
 
 **Nouveaute v4.0 (refonte « assemblage temporel », juin 2026)** : les flux budgetaires sont calcules par des recurrences chainees uniques appliquees des l'annee 1 (plus de regime special 2026), les recettes suivent le PIB nominal contemporain avec une elasticite unitaire, la courbe de Phillips converge reellement vers son point fixe, et la boucle annuelle est reordonnee. **Nouveaute v4.1 (aout 2026)** : la courbe de Phillips est ANCREE (le terme d'output gap passe dans l'ancrage, le parametre du code devient directement la pente de moyen terme 0,20) et son point fixe est recale sur le deflateur du PIB a 1,6%.
 
-**Sequence annuelle de calcul (v4.0 ; calendrier de l'impulsion corrige au lot 6, non publie) :**
+**Sequence annuelle de calcul (v4.0 ; calendrier de l'impulsion corrige au lot 6, v0.9.0) :**
 ```
 1. Budget de l'annee chiffre « hors de son propre effet » : la suite 2 a 5 tourne une premiere fois sans
    l'effet de ce budget sur l'activite, sur une copie de l'etat, puis cette copie est jetee
@@ -489,7 +489,7 @@ Le multiplicateur mesure l'impact sur le PIB d'une variation des depenses ou rec
 
 ### Valeurs du Modele
 
-Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB réel 4 ans après une impulsion permanente de 1 % du PIB, mesuré dans le moteur complet, tombe sur la valeur centrale de la littérature (entre parenthèses ; détail et sources : METHODOLOGIE § Table des Multiplicateurs de Base). Recalés au lot 6 (non publié) : le budget agissant désormais des son annee, les coefficients sont releves pour retrouver le meme effet a 4 ans (valeurs d'avant entre crochets).
+Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB réel 4 ans après une impulsion permanente de 1 % du PIB, mesuré dans le moteur complet, tombe sur la valeur centrale de la littérature (entre parenthèses ; détail et sources : METHODOLOGIE § Table des Multiplicateurs de Base). Recalés au lot 6 (v0.9.0) : le budget agissant désormais des son annee, les coefficients sont releves pour retrouver le meme effet a 4 ans (valeurs d'avant entre crochets).
 
 | Type de mesure | Multiplicateur | Source |
 |----------------|----------------|--------|
@@ -522,7 +522,7 @@ prime de taux (l'éviction d'une hausse est retirée au lot 1).
 transferts sociaux dans les deux sens, comme les règles d'indexation, l'assurance chômage et les
 retraites.
 
-**Hausse de salaire des agents publics : comme un transfert (lot 5b, 16/11/2026, non publié).** Augmenter
+**Hausse de salaire des agents publics : comme un transfert (lot 5b, 16/11/2026, v0.9.0).** Augmenter
 le point d'indice ou revaloriser les enseignants déjà en poste ne fait pas travailler plus d'agents : c'est
 un revenu en plus pour ceux qui sont là, comme une prestation. Le moteur le traite donc désormais comme un
 transfert (0,65 point de PIB au bout de 4 ans pour un point de PIB), dans les deux sens ; jusqu'ici, le point
@@ -535,7 +535,7 @@ Les sept programmes publiés qui relèvent ces salaires voient leur dette 2032 m
 cadre (METHODOLOGIE, encadré du lot 5b). Depuis le lot SMIC, la part de la hausse du SMIC versée aux agents
 publics suit la même règle.
 
-**Hausse de salaire des agents publics : le PIB en valeur monte d'autant (lot 5d, 16/11/2026, non publié).** En
+**Hausse de salaire des agents publics : le PIB en valeur monte d'autant (lot 5d, 16/11/2026, v0.9.0).** En
 comptabilité nationale, ce que produisent les administrations est compté à son coût, salaires compris : augmenter
 le point d'indice relève donc le PIB en euros, et ses prix, sans rien changer aux quantités produites (l'Insee l'a
 constaté en 2022). Le moteur l'ajoute désormais au PIB publié, qui sert à calculer la dette et le déficit en part
@@ -547,7 +547,7 @@ rapportées au PIB baissent de même, sans que les montants en euros bougent. Le
 croissance, le chômage et le pouvoir d'achat ne changent pas ; la colonne « déflateur du PIB » du simulateur, elle,
 monte (METHODOLOGIE, encadré du lot 5d).
 
-**Coupes de pensions et d'allocations du rabot : comme des transferts (lot 5e, 16/11/2026, non publié).** Le rabot
+**Coupes de pensions et d'allocations du rabot : comme des transferts (lot 5e, 16/11/2026, v0.9.0).** Le rabot
 uniforme baisse aussi des pensions, des allocations chômage et des minima sociaux, environ un tiers de ce qu'il
 économise. Ce sont des prestations versées en argent, que le moteur traite déjà comme des transferts quand elles
 passent par les curseurs des retraites ou du chômage. Elles le sont désormais aussi dans le rabot, au lieu d'être
@@ -555,7 +555,7 @@ comptées comme une dépense courante : la dette 2032 du programme qui l'utilise
 ne change pas ; on ne sait pas si sa coupe de masse salariale est un gel des salaires ou une baisse d'effectifs, et
 le moteur la traite comme des effectifs (METHODOLOGIE, limite 10).
 
-**Dotation des collectivités : pour moitié de l'investissement (lot 5c, 16/11/2026, non publié).** Quand l'État
+**Dotation des collectivités : pour moitié de l'investissement (lot 5c, 16/11/2026, v0.9.0).** Quand l'État
 baisse ce qu'il verse aux communes, aux départements et aux régions, ceux-ci réduisent surtout leurs travaux et
 leurs équipements : environ 0,2 € d'investissement en moins par euro la première année, 0,4 à 0,6 € quand la
 baisse dure (Caisse des Dépôts 2015, Cour des comptes 2018). Le moteur compte donc la moitié d'une variation de
@@ -577,7 +577,7 @@ en capital versées aux ménages gardent le traitement d'une dépense courante :
 l'effet d'une subvention durable, et ce traitement est probablement trop fort. L'écart reste petit : un dixième
 de point de dette 2032 au plus selon le programme (METHODOLOGIE, limite 9 de « Limites et Precautions »).
 
-**Dépense courante, même effet dans les deux sens (lot 5, 15/11/2026, non publié).** Jusqu'ici, une
+**Dépense courante, même effet dans les deux sens (lot 5, 15/11/2026, v0.9.0).** Jusqu'ici, une
 dépense qui n'est ni de l'investissement ni une prestation (défense, dotations des collectivités,
 postes, crédits des ministères, santé) n'avait pas le même effet selon qu'on l'augmentait ou qu'on la
 réduisait : un point de PIB de moins coûtait 0,79 point de PIB au bout de 4 ans, un point de PIB de

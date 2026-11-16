@@ -4,7 +4,30 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
-## [non publiée — proposée] — texte : sens agrégé de la version, douzième colonne du tableau
+## [v0.9.0] — 2026-11-16 — corrections du moteur : mécanismes sans source retirés, calendrier du budget, méthode unique des inégalités, SMIC daté, paramètres officiels
+
+Une version qui regroupe les corrections de novembre 2026, par lot :
+- **lot 1** : mécanismes macroéconomiques sans source retirés, coefficient des transferts recalé ;
+- **lot 2** : effet d'offre de la recherche publique ;
+- **lots 5, 5b à 5e** : dépense courante symétrique en signe, rémunérations publiques et prestations en espèces au
+  traitement des transferts, effet prix des rémunérations publiques, dotations aux collectivités en partie
+  investies ;
+- **lot 6** : le budget agit dès son année, coefficients d'impact recalés, profil de l'investissement du FMI, santé
+  et réforme de l'État au rythme de la dépense courante ;
+- **lot SMIC** : la hausse se lit contre le dernier SMIC du Journal officiel porté à l'année d'application, cinq
+  postes du Trésor, la croissance n'est plus écrêtée (le domaine de validité ne fait plus qu'un avis) ;
+- **lot 4** : une méthode unique pour l'indice d'inégalités (montant en euros × coefficient sourcé, émis une fois) ;
+- **lot 3** : impôts sur le patrimoine aux comptes nationaux 2025 (donations comprises, IFI compté une fois),
+  rabot uniforme (défense, contribution européenne, assiette en euros de l'année), TVA, mode « montant en
+  milliards » des cotisations salariales, gardes d'entrée ;
+- textes, gardes et instantanés régénérés sur l'encodage du site.
+
+**Exception à la règle « paramètres et équations en versions séparées »** (arbitrage du mainteneur du 16/11/2026) :
+la pile est publiée en une seule version parce que ses corrections se tiennent entre elles ; le barème du site et les
+instantanés ne sont cohérents qu'avec l'ensemble. Chaque bloc ci-dessous reste un commit distinct, paramètres et
+équations séparés.
+
+### texte : sens agrégé de la version, douzième colonne du tableau
 
 **Statut** : commit de TEXTE ; moteur, sorties et instantanés inchangés. Le tableau agrégé de METHODOLOGIE (écart de
 dette 2032 de chaque programme à la référence) s'arrêtait à la v0.8.1 ; sa garde
@@ -14,7 +37,7 @@ version et ré-encodages du site du même jour), que les écarts se resserrent (
 à +4,1 après) et que quatre programmes changent de signe, deux dans chaque sens, sans séparer la part de chaque
 cause. Le texte des colonnes précédentes est inchangé.
 
-## [non publiée — proposée] — instantanés et bloc généré des scénarios sur l'encodage du site du 16/11/2026
+### instantanés et bloc généré des scénarios sur l'encodage du site du 16/11/2026
 
 **Statut** : aucun calcul ne change : régénération, une fois, sur le fichier des scénarios du site qui accompagne la
 version, où les objectifs écrits en part du PIB ou du revenu national brut sont recalculés au PIB de la référence de
@@ -27,14 +50,14 @@ de 10,15 à 10,16 Md€ ; pour l'un d'eux, la recherche 2030 et 2031 gagne 0,01 
 - `docs/SCENARIOS_POLITIQUES.md` : bloc généré (`scripts/generate_scenario_params.py`), `--check` vert.
 - Garde du pouvoir d'achat 2029 et chiffre de l'encadré du lot 5c : verts, inchangés.
 
-## [non publiée — proposée] — test : documents du moteur lus à leur place quand la suite tourne depuis le site
+### test : documents du moteur lus à leur place quand la suite tourne depuis le site
 
 **Statut** : commit de TEST ; moteur, sorties et instantanés inchangés. Raccordement réel au site (sous-module) :
 `tests/test_rabot_assiette_note.py` lisait METHODOLOGIE et le CHANGELOG par `Path(__file__).absolute()`, qui garde
 le lien `tests` du dépôt du site et lit donc le CHANGELOG du site. Les deux lectures passent par `resolve()`, comme
 les autres tests qui lisent un document du moteur. Moteur seul : inchangé.
 
-## [non publiée — proposée] — texte : infobulle des cotisations salariales sans effet sur les inégalités
+### texte : infobulle des cotisations salariales sans effet sur les inégalités
 
 **Statut** : commit de TEXTE ; moteur, sorties et instantanés inchangés. Arbitrage du mainteneur du 16/11/2026 :
 la phrase « Effet sur les inégalités : … » de l'infobulle des cotisations salariales (registre public,
@@ -46,7 +69,7 @@ inverse : `tests/test_release_e_arbitrages.py::test_p2_infobulle_sans_effet_sur_
 infobulles ne citent ni « Gini » ni « inégalités ») ; la mention de l'estimation reste gardée dans METHODOLOGIE et dans le
 commentaire de la constante.
 
-## [non publiée — proposée] — garde du pouvoir d'achat 2029 : valeurs figées relues, échec attendu retiré
+### garde du pouvoir d'achat 2029 : valeurs figées relues, échec attendu retiré
 
 **Statut** : commit de TEST ; moteur et sorties inchangés. Les valeurs figées du pouvoir d'achat 2029 (mode
 historique, `tests/snapshots/pa_2029_figes.json`) sont mises à jour à la main avec les valeurs publiées de la pile,
@@ -56,14 +79,14 @@ la ligne « bloquant avant publication » qui ouvrait ce fichier. Écarts au fig
 −0,1 ; +0,6 ; +1,4 ; −0,4 ; −0,6 ; −0,4 ; +0,2 ; −0,2 ; −0,1 ; +0,5 (le plus grand, +1,4, sous la tolérance qui avait
 mordu à +1,5 sur une étape de la pile).
 
-## [non publiée — proposée] — texte de la croissance : équation (2) sans écrêtage, avis de la v0.8.0 daté
+### texte de la croissance : équation (2) sans écrêtage, avis de la v0.8.0 daté
 
 **Statut** : commit de TEXTE (contre-vérification finale) ; moteur et sorties inchangés. METHODOLOGIE : l'équation
 (2) de la croissance s'écrit sans écrêtage (un avis signale une croissance hors de [−3,5 % ; +2,5 %]) ; le
 paragraphe de l'avis de la v0.8.0 est daté comme historique et perd sa dernière phrase (« seul programme publié
 concerné […] »), qui contredisait le paragraphe du retrait : en mode cadre, aucun programme publié n'en sort.
 
-## [non publiée — proposée] — texte du SMIC : lecture à la valeur du droit, limite d'une baisse, limite 1 à 0,97
+### texte du SMIC : lecture à la valeur du droit, limite d'une baisse, limite 1 à 0,97
 
 **Statut** : commit de TEXTE (contre-vérification finale, deux points importants et deux mineurs) ; moteur,
 instantanés et sorties inchangés.
@@ -83,9 +106,9 @@ instantanés et sorties inchangés.
 - Garde `tests/test_smic_limites.py` : constante de l'OFCE 2024 non arrondie ; nouveau test des chiffres de la
   lecture et de la baisse (recalculés, sans scénario publié).
 
-## [non publiée — proposée] — instantanés et bloc généré des scénarios sur l'encodage du site du lot 3
+### instantanés et bloc généré des scénarios sur l'encodage du site du lot 3
 
-**Statut** : proposée, non publiée, sans numéro de version. Aucun calcul ne change : régénération sur le fichier des
+**Statut** : publiée en v0.9.0. Aucun calcul ne change : régénération sur le fichier des
 scénarios du site qui accompagne le lot (trois programmes encodés en milliards d'euros pour la baisse des cotisations
 salariales, au lieu de points ; pour l'un d'eux, cotisations et impôts de production au rythme écrit par sa source,
 montants année par année ; SMIC des fiches au dernier SMIC paru au Journal officiel).
@@ -96,9 +119,9 @@ montants année par année ; SMIC des fiches au dernier SMIC paru au Journal off
 - `docs/SCENARIOS_POLITIQUES.md` : bloc généré (`scripts/generate_scenario_params.py`) ; chiffres publiés de l'encadré
   du lot 5c (METHODOLOGIE) recalculés par leur garde sur ce fichier.
 
-## [non publiée — proposée] — paramètres du lot 3 : valeurs officielles
+### paramètres du lot 3 : valeurs officielles
 
-**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc « défauts du
+**Statut** : publiée en v0.9.0. Release de PARAMÈTRES, distincte du bloc « défauts du
 lot 3 » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
 
 **Contrainte d'intégration : moteur et site dans le même déploiement.** La borne basse de `droits_succession` passe
@@ -146,9 +169,9 @@ front de la branche principale du site, vert avec celui du lot.
   coupe de dotation du rabot (règle du lot 5c) et effet attendu sur l'indice d'inégalités (lot 4) à la part coupée ;
   chiffres publiés de l'encadré du lot 5c recalculés par sa garde.
 
-## [non publiée — proposée] — défauts du lot 3 : gardes d'entrée, double compte, commentaires
+### défauts du lot 3 : gardes d'entrée, double compte, commentaires
 
-**Statut** : proposée, non publiée, sans numéro de version. Commits de CORRECTION (gardes, formules), distincts
+**Statut** : publiée en v0.9.0. Commits de CORRECTION (gardes, formules), distincts
 du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots 1 et 5 ci-dessous.
 
 - **Gardes d'entrée : booléens et nombres.** Deux entrées passaient la porte des valeurs sans trace
@@ -292,9 +315,9 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   (nouveau ; un point statique = 7,5 Md€ au PIB 2025, assiette en part du PIB, rapport constant à l'ancienne
   formule hors facteur 0,9).
 
-## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
+### équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATIONS, distinct du commit de paramètres
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATIONS, distinct du commit de paramètres
 du même lot ci-dessous, qu'il suppose appliqué. Seule la colonne Gini bouge : toutes les autres colonnes des dix
 scénarios publiés (deux modes) et des 42 mini-scénarios du golden master sont identiques au bit en pleine
 précision.
@@ -372,9 +395,9 @@ et l'assemblage retardait et freinait l'effet sans source :
   retirée avec la convergence (limite déclarée).
 - Golden master isolé : les trois instantanés régénérés ne diffèrent que par la colonne Gini.
 
-## [non publiée — proposée] — paramètres du lot 4 : méthode unique du Gini (coefficients au classement final, plages publiées, périmètre, base)
+### paramètres du lot 4 : méthode unique du Gini (coefficients au classement final, plages publiées, périmètre, base)
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit de PARAMÈTRES ; les équations du même lot
+**Statut** : publiée en v0.9.0. Commit de PARAMÈTRES ; les équations du même lot
 (tranche supérieure de l'IR, ISF et impôt plancher, indexation des prestations et des pensions en euros, rabot
 émis une fois, hausse 2026 des prélèvements sur le capital, facteur d'atténuation) suivent dans un commit séparé.
 Seule la colonne Gini bouge.
@@ -443,9 +466,9 @@ Gini ; le commentaire de la règle se trompait en outre d'un facteur 10), « OFC
   progressive, ancrage (e) de l'assemblage.
 - Golden master isolé : les trois instantanés régénérés ne diffèrent que par la colonne Gini (comparateur
   colonne par colonne ; toutes les autres colonnes identiques).
-## [non publiée — proposée] — équation : la croissance n'est plus écrêtée, le filet ne fait plus qu'un avis
+### équation : la croissance n'est plus écrêtée, le filet ne fait plus qu'un avis
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur le lot SMIC.
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, sur le lot SMIC.
 
 **La règle** (arbitrage du mainteneur du 16/11/2026). L'écrêtage de la croissance réelle annuelle dans
 [−3,5 % ; +2,5 %] (`np.clip` en fin de `calculate_growth`), qui ne venait d'aucune source, est supprimé. Les bornes
@@ -473,16 +496,16 @@ sortait aussi du domaine, il bouge.
   financement » est remplacée par la règle ; limite du calendrier de l'impulsion ; plafond de taille), docstrings de
   `api.py`, `cadre.py`, `growth.py`, `orchestrator.py`, commentaire de `constants.py`.
 
-## [non publiée — proposée] — texte : l'option du lot 6 (santé et réforme de l'État au rythme de la dépense courante) est retenue
+### texte : l'option du lot 6 (santé et réforme de l'État au rythme de la dépense courante) est retenue
 
 **Statut** : commit de TEXTE ; moteur inchangé. L'option était décrite comme « non tranchée » ; elle est retenue
 (arbitrage du mainteneur du 16/11/2026). Mis à jour : le statut du bloc de l'option ci-dessous, l'encadré « Rythme de
 la dépense courante » de METHODOLOGIE et la docstring de son test. Le message du commit de l'option n'est pas
 réécrit.
 
-## [non publiée — proposée] — texte du lot SMIC : ancrage sur le Trésor et ses trois limites, chiffrées
+### texte du lot SMIC : ancrage sur le Trésor et ses trois limites, chiffrées
 
-**Statut** : proposé, non publié. Commit de TEXTE (documentation et garde de chiffres liés) ; moteur, instantanés et
+**Statut** : publié en v0.9.0. Commit de TEXTE (documentation et garde de chiffres liés) ; moteur, instantanés et
 sorties inchangés.
 
 **L'ancrage** (arbitrage du mainteneur du 16/11/2026). Le coût d'une hausse du SMIC suit l'échelle du Trésor (groupe
@@ -503,9 +526,9 @@ sur les écrans (mode cadre 2028, programmes publiés qui relèvent le SMIC) :
 - Garde : `tests/test_smic_limites.py` (nouveau) recalcule ces chiffres (programmes dérivés des scénarios publiés,
   aucun nom) et vérifie leur sens ; elle se saute sans les scénarios publiés.
 
-## [non publiée — proposée] — paramètres du lot SMIC : dernier SMIC du Journal officiel et part nette officielle
+### paramètres du lot SMIC : dernier SMIC du Journal officiel et part nette officielle
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit de PARAMÈTRES, sur les deux équations du lot SMIC
+**Statut** : publiée en v0.9.0. Commit de PARAMÈTRES, sur les deux équations du lot SMIC
 ci-dessous. **Suppose le réencodage des fiches côté site** (`scenarios.json` : SMIC des programmes qui n'y touchent
 pas porté à 1 867,02 €, valeur du droit en vigueur ; montants écrits en net reconvertis avec le rapport officiel) :
 sans lui, un programme encodé à 1 800 € recevrait une baisse du SMIC.
@@ -536,9 +559,9 @@ programme, encodés à la valeur du droit, sont identiques au bit (neutralité v
 - Chiffres liés de l'encadré du lot 5d et de la note d'EXPLICATION recalculés par leur garde (la part « agents
   publics » du SMIC seule y vaut désormais 0,029 à 0,185 point de dette 2032).
 
-## [non publiée — proposée] — équation du lot SMIC : la hausse se lit contre une référence datée, portée à l'année d'application
+### équation du lot SMIC : la hausse se lit contre une référence datée, portée à l'année d'application
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur le bloc suivant (cinq postes du
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, sur le bloc suivant (cinq postes du
 Trésor). La valeur de la référence ne change pas encore (1 800 €, défaut historique du moteur) : le dernier SMIC paru
 au Journal officiel vient au commit de paramètres qui suit.
 
@@ -570,9 +593,9 @@ scénarios et la référence sans programme identiques au bit.
 - Registre des paramètres régénéré (`docs/MEASURE_REGISTRY.md`, `tests/snapshots/measure_registry.json`) : le
   défaut du levier est désormais la constante de référence.
 
-## [non publiée — proposée] — équation du lot SMIC : les cinq postes du Trésor, chacun selon sa nature
+### équation du lot SMIC : les cinq postes du Trésor, chacun selon sa nature
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur les lots 2, 6 et 5 assemblés.
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, sur les lots 2, 6 et 5 assemblés.
 La hausse se lit encore contre 1 800 € (la référence datée vient au commit suivant) ; aucun autre levier ne change.
 
 **La règle** (arbitrage du mainteneur du 16/11/2026). Le levier `smic` reprend les effets d'une hausse de 1 % du
@@ -618,9 +641,9 @@ SMIC bougent.
   multiplicateurs, encadrés des lots 5b, 5d et 5e, table du pouvoir d'achat, profils ; EXPLICATION mise à jour ;
   chiffres liés des encadrés des lots 5c et 5d recalculés par leurs gardes.
 
-## [non publiée — proposée] — équations du lot 5c : dotation aux collectivités, la moitié d'une variation en investissement local
+### équations du lot 5c : dotation aux collectivités, la moitié d'une variation en investissement local
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des blocs des lots 5e, 5d
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, distinct des blocs des lots 5e, 5d
 et 5b ci-dessous, qu'il suppose appliqués. Aucun coefficient ne change.
 
 **La règle** (arbitrage du mainteneur du 16/11/2026). Une variation de la dotation aux collectivités
@@ -730,9 +753,9 @@ dette 2032 pour les quatre scénarios qui baissent la dotation, celui du rabot u
   et 12, chiffres liés), EXPLICATION (table, notes en français courant), commentaires de `constants.py`,
   `simulator.py`, `engine/growth.py`, `engine/orchestrator.py` et `handlers/montaigne.py`.
 
-## [non publiée — proposée] — équations du lot 5e : prestations en espèces émises hors des leviers de transfert au traitement des transferts
+### équations du lot 5e : prestations en espèces émises hors des leviers de transfert au traitement des transferts
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5b
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, distinct du bloc du lot 5b
 ci-dessous, qu'il suppose appliqué. Aucun coefficient ne change.
 
 **La règle** (même mécanique que le lot 5b). Le montant qu'un levier émet au canal ménages `prestations` et qui
@@ -789,9 +812,9 @@ du lot 5d, qui retire le coût du gel du PIB publié, la relèverait de 1,59 poi
 - Docs : METHODOLOGIE (encadré, table de base, classements, limite 10), EXPLICATION (table et note en français
   courant), commentaires de `simulator.py` et `engine/growth.py`.
 
-## [non publiée — proposée] — équations du lot 5d : effet prix des rémunérations publiques sur le PIB en valeur publié
+### équations du lot 5d : effet prix des rémunérations publiques sur le PIB en valeur publié
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5b
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, distinct du bloc du lot 5b
 ci-dessous, qu'il suppose appliqué. Aucun coefficient ne change. Remplace la limite (3) de l'encadré du lot 5b.
 
 **La règle.** Le coût employeur de l'année des rémunérations publiques à effectifs constants — le canal ménages
@@ -870,9 +893,9 @@ en baisse, sans retour des cotisations modélisé.
 - Docs : METHODOLOGIE (encadré, limite (3) du lot 5b), EXPLICATION (la dette rapportée au PIB baisse, la dette en
   euros ne change pas), docstrings de `engine/growth.py` et commentaires de `engine/orchestrator.py`.
 
-## [non publiée — proposée] — équations du lot 5b : rémunérations publiques à effectifs constants au traitement des transferts
+### équations du lot 5b : rémunérations publiques à effectifs constants au traitement des transferts
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, distinct du bloc du lot 5
 ci-dessous, qu'il suppose appliqué. Aucun coefficient ne change.
 
 **La règle** (arbitrage du mainteneur du 16/11/2026). Une hausse (ou une baisse) de rémunération des agents publics
@@ -962,9 +985,9 @@ dépense garde son flux. Sans ce canal, rien ne change. Un levier à coefficient
 - Docs : METHODOLOGIE (nouvel encadré, table de base, tableau des familles, périmètre du canal investissement,
   Fonction publique, « Classement à arbitrer » du lot 5 : point d'indice traité), EXPLICATION (table et note en
   français courant), docstrings des handlers et commentaires de `simulator.py` et `_types.py`.
-## [non publiée — proposée] — option du lot 6 (équation) : santé et réforme de l'État au rythme de la dépense courante
+### option du lot 6 (équation) : santé et réforme de l'État au rythme de la dépense courante
 
-**Statut** : OPTION retenue (arbitrage du mainteneur du 16/11/2026), non publiée, sans numéro de version. Commit
+**Statut** : OPTION retenue (arbitrage du mainteneur du 16/11/2026), publiée en v0.9.0. Commit
 d'ÉQUATION séparé, au-dessus de la release du profil de l'investissement (bloc suivant). Le titre du commit dit
 encore « non tranchée » : il est antérieur à l'arbitrage.
 
@@ -1005,9 +1028,9 @@ l'investissement (éducation, recherche, transition écologique) : ils prennent 
 - Docs : METHODOLOGIE (encadré « Rythme de la dépense courante », limites du profil, encadré du lot 5 sur la
   santé), EXPLICATION.
 
-## [non publiée — proposée] — paramètres du lot 6 (suite) : profil de l'investissement calé sur le tableau du FMI
+### paramètres du lot 6 (suite) : profil de l'investissement calé sur le tableau du FMI
 
-**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES (arbitrage du mainteneur : le profil
+**Statut** : publiée en v0.9.0. Release de PARAMÈTRES (arbitrage du mainteneur : le profil
 suit le tableau du FMI, source citée), qui suppose appliqués les deux blocs du lot 6 ci-dessous. Aucune équation ne change ;
 seules des valeurs changent : les cinq premiers termes de `DECAY_PROFILE_INVEST`, et une cible nommée
 (`CHEMIN_CIBLE_INVESTISSEMENT`).
@@ -1059,9 +1082,9 @@ dernier terme ne change pas : la source n'estime rien au-delà de quatre ans apr
   comparaison à Mésange, limites ; profil INVEST ; L2 ; somme analytique ; banc d'autofinancement ; tableau des
   familles ; profils par famille), EXPLICATION (profil en français courant, table des coefficients).
 
-## [non publiée — proposée] — paramètres du lot 6 : coefficients d'impact recalés après la correction du calendrier
+### paramètres du lot 6 : coefficients d'impact recalés après la correction du calendrier
 
-**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du commit d'équation
+**Statut** : publiée en v0.9.0. Release de PARAMÈTRES, distincte du commit d'équation
 du lot 6 (bloc suivant), qu'elle suppose appliqué. Aucune équation ne change.
 
 **Pourquoi.** Le budget agissant désormais dès son année, le niveau « quatre ans après » de chaque famille est celui
@@ -1109,9 +1132,9 @@ FMI) ; la limite « calage sur un seul point » qu'énonçait ce bloc n'a plus c
   l'investissement à k = 1,31, tableau des familles, chiffres liés à la mesure), EXPLICATION (table des
   coefficients).
 
-## [non publiée — proposée] — équation du lot 6 : le budget agit dès son année (calendrier de l'impulsion)
+### équation du lot 6 : le budget agit dès son année (calendrier de l'impulsion)
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, qui suppose appliqués les blocs des
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, qui suppose appliqués les blocs des
 lots 1 et 5 ci-dessous ; les coefficients sont recalés dans un commit de paramètres distinct (bloc suivant).
 
 **Le défaut.** La croissance de l'année t était calculée avant les mesures de t et ne lisait que l'impulsion du
@@ -1186,9 +1209,9 @@ deux des dix programmes publiés atteignent dès leur première année en mode h
   profils ; boucle annuelle ; chiffres liés à la mesure), EXPLICATION (séquence annuelle en français courant),
   infobulle du registre (`policy_measures.json`) de la recette exceptionnelle (« freine la croissance la même
   année »).
-## [non publiée — proposée] — équations du lot 2 : effet d'offre de la recherche publique
+### équations du lot 2 : effet d'offre de la recherche publique
 
-**Statut** : proposée, non publiée, sans numéro de version. Commits d'ÉQUATION, un par équation, qui supposent
+**Statut** : publiée en v0.9.0. Commits d'ÉQUATION, un par équation, qui supposent
 appliqués le lot 1 et le lot 5 ci-dessous ; aucun paramètre ne change. Arbitrage du mainteneur des 15 et
 16/11/2026. Règle suivie : aucune convention inventée ; une forme ou une constante vient d'une source rouverte,
 sinon le point reste en l'état et il est déclaré.
@@ -1288,9 +1311,9 @@ l'Insee), qui relève d'une release de paramètres.
 Pile d'intégration : les chiffres de ce bloc sont ceux du lot contre son parent (lot 5), inchangé dans la pile ; les
 chiffres « moteur actuel » de METHODOLOGIE qui en viennent sont recalculés au report du lot 6 (bloc du lot 6).
 
-## [non publiée — proposée] — équations du lot 5 : dépense courante symétrique en signe
+### équations du lot 5 : dépense courante symétrique en signe
 
-**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct des deux blocs du lot 1
+**Statut** : publiée en v0.9.0. Commit d'ÉQUATION, distinct des deux blocs du lot 1
 ci-dessous, qu'il suppose appliqués. Aucun coefficient ne change.
 
 **Le défaut.** Convention du mainteneur (v0.6.7) : pas d'asymétrie de signe retenue — même instrument, même
@@ -1371,9 +1394,9 @@ asymétrie de signe sourcée, pour toutes les familles, relève d'une instructio
   subventions aux entreprises, la dotation des collectivités ; et la dynamique de la santé, qui diffère selon le
   levier qui la porte (profil de l'investissement pour `sante`, des impôts pour les moyens de soins).
 
-## [non publiée — proposée] — paramètres du lot 1 : coefficient des transferts recalé
+### paramètres du lot 1 : coefficient des transferts recalé
 
-**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc
+**Statut** : publiée en v0.9.0. Release de PARAMÈTRES, distincte du bloc
 « équations » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
 
 **Coefficient des transferts recalé.** `MULT_TRANSFERTS` 0,71 → 0,688. Le 0,71 était calé sur une relance
@@ -1400,10 +1423,9 @@ neutralisés en mémoire dans la v0.8.1, avec ce coefficient, donnent des sortie
 code de ce commit. Les trois mécanismes retirés étaient asymétriques : deux pénalisaient les programmes
 qui consolident (inflation, cicatrice), un ceux qui relancent (éviction) ; le premier domine.
 
-## [non publiée — proposée] — équations du lot 1 : mécanismes macro sans source retirés
+### équations du lot 1 : mécanismes macro sans source retirés
 
-**Statut** : proposée, non publiée, sans numéro de version (la version du code reste v0.8.1 tant que
-l'arbitrage du mainteneur n'a pas fixé la publication). Ce bloc regroupe les commits d'ÉQUATION du lot ;
+**Statut** : publiée en v0.9.0. Ce bloc regroupe les commits d'ÉQUATION du lot ;
 les paramètres recalés en conséquence forment un bloc distinct (release de paramètres). Règle suivie :
 un mécanisme reste s'il est conforme à la littérature et non redondant. Chaque retrait est un commit
 distinct, avec son test de propriété (rouge sur l'état d'avant, vert après), ses instantanés régénérés
