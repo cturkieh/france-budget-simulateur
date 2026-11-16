@@ -4,6 +4,19 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — instantanés et bloc généré des scénarios sur l'encodage du site du 16/11/2026
+
+**Statut** : aucun calcul ne change : régénération, une fois, sur le fichier des scénarios du site qui accompagne la
+version, où les objectifs écrits en part du PIB ou du revenu national brut sont recalculés au PIB de la référence de
+ce moteur (convention commune, aucune valeur saisie à la main) : trois programmes, l'aide au développement 2032 passe
+de 10,15 à 10,16 Md€ ; pour l'un d'eux, la recherche 2030 et 2031 gagne 0,01 Md€.
+
+- Prédiction écrite avant la régénération : seuls ces trois programmes bougent ; en mode cadre, pas avant 2030.
+  Résultat : mode historique, six valeurs de ces trois programmes bougent d'un centième ; mode cadre et
+  mini-scénarios identiques (écarts sous le centième stocké).
+- `docs/SCENARIOS_POLITIQUES.md` : bloc généré (`scripts/generate_scenario_params.py`), `--check` vert.
+- Garde du pouvoir d'achat 2029 et chiffre de l'encadré du lot 5c : verts, inchangés.
+
 ## [non publiée — proposée] — test : documents du moteur lus à leur place quand la suite tourne depuis le site
 
 **Statut** : commit de TEST ; moteur, sorties et instantanés inchangés. Raccordement réel au site (sous-module) :

@@ -228,7 +228,7 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 | smic | montant_brut | 1867.02 | 1867.02 | 2147.55 | 1867.02 | 1867.02 | 1867.02 | 2147.55 | 2000 | 1867.02 | 1867.02 |
 | subventions_tge | montant | 33 | 33 | 33 | 33 | 14.67 | 28.6464 | 33 | 33 | 33 | 33 |
 | taxe_superprofits | intensite | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
-| transferts_etranger | montant | — | -9 | 10.15 | — | — | -3.8094 | 10.15 | 10.15 | — | — |
+| transferts_etranger | montant | — | -9 | 10.16 | — | — | -3.8094 | 10.16 | 10.16 | — | — |
 | transition_ecologique | investissement | 0 | 0 | 6.36 | 0 | 1.02 | 0 | 20 | 7 | 0 | 0 |
 | transition_ecologique | renovation | 0 | 0 | 7.05 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 | transition_ecologique | taxe_carbone | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 | 44.6 |
@@ -239,8 +239,8 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 - Calendrier, Programme RN Le Pen 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 12.61, 2029 : 15.21, 2030 : 17.82, 2031 : 20.43, 2032 : 20.7 (valeurs)
 - Calendrier, Programme LFI Mélenchon 2027, `depenses_publiques.credits_etat` : montant fixé pour chaque année, 2028 : 17.12, 2029 : 19.65, 2030 : 22.17, 2031 : 24.7, 2032 : 27.22 (valeurs)
 - Calendrier, Programme LFI Mélenchon 2027, `recette_exceptionnelle.montant` : une seule année, 2028 (annee)
-- Calendrier, Programme LFI Mélenchon 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 15.35, 2029 : 20.7, 2030 : 26.04, 2031 : 31.39, 2032 : 36.74 (valeurs)
-- Calendrier, Programme LFI Mélenchon 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
+- Calendrier, Programme LFI Mélenchon 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 15.35, 2029 : 20.7, 2030 : 26.05, 2031 : 31.4, 2032 : 36.74 (valeurs)
+- Calendrier, Programme LFI Mélenchon 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.16 (valeurs)
 - Calendrier, Programme Renaissance Attal 2027, `impots_production.montant` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Renaissance Attal 2027, `prestations_indexation.taux_indexation` : une seule année, 2028 (annee)
 - Calendrier, Programme Renaissance Attal 2027, `retraites.indexation` : une seule année, 2028 (annee)
@@ -263,12 +263,12 @@ scénario de référence voterait, silencieusement, un ajustement que le législ
 - Calendrier, Programme PS 2027, `recette_exceptionnelle.montant` : une seule année, 2028 (annee)
 - Calendrier, Programme PS 2027, `recherche_publique.budget` : montant fixé pour chaque année, 2028 : 12.82, 2029 : 15.65, 2030 : 18.47, 2031 : 18.69, 2032 : 18.91 (valeurs)
 - Calendrier, Programme PS 2027, `sante.prevention_budget` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme PS 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
+- Calendrier, Programme PS 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.16 (valeurs)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `cotisations_patronales.taux` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `depenses_publiques.credits_etat` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `prestations_menages.solidarite` : montée progressive jusqu'à la fin du mandat (rampe)
-- Calendrier, Programme Les Écologistes Tondelier 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.15 (valeurs)
+- Calendrier, Programme Les Écologistes Tondelier 2027, `transferts_etranger.montant` : montant fixé pour chaque année, 2028 : 2.03, 2029 : 4.06, 2030 : 6.09, 2031 : 8.12, 2032 : 10.16 (valeurs)
 - Calendrier, Programme Les Écologistes Tondelier 2027, `transition_ecologique.investissement` : montée progressive jusqu'à la fin du mandat (rampe)
 - Calendrier, Programme Nouvelle Énergie Lisnard 2027, `cotisations_salariales.montant_md` : montant fixé pour chaque année, 2028 : 48, 2029 : 66, 2030 : 84, 2031 : 102, 2032 : 120 (valeurs)
 - Calendrier, Programme Nouvelle Énergie Lisnard 2027, `education.salaires` : montée progressive jusqu'à la fin du mandat (rampe)
