@@ -97,7 +97,6 @@ from ..constants import (
     CHARGES_INTERET_MD_EUR,
     CROISSANCE_FILET_MAX,
     CROISSANCE_FILET_MIN,
-    GINI_CONVERGENCE_RATE,
     GINI_HARD_CEILING,
     GINI_IMPACT_SCALE,
     GINI_SOFT_FLOOR,
@@ -1449,19 +1448,14 @@ class OrchestratorMixin:
             # Calcul Gini centralisé
             # CORRECTION V4.6 : Application CHAQUE année pour capturer phasing/temporalité
             # Évite double-comptage car impacts sont calculés en DELTA, pas en cumulatif
-            # v0.4.0 RÉALISME : la somme brute des sensibilités par mesure sur-réagissait
-            # (~×4 vs microsimulations IPP/OFCE) et arrivait quasi en one-time Y1 →
-            # LFI/PS saturaient le clip dur 0,25 dès 2027 (même valeur affichée, écart
-            # entre programmes écrasé). Trois étages (constantes sourcées, constants.py) :
-            # 1) la somme rescalée alimente une CIBLE cumulée (les ratios entre partis
-            #    sont préservés — un seul facteur global, pas de re-calage par handler) ;
-            # 2) le Gini courant CONVERGE vers la cible (lag du 1er ordre : une réforme
-            #    fiscale met des années à se diffuser dans la distribution des revenus) ;
-            # 3) les pas NÉGATIFS sont amortis proportionnellement à la distance au
-            #    plancher souple (rendements décroissants de la redistribution près des
-            #    niveaux Slovaquie/Belgique). Asymétrie voulue : le plafond 0,40 est
-            #    loin et non saturé en pratique. Le clip dur reste en filet ultime ;
-            #    qu'il ne morde plus jamais est verrouillé par test de propriété.
+            # Lot 4 (méthode unique ; arbitrage du mainteneur) : la somme des effets
+            # émis × GINI_IMPACT_SCALE (1,0 : coefficients physiques et bornés un par
+            # un) s'ajoute à la base, et l'indice publié de l'année EST cette valeur :
+            # l'effet arrive l'année où la mesure s'applique. La convergence de 35 %
+            # par an (v0.4.0) et l'amortissement des seules baisses près du plancher,
+            # sans source, sont retirés. Les bornes de sécurité [GINI_SOFT_FLOOR ;
+            # GINI_HARD_CEILING] restent le seul garde-fou (avertissement tracé si
+            # elles mordent ; aucun programme publié ne les approche).
             if year_idx > 0:  # Pas d'impact pour année base (2025)
                 gini_impact = self.calculate_gini_impact(impacts, gdp_nominal)
                 # Garde de finitude : un NaN/inf émis par un handler (division
@@ -1478,22 +1472,12 @@ class OrchestratorMixin:
                     _log_debug(self.debug_logs, f"Y{year_idx}: Impact Gini brut annuel = {gini_impact:.6f}")
                 self.gini_cible_cumul += GINI_IMPACT_SCALE * gini_impact
                 gini_cible = self.base_params['gini_base'] + self.gini_cible_cumul
-                step = GINI_CONVERGENCE_RATE * (gini_cible - self.gini_courant)
-                if step < 0:
-                    amortissement = (self.gini_courant - GINI_SOFT_FLOOR) / (
-                        self.base_params['gini_base'] - GINI_SOFT_FLOOR
-                    )
-                    step *= float(np.clip(amortissement, 0.0, 1.0))
-                    if amortissement < 1.0:
-                        # Sans cette ligne, un pas écrasé par le plancher serait
-                        # indistinguable d'une convergence achevée dans les logs.
-                        _log_debug(self.debug_logs, f"Y{year_idx}: amortissement plancher = {amortissement:.3f}")
-                if step != 0:
+                if gini_cible != self.gini_courant:
                     _log_debug(
                         self.debug_logs,
-                        f"Y{year_idx}: Gini cible={gini_cible:.4f} pas={step:+.5f}",
+                        f"Y{year_idx}: Gini {self.gini_courant:.4f} → {gini_cible:.4f}",
                     )
-                self.gini_courant += step
+                self.gini_courant = gini_cible
                 if not GINI_SOFT_FLOOR <= self.gini_courant <= GINI_HARD_CEILING:
                     self._corrections.setdefault(
                         ('Gini', 'SORTIE'),

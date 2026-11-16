@@ -5,11 +5,13 @@ levier qui passe par le revenu disponible des ménages, ΔGini brut = K × Δmon
 (Md€), K = (C − G) / Y pour une prestation et −(C − G) / Y pour un prélèvement.
 Ce fichier verrouille :
 
-  (1) la GARDE DE CI : toute constante « …GINI…_PAR_MD… » du module est classée
-      (prélèvement ou prestation) et reste sous sa borne arithmétique —
+  (1) la GARDE DES CONSTANTES : toute constante du module dont le nom suit l'un
+      des styles du dépôt (« …GINI…PAR_MD… », « …GINI…PAR_<n>MD » ramenée à
+      un Md€) est classée (prélèvement ou prestation) et reste sous sa borne —
       (1 − G) / Y pour un prélèvement, (1 + G) / Y pour une prestation ; une
-      constante nouvelle non classée fait rougir le test (elle ne peut pas
-      échapper à la garde) ;
+      constante nouvelle non classée fait rougir le test. Cette garde dépend
+      des noms : la garde qui n'en dépend pas balaie tout le registre, levier
+      par levier (tests/test_gini_borne_registre_lot4.py) ;
   (2) la RECETTE des coefficients sourcés, EXÉCUTÉE depuis les chiffres publiés
       de l'INSEE au classement FINAL (Revenus et patrimoine des ménages 2024,
       fiches 1.3 et 1.4 : composition du niveau de vie par dixième), avec la
@@ -56,15 +58,21 @@ CLASSEMENT = {
     'GINI_TAXE_FONCIERE_PAR_MD': PRELEVEMENT,
     'GINI_TVA_PAR_MD': PRELEVEMENT,
     'GINI_TVA_ENERGIE_PAR_MD': PRELEVEMENT,
-    'GINI_ISF_EFFECTIF_PAR_MD': PRELEVEMENT,
     'GINI_BORNE_PRELEVEMENT_PAR_MD': PRELEVEMENT,
 }
 BORNE = {PRELEVEMENT: (1.0 - G) / Y, PRESTATION: (1.0 + G) / Y}
-_MOTIF = re.compile(r'GINI.*PAR_MD')
+# Styles du dépôt : GINI_X_PAR_MD, X_GINI_PAR_MD et l'historique X_GINI_PAR_10MD
+# (effet pour 10 Md€, ramené à un Md€ par la garde).
+_MOTIF = re.compile(r'GINI.*PAR_(\d*)MD')
 
 
 def _constantes_gini_par_md():
     return sorted(n for n in dir(C) if _MOTIF.search(n) and isinstance(getattr(C, n), (int, float)))
+
+
+def _par_md(nom):
+    n = _MOTIF.search(nom).group(1)
+    return getattr(C, nom) / (int(n) if n else 1)
 
 
 def test_toute_constante_gini_par_md_est_classee():
@@ -77,10 +85,13 @@ def test_toute_constante_gini_par_md_est_classee():
 
 @pytest.mark.parametrize('nom', sorted(CLASSEMENT))
 def test_borne_arithmetique_de_chaque_coefficient(nom):
-    """|K| ≤ (1 − G)/Y (prélèvement) ou (1 + G)/Y (prestation) : C ∈ [−1 ; 1]."""
+    """|K| ≤ (1 − G)/Y (prélèvement) ou (1 + G)/Y (prestation), C ∈ [−1 ; 1].
+    Pour un prélèvement, (1 − G)/Y borne la BAISSE de l'indice (tout payé par
+    le plus aisé) ; un prélèvement régressif peut l'augmenter jusqu'à
+    (1 + G)/Y : le test applique la plus stricte des deux, sans danger."""
     if not hasattr(C, nom):
         pytest.skip('absente (voir le test de classement)')
-    k = getattr(C, nom)
+    k = _par_md(nom)
     borne = BORNE[CLASSEMENT[nom]]
     assert abs(k) <= borne * (1 + 1e-12), f"{nom} = {k:.7f} > borne {borne:.7f}"
 
@@ -102,6 +113,15 @@ def test_la_garde_attrape_un_coefficient_hors_borne(monkeypatch):
     monkeypatch.setattr(C, 'GINI_HAUT_PATRIMOINE_PAR_MD', -0.001)
     with pytest.raises(AssertionError):
         test_borne_arithmetique_de_chaque_coefficient('GINI_HAUT_PATRIMOINE_PAR_MD')
+
+
+def test_la_garde_attrape_le_style_historique(monkeypatch):
+    """Mutation : une constante au style historique (« …_GINI_PAR_10MD »), hors
+    classement, rougit ; ramenée à un Md€, elle est mesurée contre la borne."""
+    monkeypatch.setattr(C, 'CAPITAL_GINI_PAR_10MD', -0.02, raising=False)
+    with pytest.raises(AssertionError):
+        test_toute_constante_gini_par_md_est_classee()
+    assert _par_md('CAPITAL_GINI_PAR_10MD') == pytest.approx(-0.002)
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +251,7 @@ def test_le_classement_initial_majore_les_k(nom, transfert, prestation, facteur)
 
 def test_cotisations_classement_initial_dans_la_plage_du_12_11():
     """Le proxy de la figure 2 (cotisations famille) donnait +0,0000959, dans la
-    plage de la décision du 12/11/2026 (+0,00006 à +0,0001) ; le classement final
+    plage de la décision du mainteneur du 12/11/2026 (+0,00006 à +0,0001) ; le classement final
     (salaires) donne moins : plafonds non comptés, effet encore majoré."""
     assert 0.00006 <= -_k_figure_2('cotisations_famille', False) <= 0.0001
     assert 0 < C.GINI_COTIS_SAL_PAR_MD < 0.00006
@@ -395,9 +415,14 @@ def test_csg_une_hausse_reduit_l_indice():
 
 
 def test_csg_au_coefficient_par_md():
+    """Re-déclaré au commit d'équations du lot 4 : la part du taux qui porte la
+    hausse de 2026 sur les revenus du capital (jusqu'au taux du droit en
+    vigueur) prend le coefficient du capital ; le reste, celui de la CSG
+    (tests/test_gini_equations_lot4.py, section 8)."""
     gini = _gini('csg', {'taux': 0.107, 'progressive': 0})
     recette = 140.0 * (0.107 - 0.097) / 0.097
-    assert gini == pytest.approx(C.GINI_CSG_PAR_MD * recette, rel=1e-12)
+    capital = 140.0 * (C.CSG_TAUX_DROIT_EN_VIGUEUR_2026 - 0.097) / 0.097
+    assert gini == pytest.approx(C.GINI_CAPITAL_PAR_MD * capital + C.GINI_CSG_PAR_MD * (recette - capital), rel=1e-12)
 
 
 def test_gini_base_derniere_valeur_publiee():

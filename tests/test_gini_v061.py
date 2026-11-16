@@ -846,7 +846,10 @@ def test_prix_de_reference_du_carbone_a_une_source_unique():
 # Chantier v0.7 (§ B.4-33 du dossier : la valeur de GINI_IMPACT_SCALE n'est
 # « pas calculable en l'état » tant que les coefficients ne sont pas tous
 # sourcés — « ne pas bricoler »).
-_EMETTEURS_RECURRENTS_CONNUS = {'retraites', 'rabot_uniforme'}
+# Lot 4 : le rabot uniforme quitte la liste (son Gini est émis une fois au
+# changement du taux, par catégorie) ; reste le canal d'âge des retraites
+# (flux résiduel de 10 % des cohortes, convention déclarée).
+_EMETTEURS_RECURRENTS_CONNUS = {'retraites'}
 
 
 def test_carte_des_emissions_gini_recurrentes():

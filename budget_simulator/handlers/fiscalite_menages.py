@@ -30,9 +30,11 @@ Convention d'application :
   - au CHANGEMENT de paramètre, ``self._effet_ponctuel(<clé>, params, effet)``
     (v0.7.0 : en INCRÉMENT, effet du niveau atteint moins effet du niveau au
     dernier déclenchement) : tva_rate, impot_revenu, elargissement_ir,
-    fiscalite_patrimoine, cotisations_salariales ;
+    fiscalite_patrimoine, cotisations_salariales, et le Gini d'isf_climatique
+    (lot 4) ;
   - à l'ANNÉE d'entrée en vigueur, ``years_elapsed == 0`` : tva_energie,
-    isf_climatique, et csg (pour ses effets Gini) — horloge du levier.
+    la compétitivité d'isf_climatique, et csg (pour ses effets Gini) —
+    horloge du levier.
   Cas mixte : ``csg`` combine les deux — Gini gated ``years_elapsed == 0``
   MAIS son sous-effet ``competitivite`` (progressivité) passe par
   ``self._effet_ponctuel('csg_competitivite', ...)``, appelé quel que soit le
@@ -51,7 +53,8 @@ Sources principales :
   retrouvés, et le signe de la CSG contredit par l'INSEE.
 - INSEE 2018 (hausse TVA), CAE 2022/2024 (répercussion prix, attractivité).
 - DGFiP POTE 2024, DG Trésor 2018, IPP TAXIPP 2024 (barème IR, Laffer).
-- DREES 2024, OFCE 2023 (progressivité CSG, modèle Allemagne).
+- DREES 2024 (CSG ; « OFCE 2023, modèle Allemagne », cité jusqu'au lot 4 pour la
+  progressivité, sans passage retrouvé : Gini de l'option progressive à zéro).
 - URSSAF 2024, DARES (cotisations salariales).
 - EU Tax Observatory 2024, Gabriel Zucman, IPP 2025 (ISF climatique).
 
@@ -64,20 +67,20 @@ from typing import TYPE_CHECKING, Dict, Tuple
 
 from ..constants import (
     COUT_PAR_POINT_COTIS_SAL,
+    CSG_TAUX_DROIT_EN_VIGUEUR_2026,
     ETI_PLANCHER_FACTEUR,
     ETI_TRANCHE_SUPERIEURE,
+    GINI_CAPITAL_PAR_MD,
     GINI_COTIS_SAL_PAR_MD,
     GINI_CSG_PAR_MD,
-    GINI_HAUT_PATRIMOINE_PAR_MD,
     GINI_CSG_PROGRESSIVE,
+    GINI_HAUT_PATRIMOINE_PAR_MD,
     GINI_IR_CIBLE_PAR_MD,
     GINI_IR_DECOTE_PAR_MD,
     GINI_SUCCESSIONS_PAR_MD,
     GINI_TAXE_FONCIERE_PAR_MD,
-    IR_GINI_PAR_5PTS,
     IR_RECETTE_DECOTE,
     ISF_COMPET_PAR_12MD,
-    ISF_GINI_PAR_12MD,
     ISF_PHASAGE,
     ISF_TAUX_MAX,
     PART_CONSOMMATION_MENAGES_TVA_TOTALE,
@@ -223,36 +226,43 @@ class FiscaliteMenagesMixin(_MixinBase):
         seuil_tranche_sup = 160_950       # Seuil 5e tranche, bareme PLF 2025
         assiette_marginale = revenu_moyen_tranche - seuil_tranche_sup  # ~59 050 EUR
 
-        # Effet mecanique (avant comportement)
-        delta_taux_brut = (taux_sup - 0.45) * foyers_riches * assiette_marginale / 1e9
+        # Recette de la tranche supérieure (Md€) pour un taux donné : effet
+        # mécanique, puis comportement. Fonction PURE du taux, lue par la
+        # recette ET par l'effet Gini (lot 4) — mêmes opérations, même ordre
+        # qu'avant son extraction (recette identique au bit).
+        def _recette_taux_superieur(taux):
+            # Effet mecanique (avant comportement)
+            delta_taux_brut = (taux - 0.45) * foyers_riches * assiette_marginale / 1e9
 
-        # Effet Laffer / elasticite revenu imposable (Saez-Diamond 2011, ETI=0.25 sur tranche sup).
-        # Taux marginal effectif total = IR + CSG (9.7%) + CEHR (4% en moyenne sur tranche sup).
-        # Calibrage 45→55% : 1.95 Md€ post-Laffer (vs DG Tresor 2018 fourchette 1-3 Md€).
-        taux_marginal_total_avant = 0.45 + 0.097 + 0.04
-        taux_marginal_total_apres = taux_sup + 0.097 + 0.04
-        if taux_marginal_total_avant < 1.0 and taux_sup > 0.45:
-            delta_net_of_tax = (
-                (1 - taux_marginal_total_apres) - (1 - taux_marginal_total_avant)
-            ) / (1 - taux_marginal_total_avant)
-            facteur_comportemental = max(ETI_PLANCHER_FACTEUR, 1 + ETI_TRANCHE_SUPERIEURE * delta_net_of_tax)
-        else:
-            facteur_comportemental = 1.0
+            # Effet Laffer / elasticite revenu imposable (Saez-Diamond 2011, ETI=0.25 sur tranche sup).
+            # Taux marginal effectif total = IR + CSG (9.7%) + CEHR (4% en moyenne sur tranche sup).
+            # Calibrage 45→55% : 1.95 Md€ post-Laffer (vs DG Tresor 2018 fourchette 1-3 Md€).
+            taux_marginal_total_avant = 0.45 + 0.097 + 0.04
+            taux_marginal_total_apres = taux + 0.097 + 0.04
+            if taux_marginal_total_avant < 1.0 and taux > 0.45:
+                delta_net_of_tax = (
+                    (1 - taux_marginal_total_apres) - (1 - taux_marginal_total_avant)
+                ) / (1 - taux_marginal_total_avant)
+                facteur_comportemental = max(ETI_PLANCHER_FACTEUR, 1 + ETI_TRANCHE_SUPERIEURE * delta_net_of_tax)
+            else:
+                facteur_comportemental = 1.0
+            return delta_taux_brut * facteur_comportemental
 
-        delta_taux = delta_taux_brut * facteur_comportemental
+        delta_taux = _recette_taux_superieur(taux_sup)
         delta_decote = (1.0 - decote) * IR_RECETTE_DECOTE
         delta_revenue = delta_taux + delta_decote
 
         # === IMPACTS MACROÉCONOMIQUES ===
         # Gini : Impact ONE-TIME (changement barème fiscal), en INCRÉMENT (v0.7.0)
-        # IR = impôt PROGRESSIF (redistribution forte)
-        # Règle : Taux sup 45%→50% = -0.008 Gini (OFCE 2023)
-        # Décote (lot 4, méthode unique) : Md€ de recette × le coefficient de
-        # la décote GINI_IR_DECOTE_PAR_MD (Conseil des prélèvements
-        # obligatoires, tableau n° 34 ; constants.py § CANAUX GINI) ; jusqu'ici
-        # +0,003 pour 7,5 Md€, sans source.
+        # Lot 4 (méthode unique, constants.py § CANAUX GINI) : chaque Md€ de
+        # recette à son coefficient — tranche supérieure au coefficient de
+        # l'IFI de l'INSEE (sa concentration est au moins celle de l'IFI) ;
+        # décote au coefficient de la décote (Conseil des prélèvements
+        # obligatoires, tableau n° 34). Jusqu'ici −0,008 pour
+        # +5 points (« OFCE 2023 », passage non retrouvé ; jusqu'à quinze fois
+        # la borne arithmétique) et +0,003 pour 7,5 Md€ de décote.
         def _effet_impot_revenu(p):
-            return (IR_GINI_PAR_5PTS * (p['taux_sup'] - 0.45) / 0.05
+            return (GINI_HAUT_PATRIMOINE_PAR_MD * _recette_taux_superieur(p['taux_sup'])
                     + GINI_IR_DECOTE_PAR_MD * (1.0 - p['decote']) * IR_RECETTE_DECOTE)
 
         gini = self._effet_ponctuel(
@@ -290,7 +300,8 @@ class FiscaliteMenagesMixin(_MixinBase):
           D9 (10%): taux + 2.8 pts
           D10 (10%): taux + 6.3 pts
 
-        Sources: DREES 2024, OFCE 2023 progressivité CSG, Modèle Allemagne
+        Sources: DREES 2024 (le barème par décile reprend la variante « modèle
+        Allemagne » ; son effet sur le Gini n'a pas de source : zéro, lot 4)
         """
         taux_global = params.get('taux', 0.097)
         progressive = params.get('progressive', 0)  # 0 ou 1
@@ -320,7 +331,15 @@ class FiscaliteMenagesMixin(_MixinBase):
         #   +0,002 par point (« OFCE 2024, CSG légèrement régressive », sans
         #   passage retrouvé) : le signe était inversé. CSG 9,7 % (défaut 2025)
         #   → recette nulle → impact nul (statu quo).
-        impact_gini_taux = _one_time_level(years_elapsed, GINI_CSG_PAR_MD * delta_recettes)
+        #   Lot 4 (équations) : la part du taux entre 9,7 % et le taux du droit
+        #   en vigueur (hausse de 2026 sur les revenus du capital) prend le
+        #   coefficient du capital, comme son retrait par fiscalite_capital ;
+        #   le reste, celui de la CSG (constants.py § CANAUX GINI).
+        recette_capital = CSG_RECETTES_BASE * (
+            min(max(delta_taux_global, 0.0), CSG_TAUX_DROIT_EN_VIGUEUR_2026 - CSG_BASE) / CSG_BASE)
+        impact_gini_taux = _one_time_level(
+            years_elapsed,
+            GINI_CAPITAL_PAR_MD * recette_capital + GINI_CSG_PAR_MD * (delta_recettes - recette_capital))
 
         # ===== EFFET 2 : PROGRESSIVITÉ (si activée) =====
         impact_gini_progressif = 0.0
@@ -621,9 +640,11 @@ class FiscaliteMenagesMixin(_MixinBase):
         # entre 0,999 et 1). Δ recettes 2030 : 0 → 0 ; 10⁻⁶ → −2,17 ; 0,571 →
         # +0,75 ; 0,572 → +2,02 ; 1 → +7,90.
         intensite = params.get('intensite', 0.0)  # 0.0 à 1.0 (0% à 100%)
-        if intensite == 0:
+        if intensite == 0 and 'isf_climatique' not in self._measure_params_tracker:
             # IFI maintenu : aucun changement budgétaire vs la baseline (l'IFI
-            # continue à y générer ses ~2 Md€/an).
+            # continue à y générer ses ~2 Md€/an). Lot 4 : un retour à 0 après
+            # une intensité non nulle (déclencheur ponctuel au traqueur) calcule
+            # encore, pour RENDRE son effet Gini.
             return 0, 0, {'recettes': 0}
         seuil_entree = 1.3   # M€ (barème du levier)
         taux_max = ISF_TAUX_MAX      # 1 % (barème du levier)
@@ -637,7 +658,8 @@ class FiscaliteMenagesMixin(_MixinBase):
         # IFI actuel avec croissance +2%/an (inflation patrimoniale INSEE 2015-2025).
         # CALENDAIRE (v0.7.0) : l'IFI remplacé croît depuis 2026 quelle que soit
         # l'année d'entrée de l'ISF — ce n'est pas l'horloge du programme.
-        ifi_actuel = 2.0 * (1.02 ** max(0, year - POLICY_START_YEAR))
+        ifi_depart = 2.0  # IFI de l'année de départ (Md€), remplacé par l'ISF
+        ifi_actuel = ifi_depart * (1.02 ** max(0, year - POLICY_START_YEAR))
 
         # ===== PHASING 2 ANS (cadastre fiscal) =====
         # 0.5 l'année de mise en place, 1.0 ensuite (plein effet)
@@ -691,9 +713,19 @@ class FiscaliteMenagesMixin(_MixinBase):
         # Sources : OFCE 2024, IPP 2025
         # IMPORTANT : Effets NIVEAU (one-time), pas FLUX (recurring)
 
-        # Gini : -0.020 pour 12 Md€ (réduction forte inégalités via redistribution)
-        # Impact appliqué UNE FOIS (changement structure revenus/patrimoine)
-        impact_gini = _one_time_level(years_elapsed, ISF_GINI_PAR_12MD * (recettes_nettes / 12) * phasing)
+        # Gini (lot 4, méthode unique, constants.py § CANAUX GINI) : coefficient
+        # de l'IFI de l'INSEE × recette nette d'année PLEINE (hors phasage), IFI
+        # remplacé de l'année de départ déduit — le niveau de l'impôt que fixe
+        # l'intensité, émis au changement de l'intensité (en incrément, et rendu
+        # au retour à 0), comme l'impôt plancher, corrigé avec lui. Jusqu'ici
+        # −0,020 pour 12 Md€ de recette BRUTE (avant remplacement de l'IFI),
+        # le phasage compté deux fois (dans la recette et dans l'impact).
+        def _effet_isf_climatique(p):
+            nettes_pleines = min(foyers_concernes * assiette_nette * taux_effectif_moyen / 1000
+                                 * (1 - taux_evasion), plafond_max)
+            return GINI_HAUT_PATRIMOINE_PAR_MD * p['intensite'] * (nettes_pleines - ifi_depart)
+
+        impact_gini = self._effet_ponctuel('isf_climatique', {'intensite': intensite}, _effet_isf_climatique)
 
         # Compétitivité : -0.002 (risque exil entrepreneurs)
         # Impact appliqué UNE FOIS (changement structure productive)
@@ -701,7 +733,7 @@ class FiscaliteMenagesMixin(_MixinBase):
 
         impacts = {
             'recettes': delta_revenue,
-            'gini': intensite * impact_gini,
+            'gini': impact_gini,
             'competitivite': intensite * impact_competitivite,
             'menages': canaux_menages(prelevements_directs=delta_revenue),
         }

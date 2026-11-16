@@ -115,25 +115,34 @@ CHOMAGE_DEGRESSIVITE_FACTEUR_COUPE = 1.15
 # de la série ne vaut 0,29).
 GINI_BASE = 0.302  # Gini du niveau de vie France, 2024 (INSEE, 09/07/2026)
 
-# --- Assemblage Gini (v0.4.0 — réalisme empirique) ---
-# Les handlers émettent des sensibilités Gini par mesure (METHODOLOGIE.md, § par
-# levier). Leur somme brute appliquée en one-time sur-réagit d'un facteur ~4 vs
-# les microsimulations (IPP/OFCE 2022 : un programme redistributif de 5-10 % du
-# PIB ≈ −0,02 à −0,03 de Gini sur un quinquennat) et produit des niveaux
-# impossibles (somme brute LFI 2030 = 0,166 < record mondial, Slovaquie ~0,209,
-# Eurostat 2024). Trois étages d'assemblage, appliqués au POINT UNIQUE
-# d'agrégation (engine/orchestrator.py, « Calcul Gini centralisé ») :
-GINI_IMPACT_SCALE = 0.22  # Rescale de l'agrégat → cible cumulée (calé : LFI 2030 ≈ 0,267, ordres de grandeur IPP/OFCE)
-GINI_CONVERGENCE_RATE = 0.35  # Inertie sociale : ~35 %/an vers la cible (série INSEE 25 ans : |ΔGini| ≤ ~0,01/an)
-GINI_SOFT_FLOOR = 0.25  # Plancher asymptotique = borne basse du clip (source unique) : l'amortissement tend vers 0 à l'approche → le clip ne mord jamais (filet anti-flottant). <0,25 = Slovaquie/Tchéquie/Slovénie/Belgique seulement (Eurostat 2024)
-GINI_HARD_CEILING = 0.40  # Borne haute du clip (source unique, partagée orchestrator + EconomicConstraints)
-# Garde de domaine : l'amortissement divise par (GINI_BASE − GINI_SOFT_FLOOR) —
-# un recalibrage qui inverse ces bornes casserait la simulation. `raise` et non
+# --- Assemblage Gini (lot 4 — méthode unique ; arbitrage du mainteneur) ---
+# Les handlers émettent des effets par mesure (METHODOLOGIE.md, § par levier),
+# une fois, l'année où la mesure s'applique. Au POINT UNIQUE d'agrégation
+# (engine/orchestrator.py, « Calcul Gini centralisé »), l'indice publié de
+# l'année vaut GINI_BASE + facteur × somme des effets émis jusqu'à elle, borné
+# par [GINI_SOFT_FLOOR ; GINI_HARD_CEILING]. Lot 4 : la convergence de 35 % par
+# an vers cette cible et l'amortissement des baisses près du plancher, sans
+# source, sont RETIRÉS (l'effet sur l'indice arrive l'année où la mesure
+# s'applique ; les calendriers des programmes continuent de jouer).
+# Facteur d'atténuation de la somme des émissions. Lot 4 :
+#    1,0. Les coefficients sont désormais PHYSIQUES et bornés un par un (méthode
+#    unique K × montant, § CANAUX GINI) : rien à atténuer. De la v0.4.0 au
+#    lot 4, il valait 0,22, pour absorber la sur-réaction d'un facteur ~4 des
+#    règles héritées, sur la seule justification « IPP/OFCE 2022 : un programme
+#    redistributif de 5-10 % du PIB ≈ −0,02 à −0,03 de Gini », dont le passage
+#    n'a pas été retrouvé ; la source même des coefficients le contredit (avec
+#    0,22, l'effet des prestations ciblées serait environ cinq fois plus petit
+#    que la contribution que publie l'INSEE).
+GINI_IMPACT_SCALE = 1.0   # coefficients physiques (lot 4) ; 0,22 de la v0.4.0 au lot 4
+GINI_SOFT_FLOOR = 0.25  # Borne basse de sécurité (source unique ; nom historique) : sous 0,25, seuls la Slovaquie, la Tchéquie, la Slovénie et la Belgique (Eurostat 2024). Garde-fou, plus d'amortissement (lot 4)
+GINI_HARD_CEILING = 0.40  # Borne haute de sécurité (source unique, partagée orchestrator + EconomicConstraints)
+# Garde de domaine : un recalibrage qui placerait la base hors des bornes de
+# sécurité ferait publier une borne dès l'année de base. `raise` et non
 # `assert` : python -O strip les asserts, la garde doit survivre en prod.
 if not GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING:
-    raise ValueError("GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING requis (dénominateur de l'amortissement)")
-if not (0 < GINI_IMPACT_SCALE <= 1 and 0 < GINI_CONVERGENCE_RATE < 1):
-    raise ValueError("Constantes d'assemblage Gini hors domaine (SCALE ∈ ]0;1], RATE ∈ ]0;1[)")
+    raise ValueError("GINI_SOFT_FLOOR < GINI_BASE < GINI_HARD_CEILING requis (bornes de sécurité)")
+if not 0 < GINI_IMPACT_SCALE <= 1:
+    raise ValueError("Facteur d'assemblage Gini hors domaine (SCALE ∈ ]0;1])")
 
 # --- Émission Gini du levier chômage (v0.6.4) : deux canaux en € × un poids --
 # Règle montant (canal taux) : GINI_ALLOC_PAR_MD_EUR, définie plus bas avec
@@ -1380,8 +1389,9 @@ PRESTATIONS_REVALORISATIONS_MAX = 10
 # puisse y être posée sans toucher au handler.
 RETRAITES_GINI_PAR_ANNEE_ECART = 0.0
 
-# Part de l'effet redistributif ré-émise les années SUIVANT celle où la mesure
-# ouvre son écart. CONVENTION DE MODÉLISATION ASSUMÉE, pas une valeur sourcée :
+# Part de l'effet redistributif du canal d'ÂGE ré-émise les années SUIVANT celle
+# où la mesure ouvre son écart (lot 4 : l'indexation suit désormais son écart en
+# euros, sans résidu). CONVENTION DE MODÉLISATION ASSUMÉE, pas une valeur sourcée :
 # une réforme d'âge déplace le niveau des inégalités UNE FOIS (les 100 %), puis
 # ne laisse qu'un flux — les nouvelles cohortes de retraités qui entrent chaque
 # année dans le régime modifié. L'émission annuelle est CUMULÉE par
@@ -1390,21 +1400,14 @@ RETRAITES_GINI_PAR_ANNEE_ECART = 0.0
 RETRAITES_GINI_RESIDU_FLUX = 0.10
 
 # --- Canal indexation : effet redistributif ---------------------------------
-# Désindexer les pensions retire un revenu réparti dans toute la distribution
-# des niveaux de vie, un peu plus lourd en bas : l'effet est faiblement
-# RÉGRESSIF (signe : IPP, chapitre 2 du rapport 2025, figure 2.11, gel des
-# retraites de 2026, « effets relativement répartis tout au long de la
-# distribution des niveaux de vie » ; OFCE, blog du 30/06/2025, profil de
-# l'« année blanche »). Règle du code : 0,005 × (1 − indexation), soit +0,0005
-# pour une indexation à 90 %, et non « +0,005 pour 100 % → 90 % » comme
-# l'écrivait ce commentaire (un facteur 10 ; la version du commentaire
-# dépasserait la borne arithmétique, 0,0024 par Md€ contre (1 + G) / Y ≈
-# 0,00094). La source citée jusqu'au lot 4, OFCE Policy Brief n° 124
-# (15/02/2024), ne contient aucun indice de Gini : citation retirée. Par Md€,
-# cette règle vaut environ −0,00013 à −0,0002, deux à trois fois le
-# coefficient des pensions de la méthode unique (GINI_PENSIONS_PAR_MD,
-# § CANAUX GINI).
-RETRAITES_GINI_PAR_POINT_DESINDEXATION = 0.005
+# Lot 4 (méthode unique) : l'effet suit l'ÉCART EN EUROS des pensions non
+# versées (euros de 2025), × le coefficient GINI_PENSIONS_PAR_MD (§ CANAUX GINI).
+# Jusqu'au lot 4 : RETRAITES_GINI_PAR_POINT_DESINDEXATION = 0,005 × (1 −
+# indexation) à l'ouverture de l'écart, puis 10 % de flux chaque année, et la
+# part gardée min(k, N)/N au retour au calendrier ; son commentaire annonçait
+# « +0,005 pour 100 % → 90 % » (un facteur 10 de trop) et citait l'OFCE Policy
+# Brief n° 124, qui ne contient aucun indice de Gini. Par Md€, l'ancienne règle
+# valait environ −0,00013 à −0,0002, deux à trois fois le coefficient actuel.
 # (RETRAITES_PA_GEL_TOTAL = 0,007, « −0,7 %/an de pouvoir d'achat pour un gel
 # total », SUPPRIMÉE en v0.6.8 : réémise chaque année, elle composait un niveau
 # en croissance. Les pensions non versées entrent désormais au RDB des ménages
@@ -2383,9 +2386,9 @@ GINI_RENOVATION_PAR_MD_EUR = 0.0   # périmètre INSEE (lot 4) ; hors champ : �
 #      +0,000074 sur `ps_2027`, soit deux ordres de grandeur SOUS la précision
 #      publiée (trois décimales). Les sept autres scénarios sont
 #      bit-identiques. Aucun chiffre publié ne bouge.
-# Reste au chantier v0.7 la re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 :
-# « non calculable en l'état », « ne pas bricoler ») — elle n'a jamais dépendu
-# de ce fallback.
+# La re-dérivation de GINI_IMPACT_SCALE (§ B.4-33 : « non calculable en
+# l'état », « ne pas bricoler ») n'a jamais dépendu de ce fallback ; lot 4 :
+# sans objet, le facteur vaut 1,0 (méthode unique ci-dessous).
 #
 # --- LOT 4 : MÉTHODE UNIQUE DU GINI (K × montant) --------------------------
 # Une seule règle pour tout levier dont l'effet passe par le revenu disponible
@@ -2402,9 +2405,13 @@ GINI_RENOVATION_PAR_MD_EUR = 0.0   # périmètre INSEE (lot 4) ; hors champ : �
 # BORNE ARITHMÉTIQUE (aucune hypothèse) : C ∈ [−1 ; 1]. Un prélèvement ne peut
 # pas réduire l'indice de plus de (1 − G) / Y par Md€ (tout payé par la
 # personne la plus aisée) ; une prestation, pas de plus de (1 + G) / Y (tout
-# versé à la plus modeste), le cas limite que retient l'ASU. Garde d'import
-# ci-dessous, et garde de CI qui balaie toutes les constantes « GINI_…_PAR_MD »
-# du module (tests/test_gini_methode_unique_lot4.py).
+# versé à la plus modeste), le cas limite que retient l'ASU. Trois gardes :
+# garde d'import ci-dessous (coefficients nommés de ce bloc) ; garde de CI sur
+# toute constante du module dont le nom suit un style du dépôt (« …GINI…PAR_MD »,
+# « …GINI…PAR_<n>MD », tests/test_gini_methode_unique_lot4.py) ; garde de CI
+# qui ne dépend d'aucun nom : chaque levier du registre, chaque paramètre sur
+# son domaine, effet émis par Md€ sous la borne
+# (tests/test_gini_borne_registre_lot4.py).
 #
 # DONNÉES DU CLASSEMENT FINAL : INSEE, Revenus et patrimoine des ménages,
 # édition 2024 (enquête Revenus fiscaux et sociaux 2021) — fiche 1.4,
@@ -2597,6 +2604,16 @@ GINI_ABATTEMENT_RETRAITES_PAR_MD = sum(GINI_ABATTEMENT_RETRAITES_PLAGE_PAR_MD) /
 # sortie du prélèvement forfaitaire, sous-estimé.
 GINI_CAPITAL_PLAGE_PAR_MD = (-0.000398, -0.000506)
 GINI_CAPITAL_PAR_MD = GINI_CAPITAL_PLAGE_PAR_MD[0]                         # −0,000398
+# Hausse de 2026 de la CSG sur les revenus du capital (droit en vigueur) : le
+# levier csg porte un taux GLOBAL ; le budget voté pose le taux qui produit le
+# rendement voté sur l'assiette du levier (data/droit_en_vigueur.json ;
+# docs/SCENARIOS_POLITIQUES.md, § budget voté). La part du taux comprise entre
+# la référence du levier (9,7 %) et ce taux est donc un prélèvement sur les
+# revenus du capital : elle prend le coefficient du capital, le même que le
+# levier fiscalite_capital quand un programme retire cette hausse (un seul
+# instrument, un seul coefficient ; lot 4). Le reste d'une variation du taux
+# prend celui de la CSG.
+CSG_TAUX_DROIT_EN_VIGUEUR_2026 = 0.098039
 # Décote de l'impôt sur le revenu (levier impot_revenu.decote), par Md€ de
 # recette (décote réduite) : Conseil des prélèvements obligatoires, rapport
 # particulier n° 2 (mai 2024), tableau n° 34 (gain de la décote par dixième de
@@ -2635,16 +2652,22 @@ GINI_SMIC_PAR_HAUSSE = sum(GINI_SMIC_PLAGE_PAR_HAUSSE) / 2                 # −
 # déclarée, avec son sens) :
 # - Impôt sur le revenu ciblé (impot_revenu_cible) et élargissement de l'IR
 #   (elargissement_ir) : ces leviers ne disent pas quel instrument ils portent
-#   (seuil d'entrée, première tranche, décote, exonération ciblée) ; la seule
-#   source consultée qui ventile une baisse d'IR par dixième de niveau de vie
-#   (INSEE, France, portrait social 2022, figure 4 : baisse du taux de la
-#   première tranche de 2020, +0,000109 à +0,000120 par Md€ de baisse, l'indice
-#   MONTE) ne vaut que pour cet instrument. Sens : une mesure qui vise les
+#   (seuil d'entrée, première tranche, décote, exonération ciblée). Sources
+#   consultées, chacune pour un instrument précis : INSEE, France, portrait
+#   social 2022, figure 4 (baisse du taux de la première tranche de 2020 :
+#   +0,000109 à +0,000120 par Md€ de baisse, l'indice MONTE) ; IPP, rapport
+#   2025-2026, chapitre 2, tableau 2.2 (baisse de 10 % des seuils, hausse d'un
+#   point des taux) ; Conseil des prélèvements obligatoires, rapport
+#   particulier n° 2, tableau n° 34 (décote). Aucune ne décrit un instrument
+#   que ces leviers désignent. Sens : une mesure qui vise les
 #   dixièmes du milieu (concentration sous G) réduirait l'indice, une baisse du
 #   bas du barème l'augmenterait : le signe dépend de l'instrument.
 GINI_IR_CIBLE_PAR_MD = 0.0
-# - CSG progressive par dixième (recette nulle) : aucun chiffrage retrouvé
-#   (« OFCE 2023, modèle Allemagne », sans passage). Sens : une CSG rendue plus
+# - CSG progressive par dixième (recette nulle) : aucun chiffrage dans les
+#   sources consultées (INSEE, fiche « Redistribution monétaire » 2025 ; IPP
+#   2025, tableau 2.2 ; Conseil des prélèvements obligatoires, rapport
+#   particulier n° 2) ; « OFCE 2023, modèle Allemagne », cité jusqu'ici, sans
+#   passage retrouvé. Sens : une CSG rendue plus
 #   progressive à recette constante réduirait l'indice : effet omis, au
 #   détriment des programmes qui l'activent (aucun programme publié).
 GINI_CSG_PROGRESSIVE = 0.0
@@ -2696,19 +2719,21 @@ del _nom, _k, _borne
 # recette patrimoniale = −0,002 de compétitivité. (Gini : méthode unique du
 # lot 4, § CANAUX GINI ; jusqu'ici −0,010 pour 10 Md€.)
 PATRIMOINE_COMPET_PAR_10MD = -0.002
-# _apply_isf_climatique : −0,020 de Gini et −0,002 de compétitivité pour
-# 12 Md€ de recette nette ; taux maximal du barème (1 %) ; phasage de la
-# collecte (0,5 l'année de mise en place, 1,0 ensuite).
-ISF_GINI_PAR_12MD = -0.020
+# _apply_isf_climatique : −0,002 de compétitivité pour 12 Md€ de recette
+# nette ; taux maximal du barème (1 %) ; phasage de la collecte (0,5 l'année de
+# mise en place, 1,0 ensuite). Gini : méthode unique du lot 4 (coefficient de
+# l'IFI × recette nette d'année pleine, § CANAUX GINI) ; jusqu'ici −0,020 pour
+# 12 Md€ de recette BRUTE (avant remplacement de l'IFI), phasage compté deux fois.
 ISF_COMPET_PAR_12MD = -0.002
 ISF_TAUX_MAX = 0.01
 ISF_PHASAGE = (0.5, 1.0)
 # _apply_impot_revenu : suppression de la décote = 7,5 Md€ de recette (Gini :
 # coefficient de la décote du lot 4, § CANAUX GINI ; jusqu'ici +0,003) ;
-# tranche supérieure +5 points = −0,008 de Gini ; plancher du facteur
-# comportemental (élasticité du revenu imposable).
+# plancher du facteur comportemental (élasticité du revenu imposable). Tranche
+# supérieure : Gini = coefficient de l'IFI × Md€ de recette (lot 4) ; jusqu'ici
+# −0,008 pour +5 points, attribué à « OFCE 2023 » sans passage retrouvé (jusqu'à
+# −0,0075 par Md€, quinze fois la borne arithmétique d'un prélèvement).
 IR_RECETTE_DECOTE = 7.5
-IR_GINI_PAR_5PTS = -0.008
 ETI_PLANCHER_FACTEUR = 0.5
 # _apply_cotisations_salariales : coût d'un point de cotisation (Md€) = 1 % de
 # la masse salariale brute 2025, tous salariés, public compris : salaires et
@@ -2810,12 +2835,13 @@ HORIZON_MANDAT_ANNEES = ANNEE_FIN_MANDAT - ANNEE_PREMIER_BUDGET_MANDAT + 1
 # lot 4, la règle du levier fiscalite_patrimoine (−0,001 par Md€, deux fois
 # la borne arithmétique d'un prélèvement).
 COMPET_PATRIMOINE_PAR_MD = PATRIMOINE_COMPET_PAR_10MD / 10
-# Impôt plancher : émission EFFECTIVE de l'ISF par Md€ de recette d'année
-# pleine. Le phasage entre DEUX fois dans _apply_isf_climatique (dans la
-# recette nette et dans l'impact) : l'effet émis vaut le quart de la règle
-# affichée. Reproduit à l'identique ; la correction de l'ISF et du plancher se
-# fera ENSEMBLE, jamais l'une sans l'autre.
-GINI_ISF_EFFECTIF_PAR_MD = ISF_GINI_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
+# Impôt plancher : compétitivité = émission EFFECTIVE de l'ISF par Md€ de
+# recette d'année pleine (le phasage entre DEUX fois dans la compétitivité de
+# _apply_isf_climatique : l'effet émis vaut le quart de la règle affichée ;
+# reproduit à l'identique, hors du périmètre du lot 4). Gini : corrigé AVEC
+# l'ISF au lot 4 — les deux lisent GINI_HAUT_PATRIMOINE_PAR_MD (§ CANAUX GINI)
+# × recette nette d'année pleine ; jusqu'ici GINI_ISF_EFFECTIF_PAR_MD, le quart
+# de la règle de l'ISF.
 COMPET_ISF_EFFECTIF_PAR_MD = ISF_COMPET_PAR_12MD / 12 * ISF_PHASAGE[0] ** 2
 # Impôt sur le revenu ciblé : GINI_IR_CIBLE_PAR_MD (zéro faute de source,
 # § CANAUX GINI, lot 4), le même que l'élargissement de l'IR.

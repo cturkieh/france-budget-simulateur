@@ -105,9 +105,10 @@ class MicroImpactsMixin:
         répercussion prix uniforme sur tous déciles ») : ce silence est
         désormais respecté.
 
-        Reste au chantier v0.7 la re-dérivation de ``GINI_IMPACT_SCALE``
-        (§ B.4-33 du dossier : « non calculable en l'état », « ne pas
-        bricoler »), qui n'a jamais dépendu de ce fallback.
+        La re-dérivation de ``GINI_IMPACT_SCALE`` (§ B.4-33 du dossier :
+        « non calculable en l'état », « ne pas bricoler ») n'a jamais dépendu
+        de ce fallback ; lot 4 : sans objet, le facteur vaut 1,0 (méthode
+        unique K × montant, constants.py § CANAUX GINI).
         """
         gini_change = 0
 

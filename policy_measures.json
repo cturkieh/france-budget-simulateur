@@ -529,7 +529,7 @@
           "step": 1,
           "label": "CSG progressive (0/1)",
           "type": "number",
-          "tooltip": "Rendre la CSG progressive par décile. D1-D3: -3.7pts, D9: +2.8pts, D10: +6.3pts. Impact Gini -0.015. Sources: OFCE 2024."
+          "tooltip": "Rendre la CSG progressive par décile. D1-D3: -3.7pts, D9: +2.8pts, D10: +6.3pts. Effet sur les inégalités : compté à zéro, faute de chiffrage dans les sources consultées."
         }
       }
     },
@@ -567,7 +567,7 @@
           "step": 0.5,
           "label": "Baisse des cotisations salariales (points)",
           "type": "number",
-          "tooltip": "Cotisations sociales prélevées sur le salaire brut, hors CSG et CRDS (curseur CSG). 1 point = 1 % de la masse salariale brute 2025 (11,6 Md€) ; au maximum, suppression des 138 Md€ de cotisations salariales (2025, Insee), soit 11,9 points, le taux moyen réel. Effet sur les inégalités : +0,0001 de Gini par Md€ rendu, estimation de France Budget (quintiles de niveau de vie Insee 2025, incertitude d'un facteur 2, valable pour une baisse uniforme de quelques points)."
+          "tooltip": "Cotisations sociales prélevées sur le salaire brut, hors CSG et CRDS (curseur CSG). 1 point = 1 % de la masse salariale brute 2025 (11,6 Md€) ; au maximum, suppression des 138 Md€ de cotisations salariales (2025, Insee), soit 11,9 points, le taux moyen réel. Effet sur les inégalités : +0,00005 de Gini par Md€ rendu ; une baisse les accroît légèrement, car les euros rendus suivent la répartition des salaires (Insee) : estimation de France Budget, valable pour une baisse uniforme de quelques points."
         }
       }
     },
@@ -586,7 +586,7 @@
           "step": 0.01,
           "label": "% foyers imposés (cible)",
           "type": "number",
-          "tooltip": "Actuel 45% (19M/41M foyers), moyenne UE 63%. Nouveaux contributeurs D4-D6 paient ~3% effectif. Potentiel +10 à +15 Md€. Impact Gini +0.005. Sources: DGFiP 2024, OFCE."
+          "tooltip": "Actuel 45% (19M/41M foyers), moyenne UE 63%. Nouveaux contributeurs D4-D6 paient ~3% effectif. Potentiel +10 à +15 Md€. Effet sur les inégalités : compté à zéro, faute de source sur la façon dont ces foyers entreraient dans l'impôt. Sources: DGFiP 2024, OFCE."
         }
       }
     },
@@ -605,7 +605,7 @@
           "step": 0.1,
           "label": "Intensité (0-100%)",
           "type": "number",
-          "tooltip": "100% = LFI (exonération 100% des hausses >1%). Coût -12 Md€, +0.5% PA, Gini -0.005, compétitivité +0.003. Sources: L'Avenir en commun 2025, OFCE 2024."
+          "tooltip": "100 % = exonération de 100 % des hausses de plus de 1 %. Coût -12 Md€, +0.5% PA, compétitivité +0.003. Effet sur les inégalités : non compté. Sources : programme qui propose la mesure (2025), OFCE 2024."
         }
       }
     },
@@ -624,7 +624,7 @@
           "step": 0.05,
           "label": "Variation (%)",
           "type": "number",
-          "tooltip": "Base: IFI 2 Md€ + Succession 15 Md€ + Foncière 36 Md€ = 53 Md€. ±30% = ±16 Md€. +30% = alignement UE, Gini -0.016. Sources: DGFiP 2024, IPP."
+          "tooltip": "Base: IFI 2 Md€ + Succession 15 Md€ + Foncière 36 Md€ = 53 Md€. ±30% = ±16 Md€. +30% = alignement UE. Effet sur les inégalités : seul l'IFI compte ; les droits de succession et la taxe foncière ne font pas partie du revenu disponible que mesure l'Insee. Sources: DGFiP 2024, IPP."
         }
       }
     },
@@ -700,7 +700,7 @@
           "step": 5,
           "label": "Montant (Md€)",
           "type": "number",
-          "tooltip": "Base 58 Md€ (~70% de 83 Md€ total). Min 5 Md€ = recentrage PME (CIR PME 2.6 Md€). Suppression génère +53 Md€. Impact Gini -0.008 si suppression. Sources: Cour des Comptes 2024, Attac."
+          "tooltip": "Base 58 Md€ (~70% de 83 Md€ total). Min 5 Md€ = recentrage PME (CIR PME 2.6 Md€). Suppression génère +53 Md€. Effet sur les inégalités : aucun (avantages fiscaux des entreprises, hors du revenu des ménages). Sources: Cour des Comptes 2024, Attac."
         }
       }
     },
@@ -719,7 +719,7 @@
           "step": 5,
           "label": "Montant (Md€)",
           "type": "number",
-          "tooltip": "Base 70 Md€ (~70% de 100 Md€ total). Min 10 Md€ = focus PME (exonérations bas salaires 7 Md€ préservées). Suppression génère +60 Md€. Impact Gini -0.006. Sources: Commission des Comptes 2024."
+          "tooltip": "Base 70 Md€ (~70% de 100 Md€ total). Min 10 Md€ = focus PME (exonérations bas salaires 7 Md€ préservées). Suppression génère +60 Md€. Effet sur les inégalités : aucun (allègements des entreprises, hors du revenu des ménages). Sources: Commission des Comptes 2024."
         }
       }
     },
@@ -776,7 +776,7 @@
           "step": 0.1,
           "label": "Intensité (0-100%)",
           "type": "number",
-          "tooltip": "100% = LFI (taux 25%, seuil 120%, tous secteurs, +15 Md€). Temporaire 3 ans (2026-2028). Impact Gini -0.01, compétitivité -0.005. Sources: L'Avenir en commun 2025, EU Tax Observatory."
+          "tooltip": "100 % = taux 25 %, seuil 120 %, tous secteurs, +15 Md€. Temporaire 3 ans (2026-2028). Compétitivité -0.005. Effet sur les inégalités : aucun (impôt payé par les entreprises). Sources : programme qui propose la mesure (2025), EU Tax Observatory."
         }
       }
     },
@@ -795,7 +795,7 @@
           "step": 0.005,
           "label": "Taux TVA énergie",
           "type": "number",
-          "tooltip": "Actuel 20%. Baisse à 5.5% (LFI/RN) = -17 Md€, +1.7% PA, Gini -0.007 (ménages modestes). Consommation totale 120 Md€/an. Sources: L'Avenir en commun 2025, OFCE 2024."
+          "tooltip": "Actuel 20%. Baisse à 5,5 % = -17 Md€, +1.7% PA. Effet sur les inégalités : aucun dans l'indicateur de l'Insee, mesuré avant les prix. Consommation totale 120 Md€/an. Sources : programmes qui proposent la mesure (2025), OFCE 2024."
         }
       }
     },
@@ -815,7 +815,7 @@
           "step": 0.01,
           "label": "Taux de réduction (%)",
           "type": "number",
-          "tooltip": "Réduction uniforme appliquée à toutes les catégories de dépenses. 8 % = scénario illustratif n° 1 de la note « Budget base zéro » (novembre 2025), qui vise 138 à 140 Md€ en 2029. Impacts: Gini +0.10×taux, PA -0.15×taux, multiplicateur fiscal -0.6. Sources: Institut Montaigne, « Budget base zéro : décider sous la contrainte », novembre 2025."
+          "tooltip": "Réduction uniforme appliquée à toutes les catégories de dépenses. 8 % = scénario illustratif n° 1 de la note « Budget base zéro » (novembre 2025), qui vise 138 à 140 Md€ en 2029. Inégalités : chaque catégorie de prestations coupée pèse selon qui la reçoit, effet compté une fois ; la santé et l'autonomie, versées en nature, ne comptent pas. PA -0.15×taux, multiplicateur fiscal -0.6. Sources: note « Budget base zéro : décider sous la contrainte », novembre 2025."
         },
         "exclure_dette": {
           "valeur_defaut": 1,

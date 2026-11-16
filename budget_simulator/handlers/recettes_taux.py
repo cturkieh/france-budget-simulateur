@@ -94,7 +94,7 @@ from ..constants import (
     COMPET_PATRIMOINE_PAR_MD,
     ETI_PLANCHER_FACTEUR,
     GINI_CAPITAL_PAR_MD,
-    GINI_ISF_EFFECTIF_PAR_MD,
+    GINI_HAUT_PATRIMOINE_PAR_MD,
     ISF_PHASAGE,
     ISF_TAUX_MAX,
     NEUTRES_RELEASE_E,
@@ -291,7 +291,7 @@ def variation_ttf_hors_indice(p: Dict) -> float:
 # --- Effets ponctuels : constante signée × recette de référence -------------
 
 def _effet_plancher_gini(p: Dict) -> float:
-    return GINI_ISF_EFFECTIF_PAR_MD * recette_plancher_annee_pleine(p)
+    return GINI_HAUT_PATRIMOINE_PAR_MD * recette_plancher_annee_pleine(p)
 
 
 def _effet_plancher_competitivite(p: Dict) -> float:
@@ -371,9 +371,12 @@ class RecettesTauxMixin(_MixinBase):
         (décision D3) ; l'évitement par défaut est la constante nommée
         ``EVITEMENT_PLANCHER_DEFAUT``, lue au registre comme neutre (jamais un
         littéral ici). Canal ménages : prélèvement direct (comme l'ISF). Gini
-        et compétitivité ponctuels : émission EFFECTIVE de l'ISF par Md€
-        (``GINI_ISF_EFFECTIF_PAR_MD``, ``COMPET_ISF_EFFECTIF_PAR_MD``,
-        négatives) × recette nette d'année pleine, hors indice et phasage.
+        ponctuel : coefficient de l'IFI de l'INSEE (``GINI_HAUT_PATRIMOINE_PAR_MD``,
+        méthode unique du lot 4, le même que l'ISF, corrigé avec lui ; jusqu'ici
+        l'émission effective de l'ISF, le quart de sa règle) × recette nette
+        d'année pleine, hors indice et phasage. Compétitivité ponctuelle :
+        émission EFFECTIVE de l'ISF par Md€ (``COMPET_ISF_EFFECTIF_PAR_MD``,
+        négative) × la même recette.
         L'imputation lit l'intensité de l'ISF du programme (règle Z) ; elle ne
         lit pas l'évasion propre à l'ISF (règle Z4'). Avis Z-ter si un impôt
         déductible est relevé en même temps (aucun calcul).

@@ -13,6 +13,7 @@
 3. [Finances Publiques](#finances-publiques)
 4. [Dynamique de la Dette](#dynamique-de-la-dette)
 5. [Pouvoir d'Achat](#pouvoir-dachat)
+5 bis. [Inégalités (indice de Gini)](#inégalités-indice-de-gini)
 6. [Boucles de Retroaction](#boucles-de-retroaction)
 7. [Multiplicateurs Keynesiens](#multiplicateurs-keynesiens)
 8. [Mecanismes de Second Ordre](#mecanismes-de-second-ordre)
@@ -351,6 +352,64 @@ sur longue période) → indice 106,6 en 2035.
 **Jusqu'en v0.6.7** : indice SYNTHÉTIQUE, `PA × (1 + croissance réelle + Σ coefficients
 forfaitaires)`, coefficients atténués de moitié après l'an 1 — vingt coefficients non sourcés,
 ajoutés à la croissance que les mêmes dépenses produisaient déjà.
+
+---
+
+## Inégalités (indice de Gini)
+
+**Ce que mesure l'indice.** L'indice de Gini du niveau de vie, celui que publie l'INSEE : 0 si
+tout le monde avait le même niveau de vie, 1 si une seule personne avait tout. Il valait 0,302 en
+2024 (INSEE, série publiée le 09/07/2026) ; c'est le point de départ du simulateur. Le niveau de
+vie est le revenu disponible du ménage (salaires, pensions, allocations, revenus du patrimoine,
+moins l'impôt sur le revenu, la CSG et les autres impôts directs) divisé par le nombre d'unités
+de consommation.
+
+**Une seule règle pour toutes les mesures.** Un euro donné ou retiré change l'indice
+selon la place, dans l'échelle des niveaux de vie, de ceux qui le reçoivent ou le paient : plus
+ils sont loin du milieu, plus l'effet est fort. L'INSEE publie, pour chaque dixième de la
+population rangée par niveau de vie, la part de chaque revenu, prestation ou impôt (*Revenus et
+patrimoine des ménages*) : le simulateur en tire un effet par milliard d'euros, le même pour tous
+les programmes.
+
+```
+Effet sur l'indice = coefficient de l'instrument × milliards d'euros de la mesure
+```
+
+Exemples d'ordres de grandeur, avant la lente diffusion décrite plus bas : 10 Md€ de prestations
+ciblées (allocations familiales, aides au logement, minima sociaux, prime d'activité) en plus
+baissent l'indice d'environ 0,005 ; 10 Md€ d'IFI en plus, d'environ 0,004 ; 10 Md€ de CSG en
+plus, d'environ 0,001.
+
+**Une limite qu'aucune mesure ne peut dépasser.** Même un impôt payé uniquement par la personne la
+plus aisée ne baisserait pas l'indice de plus d'environ 0,0005 par milliard ; même une allocation
+versée uniquement à la plus modeste, pas de plus d'environ 0,0009. Le simulateur vérifie
+automatiquement que chaque mesure, sur toute sa plage de réglage, reste sous cette limite.
+
+**Ce qui ne compte pas, et pourquoi.** Ce qui n'entre pas dans le revenu disponible ne change pas
+l'indice de l'INSEE, donc pas celui du simulateur : les droits de succession, la taxe foncière, la
+TVA et les autres taxes sur la consommation (elles jouent sur les prix, pas sur le revenu), les
+remboursements de soins, les aides aux travaux de rénovation, les impôts des entreprises. Ce n'est
+pas un oubli : c'est la définition de l'indicateur.
+
+**Quand les sources donnent une fourchette.** Pour les pensions de retraite, les revenus du capital,
+l'abattement des retraités et le SMIC, plusieurs études publiées (INSEE, Institut des politiques
+publiques, groupe d'experts sur le SMIC) donnent chacune une estimation. Le simulateur retient le
+milieu de la fourchette (pour les revenus du capital, le bas, seul chiffre publié), et la
+méthodologie publie la fourchette entière.
+
+**Sans source, zéro, et on le dit.** Pour quelques mesures, aucune source consultée ne chiffre
+l'effet sur l'indice : l'âge de départ à la retraite, la CSG progressive, une baisse d'impôt sur le
+revenu dont la mesure ne dit pas comment elle s'applique, les rémunérations des agents publics. Le
+simulateur ne leur donne aucun effet, plutôt qu'un chiffre inventé, et la méthodologie dit dans quel
+sens cela joue (par exemple : reculer l'âge de départ accroît probablement les inégalités ; cet
+effet n'est pas compté).
+
+**Le temps.** Une mesure déplace le niveau des inégalités une fois, l'année où elle s'applique,
+et l'indice affiché suit le calendrier de chaque programme. Aucune source ne décrit un délai de
+diffusion : le simulateur n'en invente pas. Conséquence à connaître : un programme qui concentre de
+fortes mesures sur sa première année fait bouger l'indice plus vite que ce que l'INSEE a observé
+d'une année sur l'autre (rarement plus de 0,01, au plus 0,014 entre 2012 et 2013) ; le niveau
+atteint, lui, n'en dépend pas.
 
 ---
 
@@ -835,7 +894,7 @@ re-mesures le 08/11/2026 (v0.7.2 : dette de depart recalee a 115,7 %).
 
 **Impacts macro :**
 - Pouvoir d'achat : hausse (SMIC, TVA energie, transferts) — chiffres a jour : METHODOLOGIE
-- Gini : -0,04 (forte reduction inegalites)
+- Gini : en baisse (reduction des inegalites) — chiffres a jour : METHODOLOGIE
 - Competitivite : -1% (ISF, charges)
 
 **Trade-off** : Gains sociaux immediats vs soutenabilite long terme
@@ -852,7 +911,7 @@ re-mesures le 08/11/2026 (v0.7.2 : dette de depart recalee a 115,7 %).
 
 **Impacts macro :**
 - Pouvoir d'achat : baisse (gel prestations) — chiffres a jour : METHODOLOGIE
-- Gini : +0,02 (hausse inegalites)
+- Gini : en hausse (inegalites) — chiffres a jour : METHODOLOGIE
 - Competitivite : +0,5% (baisse charges)
 
 **Trade-off** : Rigueur budgetaire vs acceptabilite sociale
@@ -886,6 +945,7 @@ Avec une dette a 115,7% du PIB, la France fait face a un trilemme impossible :
 8. **Contraintes europeennes** : Deficit < 3%, dette < 60%
 9. **Assemblage temporel (v4.0)** : recurrences chainees uniques des l'annee 1 (depenses : g_vol + indexation mixte 54/46 ; recettes : elasticite 1,0 au PIB nominal contemporain), boucle annuelle macro -> PIB -> chomage -> flux -> mesures, Phillips en point fixe avec garde-fou BCE a 2,0%
 10. **Phillips ancree (v4.1)** : `(1-rho) x (pi* + 0,20 x gap) + rho x pi(t-1)`, point fixe 1,6% cale sur le deflateur du PIB, gap initial de -0,7% (RAA 2026 / HCFP)
+11. **Inégalités** : une seule règle, coefficient × milliards d'euros, coefficients tirés de l'INSEE et bornés par l'arithmétique ; base 0,302 (INSEE, 2024) ; ce qui sort du revenu disponible ne compte pas
 
 ### Validation
 

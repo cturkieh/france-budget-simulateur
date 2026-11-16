@@ -223,7 +223,9 @@ def attendu(levier, params, *, gdp, annees_ecoulees=1, autres=None, pib_2026=Non
     if levier == 'impot_plancher_patrimoine':
         r_ref = r_ref_plancher(p['taux'], p['evitement'], _intensite_isf(autres))
         rec = r_ref * (gdp / PIB_2025) * phasage_plancher(annees_ecoulees)
-        return (rec, C.GINI_ISF_EFFECTIF_PAR_MD * r_ref, C.COMPET_ISF_EFFECTIF_PAR_MD * r_ref,
+        # Gini : coefficient de l'IFI (lot 4, corrigé avec l'ISF ; jusqu'ici
+        # l'émission effective de l'ISF, GINI_ISF_EFFECTIF_PAR_MD).
+        return (rec, C.GINI_HAUT_PATRIMOINE_PAR_MD * r_ref, C.COMPET_ISF_EFFECTIF_PAR_MD * r_ref,
                 canaux_menages(prelevements_directs=rec))
     if levier == 'fiscalite_capital':
         if 'rendement_md' in params:
@@ -724,7 +726,7 @@ def test_g11_signes():
 
 # Mutation : le handler LIT la constante signée (pas une copie locale ni un signe ajouté).
 COEFFICIENTS = [
-    ('impot_plancher_patrimoine', {'taux': 0.02}, 'GINI_ISF_EFFECTIF_PAR_MD', 'gini'),
+    ('impot_plancher_patrimoine', {'taux': 0.02}, 'GINI_HAUT_PATRIMOINE_PAR_MD', 'gini'),
     ('impot_plancher_patrimoine', {'taux': 0.02}, 'COMPET_ISF_EFFECTIF_PAR_MD', 'competitivite'),
     ('fiscalite_capital', {'prelevements_sociaux_capital': 0.22}, 'GINI_CAPITAL_PAR_MD', 'gini'),
     ('fiscalite_capital', {'prelevements_sociaux_capital': 0.22}, 'COMPET_PATRIMOINE_PAR_MD', 'competitivite'),

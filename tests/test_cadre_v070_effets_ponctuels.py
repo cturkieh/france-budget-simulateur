@@ -121,21 +121,22 @@ def test_d_premier_declenchement_inchange_au_bit():
     assert _appel(sim, 'niches_fiscales_tge', {'montant': 52})['competitivite'] == 0.0
 
 
-def test_retraites_indexation_flux_residuel_continu_a_la_bascule():
-    """Gini de l'indexation des pensions : plein effet l'année où l'écart s'ouvre,
-    puis un flux résiduel (nouvelles cohortes). À un changement d'indexation, le
-    flux de l'ancien niveau court jusqu'à la bascule et l'INCRÉMENT prend le plein
-    effet : g(i₁)·R + (g(i₂) − g(i₁)), jamais g(i₂) en entier (recompte)."""
-    from budget_simulator.constants import (RETRAITES_GINI_PAR_POINT_DESINDEXATION as G,
-                                            RETRAITES_GINI_RESIDU_FLUX as R)
+def test_retraites_indexation_increment_de_l_ecart_a_la_bascule():
+    """Gini de l'indexation des pensions (lot 4, méthode unique) : convention par
+    Md€ × écart EN EUROS, en incrément. À un changement d'indexation, seul
+    l'incrément de l'écart est émis, jamais l'effet du nouveau niveau en entier
+    (recompte) ; à niveau inchangé (même année, écart inchangé), rien. Jusqu'au
+    lot 4 : g(i) par point à l'ouverture, puis un flux résiduel de 10 %."""
+    from budget_simulator.constants import GINI_PENSIONS_PAR_MD as K
     sim = BudgetSimulatorV45(periods=1)
     p1 = {'indexation': 0.9, 'duree_cotisation': 42.5}
     p2 = {'indexation': 0.8, 'duree_cotisation': 42.5}
-    g1, g2 = G * (1.0 - 0.9), G * (1.0 - 0.8)
-    assert _appel(sim, 'retraites', p1)['gini'] == g1
-    assert _appel(sim, 'retraites', p1)['gini'] == g1 * R
-    assert _appel(sim, 'retraites', p2)['gini'] == pytest.approx(g1 * R + (g2 - g1), rel=1e-12)
-    assert _appel(sim, 'retraites', p2)['gini'] == g2 * R
+    i1 = _appel(sim, 'retraites', p1)
+    assert i1['gini'] == pytest.approx(K * i1['depenses'], rel=1e-12) and i1['gini'] > 0
+    assert _appel(sim, 'retraites', p1)['gini'] == 0.0
+    i2 = _appel(sim, 'retraites', p2)
+    assert i2['gini'] == pytest.approx(K * (i2['depenses'] - i1['depenses']), rel=1e-12)
+    assert _appel(sim, 'retraites', p2)['gini'] == 0.0
 
 
 # ---------------------------------------------------------------------------

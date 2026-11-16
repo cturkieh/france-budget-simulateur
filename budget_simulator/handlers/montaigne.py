@@ -26,7 +26,12 @@ et ``self.debug_logs`` — tous attributs d'instance de ``BudgetSimulatorV45``.
 """
 from typing import TYPE_CHECKING, Dict, Tuple
 
-from ..constants import AAH_2025_MD_EUR
+from ..constants import (
+    AAH_2025_MD_EUR,
+    GINI_ALLOC_PAR_MD_EUR,
+    GINI_PENSIONS_PAR_MD,
+    GINI_SOLIDARITE_PAR_MD,
+)
 from .._logging import _log_debug
 from ._phasing import _year_phasing
 from ._types import ImpactsDict, canaux_menages
@@ -71,7 +76,9 @@ class MontaigneMixin(_MixinBase):
         exclure_defense = params.get('exclure_defense', 1)
         exclure_ue = params.get('exclure_ue', 1)
 
-        if taux_reduction == 0:
+        if taux_reduction == 0 and 'rabot_uniforme' not in self._measure_params_tracker:
+            # Lot 4 : un retour à 0 après un rabot (déclencheur ponctuel au
+            # traqueur) calcule encore, pour RENDRE son effet Gini.
             return 0, 0, {}
 
         # Année de référence pour phasing — horloge du levier (v0.7.0).
@@ -125,13 +132,27 @@ class MontaigneMixin(_MixinBase):
         # ===== IMPACTS MACROÉCONOMIQUES =====
         # Le rabot est particulièrement nocif car il coupe TOUT sans discernement
 
-        # 1. Impact Gini (inégalités) - RÉGRESSIF
-        # Coupes sociales touchent plus les bas revenus
-        pct_social = (details_coupes.get('retraites', 0) +
-                      details_coupes.get('sante', 0) +
-                      details_coupes.get('minima_sociaux', 0) +
-                      details_coupes.get('dependance', 0)) / max(total_coupe, 0.1)
-        impact_gini = 0.10 * taux_reduction * pct_social * phasing  # +0.008 à 8%
+        # 1. Impact Gini (inégalités) — lot 4, méthode unique (constants.py
+        # § CANAUX GINI) : chaque catégorie de PRESTATIONS EN ESPÈCES coupée à
+        # son coefficient par Md€ — minima sociaux et AAH à celui des
+        # prestations ciblées de l'INSEE, allocations chômage à la règle
+        # montant du chômage (ancre DREES), pensions à la convention des
+        # pensions ; santé et APA (en nature) et les autres catégories : 0 (hors
+        # du revenu disponible, comme au canal ménages ci-dessous). Montant
+        # d'année PLEINE que fixe le taux (base 2025, hors phasage et hors
+        # croissance), émis UNE fois au changement du taux, en incrément (et
+        # rendu au retour à 0). Jusqu'ici 0,10 × taux × part sociale ×
+        # phasage, sans source, RÉÉMIS chaque année dans un agrégateur
+        # cumulatif : l'indice dérivait tant que le rabot durait.
+        base_2025 = self.spending_categories_base
+
+        def _effet_rabot_uniforme(p):
+            t = p['taux']
+            return -(GINI_SOLIDARITE_PAR_MD * (base_2025['minima_sociaux'] * t + AAH_2025_MD_EUR * t)
+                     - GINI_ALLOC_PAR_MD_EUR * base_2025['chomage'] * t
+                     + GINI_PENSIONS_PAR_MD * base_2025['retraites'] * t)
+
+        impact_gini = self._effet_ponctuel('rabot_uniforme', {'taux': taux_reduction}, _effet_rabot_uniforme)
 
         # 2. Pouvoir d'achat (v0.6.8) : les coupes de PRESTATIONS EN ESPÈCES
         # (pensions, chômage, minima sociaux, AAH) sont un revenu retiré aux

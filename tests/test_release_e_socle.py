@@ -53,19 +53,18 @@ CONSTANTS_PY = RACINE / 'budget_simulator' / 'constants.py'
 # (nom, valeur du littéral remplacé, fichier:handler d'origine). Égalité EXACTE
 # (==, et même type numérique) : une constante « de même valeur » qui différerait
 # d'un ulp changerait les golden masters.
-# Lot 4 (méthode unique du Gini) : PATRIMOINE_GINI_PAR_10MD et IR_GINI_DECOTE
-# sont RETIRÉES (remplacées par des coefficients par Md€ sourcés ou déclarés),
+# Lot 4 (méthode unique du Gini) : PATRIMOINE_GINI_PAR_10MD, IR_GINI_DECOTE,
+# IR_GINI_PAR_5PTS et ISF_GINI_PAR_12MD sont RETIRÉES (remplacées par des
+# coefficients par Md€ sourcés ou déclarés),
 # TVA_GINI_PAR_2PTS et TVA_ENERGIE_GINI_PAR_TAUX valent 0 (périmètre INSEE) :
 # elles ne sont plus des extractions au bit, et sont verrouillées par
 # tests/test_gini_methode_unique_lot4.py.
 EXTRAITES = [
     ('PATRIMOINE_COMPET_PAR_10MD', -0.002, 'fiscalite_menages._apply_fiscalite_patrimoine'),
-    ('ISF_GINI_PAR_12MD', -0.020, 'fiscalite_menages._apply_isf_climatique'),
     ('ISF_COMPET_PAR_12MD', -0.002, 'fiscalite_menages._apply_isf_climatique'),
     ('ISF_TAUX_MAX', 0.01, 'fiscalite_menages._apply_isf_climatique'),
     ('ISF_PHASAGE', (0.5, 1.0), 'fiscalite_menages._apply_isf_climatique'),
     ('IR_RECETTE_DECOTE', 7.5, 'fiscalite_menages._apply_impot_revenu'),
-    ('IR_GINI_PAR_5PTS', -0.008, 'fiscalite_menages._apply_impot_revenu'),
     ('ETI_PLANCHER_FACTEUR', 0.5, 'fiscalite_menages._apply_impot_revenu'),
     # COUT_PAR_POINT_COTIS_SAL (6.0 extrait au bit par le socle) : remplacé par
     # 1 % de la masse salariale brute 2025 (décision du mainteneur du 12/11/2026),
@@ -93,10 +92,11 @@ LITTERAUX_RETIRES = [
      ['GINI_HAUT_PATRIMOINE_PAR_MD', 'GINI_SUCCESSIONS_PAR_MD', 'GINI_TAXE_FONCIERE_PAR_MD',
       'PATRIMOINE_COMPET_PAR_10MD'], [r'-0\.010\b', r'-0\.002\b']),
     (mod_fiscalite.FiscaliteMenagesMixin._apply_isf_climatique,
-     ['ISF_GINI_PAR_12MD', 'ISF_COMPET_PAR_12MD', 'ISF_TAUX_MAX', 'ISF_PHASAGE'],
+     ['GINI_HAUT_PATRIMOINE_PAR_MD', 'ISF_COMPET_PAR_12MD', 'ISF_TAUX_MAX', 'ISF_PHASAGE'],
      [r'-0\.020\b', r'-0\.002\b', r'taux_max = 0\.01\b', r'\(0\.5, 1\.0\)']),
     (mod_fiscalite.FiscaliteMenagesMixin._apply_impot_revenu,
-     ['GINI_IR_DECOTE_PAR_MD', 'IR_RECETTE_DECOTE', 'IR_GINI_PAR_5PTS', 'ETI_PLANCHER_FACTEUR'],
+     ['GINI_IR_DECOTE_PAR_MD', 'GINI_HAUT_PATRIMOINE_PAR_MD', 'IR_RECETTE_DECOTE',
+      'ETI_PLANCHER_FACTEUR'],
      [r'-0\.008\b', r'0\.003 \*', r'\* 7\.5\b', r'max\(0\.5,']),
     (mod_fiscalite.FiscaliteMenagesMixin._apply_cotisations_salariales,
      ['COUT_PAR_POINT_COTIS_SAL'], [r'COUT_PAR_POINT = 6\.0']),
@@ -158,7 +158,7 @@ def test_mutation_patrimoine(monkeypatch):
 def test_mutation_isf(monkeypatch):
     sim = _sim_handler()
     _, _, ref = sim._apply_isf_climatique({}, {'intensite': 1.0}, 2026, 3000.0, 0.02, 0.076)
-    monkeypatch.setattr(mod_fiscalite, 'ISF_GINI_PAR_12MD', 2 * C.ISF_GINI_PAR_12MD)
+    monkeypatch.setattr(mod_fiscalite, 'GINI_HAUT_PATRIMOINE_PAR_MD', 2 * C.GINI_HAUT_PATRIMOINE_PAR_MD)
     monkeypatch.setattr(mod_fiscalite, 'ISF_COMPET_PAR_12MD', 2 * C.ISF_COMPET_PAR_12MD)
     sim = _sim_handler()
     _, _, mut = sim._apply_isf_climatique({}, {'intensite': 1.0}, 2026, 3000.0, 0.02, 0.076)
@@ -217,7 +217,7 @@ DERIVEES = [
         'prestations_familiales', 'prestations_logement', 'minima_sociaux', 'prime_activite'), -0.000521),
     ('GINI_CAPITAL_PAR_MD', lambda: C.GINI_CAPITAL_PLAGE_PAR_MD[0], -0.000398),
     ('COMPET_PATRIMOINE_PAR_MD', lambda: C.PATRIMOINE_COMPET_PAR_10MD / 10, -0.0002),
-    ('GINI_ISF_EFFECTIF_PAR_MD', lambda: C.ISF_GINI_PAR_12MD / 12 * C.ISF_PHASAGE[0] ** 2, -0.00042),
+    ('GINI_HAUT_PATRIMOINE_PAR_MD', lambda: C._gini_k_prelevement('impot_fortune_immobiliere'), -0.000444),
     ('COMPET_ISF_EFFECTIF_PAR_MD', lambda: C.ISF_COMPET_PAR_12MD / 12 * C.ISF_PHASAGE[0] ** 2, -0.000042),
     ('GINI_IR_DECOTE_PAR_MD',
      lambda: (C.GINI_BASE - C.GINI_C_DECOTE) / C.MASSE_NIVEAUX_DE_VIE_MD_EUR, 0.000122),
@@ -266,7 +266,7 @@ def test_derivees_ecrites_comme_expressions_des_noms():
 
 NEGATIVES = [  # hausse de recette patrimoine/capital, hausse de prestation, impôt d'entreprise
     'GINI_CAPITAL_PAR_MD', 'GINI_HAUT_PATRIMOINE_PAR_MD', 'COMPET_PATRIMOINE_PAR_MD',
-    'GINI_ISF_EFFECTIF_PAR_MD', 'COMPET_ISF_EFFECTIF_PAR_MD',
+    'COMPET_ISF_EFFECTIF_PAR_MD',
     'GINI_SOLIDARITE_PAR_MD', 'GINI_PENSIONS_PAR_MD',
     'COMPET_IS_PAR_MD', 'COMPET_IMPOTS_PRODUCTION_PAR_MD', 'COMPET_IS_EXCEPTIONNEL_PAR_MD',
     'COMPET_TVA_PAR_MD',

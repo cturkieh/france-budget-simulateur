@@ -352,8 +352,17 @@ total des deux en 2028 rend 6,1 Md€ en 2028, puis 6,3, 6,5, 6,7 et 6,9 Md€ d
 moteur recalculait tout l'écart au coefficient de l'année : un retour à 1 effaçait l'économie
 (rattrapage implicite complet), d'où l'absence de calendrier sur ces deux clés.
 
-**Effet d'un gel sur les inégalités : proportionnel à l'écart de niveau accumulé** (relecture adverse
-finale de la release E, I-1). Ces deux leviers émettent tout leur effet sur le Gini à l'ouverture d'un
+**Effet d'un gel sur les inégalités : l'écart en euros (lot 4, méthode unique du Gini).** Depuis le
+lot 4, ces deux leviers émettent K × l'écart en euros de l'année, en incrément : K est le coefficient
+par Md€ du levier (prestations ciblées de l'INSEE pour les prestations, coefficient des pensions, centre
+d'une plage publiée, pour les retraites ; § Indicateurs Macroeconomiques) et l'écart en euros est l'écart de niveau appliqué à la
+masse de 2025 de la catégorie (euros de 2025, l'unité de Y). Un gel d'une année garde exactement
+l'écart en euros qu'il laisse, sans rattrapage ; un gel permanent le voit croître jusqu'au plateau des
+cohortes ; aucune règle séparée au retour au calendrier, aucun flux résiduel conventionnel. La règle
+de la relecture ci-dessous est conservée pour l'historique.
+
+*Historique (relecture adverse finale de la release E, I-1, jusqu'au lot 4) : proportionnel à l'écart
+de niveau accumulé.* Ces deux leviers émettaient tout leur effet sur le Gini à l'ouverture d'un
 écart (convention pensée pour une sous-indexation durable : c'est l'effet de l'écart au plateau, après
 N revalorisations — 7 pour les pensions, `RETRAITES_EROSION_PLATEAU_ANS`, 10 pour les prestations,
 `PRESTATIONS_REVALORISATIONS_MAX`) ; l'année du gel est donc celle d'un gel permanent. Au RETOUR à la
@@ -877,7 +886,7 @@ ligne, elle est citee **par son relais**, jamais comme source de premiere main.
 
 ### Impacts Macroeconomiques
 
-- **Inegalites** : lot 4, coefficient du canal d'âge à ZÉRO faute de source (aucune des sources consultées ne chiffre l'effet d'un âge de départ sur le Gini du niveau de vie ; sens de la limite : un recul de l'âge accroît probablement les inégalités, effet omis — § Méthode unique du Gini). Règle d'avant le lot 4 : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee. L'effet plein est servi l'annee ou la mesure OUVRE son ecart au calendrier legal (et non l'annee ou elle apparait), puis 10 % de residu annuel : cf. § « Effets NIVEAU vs FLUX », 4e pattern.
+- **Inegalites** (lot 4) : canal d'indexation = coefficient des pensions (−0,0000685 par Md EUR versé, centre de la plage publiée) × écart en euros, en incrément (§ Effet d'un gel sur les inégalités) ; canal d'âge : coefficient à ZÉRO faute de source (aucune des sources consultées ne chiffre l'effet d'un âge de départ sur le Gini du niveau de vie ; sens de la limite : un recul de l'âge accroît probablement les inégalités, effet omis — § Méthode unique du Gini). Règle d'avant le lot 4 : +1,25 annee d'age au-dessus de la reference legale de l'annee = +0,001 Gini (legerement REGRESSIF — mortalite differentielle : esperance de vie ouvriers -6 ans vs cadres, taux d'emploi 55-64 ans 52 % vs 71 %, COR 2024). Correction v0.6.0 : la doc affichait -0,002 « legerement progressif », signe INVERSE du code (audit 08/2026, constat 6). v0.6.1 : l'ecart se mesure a la reference de l'annee, comme le canal budgetaire, pour que le statu quo reste neutre ; le coefficient est inchange — l'effet distributif du canal emploi n'est pas etabli (heterogeneite forte documentee) et ne sera pas ajuste hors d'une passe dediee. L'effet plein est servi l'annee ou la mesure OUVRE son ecart au calendrier legal (et non l'annee ou elle apparait), puis 10 % de residu annuel : cf. § « Effets NIVEAU vs FLUX », 4e pattern.
 - **Pouvoir d'achat** (v0.6.8) : les pensions non versées (âge, durée, indexation) sortent du RDB des ménages au montant du budget, canal `prestations` (l'ancien −0,007/an pour un gel total se composait d'une année sur l'autre)
 - **Competitivite** : Impact neutre (pas de lien direct entreprises)
 - **Croissance et chomage** : depuis la v0.6.1, le levier d'age agit aussi par
@@ -1448,7 +1457,11 @@ statique dans les deux sens, monotonie, ancre DG Tresor).
 - Revenu moyen tranche : 220k EUR
 
 **Impacts :**
-- Gini : Taux 45%->50% = -0,008 (PROGRESSIF, redistribution forte)
+- Gini (lot 4, méthode unique) : −0,000444 par Md EUR de recette de la tranche supérieure (coefficient
+  de l'IFI de l'INSEE ; la concentration de la tranche supérieure est au moins celle de l'IFI) ; décote :
+  +0,000122 par Md EUR (Conseil des prélèvements obligatoires, rapport particulier n° 2, tableau n° 34 :
+  gain de la décote par dixième, concentration 0,134). Jusqu'ici −0,008 pour 45%->50% (« OFCE 2023 »,
+  passage non retrouvé), jusqu'à −0,0075 par Md EUR, quinze fois la borne arithmétique
 - PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : prélèvement direct, −1 € de RDB par €
 
 ### CSG/CRDS
@@ -1869,7 +1882,9 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 - 2027+ : 100%
 
 **Impacts :**
-- Gini : -0,020 pour 12 Md EUR (reduction forte inegalites)
+- Gini (lot 4, méthode unique) : −0,000444 par Md EUR de recette nette d'année pleine, IFI remplacé
+  déduit (coefficient de l'IFI de l'INSEE), émis au changement de l'intensité, comme l'impôt plancher
+  (corrigés ensemble). Jusqu'ici −0,020 pour 12 Md EUR de recette BRUTE, le phasage compté deux fois
 - PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : prélèvement direct, −1 € de RDB par €
 - Competitivite : -0,002 (risque exil entrepreneurs)
 
@@ -2050,13 +2065,14 @@ jusqu'à la borne). Un euro d'aide publique au développement, agrégat de l'OCD
 | Curseur | Solde 2028 | Solde 2032 | Dette 2032 | Croissance 2029 | Gini 2032 | Pouvoir d'achat 2032 |
 |---|---|---|---|---|---|---|
 | `credits_etat` −10 | +0,33 pt | +0,20 pt | −0,37 pt | −0,20 pt | 0 | −0,2 |
-| `solidarite` −10 | +0,33 pt | +0,22 pt | −0,48 pt | −0,19 pt | +0,002 | −0,6 |
+| `solidarite` −10 | +0,33 pt | +0,22 pt | −0,48 pt | −0,19 pt | +0,005 | −0,6 |
 | `pensions` −12 | +0,39 pt | +0,27 pt | −0,59 pt | −0,23 pt | +0,001 | −0,7 |
 | `transferts_etranger` −5 | +0,17 pt | +0,22 pt | −0,91 pt | 0,00 pt | 0 | 0 |
 
 Points de PIB pour le solde et la dette (un solde « +0,33 » = déficit réduit de 0,33 point),
 points de croissance, unités du Gini et de l'indice de pouvoir d'achat (base 100 en 2025) ;
-valeurs arrondies des sorties publiées du moteur.
+valeurs arrondies des sorties publiées du moteur. Colonne Gini remesurée au lot 4 (méthode unique :
++0,0055 et +0,0013 ; jusqu'ici +0,0016 et +0,0006).
 
 ### Recettes en Md€ sans comportement, déplafonnement des cotisations salariales
 
@@ -2208,10 +2224,11 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   (constante unique du moteur `EVITEMENT_PLANCHER_DEFAUT`, dérivée des deux bornes, lue au
   registre comme neutre) ; à 2 % et au PIB 2025, le rendement vaut ≈ 13 Md€ au lieu de 20 Md€
   sans réaction [CALCUL]. Aucun chiffre non publié n'est utilisé.
-- **Canaux** : prélèvement direct des ménages (comme l'ISF). Gini et compétitivité : règle
-  **effective** de l'ISF par Md€ de recette d'année pleine (le phasage entre deux fois dans
-  l'ISF, la règle effective vaut le quart de la règle affichée ; la correction se fera pour
-  les deux leviers ensemble). Comme pour l'ISF, la perte de compétitivité suit la recette
+- **Canaux** : prélèvement direct des ménages (comme l'ISF). Gini (lot 4, corrigé avec l'ISF) :
+  coefficient de l'IFI de l'INSEE, −0,000444 par Md€ de recette d'année pleine (jusqu'ici la règle
+  effective de l'ISF, le quart de sa règle affichée). Compétitivité : règle **effective** de l'ISF par
+  Md€ de recette d'année pleine (le phasage entre deux fois dans la compétitivité de l'ISF ; hors du
+  périmètre du lot 4). Comme pour l'ISF, la perte de compétitivité suit la recette
   perçue : elle est plus faible quand l'évitement est fort (indicateur seul, sans effet sur
   le budget).
 - **Avis** : si un impôt que le plancher déduit est relevé en même temps (revenus du capital
@@ -3667,9 +3684,10 @@ oeuvre via `_is_first_year_change()` (ou `years_elapsed == 0`) ; l'indice cumule
 > `impot_societes` (via la regle survivante, dette connue ci-dessus),
 > `retraites` (residu delibere de 10 %/an, cf. « flux annuel des nouvelles
 > cohortes de retraites impactees ») et `rabot_uniforme` (emission croissante,
-> la plus lourde des trois, jamais auditee). Leur traitement releve du
-> chantier v0.7 : la valeur de `GINI_IMPACT_SCALE` n'est pas re-derivable tant
-> que les coefficients ne sont pas tous sources.
+> la plus lourde des trois, jamais auditee). **Lot 4** : il n'en reste qu'un,
+> le canal d'âge des retraites (résidu de 10 %/an, convention déclarée) — la
+> règle de l'IS a été retirée au lot 7, le rabot émet désormais une fois au
+> changement du taux, et l'indexation des pensions suit son écart en euros.
 
 **Effectifs de la fonction publique (v0.6.8)** : ni les créations ni les suppressions de postes
 n'ont d'effet direct sur le pouvoir d'achat (arbitrage du mainteneur) — elles passent par la
@@ -3860,9 +3878,12 @@ du Gini publié par rapport à une composante du revenu (Lerman et Yitzhaki, 198
 *Borne arithmétique.* C est compris entre −1 et 1. Un prélèvement ne peut donc pas réduire
 l'indice de plus de (1 − G) / Y = 0,00051 par Md€ (tout payé par la personne la plus aisée),
 une prestation pas de plus de (1 + G) / Y = 0,00094 par Md€ (tout versé à la plus modeste).
-Une garde d'import et une garde de CI balaient toutes les constantes Gini « par Md€ » ; deux
-règles antérieures dépassaient la borne (patrimoine −0,001 par Md€, tranche supérieure de l'IR
-jusqu'à −0,0075 par Md€).
+Trois gardes la verrouillent : une garde d'import sur les coefficients nommés ; une garde de CI
+sur toute constante dont le nom suit un style du dépôt (« …GINI…PAR_MD », « …GINI…PAR_10MD »
+ramenée à un Md€) ; et une garde de CI qui ne dépend d'aucun nom : chaque levier du registre,
+chaque paramètre porté à son minimum, à son maximum et à deux points intermédiaires, doit émettre
+par Md€ moins que la borne (`tests/test_gini_borne_registre_lot4.py`). Avant le lot, onze leviers
+dépassaient la borne (indexation des prestations, tranche supérieure de l'IR, patrimoine…).
 
 *Données.* INSEE, *Revenus et patrimoine des ménages*, édition 2024 : fiche 1.4, figure 1
 (composition du niveau de vie selon le dixième de niveau de vie, 2021) et fiche 1.3, figure 1
@@ -3880,10 +3901,13 @@ Ordres de grandeur, avant assemblage : -0,0052 pour +10 Md EUR verses en prestat
 | Instrument (levier) | K par Md€ (+1 Md€) | Statut | Fondement |
 |---|---|---|---|
 | Prestations ciblées : prestations familiales, aides au logement, minima, prime d'activité (`prestations_menages` solidarité) | −0,000521 | sourcé | INSEE RPM 2024, fiche 1.4, classement final (figure 2 de la FPS 2025 : −0,000622) |
-| CSG et CRDS (`csg`, taux) | −0,0000863 | sourcé | même fiche, « Contributions sociales : CSG et CRDS » (figure 2 : −0,000125) |
+| CSG et CRDS (`csg`, taux) | −0,0000863 | sourcé | même fiche, « Contributions sociales : CSG et CRDS » (figure 2 : −0,000125) ; la part du taux qui porte la hausse de 2026 sur les revenus du capital (jusqu'au taux du droit en vigueur) prend le coefficient du capital |
 | Cotisations salariales (`cotisations_salariales`, par Md€ rendu) | +0,0000541 | sourcé (proxy : salaires) | même fiche, « Salaires » ; plafonds non comptés, effet probablement surestimé ; sous la plage +0,00006 à +0,0001 de la décision du 12/11/2026, que tirait le classement initial |
 | Impôt sur le revenu (référence) | −0,000297 | sourcé | même fiche, « Impôt sur le revenu et le patrimoine » (figure 2 : −0,000400) |
-| IFI (`fiscalite_patrimoine`, part IFI) | −0,000444 | sourcé (classement initial) | FPS 2025, figure 2, IFI, B = 5,2, « le prélèvement le plus progressif » |
+| IFI (`fiscalite_patrimoine`, part IFI), ISF (`isf_climatique`, recette nette d'année pleine), impôt plancher, tranche supérieure de l'IR (`impot_revenu`, par Md€ de recette) | −0,000444 | sourcé (classement initial) | FPS 2025, figure 2, IFI, B = 5,2, « le prélèvement le plus progressif » ; la tranche supérieure est au moins aussi concentrée (valeur prudente, sous la borne −0,00051) |
+| Indexation des prestations (`prestations_indexation`) | −0,000521 × écart en euros | sourcé | coefficient des prestations ciblées × écart de niveau appliqué à la masse de 2025 de la catégorie, en incrément |
+| Indexation des pensions (`retraites`, canal indexation) | −0,0000685 × écart en euros | **plage publiée** | coefficient des pensions × écart de niveau appliqué à la masse indexée de 2025, en incrément |
+| Rabot uniforme (`rabot_uniforme`) | par catégorie | sourcé et plage publiée | minima et AAH −0,000521, chômage +0,000238 par Md€ coupé, pensions −0,0000685 ; santé, APA, autres : 0 ; émis une fois |
 | Allocations chômage (`chomage_alloc`, canal taux, par Md€ coupé) | +0,000238 | sourcé | même fiche, « Allocations chômage », en euros (l'ancre DREES E&R n° 1368, en personnes, donnait +0,000319) ; canal durée × 1,6 |
 | Pensions (`prestations_menages` pensions) | −0,0000685 | **plage publiée** −0,0000474 à −0,0000895, centre | toutes pensions au classement final (fiche 1.4) ; gel des pensions de base (IPP, rapport 2025-2026, tableau 2.2, trois groupes, non recalé : ce regroupement majore l'écart des pensions de 8 %) |
 | Revenus du capital (`fiscalite_capital`) | −0,000398 | **plage publiée** −0,000398 à −0,000506, borne basse | IPP, tableau 2.2, suppression du prélèvement forfaitaire unique (trois groupes) ; borne arithmétique ; plus lâche : revenus du patrimoine de la fiche 1.4, −0,000273 |
@@ -3930,32 +3954,58 @@ pour +1 %, à emploi inchangé ; extrapolé linéairement aux hausses encodées 
 surestime probablement la baisse de l'indice (diffusion au-dessus du SMIC, dégressivité de la
 prime d'activité, effets d'emploi signalés par le même rapport).
 
-**Assemblage Gini (v0.4.0 — realisme empirique).** Les sensibilites par mesure
-(sections par levier ci-dessus) ne sont plus sommees telles quelles : leur somme
-brute sur-reagissait d'un facteur ~4 par rapport aux microsimulations de
-reference (IPP/OFCE 2022 : un programme redistributif de 5-10 % du PIB deplace
-le Gini de −0,02 a −0,03 sur un quinquennat) et arrivait en quasi-totalite des
-la premiere annee, jusqu'a saturer le plancher 0,25. Trois etages, appliques au
-point unique d'agregation (`engine/orchestrator.py`, constantes `constants.py`) :
+**Rabot uniforme (lot 4).** Chaque catégorie de prestations en espèces coupée à son coefficient par Md€
+(minima sociaux et AAH : prestations ciblées ; allocations chômage : règle montant ; pensions :
+coefficient des pensions, plage publiée) ; santé, APA et autres catégories : 0 (hors du revenu disponible) ; montant d'année pleine
+que fixe le taux (base 2025), émis une fois au changement du taux. Jusqu'ici 0,10 × taux × part sociale
+× phasage, sans source, réémis chaque année dans un agrégateur cumulatif.
 
-1. **Rescale** (`GINI_IMPACT_SCALE = 0,22`) : la somme des impacts alimente une
-   *cible* cumulee — un seul facteur global, les ecarts relatifs entre
-   programmes sont preserves.
-2. **Inertie** (`GINI_CONVERGENCE_RATE = 0,35`) : le Gini courant converge vers
-   la cible a ~35 %/an (lag du 1er ordre). Justification : la serie INSEE
-   sur 25 ans ne montre jamais |ΔGini| > ~0,01/an, meme lors des reformes
-   fiscales majeures (ISF→PFU 2018 : ~±0,005).
-3. **Plancher asymptotique** (`GINI_SOFT_FLOOR = 0,25`) : les pas a la baisse
-   sont amortis proportionnellement a la distance au plancher (rendements
-   decroissants de la redistribution a l'approche des niveaux les plus
-   egalitaires de l'UE — seuls la Slovaquie, la Tchequie, la Slovenie et la
-   Belgique sont sous 25, Eurostat 2024). Le clip dur [0,25 ; 0,40] subsiste
-   en filet anti-flottant mais ne peut plus etre atteint.
+**Hausse de 2026 sur les revenus du capital (lot 4, équations).** Le budget voté encode la hausse de la CSG sur
+les revenus du capital par le taux global du levier CSG (le taux qui produit le rendement voté sur l'assiette du
+levier). Cette part du taux, entre 9,7 % et le taux du droit en vigueur, prend le coefficient du capital : c'est
+le même instrument qu'un programme retire par le levier « fiscalité du capital », au même coefficient. Le reste
+d'une variation du taux de CSG garde celui de la CSG.
 
-Resultat sur les programmes 2027 : LFI 2030 ≈ 0,269, PS ≈ 0,276, RN ≈ 0,285
-(au lieu d'une co-saturation LFI/PS a 0,250) — ordres de grandeur coherents
-avec les evaluations IPP/OFCE, vitesse compatible avec l'historique INSEE,
-classement inchange. Proprietes verrouillees par tests dedies.
+**Règles qui ne sont pas en Md€ (lot 4).** SMIC : chiffrage statique sourcé pour +1 % (plage publiée), sans
+l'ancien facteur 0,22 ; extrapolation linéaire déclarée comme convention. Âge de départ et CSG progressive : zéro
+faute de source (§ Méthode unique du Gini, sens de chaque limite) ; le mécanisme du canal d'âge (écart à la
+référence de l'année, 10 % de résidu des cohortes) est gardé, éprouvé en test par un coefficient sonde. Aucune
+règle ne garde l'ancien facteur d'atténuation.
+
+**Assemblage du Gini (lot 4 ; arbitrage du mainteneur).** L'indice publié de l'année vaut la base (0,302)
+plus la somme des effets émis par les mesures jusqu'à cette année, chacun émis une fois, l'année où la mesure
+s'applique (les calendriers des programmes jouent par leurs profils). Deux bornes de sécurité, [0,25 ; 0,40]
+(`GINI_SOFT_FLOOR`, `GINI_HARD_CEILING`), restent le seul garde-fou : une valeur qui en sortirait serait publiée à
+la borne, avec un avertissement ; aucun programme publié ne les approche (minimum 0,276 en 2032).
+
+*Facteur d'atténuation `GINI_IMPACT_SCALE` = 1,0* : les coefficients sont physiques et bornés un par un, il n'y a
+plus rien à atténuer ; la justification de 0,22 (« IPP/OFCE 2022 ») n'a pas de passage retrouvé, et la source même
+des coefficients le contredit : la masse des prestations ciblées (5,8 % du niveau de vie) pesée par leur
+coefficient retrouve 76 % de la contribution que publie l'INSEE (0,0551 ; écart entre effet marginal et effet
+moyen), contre 17 % avec 0,22 (verrouillé par test).
+
+*Retirés au lot 4, faute de source* (arbitrage du mainteneur) : la convergence de 35 % par an vers la cible
+(`GINI_CONVERGENCE_RATE`, v0.4.0) et l'amortissement des baisses à l'approche de 0,25, qui ne freinait que les
+programmes qui réduisent les inégalités. Pour les programmes publiés, en 2032 : l'indice des trois programmes les
+plus redistributifs baisse de 0,0035 à 0,0053 de plus ; ceux qui montent en charge atteignent plus tôt leur niveau ;
+aucun rang ne change.
+
+*Limite déclarée : la vitesse.* L'effet d'une mesure arrive en entier l'année où elle s'applique. La série de
+l'INSEE bouge rarement de plus de 0,01 d'une année sur l'autre (au plus 0,014, entre 2012 et 2013) ; un
+programme qui concentre de fortes mesures redistributives sur sa première année affiche un saut plus grand (jusqu'à
+environ 0,025 en 2028 parmi les programmes publiés, mesuré le 16/11/2026). Sens : la trajectoire est plus rapide
+que ce que l'histoire a observé ; le niveau atteint, lui, ne dépend pas de ce choix. L'ancienne garde de CI
+(|ΔGini| ≤ 0,01 par an) est retirée avec la convergence.
+
+*Ancrage, verrouillé par test* : la cible d'un programme figé réduit l'indice d'au plus la réduction due à
+l'ensemble des transferts du champ de l'INSEE (0,092 ; le test rougit si toutes les émissions sont multipliées par
+environ 6), et un Md€ de prestations ciblées, lu à travers l'assemblage et pesé sur leur masse, retrouve entre 60
+et 120 % de leur contribution publiée (0,0551 ; mesuré 76 % ; le test rougit pour un facteur global hors de 0,8 à
+1,6).
+
+*Historique.* De la v0.4.0 au lot 4, trois étages (facteur 0,22, convergence de 35 % par an, amortissement près
+de 0,25) corrigeaient une somme brute de règles héritées qui sur-réagissait d'un facteur ~4 et saturait le plancher
+dès la première année. La méthode unique (coefficients physiques et bornés) a rendu ces trois étages sans objet.
 
 **Competitivite :**
 - Baseline 2025 : 100 (indice)
@@ -4943,7 +4993,9 @@ compensation forfaitaire, le signe s'inverserait** : les deciles D1 a D5
 deviendraient gagnants. La condition est publiee ici parce que le moteur ne sait
 pas la detecter tout seul.
 
-**M29. Le facteur d'echelle global n'est pas re-derive.** Le choix :
+**M29. Le facteur d'echelle global n'est pas re-derive.** *Lot 4 : sans objet —
+le facteur vaut 1,0, les coefficients étant physiques et bornés un par un
+(méthode unique, § Indicateurs Macroeconomiques).* Le choix d'alors :
 `GINI_IMPACT_SCALE = 0,22` reste en l'etat. La justification : c'est un facteur
 **global unique** applique a la somme agregee, qui preserve les ecarts relatifs
 entre scenarios — lui attribuer un biais oriente est une erreur d'analyse. Il

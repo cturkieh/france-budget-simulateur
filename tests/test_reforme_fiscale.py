@@ -18,23 +18,24 @@ import pytest
 
 import budget_simulator.engine.orchestrator as orch
 from budget_simulator.simulator import BudgetSimulatorV45
-from budget_simulator.constants import (COUT_PAR_POINT_COTIS_SAL, GINI_CONVERGENCE_RATE,
+from budget_simulator.constants import (COUT_PAR_POINT_COTIS_SAL,
                                         GINI_CSG_PROGRESSIVE, GINI_HAUT_PATRIMOINE_PAR_MD,
                                         GINI_IMPACT_SCALE, GINI_IR_CIBLE_PAR_MD)
 
 PA_COL = "Pouvoir d'Achat"
 
-# Assemblage Gini v0.4.0 : la sortie année 1 vaut « impact brut handler × SCALE
-# × RATE » (amortissement = 1 au départ de la base) ; à l'horizon (impact en Y1,
-# mesure en Y10 = 9 pas de convergence, 1 − 0,65^9 ≈ 0,98) → « brut × SCALE ».
-# Les fourchettes ci-dessous restent exprimées en BRUT (la calibration
-# d'origine, cf METHODOLOGIE.md par levier) et sont converties en sortie via
-# ces facteurs — elles survivent ainsi à un re-réglage des constantes.
-ATTENUATION_Y1 = GINI_IMPACT_SCALE * GINI_CONVERGENCE_RATE
+# Assemblage Gini (lot 4, arbitrage du mainteneur) : ni convergence ni
+# amortissement — l'indice publié vaut la base plus l'effet brut × SCALE dès
+# l'année où la mesure s'applique, et le garde ensuite (effet émis une fois).
+# Jusqu'au lot 4 : × RATE (0,35) l'année d'entrée, 1 − 0,65^k après k années.
+ATTENUATION_Y1 = GINI_IMPACT_SCALE
 ATTENUATION_HORIZON = GINI_IMPACT_SCALE
 
-def test_csg_progressive():
+def test_csg_progressive(monkeypatch):
     """Test CSG progressive : neutralite recettes + redistribution"""
+    # Lot 4 : forfait GINI_CSG_PROGRESSIVE (règle sans source vérifiée gardée à
+    # son poids publié d'avant), sous la résolution de sortie : pleine précision.
+    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
     print("\n" + "="*60)
     print("TEST 1 : CSG PROGRESSIVE")
     print("="*60)
@@ -138,15 +139,14 @@ def test_elargissement_ir(monkeypatch):
     y0_elargis = df_elargis.iloc[1]
 
     delta_recettes = y0_elargis['Déficit'] - y0_sq['Déficit']
-    # Gini mesuré à l'HORIZON (Y10, 10 pas de convergence depuis l'émission de
-    # 2026) : brut × SCALE × (1 − (1 − RATE)^10), pas positif sans
-    # amortissement. Brut (lot 4) = recette du levier × GINI_IR_CIBLE_PAR_MD,
+    # Gini mesuré à l'HORIZON (Y10 ; lot 4 : sans convergence, l'effet émis en
+    # 2026 est entier chaque année) : brut × SCALE. Brut (lot 4) = recette du
+    # levier × GINI_IR_CIBLE_PAR_MD,
     # zéro faute de source : le levier ne dit pas quel instrument il porte
     # (jusqu'ici +0,005 pour +20 points, sans source).
     delta_gini = df_elargis.iloc[10]['Gini'] - df_sq.iloc[10]['Gini']
     recette = 41_000_000 * (0.63 - 0.45) * 18000 * 0.03 / 1e9
-    attendu = (GINI_IR_CIBLE_PAR_MD * recette * ATTENUATION_HORIZON
-               * (1 - (1 - GINI_CONVERGENCE_RATE) ** 10))
+    attendu = GINI_IR_CIBLE_PAR_MD * recette * ATTENUATION_HORIZON
 
     print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +8 a +12 Md)")
     print(f"  Delta Gini Y10 : {delta_gini:.6f} (attendu: {attendu:.6f})")

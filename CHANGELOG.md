@@ -6,6 +6,86 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATIONS, distinct du commit de paramètres
+du même lot ci-dessous, qu'il suppose appliqué. Seule la colonne Gini bouge : toutes les autres colonnes des dix
+scénarios publiés (deux modes) et des 42 mini-scénarios du golden master sont identiques au bit en pleine
+précision.
+
+**Les défauts.** Sept règles n'avaient pas la forme K × montant ou comptaient un instrument à deux coefficients,
+et l'assemblage retardait et freinait l'effet sans source :
+- tranche supérieure de l'IR : −0,008 par 5 points, jusqu'à −0,0075 par Md€ effectivement prélevé, quinze fois la
+  borne arithmétique d'un prélèvement ;
+- ISF : −0,020 pour 12 Md€ de recette BRUTE (avant remplacement de l'IFI), le phasage compté deux fois ; l'impôt
+  plancher en recopiait l'émission effective (le quart de la règle), à corriger avec lui ;
+- indexation des prestations : +0,008 par 10 points de sous-indexation, sans lien avec les euros — un gel d'un an
+  (≈ 1,4 Md€) émettait autant qu'un retrait de 10 Md€, six fois la borne arithmétique d'une prestation ;
+- indexation des pensions : effet « par point » à l'ouverture de l'écart, flux résiduel de 10 % par an, part
+  min(k, N)/N gardée au retour au calendrier — un gel d'un an pesait, par Md€, la moitié d'un gel permanent ;
+- rabot uniforme : 0,10 × taux × part sociale × phasage, sans source, RÉÉMIS chaque année dans un agrégateur
+  cumulatif (l'indice dérivait tant que le rabot durait) ;
+- hausse de 2026 de la CSG sur les revenus du capital (droit en vigueur, portée par le taux global du levier
+  CSG) : comptée au coefficient de la CSG pour tous les programmes, alors que son retrait par le levier de la
+  fiscalité du capital l'est au coefficient du capital ;
+- facteur d'atténuation `GINI_IMPACT_SCALE` = 0,22, sur la seule justification « IPP/OFCE 2022 », passage non
+  retrouvé, et contredit par la source des coefficients (avec 0,22, l'effet des prestations ciblées serait
+  environ cinq fois plus petit que la contribution publiée par l'INSEE) ;
+- convergence de l'indice vers sa cible à 35 % par an (`GINI_CONVERGENCE_RATE`) et amortissement des seules
+  baisses à l'approche de 0,25 : aucune source, et l'amortissement ne freinait que les programmes qui réduisent
+  les inégalités.
+
+**Les corrections.**
+- Tranche supérieure de l'IR : coefficient de l'IFI × Md€ de recette du taux (la recette, extraite en fonction
+  pure, est identique au bit).
+- ISF et impôt plancher, ensemble : coefficient de l'IFI × recette nette d'année pleine (IFI remplacé déduit pour
+  l'ISF), émis au changement du paramètre et rendu au retour à 0 ; la compétitivité est inchangée (hors périmètre).
+- Indexation des prestations et des pensions : K × écart EN EUROS (écart de niveau × masse de 2025 de la catégorie,
+  l'unité de Y), en incrément ; un gel d'une année garde exactement l'écart qu'il laisse, sans règle séparée au
+  retour au calendrier ni flux résiduel (le helper `_retour_au_calendrier`, sans autre appelant, est retiré ;
+  `_reference_du_calendrier` reste : la référence datée du SMIC la lit).
+- Rabot : chaque catégorie de prestations en espèces à son coefficient (minima sociaux et AAH, chômage, pensions ;
+  santé, APA et autres à 0), sur le montant d'année pleine que fixe le taux, émis une fois au changement du taux.
+- Hausse de 2026 sur le capital : la part du taux de CSG comprise entre 9,7 % et le taux du droit en vigueur
+  (`CSG_TAUX_DROIT_EN_VIGUEUR_2026`, égal à la valeur de `data/droit_en_vigueur.json`, verrouillé par test) prend
+  le coefficient du capital ; le reste d'une variation du taux garde celui de la CSG.
+- Facteur d'atténuation 1,0 : les coefficients sont physiques et bornés un par un. Aucune règle ne garde
+  l'ancien facteur (le SMIC a une valeur sourcée ; l'âge de départ et la CSG progressive sont à zéro faute de
+  source) : pas de constante historique.
+- Assemblage (arbitrage du mainteneur) : la convergence de 35 % par an et l'amortissement près du plancher sont
+  retirés. L'indice publié de l'année vaut la base plus la somme des effets émis jusqu'à elle : l'effet d'une
+  mesure arrive l'année où elle s'applique, les calendriers des programmes continuent de jouer. Les bornes de
+  sécurité [0,25 ; 0,40] restent le seul garde-fou. La garde de CI de vitesse annuelle (|ΔGini| ≤ 0,01) devient
+  une limite déclarée dans la Documentation : un programme qui concentre de fortes mesures sur sa première année
+  bouge l'indice plus vite que l'INSEE ne l'a observé (au plus 0,014 en un an), sans effet sur le niveau
+  atteint.
+- Infobulles du registre public (`policy_measures.json`) : les mentions de Gini que le lot rend fausses
+  (CSG progressive, élargissement de l'IR, patrimoine, SMIC, taxe sur les superprofits, TVA énergie, rabot,
+  cotisations salariales) et trois qui l'étaient déjà (niches fiscales, niches sociales, exonérations des
+  hausses de salaire, à Gini nul dans le moteur) sont réécrites en français courant, sans chiffre qu'un test
+  ne lie ; la citation « OFCE 2024 » de la CSG progressive est retirée.
+
+- Tests : `tests/test_gini_equations_lot4.py` (nouveau ; rouge sur le commit de paramètres, vert) — une propriété
+  par équation ; garde de borne au niveau des handlers (effet par Md€ sous la borne pour chaque levier en Md€) ;
+  facteur 1,0 ancré sur la contribution publiée par l'INSEE ; SMIC émis une fois ; un coefficient pour la hausse
+  de 2026 sur le capital ; indice publié = base + cumul des effets, au bit, dans les deux modes, bornes de
+  sécurité gardées, plus de constante de convergence (rouge sur l'assemblage d'avant) ; propriétés vues sans
+  `scenarios.json` (signe et valeur de l'abattement, même émission
+  dans les deux modes pour le rabot, l'ISF et la CSG, retour au défaut de l'impôt sur le revenu).
+  `tests/test_gini_borne_registre_lot4.py` (nouveau, proposé par la relecture adverse) : chaque levier du
+  registre, chaque paramètre sur son domaine, effet émis par Md€ sous la borne arithmétique, sans dépendre
+  d'aucun nom de constante ni d'aucune liste de leviers (rouge sur l'état d'avant le lot et sous mutation).
+  Ancrage (e) de l'assemblage rendu effectif : la borne V porte sur la cible non plafonnée (que le plancher dur
+  ne masque plus ; rouge vers un facteur 6 sur toutes les émissions), et un test lit la contribution publiée des
+  prestations à travers l'assemblage (rouge hors d'un facteur 0,8 à 1,6). Re-déclarés, avec leur motif dans le test : les propriétés I-1 de la relecture adverse
+  finale de la release E (sous la forme des écarts en euros), la bascule de l'indexation des pensions, le gel
+  d'une année des arbitrages de la release E, la carte des émetteurs récurrents (le rabot en sort ; reste le canal
+  d'âge), le canal indexation de la revue adverse v0.6.1, le coefficient de la CSG au commit de paramètres.
+- Tests-propriétés de l'assemblage gardés verts : clip jamais atteint (saturation impossible), classement 2030
+  préservé, statu quo inerte, réentrance, ancrage des programmes figés ; la propriété de vitesse annuelle est
+  retirée avec la convergence (limite déclarée).
+- Golden master isolé : les trois instantanés régénérés ne diffèrent que par la colonne Gini.
+
 ## [non publiée — proposée] — paramètres du lot 4 : méthode unique du Gini (coefficients au classement final, plages publiées, périmètre, base)
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit de PARAMÈTRES ; les équations du même lot
@@ -59,7 +139,8 @@ ceux du classement final de 19 à 45 %.
 - `GINI_BASE` 0,302 : INSEE, série « Niveau de vie et indicateurs d'inégalités », parue le 09/07/2026, valeur
   2024. Commun à tous les programmes.
 - Borne arithmétique verrouillée : |K| ≤ (1 − G) / Y pour un prélèvement, (1 + G) / Y pour une prestation, garde
-  d'import et garde de CI qui balaie toutes les constantes Gini par Md€ du module.
+  d'import sur les coefficients nommés et garde de CI sur toute constante dont le nom suit un style du dépôt (la
+  garde qui ne dépend d'aucun nom, sur tout le registre, vient avec le commit d'équations).
 
 Citations retirées : « OFCE Policy Brief n° 124 » pour le Gini des pensions (le document ne contient aucun indice de
 Gini ; le commentaire de la règle se trompait en outre d'un facteur 10), « OFCE 2023 » (chômage, CSG progressive),

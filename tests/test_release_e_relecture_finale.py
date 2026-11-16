@@ -5,12 +5,14 @@ I-1. Gini d'un gel d'UNE année des pensions ou des prestations. L'effet émis
      l'année du gel était gardé en entier au retour de la revalorisation
      normale, autant qu'un gel permanent, et ce retour ne se reconnaissait qu'à
      l'égalité au littéral 1,0 : avec un droit en vigueur à 0,9999, le même gel
-     rendait presque tout. Désormais, le Gini suit l'écart de niveau accumulé :
-     au retour à la référence du calendrier (le droit en vigueur de l'année,
-     quelle que soit sa valeur) après k revalorisations au coefficient gelé, le
-     levier garde min(k, N)/N de l'effet émis, N étant son plateau (7
-     revalorisations pour les pensions, 10 pour les prestations). À coefficient
-     constant, la convention est inchangée au bit.
+     rendait presque tout. La release E l'avait corrigé par une part gardée
+     min(k, N)/N d'un effet « par point ». Lot 4 (méthode unique du Gini) : le
+     Gini suit directement l'ÉCART EN EUROS de l'année (euros de 2025), au
+     coefficient par Md€ du levier, en incrément — la part gardée est l'écart
+     en euros qu'un gel laisse (aucun rattrapage), sans règle séparée au
+     retour, quelle que soit la référence du calendrier. Les propriétés de la
+     relecture (gel d'une année sous le gel permanent, monotonie, continuité
+     autour de 1,0, valeur datée) sont re-déclarées sous cette forme.
 m-b. Infobulle de la prévention : le curseur borne la DÉPENSE de prévention ;
      un effort supplémentaire se saisit en dépense de soins, sans retour
      modélisé.
@@ -46,7 +48,6 @@ REGISTRE = {m['id']: m for m in json.loads(
     (RACINE / 'policy_measures.json').read_text(encoding='utf-8'))['mesures']}
 DEBUT = C.ANNEE_PREMIER_BUDGET_MANDAT
 FIN = C.ANNEE_FIN_MANDAT
-R = C.RETRAITES_GINI_RESIDU_FLUX
 
 # ===========================================================================
 # I-1. Gini d'un gel d'une année : proportionnel à l'écart de niveau accumulé
@@ -58,6 +59,8 @@ LEVIERS = {
 }
 CLES = {'retraites': 'retraites.indexation',
         'prestations_indexation': 'prestations_indexation.taux_indexation'}
+# Coefficient par Md€ VERSÉ de chaque levier (lot 4, constants.py § CANAUX GINI).
+K = {'retraites': C.GINI_PENSIONS_PAR_MD, 'prestations_indexation': C.GINI_SOLIDARITE_PAR_MD}
 
 
 def _plateau(levier):
@@ -67,39 +70,20 @@ def _plateau(levier):
     return getattr(C, 'PRESTATIONS_REVALORISATIONS_MAX', 10)
 
 
-def _g(levier, c):
-    """Effet de NIVEAU émis à l'ouverture d'un écart au coefficient ``c``
-    (convention inchangée) : pensions, RETRAITES_GINI_PAR_POINT_DESINDEXATION ×
-    (1 − c) ; prestations, règle du handler « 100 % → 90 % = +0,008 » :
-    0,008 × (1 − c) / 0,10."""
-    if levier == 'retraites':
-        return C.RETRAITES_GINI_PAR_POINT_DESINDEXATION * (1.0 - c)
-    return 0.008 * (1.0 - c) / 0.10
-
-
-def _flux(levier):
-    """Part ré-émise chaque année après l'ouverture : flux des nouvelles
-    cohortes de retraités pour les pensions, rien pour les prestations."""
-    return R if levier == 'retraites' else 0.0
-
-
 def _sim_neuf():
     sim = BudgetSimulatorV45(periods=1)
     sim._reset_state()
     return sim
 
 
-def _parcours(levier, chemin, *, debut=DEBUT, origine=DEBUT, reference=None):
-    """Handler seul, un monde : coefficient ``chemin[i]`` l'année ``debut + i``,
-    horloge du levier à ``origine``. ``reference`` : référence du calendrier
-    imposée (sinon celle du moteur hors cadre, la pleine indexation). Rend
+def _parcours(levier, chemin, *, debut=DEBUT, origine=DEBUT):
+    """Handler seul, un monde, hors simulation (indice des prix 1) : coefficient
+    ``chemin[i]`` l'année ``debut + i``, horloge du levier à ``origine``. Rend
     [(dépense, gini)] par année."""
     param, fixes = LEVIERS[levier]
     sim = _sim_neuf()
     sim._origines_courantes = {levier: origine}
     sim._inflation_par_annee = {a: 0.012 + 0.0005 * (a - 2025) for a in range(2025, 2050)}
-    if reference is not None:
-        sim._reference_du_calendrier = lambda _levier, _param, _annee: reference
     sorties = []
     for i, c in enumerate(chemin):
         dep, _, impacts = sim.measure_handlers[levier](
@@ -124,31 +108,36 @@ def test_i1_plateaux_nommes_et_retour_sans_egalite_au_litteral():
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
-def test_i1_gel_d_une_annee_garde_un_n_ieme_de_l_effet(levier):
-    """Gel d'une année puis pleine indexation (droit livré) : l'effet est émis
-    en entier l'année du gel (convention), le retour en rend (N − 1)/N, et
-    rien ensuite. Cumul : g / N (pensions 0,005 / 7, prestations 0,08 / 10)."""
-    n = _plateau(levier)
-    emis = [g for _, g in _parcours(levier, [0.0] + [1.0] * 6)]
-    assert emis[0] == _g(levier, 0.0) > 0
-    assert emis[1] == pytest.approx(-(1 - 1 / n) * _g(levier, 0.0), rel=1e-12), emis
-    assert emis[2:] == [0.0] * 5, emis
-    assert sum(emis) == pytest.approx(_g(levier, 0.0) / n, rel=1e-12)
+def test_i1_gel_d_une_annee_garde_l_ecart_en_euros(levier):
+    """Gel d'une année puis pleine indexation (droit livré) : l'année du gel
+    émet K × l'écart en euros qu'il ouvre, puis l'incrément de l'écart (nul
+    hors simulation, masse constante) ; cumul = K × l'écart laissé, non nul,
+    sous le gel permanent (lot 4 ; jusqu'ici g par point, puis g/N gardé)."""
+    sorties = _parcours(levier, [0.0] + [1.0] * 6)
+    emis = [g for _, g in sorties]
+    assert emis[0] == pytest.approx(K[levier] * sorties[0][0], rel=1e-12) and emis[0] > 0
+    assert _cumul(sorties) == pytest.approx(K[levier] * sorties[-1][0], rel=1e-12)
+    permanent = _parcours(levier, [0.0] * 7)
+    assert 0 < _cumul(sorties) < _cumul(permanent)
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
 @pytest.mark.parametrize('coef, reference', [(0.0, 1.0), (0.5, 1.0), (1.2, 1.0), (0.0, 0.9),
                                              (0.95, 0.9), (0.0, 0.9999)])
-def test_i1_part_gardee_min_k_n_sur_n_quelle_que_soit_la_reference(levier, coef, reference):
+def test_i1_part_gardee_est_l_ecart_en_euros_quelle_que_soit_la_reference(levier, coef, reference):
     """k années au coefficient ``coef`` puis retour à la référence (quelle que
-    soit sa valeur) : écart au chemin de référence = min(k, N)/N × l'effet émis
-    au-delà de la référence, (g(coef) − g(ref)) × (1 + (k − 1) × flux)."""
+    soit sa valeur) : écart au chemin de référence = K × l'écart en euros des
+    deux chemins la dernière année, et il croît avec k jusqu'au plateau."""
     n = _plateau(levier)
+    precedent = None
     for k in range(1, n + 3):
-        gel = _cumul(_parcours(levier, [coef] * k + [reference] * 3, reference=reference))
-        ref = _cumul(_parcours(levier, [reference] * (k + 3), reference=reference))
-        exces = (_g(levier, coef) - _g(levier, reference)) * (1 + (k - 1) * _flux(levier))
-        assert gel - ref == pytest.approx(min(k, n) / n * exces, rel=1e-9, abs=1e-15), (k, gel, ref)
+        gel = _parcours(levier, [coef] * k + [reference] * 3)
+        ref = _parcours(levier, [reference] * (k + 3))
+        ecart = _cumul(gel) - _cumul(ref)
+        assert ecart == pytest.approx(K[levier] * (gel[-1][0] - ref[-1][0]), rel=1e-9, abs=1e-15), (k,)
+        if precedent is not None and k <= n:
+            assert abs(ecart) > abs(precedent), (k, ecart, precedent)
+        precedent = ecart
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
@@ -162,33 +151,36 @@ def test_i1_monotone_dans_le_nombre_d_annees_gelees_et_sous_le_gel_permanent(lev
     permanent = _cumul(_parcours(levier, [0.0] * horizon))
     assert all(b > a for a, b in zip(cumuls[:n], cumuls[1:n])), cumuls
     assert all(b >= a for a, b in zip(cumuls, cumuls[1:])), cumuls
-    # Sous le gel permanent tant que le palier est plus court que le plateau ;
-    # au-delà, au plus égal (prestations : aucun flux, l'écart est au plateau).
     assert all(c < permanent for c in cumuls[:n - 1]), (cumuls, permanent)
-    assert all(c <= permanent for c in cumuls), (cumuls, permanent)
+    assert all(c <= permanent * (1 + 1e-12) for c in cumuls), (cumuls, permanent)
     assert cumuls[0] < permanent / 2
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
 @pytest.mark.parametrize('coef', [0.0, 0.9, 1.0, 1.2])
-def test_i1_coefficient_constant_convention_inchangee_au_bit(levier, coef):
-    """(d) Coefficient constant : effet émis à l'ouverture, puis le flux
-    (pensions) ou rien (prestations), au bit."""
-    emis = [g for _, g in _parcours(levier, [coef] * 9)]
-    g = _g(levier, coef)
-    assert emis == [g] + [g * _flux(levier)] * 8, emis
+def test_i1_coefficient_constant_emissions_egales_a_l_increment_de_l_ecart(levier, coef):
+    """(d) Coefficient constant : chaque année émet K × l'incrément de l'écart en
+    euros ; rien après le plateau (l'écart cesse de croître) ; rien à la pleine
+    indexation (lot 4 ; jusqu'ici g puis le flux des cohortes)."""
+    sorties = _parcours(levier, [coef] * 12)
+    deps = [0.0] + [d for d, _ in sorties]
+    for t, (_, g) in enumerate(sorties):
+        assert g == pytest.approx(K[levier] * (deps[t + 1] - deps[t]), rel=1e-9, abs=1e-15), t
+    n = _plateau(levier)
+    assert all(g == pytest.approx(0.0, abs=1e-15) for _, g in sorties[n:]), sorties[n:]
+    if coef == 1.0:
+        assert all(g == 0.0 for _, g in sorties)
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
-def test_i1_aucun_residu_quand_le_gel_n_a_porte_sur_aucune_revalorisation(levier):
+def test_i1_aucun_effet_quand_le_gel_n_a_porte_sur_aucune_revalorisation(levier):
     """(e) Gel posé l'année qui suit la dernière revalorisation comptée
-    (fenêtre [origine ; origine + N − 1] épuisée) puis retiré : il n'a gelé
-    aucune revalorisation, aucun écart de niveau (dépense nulle) ; l'effet émis
-    à son ouverture (convention) est rendu en entier au retour, aucun résidu."""
+    (fenêtre [origine ; origine + N − 1] épuisée) puis retiré : il n'ouvre aucun
+    écart en euros, donc n'émet rien (jusqu'ici l'effet « par point » était
+    émis à son ouverture puis rendu en entier)."""
     n = _plateau(levier)
     sorties = _parcours(levier, [1.0] * n + [0.0] + [1.0] * 3, debut=2026, origine=2026)
-    assert sorties[n][0] == 0.0, sorties[n]
-    assert sorties[n][1] == _g(levier, 0.0) > 0      # NON_VACUITE : effet émis à l'ouverture
+    assert sorties[n] == (0.0, 0.0), sorties[n]
     assert _cumul(sorties) == pytest.approx(0.0, abs=1e-15), sorties
 
 
@@ -203,11 +195,15 @@ class _Sonde(BudgetSimulatorV45):
     """Moteur instrumenté : sortie COMBINÉE de chaque levier, chaque année (les
     trois mondes de la composition en mode cadre), lue au moment de l'appel —
     y compris pour un levier égal au droit en vigueur, que le rapport ne
-    publie pas. Aucun calcul modifié."""
+    publie pas — et la masse nominale de l'année des deux catégories indexées
+    (les écarts en euros de 2025 du lot 4 : écart de niveau × masse de 2025).
+    Aucun calcul modifié."""
 
     def _evaluer_handler(self, measure, parameters, year, gdp, inflation, unemployment):
         sortie = super()._evaluer_handler(measure, parameters, year, gdp, inflation, unemployment)
         self.__dict__.setdefault('sonde', {})[(year, measure['id'])] = sortie
+        self.__dict__.setdefault('masses', {})[year] = {
+            cat: self.masse_categorie_nominale(cat) for cat in ('retraites', 'minima_sociaux')}
         return sortie
 
 
@@ -226,6 +222,17 @@ def _emis(sim, levier, jusqu_a=2035):
 def _depense(sim, levier, annee):
     sortie = sim.sonde.get((annee, levier))
     return 0.0 if sortie is None else sortie[0]
+
+
+_CATEGORIE = {'retraites': 'retraites', 'prestations_indexation': 'minima_sociaux'}
+
+
+def _ecart_2025(sim, levier, annee):
+    """Écart en euros de 2025 du levier (sortie combinée) l'année ``annee`` :
+    la dépense de l'année ramenée à la masse de 2025 de sa catégorie."""
+    cat = _CATEGORIE[levier]
+    return (_depense(sim, levier, annee) * sim.spending_categories_base[cat]
+            / sim.masses[annee][cat])
 
 
 def _gel(leviers, coef=0.0, annee=None):
@@ -249,13 +256,15 @@ def _bancs():
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
-def test_i1_simulation_gel_2028_emet_g_sur_n(levier, _bancs):
-    """Gel 2028 d'un levier, mode cadre : émis net sur l'horizon = g(0) / N."""
-    s0 = _bancs['sq'][2]
-    _, r, s = _bancs[(levier, 'annee')]
+@pytest.mark.parametrize('ecriture', ['annee', 'permanent', 'sous09'])
+def test_i1_simulation_cumul_egal_a_k_fois_l_ecart_en_euros_de_2025(levier, ecriture, _bancs):
+    """Gel 2028, gel permanent, sous-indexation à 0,9, mode cadre : Gini émis
+    jusqu'en 2035 = K × l'écart en euros de 2025 de 2035 (sortie combinée des
+    trois mondes)."""
+    _, r, s = _bancs[(levier, ecriture)]
     assert r['valid'] is True, r['warnings']
-    emis = _emis(s, levier) - _emis(s0, levier)
-    assert emis == pytest.approx(_g(levier, 0.0) / _plateau(levier), rel=1e-9), emis
+    assert _emis(s, levier) == pytest.approx(K[levier] * _ecart_2025(s, levier, 2035), rel=1e-9)
+    assert _emis(s, levier) > 0
 
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
@@ -271,18 +280,24 @@ def test_i1_simulation_gel_d_une_annee_sous_le_gel_permanent(levier, _bancs):
 
 @pytest.mark.parametrize('levier', list(LEVIERS))
 @pytest.mark.parametrize('ecriture', ['permanent', 'sous09'])
-def test_i1_simulation_coefficient_constant_emissions_de_la_convention(levier, ecriture, _bancs):
-    """(d) En simulation, coefficient constant (gel permanent, sous-indexation
-    permanente à 0,9) : émissions PUBLIÉES = convention, au bit — rien avant le
-    début (droit en vigueur), g l'année du début, puis le flux ; en mode
-    historique, dès 2026."""
+def test_i1_simulation_coefficient_constant_rien_avant_le_debut(levier, ecriture, _bancs):
+    """(d) En simulation, coefficient constant : rien avant le début (droit en
+    vigueur), puis chaque année K × l'incrément de l'écart en euros de 2025 ;
+    en mode historique, dès 2026. Émissions lues à la sonde (sortie combinée
+    du levier) : le rapport de l'API ne publie un levier qu'au-delà d'un seuil
+    de significativité, sans effet sur le calcul."""
     coef = 0.0 if ecriture == 'permanent' else 0.9
-    g = _g(levier, coef)
-    for debut, (_, r, _s) in ((DEBUT, _bancs[(levier, ecriture)]),
-                              (C.POLICY_START_YEAR, _simuler(*_gel([levier], coef=coef), annee_debut=None))):
-        emis = {b['Année']: b[levier]['gini'] for b in r['measure_impacts_by_year']
-                if isinstance(b.get(levier), dict)}
-        assert emis == {debut: g, **{a: g * _flux(levier) for a in range(debut + 1, 2036)}}, debut
+    for debut, (_, r, s) in ((DEBUT, _bancs[(levier, ecriture)]),
+                             (C.POLICY_START_YEAR, _simuler(*_gel([levier], coef=coef), annee_debut=None))):
+        emis = {annee: sortie[2].get('gini', 0.0) for (annee, nom), sortie in s.sonde.items()
+                if nom == levier}
+        assert all(emis[a] == 0.0 for a in emis if a < debut), (debut, emis)
+        assert emis[debut] > 0, (debut, emis)
+        precedent = 0.0
+        for annee in range(debut, 2036):
+            v = _ecart_2025(s, levier, annee)
+            assert emis[annee] == pytest.approx(K[levier] * (v - precedent), rel=1e-9, abs=1e-15), annee
+            precedent = v
 
 
 def _memes_euros(sim, s0, leviers, annee=FIN):
@@ -303,28 +318,27 @@ def _emis_total(sim, s0, jusqu_a=FIN):
 
 
 @pytest.mark.parametrize('nom', ['deux', 'retraites', 'prestations_indexation'])
-def test_i1_memes_euros_facteur_borne_par_la_sous_indexation_permanente(nom, _bancs):
-    """(a) Mêmes euros de 2032, écrits en gel d'une année ou en montant
-    (prestations_menages) : le facteur entre les deux Gini (émis jusqu'en 2032)
-    est borné par celui que la sous-indexation PERMANENTE du même levier a déjà
-    contre le montant — écart des règles par Md€ des deux leviers, antérieur à
-    la passe (aligné par construction pour les pensions, GINI_PENSIONS_PAR_MD ;
-    environ 14 pour les prestations, au backlog) ; le calendrier ne l'aggrave
-    jamais. Borne basse : le gel garde sa part réalisée (1/N par revalorisation
-    contre cinq revalorisations de la sous-indexation permanente en 2032), au
-    moins le quart du facteur permanent. Avant : 35 fois pour les deux leviers,
-    contre 7 pour la sous-indexation permanente."""
+def test_i1_memes_euros_meme_effet_aux_euros_de_2025_pres(nom, _bancs):
+    """(a) Mêmes euros de 2032, écrits en gel d'une année, en sous-indexation
+    permanente ou en montant (prestations_menages) : même coefficient par Md€
+    (lot 4, méthode unique) : le Gini émis jusqu'en 2032 est K × l'écart en
+    euros de 2025 pour l'écriture en coefficient, K × le montant pour
+    l'écriture en montant — leur rapport est exactement celui des euros de
+    2025 aux euros courants de 2032 (masse de 2025 / masse de 2032 de la
+    catégorie). Avant le lot 4 : environ 14 pour les prestations (écart des
+    règles par Md€ des deux leviers), et jusqu'à 35 avant la relecture."""
     leviers = list(LEVIERS) if nom == 'deux' else [nom]
     s0 = _bancs['sq'][2]
-    facteurs = {}
     for ecriture in ('annee', 'sous09'):
         s = _bancs[(nom, ecriture)][2]
         _, rm, sm = _simuler(_memes_euros(s, s0, leviers))
         assert rm['valid'] is True, rm['warnings']
         montant = _emis_total(sm, s0)
         assert montant > 0, ('NON_VACUITE', ecriture, montant)
-        facteurs[ecriture] = _emis_total(s, s0) / montant
-    assert facteurs['sous09'] / 4 <= facteurs['annee'] <= facteurs['sous09'], facteurs
+        attendu = sum(K[l] * (_ecart_2025(s, l, FIN) - _ecart_2025(s0, l, FIN)) for l in leviers)
+        par_montant = sum(K[l] * (_depense(s, l, FIN) - _depense(s0, l, FIN)) for l in leviers)
+        assert _emis_total(s, s0) == pytest.approx(attendu, rel=1e-9), ecriture
+        assert montant == pytest.approx(par_montant, rel=1e-9), ecriture
 
 
 def _droit_indexation(idx, tmp_path):
@@ -340,9 +354,9 @@ def _droit_indexation(idx, tmp_path):
 def test_i1_continuite_entre_droit_a_1_0_9999_et_0_9(monkeypatch, tmp_path):
     """(b) Droit en vigueur (fichier remplaçable sans code) à 1,0, 0,9999 et
     0,9 : le gel 2028 des deux coefficients émet, net du statu quo de ce droit,
-    (g(0) − g(droit)) / N par levier — proportionnel à l'écart gelé, continu ;
-    et le Gini publié en 2032 suit, à la précision du calcul (avant : 0,0165 à
-    1,0 contre 0,0013 à 0,9999)."""
+    K × (écart en euros de 2025 du gel − celui du statu quo) par levier —
+    continu en l'écart gelé ; et le Gini publié en 2032 suit, à la précision
+    du calcul (avant la relecture : 0,0165 à 1,0 contre 0,0013 à 0,9999)."""
     _pleine_precision(monkeypatch)
     deltas = {}
     for idx in (1.0, 0.9999, 0.9):
@@ -356,7 +370,7 @@ def test_i1_continuite_entre_droit_a_1_0_9999_et_0_9(monkeypatch, tmp_path):
         assert r['valid'] is True, r['warnings']
         for levier in LEVIERS:
             emis = _emis(s, levier) - _emis(s0, levier)
-            attendu = (_g(levier, 0.0) - _g(levier, idx)) / _plateau(levier)
+            attendu = K[levier] * (_ecart_2025(s, levier, 2035) - _ecart_2025(s0, levier, 2035))
             assert emis == pytest.approx(attendu, rel=1e-9), (idx, levier, emis, attendu)
         deltas[idx] = d.at[FIN, 'Gini'] - d0.at[FIN, 'Gini']
     monkeypatch.undo()
@@ -366,12 +380,11 @@ def test_i1_continuite_entre_droit_a_1_0_9999_et_0_9(monkeypatch, tmp_path):
     assert deltas[0.9] == pytest.approx(0.9 * deltas[1.0], rel=0.05), deltas
 
 
-def test_i1_valeur_datee_du_droit_regle_d_increment_et_part_du_gel(monkeypatch, tmp_path):
+def test_i1_valeur_datee_du_droit_regle_d_increment(monkeypatch, tmp_path):
     """Droit en vigueur avec une valeur datée des deux coefficients (1,0 jusqu'en
-    2029, 0,9 ensuite) : le statu quo suit la règle d'incrément au changement de
-    sa référence (émis en 2030 : g(0,9), jamais une part « gardée ») ; un gel
-    2028 garde toujours g(0) / N net du statu quo (le retour de 2029 est à la
-    référence de 2029, le passage à 0,9 en 2030 suit le droit)."""
+    2029, 0,9 ensuite) : le statu quo n'émet rien avant 2030 et, à partir de
+    2030, K × l'incrément de son écart en euros ; un gel 2028 garde, net du
+    statu quo, K × la différence des écarts en euros de 2035."""
     droit = json.loads((RACINE / 'budget_simulator' / 'data' / 'droit_en_vigueur.json')
                        .read_text(encoding='utf-8'))
     droit['valeurs_datees'] = {levier: {param: [
@@ -389,14 +402,19 @@ def test_i1_valeur_datee_du_droit_regle_d_increment_et_part_du_gel(monkeypatch, 
         cadre.vider_caches()
     assert r['valid'] is True, r['warnings']
     for levier in LEVIERS:
-        assert s0.sonde[(2030, levier)][2]['gini'] == pytest.approx(_g(levier, 0.9), rel=1e-12)
+        assert _emis(s0, levier, 2029) == 0.0
+        assert s0.sonde[(2030, levier)][2]['gini'] == pytest.approx(
+            K[levier] * (_ecart_2025(s0, levier, 2030) - _ecart_2025(s0, levier, 2029)), rel=1e-9)
+        assert s0.sonde[(2030, levier)][2]['gini'] > 0
         emis = _emis(s, levier) - _emis(s0, levier)
-        assert emis == pytest.approx(_g(levier, 0.0) / _plateau(levier), rel=1e-9), (levier, emis)
+        attendu = K[levier] * (_ecart_2025(s, levier, 2035) - _ecart_2025(s0, levier, 2035))
+        assert emis == pytest.approx(attendu, rel=1e-9), (levier, emis)
 
 
 def test_i1_methodologie_et_changelog_disent_l_ordre_de_grandeur():
     texte = (RACINE_MOTEUR / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
-    assert 'min(k, N)/N' in texte
+    assert 'min(k, N)/N' in texte           # historique de la relecture, conservé
+    assert 'écart en euros' in texte        # règle du lot 4
     assert 'majore vraisemblablement' not in texte
     changelog = (RACINE_MOTEUR / 'CHANGELOG.md').read_text(encoding='utf-8')
     assert 'jamais rendu' not in changelog

@@ -208,15 +208,21 @@ def test_l_indexation_garde_l_horloge_du_run():
     d'ÂGE différerait son effet plein à 2028 pour un programme qui gèle l'âge
     ET désindexe — un couplage qu'aucune source ne décrit.
     """
+    # Lot 4 (méthode unique du Gini) : le canal indexation suit son écart EN
+    # EUROS, qui s'ouvre avec la première revalorisation sous-indexée (2026,
+    # horloge du run) et croît jusqu'au plateau des cohortes ; jusqu'ici effet
+    # plein en 2026 puis le flux résiduel de 10 %.
     serie = _serie_gini(AGE_GELE, indexation=0.9)
     sans_indexation = _serie_gini(AGE_GELE, indexation=1.0)
     part_indexation = {a: serie[a] - sans_indexation[a] for a in _ANNEES}
 
     plein = part_indexation[POLICY_START_YEAR]
     assert plein > 0, "un gel d'indexation dégrade le Gini : effet attendu > 0"
-    for annee in _ANNEES[1:]:
-        assert part_indexation[annee] == pytest.approx(
-            RETRAITES_GINI_RESIDU_FLUX * plein, abs=1e-15)
+    from budget_simulator.constants import RETRAITES_EROSION_PLATEAU_ANS
+    dans_le_plateau = _ANNEES[1:RETRAITES_EROSION_PLATEAU_ANS]
+    assert all(part_indexation[a] > 0 for a in dans_le_plateau), part_indexation
+    assert all(part_indexation[a] == pytest.approx(0.0, abs=1e-15)
+               for a in _ANNEES[RETRAITES_EROSION_PLATEAU_ANS:]), part_indexation
 
 
 def test_le_garde_gini_lit_l_horloge_unique_du_module_seniors():

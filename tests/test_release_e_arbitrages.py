@@ -134,7 +134,7 @@ def test_p2_coefficient_par_md_nomme():
     """Gini par Md€ de cotisations rendu aux salariés : une baisse accroît
     légèrement les inégalités (signe positif). Lot 4 : salaires de l'Insee au
     classement final (+0,0000541), SOUS la plage +0,00006 à +0,0001 de la
-    décision du 12/11/2026, que tirait le classement initial (figure 2 :
+    décision du mainteneur du 12/11/2026, que tirait le classement initial (figure 2 :
     +0,0000959) ; recette exécutée dans tests/test_gini_methode_unique_lot4.py."""
     assert C.GINI_COTIS_SAL_PAR_MD == pytest.approx(0.0000541, rel=0.01)
     assert 0 < C.GINI_COTIS_SAL_PAR_MD < 0.00006
@@ -198,7 +198,9 @@ def test_p2_aucune_mention_ofce_2023_pour_ce_levier():
 def test_p2_infobulle_dit_l_estimation():
     tooltip = REGISTRE[COTIS]['parametres']['baisse_points']['tooltip']
     assert 'estimation de France Budget' in tooltip, tooltip
-    coefficient = f'{C.GINI_COTIS_SAL_PAR_MD:.4f}'.replace('.', ',')
+    # Lot 4 : coefficient au classement final (+0,0000541) ; cinq décimales, sans
+    # quoi l'arrondi à quatre afficherait +0,0001, presque le double.
+    coefficient = f'{C.GINI_COTIS_SAL_PAR_MD:.5f}'.replace('.', ',')
     assert f'+{coefficient} de Gini par Md€' in tooltip, tooltip
 
 
@@ -374,18 +376,19 @@ def test_p3_economie_2028_puis_ecart_conserve_et_revalorise(cle, _bancs_gel):
 
 @pytest.mark.parametrize('cle', list(INDEXATIONS))
 def test_p3_gini_emis_au_gel_puis_part_realisee_au_retour(cle, _bancs_gel):
-    """Gini : 2028 = le gel permanent (effet émis à l'ouverture) ; au retour de
-    la revalorisation normale en 2029, le levier ne garde que la part réalisée,
-    une revalorisation gelée sur son plateau de N (relecture adverse finale,
-    I-1 : avant, il gardait tout, autant qu'un gel permanent) ; rien ensuite."""
+    """Gini : 2028 = le gel permanent (effet de l'écart en euros ouvert par la
+    revalorisation gelée) ; au retour de la revalorisation normale en 2029,
+    l'écart en euros RESTE (aucun rattrapage) : le levier n'émet plus rien —
+    ni rendu, ni recompte (écart de niveau × masse de 2025 de la catégorie,
+    constant après le gel). Lot 4 (méthode unique du Gini) ; jusqu'ici
+    la part réalisée min(k, N)/N d'un effet « par point » (relecture adverse
+    finale, I-1)."""
     levier, _, _ = INDEXATIONS[cle]
-    n = C.RETRAITES_EROSION_PLATEAU_ANS if levier == 'retraites' else C.PRESTATIONS_REVALORISATIONS_MAX
     sa, _, _ = _bancs_gel[(cle, 'annee')]
     sp, _, _ = _bancs_gel[(cle, 'permanent')]
     emis = sa.sonde[(2028, levier)][2]['gini']
     assert emis == sp.sonde[(2028, levier)][2]['gini'] > 0
-    assert sa.sonde[(2029, levier)][2]['gini'] == pytest.approx(-(1 - 1 / n) * emis, rel=1e-12)
-    for annee in range(2030, 2036):
+    for annee in range(2029, 2036):
         assert sa.sonde[(annee, levier)][2]['gini'] == pytest.approx(0.0, abs=1e-15), annee
 
 
