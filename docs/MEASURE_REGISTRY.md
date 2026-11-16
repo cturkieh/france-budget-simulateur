@@ -328,7 +328,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 ## `smic` — SMIC
 - type : `fonction` · catégorie : `social`
 - paramètres lus par le handler :
-  - `montant_brut` (défaut : `1800`)
+  - `montant_brut` (défaut : `SMIC_BRUT_MENSUEL_REFERENCE_EUR` (non littéral))
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `smic_montant_brut` → param `montant_brut` [1400–2200, pas 50]
 

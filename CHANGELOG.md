@@ -6,6 +6,40 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équation du lot SMIC : la hausse se lit contre une référence datée, portée à l'année d'application
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur le bloc suivant (cinq postes du
+Trésor). La valeur de la référence ne change pas encore (1 800 €, défaut historique du moteur) : le dernier SMIC paru
+au Journal officiel vient au commit de paramètres qui suit.
+
+**La règle** (arbitrage du mainteneur du 16/11/2026). Un montant de programme se lit tel qu'il est écrit : un SMIC
+brut mensuel de son année d'application, l'origine du levier. Il est comparé à la référence
+(`SMIC_BRUT_MENSUEL_REFERENCE_EUR`, année `SMIC_ANNEE_DE_REFERENCE` = 2026, `constants.py`) portée à cette année avec
+l'indice de prix des dépenses du moteur, la revalorisation légale faisant déjà partie du statu quo. La hausse est
+fixée l'année d'origine, puis conservée en pourcentage. L'indice de chaque année est celui que le moteur a calculé
+cette année-là (`_indice_prix_par_annee`, posé avec la mémoire de l'inflation ; une année passée absente lève une
+erreur, jamais un 1,0 silencieux). La valeur du droit en vigueur de l'année se lit dans les euros de l'année de
+référence (`_smic_de_reference`, `handlers/additionnels.py`) : elle est neutre à toute origine. Sans cette règle, le
+monde « droit au début » de la composition, à l'horloge du programme, verrait une baisse du SMIC, que la
+composition ajouterait à la hausse du programme. Limite déclarée (METHODOLOGIE, § SMIC) : en mode cadre, un montant
+compris entre la valeur du droit et la référence portée à l'année d'application est une baisse.
+
+**Ce qui bouge** (pleine précision). Mode historique : rien, au bit (l'année d'application y est l'année de
+référence ; instantané historique, mini-scénarios et écarts au statu quo identiques). Mode cadre 2028 : les trois
+programmes publiés qui relèvent le SMIC, hausse plus faible (indice 2028 / 2026 du moteur), dette 2032 de −0,07 à
+−0,05 point, déficit 2032 de +0,02 à +0,04 point, croissance moyenne 2028-2032 de −0,005 à −0,001 point, chômage
+2032 de −0,06 à −0,04 point, pouvoir d'achat 2032 de −0,20 à −0,14 point, Gini 2032 +0,0002 ; les sept autres
+scénarios et la référence sans programme identiques au bit.
+
+- Test rouge puis vert : `tests/test_smic_reference_datee.py` (nouveau) — indice mémorisé chaque année, hausse du
+  mode cadre contre la référence portée à l'année d'application et conservée ensuite, neutralité de la valeur du
+  droit dans tous les mondes (y compris « droit au début »), mode historique inchangé, défaut neutre ; deux mutants
+  rougissent (sans la neutralité du droit, sans les prix).
+- Chiffres liés de l'encadré du lot 5d et de la note d'EXPLICATION recalculés par leur garde ; la garde écrit
+  désormais « x » au lieu de « x à x » quand les deux bornes s'arrondissent pareil.
+- Registre des paramètres régénéré (`docs/MEASURE_REGISTRY.md`, `tests/snapshots/measure_registry.json`) : le
+  défaut du levier est désormais la constante de référence.
+
 ## [non publiée — proposée] — équation du lot SMIC : les cinq postes du Trésor, chacun selon sa nature
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, sur les lots 2, 6 et 5 assemblés.

@@ -824,6 +824,10 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # (release E, socle) : assiette d'un impôt à taux suivie depuis son
         # année source (_indice_pib_source).
         self._pib_nominal_par_annee: Dict[int, float] = {}
+        # Indice de prix des dépenses de chaque année CIVILE, tel que le moteur
+        # l'a calculé cette année-là (lot SMIC) : référence du SMIC portée à
+        # l'année d'origine du levier (handlers/additionnels._smic_de_reference).
+        self._indice_prix_par_annee: Dict[int, float] = {}
 
         self.output_gap_courant = OUTPUT_GAP_INITIAL  # source unique (constants.py)
         self.debt_structure = {
@@ -910,6 +914,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
         # --- Mémoire inter-années ---
         self._inflation_par_annee = {}
         self._pib_nominal_par_annee = {}
+        self._indice_prix_par_annee = {}
         self.inflation_precedente = self.base_params['inflation_base']
         # TVA à taux réduits (release E, contre-vérification I1) : recette déjà
         # passée dans les prix (Md€) et effet d'inflation correspondant, lus et

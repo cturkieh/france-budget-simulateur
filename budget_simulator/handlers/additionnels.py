@@ -38,6 +38,8 @@ from ..constants import (
     PART_NETTE_REMUNERATIONS_APU,
     SALAIRES_BRUTS_2017_MD,
     SALAIRES_BRUTS_2025_MD,
+    SMIC_ANNEE_DE_REFERENCE,
+    SMIC_BRUT_MENSUEL_REFERENCE_EUR,
     SMIC_TRESOR_REVENU_BRUT_PAR_POINT_M_EUR_2017,
     SMIC_TRESOR_SOLDE_PAR_POINT_M_EUR_2017,
 )
@@ -88,24 +90,62 @@ else:
 class AdditionnelsMixin(_MixinBase):
     """Handlers Section 6 — Paramètres additionnels Présidentielle 2027."""
 
+    def _indice_prix_de(self, annee: int, year: int) -> float:
+        """Indice de prix des dépenses de l'année ``annee``, tel que le moteur l'a
+        calculé cette année-là (``_indice_prix_par_annee``) ; l'année en cours
+        hors simulation (appel direct d'un handler) : l'indice courant. Une
+        année passée absente est un défaut du moteur : ``RuntimeError``, jamais
+        un 1,0 silencieux."""
+        indice = self._indice_prix_par_annee.get(annee)
+        if indice is not None:
+            return indice
+        if annee == year:
+            return self.indice_prix_depenses()
+        raise RuntimeError(
+            f"indice de prix de l'année {annee} non enregistré (année {year} ; années "
+            f"connues : {sorted(self._indice_prix_par_annee)}) — référence du SMIC lue "
+            "avant que l'année ait été simulée")
+
+    def _smic_de_reference(self, montant, origine: int, year: int) -> float:
+        """SMIC brut mensuel contre lequel se lit ``montant`` (lot SMIC,
+        arbitrage du mainteneur du 16/11/2026).
+
+        Un montant de programme est un SMIC de son année d'application,
+        l'origine du levier : la référence (``SMIC_BRUT_MENSUEL_REFERENCE_EUR``,
+        année ``SMIC_ANNEE_DE_REFERENCE``) y est portée avec l'indice de prix
+        des dépenses du moteur ; la revalorisation légale fait déjà partie du
+        statu quo. La valeur du droit en vigueur de l'année
+        (``_reference_du_calendrier``), elle, se lit dans les euros de l'année
+        de référence : elle est neutre à toute origine. Sans cette règle, le
+        monde « droit au début » de la composition (horloge du programme) verrait
+        une baisse du SMIC, que la composition ajouterait à la hausse du
+        programme. En mode historique, l'origine est l'année de référence : les
+        deux lectures coïncident, au bit."""
+        if montant == self._reference_du_calendrier('smic', 'montant_brut', year):
+            return SMIC_BRUT_MENSUEL_REFERENCE_EUR
+        rapport = (self._indice_prix_de(origine, year)
+                   / self._indice_prix_de(SMIC_ANNEE_DE_REFERENCE, year))
+        return SMIC_BRUT_MENSUEL_REFERENCE_EUR * rapport
+
     def _apply_smic(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """SMIC brut mensuel. Finances publiques : les cinq postes du Trésor par point de hausse
         (groupe d'experts 2017, tableau 9), chacun selon sa nature (lot SMIC, arbitrage du mainteneur
         du 16/11/2026). Effets NIVEAU one-time (chômage, compétitivité, Gini). Voir METHODOLOGIE.md
         § SMIC."""
-        smic_brut = params.get('montant_brut', 1800)  # Actuel 2024 : ~1800€ brut
-        smic_actuel = 1800  # Baseline 2025
-
-        if smic_brut == smic_actuel:
-            return 0, 0, {}
+        smic_brut = params.get('montant_brut', SMIC_BRUT_MENSUEL_REFERENCE_EUR)
 
         # Année de mise en œuvre — horloge du levier (v0.7.0 : annee_debut du
         # programme s'il le modifie, POLICY_START_YEAR sinon).
-        years_elapsed = year - self._origine('smic')
+        origine = self._origine('smic')
+        years_elapsed = year - origine
+
+        # Hausse fixée l'année d'origine, contre la référence datée (lot SMIC).
+        reference = self._smic_de_reference(smic_brut, origine, year)
+        if smic_brut == reference:
+            return 0, 0, {}
 
         # ===== CALCUL IMPACTS =====
-        delta_brut = smic_brut - smic_actuel
-        hausse_pct = delta_brut / smic_actuel
+        hausse_pct = (smic_brut - reference) / reference
         points = 100.0 * hausse_pct
 
         # Les cinq postes du Trésor (lot SMIC, arbitrage du mainteneur du

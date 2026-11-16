@@ -1119,6 +1119,18 @@ SMIC_TRESOR_REVENU_DISPONIBLE_PAR_POINT_M_EUR_2017 = 690.0
 # nationaux annuels base 2020, tableau 2.101, fichier du 22/05/2026, relu le
 # 16/11/2026), puis PIB nominal de l'année depuis 2025.
 SALAIRES_BRUTS_2017_MD = 880.657
+# Référence de la hausse du SMIC (lot SMIC, arbitrage du mainteneur du
+# 16/11/2026). Un montant de programme se lit tel qu'il est écrit : un SMIC brut
+# mensuel de son année d'application (l'origine du levier), comparé à cette
+# référence portée à la même année avec l'indice de prix des dépenses du moteur
+# (la revalorisation légale fait déjà partie du statu quo) ; la hausse, fixée à
+# l'origine, est ensuite conservée en pourcentage. La valeur du droit en vigueur
+# se lit dans les euros de l'année de référence : elle est neutre à toute
+# origine (handlers/additionnels.py, _smic_de_reference). Valeur : le défaut
+# historique du moteur, remplacé par le dernier SMIC paru au Journal officiel au
+# commit de paramètres qui suit.
+SMIC_BRUT_MENSUEL_REFERENCE_EUR = 1800.0
+SMIC_ANNEE_DE_REFERENCE = 2026
 # PART DE LA FISCALITÉ INDIRECTE QUI PÈSE SUR LA CONSOMMATION DES MÉNAGES — elle
 # dépend de la BASE de chaque handler (revue passe 1 v0.6.8, M2), et c'est le
 # handler qui l'applique en émettant le canal ``prelevements_indirects`` :

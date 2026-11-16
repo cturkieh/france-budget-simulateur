@@ -1080,7 +1080,8 @@
       "nom": "SMIC",
       "params": {
         "montant_brut": {
-          "default": 1800
+          "default": null,
+          "default_expr": "SMIC_BRUT_MENSUEL_REFERENCE_EUR"
         }
       },
       "sliders": [

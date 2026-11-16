@@ -213,9 +213,11 @@ def _fr(x, decimales, signe=False):
 
 
 def _de_a(valeurs, decimales=3, signe=True):
-    """« x à y », du plus petit au plus grand écart en valeur absolue."""
+    """« x à y », du plus petit au plus grand écart en valeur absolue ; « x » seul si les deux bornes s'écrivent
+    pareil à cette précision."""
     tri = sorted(valeurs, key=abs)
-    return f"{_fr(tri[0], decimales, signe)} à {_fr(tri[-1], decimales, signe)}"
+    bas, haut = _fr(tri[0], decimales, signe), _fr(tri[-1], decimales, signe)
+    return bas if bas == haut else f"{bas} à {haut}"
 
 
 def _publie_cadre(nom, leviers='tous'):

@@ -977,6 +977,9 @@ class OrchestratorMixin:
         # des prestations — sans elle, l'écart passé était réécrit à l'inflation
         # du jour).
         self._inflation_par_annee[year] = inflation
+        # Indice de prix des dépenses de l'année (après calculate_expenditures),
+        # lu par la référence datée du SMIC (lot SMIC).
+        self._indice_prix_par_annee[year] = self.indice_prix_depenses()
         spending_after, revenues_after, impacts = self.apply_measures(
             year, spending_base, revenues_base, gdp_nominal,
             inflation, unemployment
