@@ -14,7 +14,9 @@ Convention d'application :
   sur ``years_elapsed == 0``.
 - Pouvoir d'achat (v0.6.8) : canaux ménages en euros de l'année (clé
   ``menages``). ``smic`` : salaires nets privés, rémunérations publiques et
-  prestations indexées ; ``taxe_superprofits`` et ``exonerations_salaires``
+  prestations indexées (la part « agents publics » reste, pour la croissance,
+  dans le solde du SMIC, à son coefficient propre : arbitrage du mainteneur
+  attendu, lot 5b) ; ``taxe_superprofits`` et ``exonerations_salaires``
   (cotisations PATRONALES) : aucun effet direct, par la croissance et
   l'emploi (arbitrage du mainteneur).
 - Voir docs/METHODOLOGIE.md § "Effets NIVEAU vs FLUX" pour le contrat de gating.

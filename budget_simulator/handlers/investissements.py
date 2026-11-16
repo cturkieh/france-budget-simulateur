@@ -19,7 +19,10 @@ Convention d'application :
   effet direct, elle passe par la croissance. Deux canaux ménages seulement :
   la revalorisation des salaires des enseignants en place
   (``remunerations_publiques``) et la taxe carbone (``prelevements_indirects``,
-  via les prix). Les primes de rénovation sont des aides à l'investissement,
+  via les prix). Croissance (lot 5b, arbitrage du mainteneur du 16/11/2026) :
+  cette revalorisation, ce même montant, prend le traitement des transferts
+  (coefficient et profil), dans les deux sens ; le budget et les postes
+  d'enseignants restent au traitement de l'investissement productif. Les primes de rénovation sont des aides à l'investissement,
   hors du RDB au sens de l'INSEE.
 - Effet ``recettes`` (transition_ecologique uniquement) : taxe carbone récurrente.
   Le retour fiscal propre de l'investissement (0 puis 5 puis 8 %) est retiré au
@@ -107,7 +110,8 @@ class InvestissementsMixin(_MixinBase):
         # === POUVOIR D'ACHAT (v0.6.8) ===
         # Seule la revalorisation des enseignants en place est un revenu direct
         # (canal ``remunerations_publiques``, au coût de l'année) ; budget et
-        # recrutements passent par la croissance.
+        # recrutements passent par la croissance. Ce montant est aussi la part
+        # que la croissance prend au traitement des transferts (lot 5b).
         revalorisation_salaires = salaries * 0.01 * 50
 
         # === COMPÉTITIVITÉ : EFFET CAPITAL HUMAIN (PROGRESSIF LONG TERME) ===

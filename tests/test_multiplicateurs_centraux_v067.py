@@ -18,6 +18,7 @@ import pytest
 from budget_simulator import constants
 from budget_simulator.constants import (CHEMIN_CIBLE_INVESTISSEMENT, MULT_CIBLE_NIVEAU_4ANS,
                                         TAUX_PRELEVEMENTS_AUTOFINANCEMENT)
+from budget_simulator.handlers._types import canaux_menages
 from budget_simulator.simulator import BudgetSimulatorV45
 
 # famille → (levier synthétique, flux, signe) : dépense + = expansion, recette + = hausse
@@ -30,6 +31,10 @@ FAMILLES = {
     # Lot 5 : la hausse de la même dépense courante, même cible et même tolérance que la coupe
     # (symétrie par instrument, tests/test_symetrie_depense_courante.py).
     'hausse_depenses': ('collectivites', 'depenses', +1),
+    # Lot 5b : hausse de rémunération des agents publics à effectifs constants (point d'indice), dépense
+    # émise aussi au canal ménages ``remunerations_publiques`` : traitement des transferts, même cible
+    # et même tolérance (tests/test_remunerations_publiques_transferts.py).
+    'remunerations_publiques': ('fonction_publique', 'remunerations', +1),
 }
 
 
@@ -42,9 +47,11 @@ def _simuler(famille=None, periods=12):
             if levier:
                 x = 0.01 * gdp * signe
                 imp = dict(imp)
-                imp[levier] = {'depenses': x if flux == 'depenses' else 0.0,
+                imp[levier] = {'depenses': x if flux in ('depenses', 'remunerations') else 0.0,
                                'recettes': x if flux == 'recettes' else 0.0}
-                if flux == 'depenses':
+                if flux == 'remunerations':
+                    imp[levier]['menages'] = canaux_menages(remunerations_publiques=x)
+                if flux in ('depenses', 'remunerations'):
                     sp += x
                 else:
                     rv += x
@@ -87,8 +94,9 @@ def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
     # 1 %, comme la symétrie coupe/hausse (tests/test_symetrie_transferts_v067.py).
     # Lot 6 (calendrier de l'impulsion, release de paramètres) : coefficients recalés pour retrouver
     # le niveau d'avant le lot (la trajectoire n'est plus décalée d'un an) ; cibles et tolérances
-    # inchangées (investissement 1,41, toujours −6 % de sa cible).
-    tolerance = {'investissement': 0.10, 'transferts': 0.01}.get(famille, 0.05)
+    # inchangées (investissement 1,41, toujours −6 % de sa cible). Lot 5b : les rémunérations publiques,
+    # au traitement des transferts, à 1 % de leur cible comme eux.
+    tolerance = {'investissement': 0.10, 'transferts': 0.01, 'remunerations_publiques': 0.01}.get(famille, 0.05)
     assert niveau_4 == pytest.approx(cible, rel=tolerance), (
         f'{famille} : niveau à 4 ans {niveau_4:.3f} vs cible centrale {cible}')
 
@@ -192,13 +200,15 @@ LIGNES_DU_TABLEAU = {
     'coupe_depenses': '| Coupe de dépenses générique (TAXES) |',
     'hausse_depenses': '| Hausse de dépense courante (TAXES) |',
     'transferts': '| Transferts (TRANSFERS) |',
+    'remunerations_publiques': '| Rémunération publique à effectifs constants (TRANSFERS) |',
     'hausse_impots': "| Hausse d'impôts (TAXES) |",
     'baisse_impots': "| Baisse d'impôts (TAXES) |",
 }
 COEFFICIENT_DE_LA_FAMILLE = {
     'investissement': 'MULT_INVESTISSEMENT', 'coupe_depenses': 'MULT_COUPE_DEPENSES',
     'hausse_depenses': 'MULT_COUPE_DEPENSES',   # lot 5 : même coefficient que la coupe
-    'transferts': 'MULT_TRANSFERTS', 'hausse_impots': 'MULT_HAUSSE_IMPOTS',
+    'transferts': 'MULT_TRANSFERTS', 'remunerations_publiques': 'MULT_TRANSFERTS',
+    'hausse_impots': 'MULT_HAUSSE_IMPOTS',
     'baisse_impots': 'MULT_BAISSE_IMPOTS',
 }
 

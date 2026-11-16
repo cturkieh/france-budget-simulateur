@@ -29,7 +29,10 @@ Mesures couvertes (5 handlers) :
   taux maximal de non-remplacement (67 %). Pouvoir d'achat (v0.6.8) : seul
   le point d'indice est un revenu direct des agents (canal
   ``remunerations_publiques``) ; les effectifs, dans les deux sens, passent
-  par la croissance (arbitrage du mainteneur). ``int(...)`` sur
+  par la croissance (arbitrage du mainteneur). Croissance (lot 5b, arbitrage
+  du mainteneur du 16/11/2026) : le point d'indice, ce même montant, prend le
+  traitement des transferts (coefficient et profil), dans les deux sens ; les
+  effectifs restent de la dépense courante. ``int(...)`` sur
   ``variation_effectifs`` au logging : le frontend JSON peut envoyer un
   float (25000.0) là où ``{:+d}`` exige un int — garde-fou Phase 0.8 à
   préserver tel quel.

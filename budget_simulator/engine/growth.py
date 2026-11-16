@@ -178,6 +178,16 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
     l'orchestrateur, ``INVESTISSEMENT_PRODUCTIF_PARTIEL``) : flux distinct
     ``(levier, 'investissement')`` = −part, le reste de la dépense restant dans
     ``(levier, 'depenses')``. Sans cette clé, rien ne change.
+
+    Rémunération des agents publics à effectifs constants (lot 5b, arbitrage du
+    mainteneur du 16/11/2026) : la part de la dépense que le levier émet au canal
+    ménages ``remunerations_publiques`` (point d'indice, revalorisation des
+    enseignants en place ; coût de l'année, le MÊME montant que celui du pouvoir
+    d'achat) forme un flux distinct ``(levier, 'remunerations')`` = −part, pris au
+    traitement des transferts ; le reste de la dépense (effectifs, budget, postes)
+    reste dans ``(levier, 'depenses')``, avec sa famille. Sans ce canal, rien ne
+    change. Un levier à coefficient propre garde tout dans son solde (le SMIC, dont
+    la part « agents publics » attend un arbitrage du mainteneur).
     """
     flux: Dict[Tuple[str, str], float] = {}
     for m_id, m_impact in impacts.items():
@@ -190,7 +200,15 @@ def flux_par_levier(impacts: Dict, mesures_nettes: frozenset) -> Dict[Tuple[str,
         else:
             flux[(m_id, 'recettes')] = rec
             inv = float(m_impact.get('depenses_investissement', 0) or 0)
-            if inv:
+            canaux = m_impact.get('menages')
+            rem = float((canaux.get('remunerations_publiques', 0) or 0)
+                        if isinstance(canaux, dict) else 0)
+            if rem:
+                flux[(m_id, 'depenses')] = -(dep - inv - rem)
+                flux[(m_id, 'remunerations')] = -rem
+                if inv:
+                    flux[(m_id, 'investissement')] = -inv
+            elif inv:
                 flux[(m_id, 'depenses')] = -(dep - inv)
                 flux[(m_id, 'investissement')] = -inv
             else:
@@ -355,7 +373,9 @@ class GrowthMixin:
           nette pouvait être comptée comme une relance.
 
         Granularité : chaque levier est multiplié FLUX PAR FLUX (recettes au
-        canal fiscal, dépenses au canal investissement ou transferts/générique),
+        canal fiscal, dépenses au canal investissement ou transferts/générique,
+        rémunérations publiques à effectifs constants au traitement des
+        transferts depuis le lot 5b),
         sans quoi la même compensation se reproduirait à l'intérieur d'un levier
         à deux flux. Exception : les leviers dont le coefficient est calibré sur
         l'effet NET (``FiscalMultipliers.MESURES_MULTIPLICATEUR_NET``) sont
@@ -426,6 +446,19 @@ class GrowthMixin:
                     composition = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 1.0,
                                    'transferts': 0.0}
                     profil = self.DECAY_PROFILE_INVEST
+                elif canal == 'remunerations':
+                    # Rémunération des agents publics à effectifs constants (lot 5b,
+                    # arbitrage du mainteneur) : un revenu versé aux agents, au
+                    # traitement des transferts — coefficient et profil —, dans les
+                    # deux sens. Comptabilité nationale : un effet prix, pas volume
+                    # (SEC 2010 § 10.44, § 11.35-11.37) ; Mésange 2017 le fait jouer
+                    # comme les prestations en espèces. Niveau encadré par QUEST
+                    # 2010 et e-mod.fr 2017 ; limite : ces sources décrivent un
+                    # effet différé, le profil des transferts ne l'est pas (profil
+                    # par analogie, METHODOLOGIE, encadré du lot 5b).
+                    composition = {'depenses': 1.0, 'recettes': 0.0, 'investissement': 0.0,
+                                   'transferts': 1.0}
+                    profil = self.DECAY_PROFILE_TRANSFERS
                 else:
                     composition = compositions[canal]
                 # La matrice porte le signe de l'effet (négatif en

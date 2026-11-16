@@ -54,7 +54,10 @@ ImpactsDict = Dict[str, float]
 # - ``prestations`` : prestations versées aux ménages (> 0 = hausse) ;
 # - ``remunerations_publiques`` : COÛT employeur des hausses de rémunération
 #   des agents en place (point d'indice, revalorisations) ; le moteur n'en
-#   retient que la part nette (PART_NETTE_REMUNERATIONS_APU) ;
+#   retient que la part nette (PART_NETTE_REMUNERATIONS_APU). Lu AUSSI par la
+#   croissance depuis le lot 5b : ce montant, pris dans la dépense du levier,
+#   forme un flux au traitement des transferts (engine/growth.py,
+#   flux_par_levier) — un handler qui l'émet change donc aussi la croissance ;
 # - ``salaires_prives`` : salaires NETS privés imposés par la mesure (SMIC).
 # Tout le reste (impôts sur les entreprises, embauches publiques,
 # investissement, efficience) n'a AUCUN effet direct : il passe par la

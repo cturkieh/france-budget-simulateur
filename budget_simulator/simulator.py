@@ -212,7 +212,10 @@ class FiscalMultipliers:
     # indépendants de la composition) : calibrés sur l'effet NET du levier, ils
     # sont appliqués à son solde recettes − dépenses ; tous les autres leviers
     # sont multipliés flux par flux (engine/growth.py, _stocker_impulsions).
-    # Verrouillé par tests/test_impulsions_v067.py.
+    # Verrouillé par tests/test_impulsions_v067.py. Le SMIC émet une part
+    # « agents publics » au canal remunerations_publiques ; elle reste dans son
+    # solde, au coefficient propre, en attente d'un arbitrage du mainteneur (lot
+    # 5b ; tests/test_remunerations_publiques_transferts.py).
     MESURES_MULTIPLICATEUR_NET = frozenset({'smic', 'fraude_fiscale'})
 
     def __init__(self):
@@ -451,7 +454,11 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # réforme de l'État sont de la consommation/optimisation publique : elles
     # restent sur les canaux transferts/générique. INVESTMENT_FLOW_MEASURES
     # (ci-dessus) ne sert plus qu'au profil de DECAY des impulsions
-    # (persistance) ; même périmètre depuis l'option du lot 6.
+    # (persistance) ; même périmètre depuis l'option du lot 6. Lot 5b : la
+    # revalorisation des enseignants en place (part émise au canal ménages
+    # remunerations_publiques) sort de l'investissement productif — une hausse de
+    # rémunération à effectifs constants, au traitement des transferts
+    # (engine/growth.py, flux « remunerations »).
     INVESTMENT_CORE_MEASURES = frozenset([
         'education', 'transition_ecologique', 'recherche_publique',
     ])

@@ -6,6 +6,97 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — équations du lot 5b : rémunérations publiques à effectifs constants au traitement des transferts
+
+**Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATION, distinct du bloc du lot 5
+ci-dessous, qu'il suppose appliqué. Aucun coefficient ne change.
+
+**La règle** (arbitrage du mainteneur du 16/11/2026). Une hausse (ou une baisse) de rémunération des agents publics
+à effectifs constants est un revenu versé aux agents : pour la croissance, elle prend le traitement des transferts,
+coefficient `MULT_TRANSFERTS` et profil `DECAY_PROFILE_TRANSFERS`, dans les deux sens. Elle vaut pour le point
+d'indice (`fonction_publique`, jusqu'ici de la dépense courante, 0,79 point de PIB à 4 ans par point de PIB) et
+pour la revalorisation des enseignants en place (`education.salaires`, jusqu'ici au coefficient et au profil de
+l'investissement productif, 1,41) : désormais 0,65. Les effectifs (embauches, suppressions, postes d'enseignants)
+et le reste de chaque levier gardent leur famille et leur profil.
+
+**Sources et limites.** Comptabilité nationale : une hausse de rémunération à effectifs et structure constants est un
+effet prix, pas volume (SEC 2010 § 10.44 et § 11.35-11.37 ; Eurostat, manuel des prix et volumes, 2016, § 3.11.2).
+Mésange (document de travail Insee G2017/04, p. 106) fait jouer les « salaires publics en prix » comme les
+prestations en espèces. Le niveau est encadré par deux modèles publiés : e-mod.fr (OFCE, policy brief n° 17, avril
+2017, p. 15 : multiplicateur « proche de 0,9 au bout de trois ans pour les prestations sociales, les transferts
+sociaux en nature et les salaires publics », assiette du « point de PIB » non précisée) et QUEST (Roeger & in 't
+Veld 2010, texte et tableau 2 : effet sur le PIB privé de 0,3 pour les salaires publics, contre 0,20 à 0,53 pour
+les transferts généraux, soit 0,55 à 0,74 transfert par euro de coût ; choc temporaire d'un an, Union
+européenne). Le coefficient des transferts du moteur (0,65 à 4 ans) se situe entre les deux et s'applique au coût
+employeur entier : « le même effet qu'un transfert du même montant » porte sur le coût employeur brut, dont le
+revenu net des agents n'est qu'une part (`PART_NETTE_REMUNERATIONS_APU`). Limites déclarées : les sources décrivent
+un effet différé (Mésange : « Les mécanismes de transmission à l'activité sont donc plus lents » ; e-mod.fr : 0,25
+la première année), le profil des transferts du moteur est concentré sur les premières années (profil repris par
+analogie, sans source : effet trop rapide la première année) ; le retour immédiat des cotisations et de la CSG aux
+administrations n'est pas modélisé à part (il passe par l'élasticité des recettes, avec un an de retard) ; l'effet
+prix sur le PIB en valeur n'est pas représenté ; les études empiriques sur les salaires publics divergent (Bermperoglou, Pappa & Vella 2017 ; Forni, Monteforte & Sessa 2009 ;
+FMI, document de travail 19/125) et n'ont été lues qu'en résumé. Pour les effectifs, Gechert (catégorie « emploi
+public ») et l'OFCE (Creel, Heyer & Plane 2011) ne contredisent pas la dépense courante.
+
+**La correction.** `flux_par_levier` (`engine/growth.py`) sort de la dépense du levier le montant qu'il émet déjà
+au canal ménages `remunerations_publiques` (coût de l'année, le même que lit le pouvoir d'achat) : flux distinct
+`remunerations`, que `_stocker_impulsions` prend au coefficient et au profil des transferts ; le reste de la
+dépense garde son flux. Sans ce canal, rien ne change. Un levier à coefficient propre garde tout dans son solde.
+
+- **En attente d'un arbitrage du mainteneur** : la hausse du SMIC émet aussi une part « agents publics » à ce canal.
+  Le SMIC a un coefficient propre appliqué à son solde (`MESURES_MULTIPLICATEUR_NET`) : cette part y reste.
+  Mesuré, la sortir du solde au traitement des transferts baisserait la dette 2032 (mode cadre) de 0,05 à 0,81
+  point pour les trois programmes publiés qui relèvent le SMIC.
+- Test rouge puis vert : `tests/test_remunerations_publiques_transferts.py` (nouveau), ce qu'il garde :
+  - **émetteurs** dérivés du registre des paramètres (`PARAM_DOMAINS` et `INTENSITE_DOMAINS`, chaque paramètre
+    porté seul à chaque borne), pas d'une liste : point d'indice, revalorisation des enseignants, et la part
+    « agents publics » du SMIC, seule exception à coefficient propre, verrouillée par la liste et par le
+    comportement (retirer cette part du canal ne change aucune colonne macroéconomique) ;
+  - **source unique** : chaque année, le flux de rémunération vaut exactement le canal, le reste de la dépense
+    garde sa famille et son profil, aucun flux de rémunération sans canal ; deux programmes (hausses, baisses),
+    deux modes ;
+  - **même effet qu'un transfert** : ±1 point de PIB de rémunération donne toute la trajectoire
+    macroéconomique (PIB, dette, déficit, chômage, inflation, taux) d'un transfert du même montant, à 1e-9 près,
+    pour chaque émetteur dérivé et un émetteur synthétique, dans les deux sens et cinq états (banc historique,
+    mode cadre 2028, dette à 160 % du PIB, écarts de production à −3 % et à +1,5 %), en montée en charge sur
+    trois ans (une règle limitée à la première impulsion de chaque levier y rougit) ;
+  - **miroir** par les vrais curseurs (point d'indice ±2 %, revalorisation ±5 %), 1 à 6 ans, deux modes ;
+  - **plafond de 10 % du PIB** en mode « reduction » : canal et dépense réduits du même facteur, source unique
+    tenue.
+  Le test « source unique » est un détecteur de changement de la formule de `flux_par_levier`, pas une propriété ;
+  un canal pris hors de la dépense ou doublé est vu par le miroir et par les tests du pouvoir d'achat.
+  Rouge avant : 37 échecs sur 45 (l'inventaire, les miroirs, symétriques depuis le lot 5, et l'exception du SMIC,
+  vraie avant le lot, passaient déjà). Banc des
+  multiplicateurs : famille « rémunération publique », tolérance des transferts (0,795 avant, rouge ; 0,650 après).
+- Golden master isolé : l'état d'avant, instrumenté, liste les cas où un levier hors coefficient propre émet ce
+  canal ; seuls ceux-là bougent (les sept programmes concernés, dans les deux modes), les 50 autres cas sont
+  identiques au bit en pleine précision, dont les 42 mini-scénarios et les deux statu quo. Instantanés régénérés
+  une fois (golden masters historique et cadre, delta de référence) ; mini-scénarios inchangés. Pouvoir d'achat
+  2029 figé non modifié (écart au plus 0,3, tolérance 1,5).
+- Effet (mode cadre 2028, dix scénarios publiés, par rapport au lot 5) : dette 2032 de +0,16 à +0,59 point pour
+  les sept programmes concernés, déficit 2032 de −0,04 à −0,14, croissance moyenne 2028-2032 de −0,011 à −0,037
+  point ; Gini inchangé, compétitivité au plus 0,0003 point d'indice. Décomposition : coefficient seul (profil
+  d'origine) 0,29 et 0,28 point pour le point d'indice, 0,09 à 0,56 pour les enseignants ; coefficient et profil
+  (ce commit) 0,53 et 0,52, et 0,07 à 0,57. Rangs : cinq rangs de croissance moyenne changent, deux programmes
+  échangent les 5ᵉ et 6ᵉ rangs de chômage 2032 ; dette, déficit et Gini inchangés.
+- Pile d'intégration (reporté après les lots 2 et 6, mesuré contre l'option du lot 6 reportée) : dette 2032 de +0,09
+  à +0,59 point pour les sept programmes concernés, déficit 2032 de −0,03 à −0,13, croissance moyenne de −0,010 à
+  −0,034 ; rangs (sorties du moteur) : dette 2032, deux changent, croissance moyenne, deux. Adapté : l'espion du test
+  du traitement des transferts prend la signature du lot 6 (`niveaux` du budget) ; la rémunération publique prend
+  le coefficient recalé des transferts (0,785 au lieu de 0,688) dans les tableaux des familles ; chiffres
+  « moteur actuel » du lot 2 recalculés (variantes de la recherche).
+- Arbitrage du mainteneur du 16/11/2026, texte seulement : subventions aux entreprises et transferts en capital aux
+  ménages, classement inchangé (dépense courante), limite déclarée (METHODOLOGIE, limite 9) — aucune source
+  consultée ne chiffre une subvention durable (Mésange, note 77 : sans effet dans le modèle ; QUEST ne chiffre que
+  des aides temporaires à l'investissement) ; le coefficient de la dépense courante est vraisemblablement trop fort.
+  Mesuré : au coefficient des transferts, la dette 2032 (mode cadre) baisserait de 0,02 à 0,10 point selon le
+  programme (au plus 0,08 en écart à la référence) ; transferts en capital : +0,005 point, un programme.
+- Hors du changement, mesuré : la revalorisation des enseignants ne nourrit pas l'effet d'offre (il ne lit que le
+  budget de l'éducation) ; elle nourrit la compétitivité (« attractivité du métier »), de 0,002 à 0,007 point
+  d'indice en 2032 selon le programme ; inchangé ici.
+- Docs : METHODOLOGIE (nouvel encadré, table de base, tableau des familles, périmètre du canal investissement,
+  Fonction publique, « Classement à arbitrer » du lot 5 : point d'indice traité), EXPLICATION (table et note en
+  français courant), docstrings des handlers et commentaires de `simulator.py` et `_types.py`.
 ## [non publiée — proposée] — option du lot 6 (équation) : santé et réforme de l'État au rythme de la dépense courante
 
 **Statut** : OPTION proposée, non tranchée par le mainteneur, non publiée, sans numéro de version. Commit d'ÉQUATION

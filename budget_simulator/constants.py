@@ -417,6 +417,8 @@ MULT_CIBLE_NIVEAU_4ANS = {
     'hausse_depenses': 0.8,  # = coupe (lot 5) : convention du mainteneur, pas d'asymétrie de signe retenue
                              # (même instrument, même coefficient ; Gechert 2015 ne teste pas le signe)
     'transferts': 0.65,      # Gechert 2015 : ≈ 1 − 0,35
+    'remunerations_publiques': 0.65,  # = transferts (lot 5b, arbitrage du mainteneur) : entre QUEST 2010 (PIB
+                             # privé 0,3, choc d'un an) et e-mod.fr 2017 (≈ 0,9 à 3 ans) ; profil par analogie
     'hausse_impots': 0.65,   # Gechert 2015 : ≈ 1 − 0,35
     'baisse_impots': 0.65,   # = hausse : aucune asymétrie de signe sourcée (cf. ci-dessous)
 }

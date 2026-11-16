@@ -434,6 +434,7 @@ Coefficients d'impact `k` v0.6.7, calés pour que l'effet de NIVEAU sur le PIB r
 | Investissement public | **1,31** (demande seule 1,28 ; avec l'effet de capacite d'un equipement public, 1,54 : le tableau du FMI) [1,20] | FMI WEO oct. 2014 (chemin de 0,46 a 1,54 en quatre ans) |
 | Depense courante (defense, dotations, postes, credits, sante) | **0,811** (effet 0,8), meme coefficient que la coupe (lot 5) [0,74] | convention : pas d'asymetrie de signe retenue (meme instrument, meme coefficient) |
 | Transferts sociaux | **0,785** (effet 0,65), meme coefficient pour une coupe [0,688] | Gechert 2015 |
+| Remuneration des agents publics a effectifs constants (point d'indice, revalorisation des enseignants) | **0,785** (effet 0,65), comme un transfert, dans les deux sens (lot 5b) [0,688] | comptabilite nationale (effet prix) et Mesange 2017 ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010) |
 | Baisses impots | **0,674** (effet 0,65, comme la hausse) [0,615] | aucune asymetrie de signe etablie (v0.6.7) |
 | **Cas speciaux** | | |
 | SMIC | **0,15** | Kramarz & Philippon 2001 (quasi-zero) |
@@ -451,6 +452,24 @@ prime de taux (l'éviction d'une hausse est retirée au lot 1).
 **Prestations en montant (v0.8.0).** Le curseur `prestations_menages` prend le multiplicateur des
 transferts sociaux dans les deux sens, comme les règles d'indexation, l'assurance chômage et les
 retraites.
+
+**Hausse de salaire des agents publics : comme un transfert (lot 5b, 16/11/2026, non publié).** Augmenter
+le point d'indice ou revaloriser les enseignants déjà en poste ne fait pas travailler plus d'agents : c'est
+un revenu en plus pour ceux qui sont là, comme une prestation. Le moteur le traite donc désormais comme un
+transfert (0,65 point de PIB au bout de 4 ans pour un point de PIB), dans les deux sens ; jusqu'ici, le point
+d'indice comptait comme une dépense courante (0,79) et la revalorisation des enseignants comme un
+investissement (1,41). Les embauches, les suppressions de postes et le reste du budget de l'éducation ne
+changent pas. Deux modèles publiés encadrent ce choix : celui de l'OFCE met les salaires publics au niveau des
+prestations sociales, celui de la Commission européenne un peu plus bas. Dans ces modèles, l'effet arrive plus
+lentement que dans le moteur, qui le fait jouer surtout la première année : c'est une limite déclarée.
+Les sept programmes publiés qui relèvent ces salaires voient leur dette 2032 monter de 0,16 à 0,59 point en mode
+cadre (METHODOLOGIE, encadré du lot 5b). La part de la hausse du SMIC versée aux agents publics garde, en
+attendant un arbitrage, le traitement propre du SMIC.
+
+**Subventions et aides en capital : limite déclarée (16/11/2026).** Les subventions aux entreprises et les aides
+en capital versées aux ménages gardent le traitement d'une dépense courante : aucune étude consultée ne chiffre
+l'effet d'une subvention durable, et ce traitement est probablement trop fort. L'écart reste petit : un dixième
+de point de dette 2032 au plus selon le programme (METHODOLOGIE, limite 9 de « Limites et Precautions »).
 
 **Dépense courante, même effet dans les deux sens (lot 5, 15/11/2026, non publié).** Jusqu'ici, une
 dépense qui n'est ni de l'investissement ni une prestation (défense, dotations des collectivités,

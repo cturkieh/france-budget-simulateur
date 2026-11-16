@@ -1220,6 +1220,11 @@ Cela evite de compter deux fois la meme hausse si le point d'indice est deja rev
   des agents en place, canal `rémunérations publiques`, compté à sa part nette (0,535 € par €
   de coût) chaque année ; les créations et suppressions de postes n'ont pas d'effet direct
   (elles passent par la croissance)
+- **Croissance** (lot 5b, arbitrage du mainteneur du 16/11/2026) : le point d'indice, ce même
+  montant, prend le traitement des transferts (coefficient et profil), dans les deux sens ; les
+  créations et suppressions de postes restent de la dépense courante. La part de la hausse du
+  SMIC dans la fonction publique reste, en attente d'un arbitrage, dans le solde du SMIC, à son
+  coefficient propre (encadré du lot 5b, § Multiplicateurs)
   2027-2032 ; suppressions : aucun effet (attrition naturelle, pas de licenciement).
 
 ---
@@ -1564,7 +1569,7 @@ l'ancien barème faisait ; même effet que l'investissement local ; et, pour les
 transition, rénovation, collectivités, recherche, éducation —, aucune recette propre dans les impacts que le
 moteur utilise, de sorte qu'un retour fiscal remis ailleurs que dans le handler fait aussi rougir la garde).
 
-**Mesures d'investissement productif (pour multiplicateur)** : education, transition_eco, recherche (PAS defense)
+**Mesures d'investissement productif (pour multiplicateur)** : education, transition_eco, recherche (PAS defense ; hors revalorisation des enseignants en place, au traitement des transferts depuis le lot 5b)
 
 **Impacts :**
 - Gini : +5 Md EUR renovation = **-0,0017** (redistributif ; recalibre v0.6.1,
@@ -2246,7 +2251,7 @@ effet(t) = Σ_levier Σ_flux Σ_âge  −k(flux, sens) × Δe(t − âge) × pro
 Δe(t)    = e(t) − e(t−1),  e = flux du levier / PIB nominal de son année   (e > 0 = consolidation)
 ```
 
-Chaque flux d'un levier est multiplié séparément : ses recettes au canal fiscal, ses dépenses au canal investissement (éducation, recherche, transition écologique) ou transferts/générique. Le sens (consolidation ou expansion) est celui du NIVEAU du flux par rapport au statu quo, pas celui de sa variation : retirer une hausse d'impôts porte le multiplicateur d'une hausse, donc la somme des effets d'IMPULSION d'une mesure retirée revient exactement à zéro et ce cumul ne dépend que du niveau atteint (un flux qui change de signe dans l'année est scindé en zéro). **Ce n'est pas le niveau du PIB** (texte corrigé en v0.6.7, lot 3b ; l'équation est inchangée) : le rappel vers le potentiel « rembourse » pendant la mesure l'écart qu'elle ouvre, et au retrait le PIB passe SOUS la référence avant d'y revenir lentement — une relance temporaire de +1 % du PIB de transferts pendant 4 ans porte le PIB à +0,8 % au pic, puis à −0,46 % en 2033-2034 et encore −0,35 % en 2039, dont environ 0,2 pt de traînée de la dette accumulée (−0,15 % sans elle). Une mesure temporaire n'est donc pas neutre en niveau une fois retirée : elle se paie en partie après coup. Exceptions : le SMIC et la fraude fiscale ont un coefficient calibré sur leur effet NET, appliqué à leur solde (`FiscalMultipliers.MESURES_MULTIPLICATEUR_NET`). L'impulsion du budget de l'année agit dès cette année : `e(t)` est l'effort du budget de t, évalué hors de son effet propre (lot 6 ; jusque-là, l'impulsion était lue dans les impacts de t−1, avec un an de retard : § « Calendrier de l'impulsion »).
+Chaque flux d'un levier est multiplié séparément : ses recettes au canal fiscal, ses dépenses au canal investissement (éducation, recherche, transition écologique) ou transferts/générique, et, depuis le lot 5b, la part de sa dépense émise au canal ménages des rémunérations publiques (point d'indice, revalorisation des enseignants en place) au traitement des transferts. Le sens (consolidation ou expansion) est celui du NIVEAU du flux par rapport au statu quo, pas celui de sa variation : retirer une hausse d'impôts porte le multiplicateur d'une hausse, donc la somme des effets d'IMPULSION d'une mesure retirée revient exactement à zéro et ce cumul ne dépend que du niveau atteint (un flux qui change de signe dans l'année est scindé en zéro). **Ce n'est pas le niveau du PIB** (texte corrigé en v0.6.7, lot 3b ; l'équation est inchangée) : le rappel vers le potentiel « rembourse » pendant la mesure l'écart qu'elle ouvre, et au retrait le PIB passe SOUS la référence avant d'y revenir lentement — une relance temporaire de +1 % du PIB de transferts pendant 4 ans porte le PIB à +0,8 % au pic, puis à −0,46 % en 2033-2034 et encore −0,35 % en 2039, dont environ 0,2 pt de traînée de la dette accumulée (−0,15 % sans elle). Une mesure temporaire n'est donc pas neutre en niveau une fois retirée : elle se paie en partie après coup. Exceptions : le SMIC et la fraude fiscale ont un coefficient calibré sur leur effet NET, appliqué à leur solde (`FiscalMultipliers.MESURES_MULTIPLICATEUR_NET`). L'impulsion du budget de l'année agit dès cette année : `e(t)` est l'effort du budget de t, évalué hors de son effet propre (lot 6 ; jusque-là, l'impulsion était lue dans les impacts de t−1, avec un an de retard : § « Calendrier de l'impulsion »).
 
 **Ce que cela corrige (v0.6.6, deux erreurs de calcul)** : (1) une impulsion n'était stockée qu'au changement du hash des mesures — constant pendant une simulation —, donc UNE impulsion par scénario, égale au NIVEAU de la première année non nulle : la montée en charge n'était jamais multipliée (fraude fiscale : 0,10 % du PIB multiplié, 0,47 % atteint en 2030), et les résidus s'arrêtaient net dès que l'effort courant repassait sous 0,1 % du PIB ; (2) un seul multiplicateur par scénario, moyenne des multiplicateurs SIGNÉS pondérée par l'effort BRUT puis appliquée à l'effort NET : un programme équilibré n'avait aucun effet keynésien, et une consolidation nette pouvait être comptée comme une relance (banc de l'auditeur, 40 Md EUR d'investissement + 20/40/50 Md EUR d'impôts : +0,253 / 0 / +0,060 pt au lieu de +0,420 / +0,120 / −0,030). Contrat verrouillé par `tests/test_impulsions_v067.py` (somme signée, additivité d'une montée en charge, résidus après retrait, franchissement de zéro, chaque variation multipliée une fois en simulation complète).
 
@@ -2262,6 +2267,7 @@ Chaque flux d'un levier est multiplié séparément : ses recettes au canal fisc
 | Expansion investissement | **1,31** | IMF 0,9-1,5, OFCE 1,0-1,3 | 1,0 (v2.0) ; lot 6 : 1,20 (calendrier de l'impulsion, recalage) |
 | Expansion depense courante | **0,811** | lot 5 : même coefficient que la coupe de dépense courante (convention du mainteneur : pas d'asymétrie de signe retenue, même instrument, même coefficient ; limite : encadré du lot 5) | 0,688 (coefficient des transferts, jusqu'au lot 5) ; lot 6 : 0,74 (calendrier de l'impulsion, recalage) |
 | Expansion transferts | **0,785** | v0.6.7 : calé « central » ; recalé au lot 1 (release de paramètres) | 0,71 (v0.6.7), 0,50 (v0.6.6), 0,80 (v2.0) ; lot 6 : 0,688 (calendrier de l'impulsion, recalage) |
+| Remuneration publique a effectifs constants (hausse ou baisse) | **0,785** | lot 5b, arbitrage du mainteneur : traitement des transferts (coefficient et profil) ; niveau encadre par e-mod.fr (OFCE 2017) et QUEST (2010), profil par analogie, limites : encadre du lot 5b | 0,811 (point d'indice, depense courante) ; 1,31 (revalorisation des enseignants, investissement) ; lot 6 : 0,688 avant le recalage |
 | Expansion baisses impots | **0,674** | v0.6.7 : même valeur centrale EFFECTIVE que la hausse (0,65 à 4 ans) — aucune asymétrie de signe établie ; = hausse depuis le lot 1 | 0,63 (v0.6.7), 0,455 (v0.6.7 avant symétrie), 0,35 (v0.6.6), 0,40 (v2.0) ; lot 6 : 0,615 (calendrier de l'impulsion, recalage) |
 | SMIC (special) | **0,15** | Kramarz & Philippon 2001 | n/a |
 | Fraude fiscale (enforcement) | **-0,40** | Application loi existante | n/a |
@@ -2279,6 +2285,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 | Coupe de dépenses générique (TAXES) | 0,8 | Ramey 2019 JEP : « 0.6 to 1 for spending multipliers » (milieu) ; Gechert ≈ 1 | 0,58 (k = 0,60 ÷ 1,10) | 0,80 (k = 0,74, sans facteur « confiance » ; 0,79 à k = 0,81 ÷ 1,10) | 0,15 / 0,56 | 0,79 (k = 0,811) ; 0,11 / 0,58 |
 | Hausse de dépense courante (TAXES) | 0,8 | la même que la coupe : même instrument (lot 5) | non mesurée (coefficient des transferts) | non mesurée (coefficient des transferts ; 0,74 au lot 1, k = 0,688) | — | 0,79 (k = 0,811) ; 0,11 / 0,58 |
 | Transferts (TRANSFERS) | 0,65 | Gechert 2015 : « 0.3 to 0.4 units » sous les dépenses (≈ 1) | 0,44 (k = 0,50) | 0,65 (k = 0,71) | 0,01 / 0,43 | 0,65 (k = 0,785) ; 0,04 / 0,48 |
+| Rémunération publique à effectifs constants (TRANSFERS) | 0,65 | la même que les transferts (lot 5b) : entre QUEST 2010 (effet sur le PIB privé de 0,3, choc d'un an) et e-mod.fr 2017 (« proche de 0,9 au bout de trois ans ») | non mesurée | non mesurée (au lot 5 : 0,79 pour le point d'indice, 1,41 pour la revalorisation des enseignants) | — | 0,65 (k = 0,785) ; 0,04 / 0,48 |
 | Hausse d'impôts (TAXES) | 0,65 | Gechert 2015 (même écart) ; Ramey 2019 « −2 to −3 » (États-Unis, chocs narratifs : non retenu comme central pour la France) | 0,52 (k = 0,50) | 0,65 (k = 0,615) | 0,05 / 0,44 | 0,65 (k = 0,674) ; 0,01 / 0,45 |
 | Baisse d'impôts (TAXES) | 0,65 | la même que la hausse : aucune asymétrie de signe établie (paragraphe ci-dessous) ; jusqu'au 07/10/2026, « asymétrie hausse/baisse du moteur conservée (0,35/0,50) », sans source | 0,33 (k = 0,35) | 0,65 (k = 0,63 ; 0,45 à k = 0,455 avant symétrie) | 0,02 / 0,43 | 0,65 (k = 0,674) ; 0,03 / 0,46 |
 
@@ -2341,18 +2348,21 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > 1e-7, par un levier de coupe dont l'effet sur les inégalités dépend de dépenses qui suivent l'économie), compétitivité
 > au plus 0,0003 point d'indice (par deux leviers fiscaux dont l'effet émis suit le PIB). Rangs : deux programmes échangent les 2ᵉ et 3ᵉ rangs de croissance moyenne
 > (1,356 contre 1,336 %), deux autres les 5ᵉ et 6ᵉ rangs de chômage 2032 (7,71 contre 7,72 %) ; dette, déficit et
-> Gini : aucun rang ne change. **Classement à arbitrer, non modifié** (soumis au mainteneur ; un changement
-> ferait l'objet d'un commit d'équation distinct, avec son test) :
-> - **le point d'indice de la fonction publique**, le plus gros enjeu. Le moteur se contredit : le revenu des
->   ménages (`engine/rdb.py`) traite une hausse du point d'indice comme un revenu versé aux agents, à l'égal
->   d'une prestation, alors que la croissance la range en dépense courante, avec les embauches. Mesuré (mode
->   cadre 2028, pleine précision), le point d'indice seul pris au coefficient des transferts, profil inchangé,
->   relèverait la dette 2032 des deux programmes publiés qui le relèvent de 0,28 et 0,29 point (0,52 et 0,53
->   avec aussi le profil des transferts) : 47 % et 73 % de ce que le lot 5 leur fait gagner ; aucun autre
->   programme ne bouge ;
-> - l'Ondam et l'aide médicale de l'État (prestations en nature pour l'essentiel, avec des indemnités
->   journalières versées en espèces dans l'Ondam), les transferts en capital aux ménages, les subventions aux
->   entreprises, la dotation des collectivités (un transfert entre administrations) ;
+> Gini : aucun rang ne change. **Classements à arbitrer** (soumis au mainteneur ; un changement ferait
+> l'objet d'un commit d'équation distinct, avec son test), état au lot 5b :
+> - **le point d'indice de la fonction publique** : **traité au lot 5b** (encadré suivant), avec la
+>   revalorisation des enseignants en place. Le moteur se contredisait : le revenu des ménages (`engine/rdb.py`)
+>   traitait une hausse du point d'indice comme un revenu versé aux agents, à l'égal d'une prestation, et la
+>   croissance la rangeait en dépense courante, avec les embauches. L'enjeu mesuré ici (mode cadre 2028, pleine
+>   précision), le point d'indice seul au coefficient des transferts, profil inchangé : 0,28 et 0,29 point de
+>   dette 2032 pour les deux programmes publiés qui le relèvent (0,52 et 0,53 avec aussi le profil des
+>   transferts, la règle retenue au lot 5b) ;
+> - **arbitré, classement inchangé, limite déclarée** (arbitrage du mainteneur du 16/11/2026) : les subventions
+>   aux entreprises et les transferts en capital aux ménages restent au coefficient de la dépense courante
+>   (limite 9 de « Limites et Precautions ») ;
+> - **à arbitrer** : les indemnités journalières comprises dans le curseur Ondam (des prestations en espèces) et
+>   la dotation des collectivités (un transfert entre administrations). Les soins de l'Ondam et de l'aide
+>   médicale de l'État, prestations en nature, restent de la dépense courante ;
 > - **la même dépense de santé avait une dynamique différente selon le levier qui la porte** (préexistant, résolu
 >   par l'option du lot 6) : `sante` suivait le profil de persistance de l'investissement
 >   (`INVESTMENT_FLOW_MEASURES`), les moyens de soins de `depenses_publiques` celui de la dépense courante. Pour un
@@ -2361,6 +2371,74 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 >   depuis l'option, le même chemin, au bit près.
 >
 > Le lot 5 rend chaque classe symétrique ; il ne change aucun de ces classements.
+
+> **Rémunérations publiques à effectifs constants au traitement des transferts (lot 5b, équation, 16/11/2026,
+> non publiée).** Arbitrage du mainteneur du 16/11/2026 : une hausse (ou une baisse) de rémunération des agents
+> publics à effectifs constants est un revenu versé aux agents ; pour la croissance, elle prend le traitement des
+> transferts — coefficient `MULT_TRANSFERTS` et profil `DECAY_PROFILE_TRANSFERS` —, dans les deux sens. Elle vaut
+> pour le point d'indice (`fonction_publique`, jusqu'ici de la dépense courante : 0,79 point de PIB à 4 ans par
+> point de PIB) et pour la revalorisation des enseignants en place (`education.salaires`, jusqu'ici au coefficient
+> et au profil de l'investissement productif : 1,41) ; désormais 0,65, comme un transfert. Les effectifs
+> (embauches, suppressions, postes d'enseignants) et le reste de chaque levier gardent leur famille et leur
+> profil ; aucun coefficient ne change. **Source unique** : le montant reclassé est celui que le levier émet déjà
+> au canal ménages `remunerations_publiques` (coût de l'année), le même que lit l'indice de pouvoir d'achat ; il
+> forme un flux distinct dans `flux_par_levier` (`engine/growth.py`). **Sources** : en comptabilité nationale, une
+> hausse de rémunération à effectifs et structure constants est un effet prix, pas volume (SEC 2010 § 10.44 et
+> § 11.35-11.37 ; Eurostat, *Handbook on prices and volume measures in national accounts*, 2016, § 3.11.2) ; le
+> modèle Mésange (Bardaji et al., « Le modèle macroéconométrique Mésange : réestimation et nouveautés », document
+> de travail Insee G2017/04, p. 106) écrit que la dépense publique « joue de manière indirecte et donc différée
+> par d'autres composantes (salaires publics en prix, par exemple si on augmente le point d'indice ; prestations
+> sociales en espèces) ». **Niveau, encadré par deux modèles publiés** : le modèle e-mod.fr de l'OFCE (Ducoudré,
+> Plane & Sampognaro, *Dépenses publiques : quels enjeux pour le prochain quinquennat ?*, policy brief n° 17,
+> avril 2017, p. 15) écrit que « Le multiplicateur est proche de 0,9 au bout de trois ans pour les prestations
+> sociales, les transferts sociaux en nature et les salaires publics », sans préciser l'assiette du « point de
+> PIB » de rémunérations (coût employeur ou salaire brut) ; le modèle QUEST de la Commission européenne (Roeger &
+> in 't Veld, *European Economy Economic Papers* 426, 2010, texte p. 17 imprimée, p. 20 du PDF, et tableau 2) donne
+> à une hausse des salaires publics « an additional private sector GDP multiplier of 0.3 », contre 0,20 à 0,53
+> pour les transferts généraux du même tableau, soit, d'après ce tableau, 0,55 à 0,74 fois l'effet d'un transfert par
+> euro de coût, pour un choc temporaire d'un an sur l'Union européenne. Le coefficient des transferts du moteur
+> (0,65 point de PIB à 4 ans) se situe entre les deux, et il s'applique au coût employeur entier : « le même
+> effet qu'un transfert du même montant » porte sur le coût employeur brut, dont le revenu net des agents n'est
+> qu'une part (`PART_NETTE_REMUNERATIONS_APU`). **Limites déclarées** : (1) les sources décrivent un effet
+> différé (Mésange, même page : « Les mécanismes de transmission à l'activité sont donc plus lents » ; e-mod.fr :
+> 0,25 la première année) alors que le profil des transferts du moteur est concentré sur les premières années :
+> ce profil est repris par analogie, sans source, et l'effet est trop rapide la première année ; (2) le retour
+> immédiat des cotisations (employeur et salariales) et de la CSG aux administrations publiques n'est pas
+> modélisé à part : il passe par l'élasticité des recettes, avec un an de retard, et le coût pour le déficit en
+> est surestimé la première année ; (3) l'effet prix d'une hausse de rémunération sur le PIB en valeur (SEC 2010
+> § 10.28 : la production non marchande vaut la somme de ses coûts) n'est pas représenté : le moteur ne relève
+> ni le PIB nominal ni le déflateur ; (4) les études empiriques sur les salaires publics divergent (Bermperoglou,
+> Pappa & Vella, *Journal of Economic Dynamics and Control*, 2017 ; Forni, Monteforte & Sessa, *Journal of Public
+> Economics*, 2009 ; FMI, document de travail 19/125) et n'ont été lues qu'en résumé. Pour les effectifs, la méta-analyse de
+> Gechert (catégorie « emploi public ») et l'OFCE (Creel, Heyer & Plane, *Revue de l'OFCE* n° 116, 2011) ne
+> contredisent pas le classement en dépense courante. **En attente d'un arbitrage du mainteneur** : la hausse du
+> SMIC émet aussi une part « agents publics » à ce canal ; le SMIC a un coefficient propre appliqué à son solde
+> (`MESURES_MULTIPLICATEUR_NET`), et cette part y reste. Mesuré (mode cadre 2028), la sortir du solde au
+> traitement des transferts baisserait la dette 2032 de 0,05 à 0,81 point pour les trois programmes publiés qui
+> relèvent le SMIC. Test : `tests/test_remunerations_publiques_transferts.py` (émetteurs dérivés du registre des
+> paramètres, pas d'une liste ; source unique, chaque année, dans les deux sens et les deux modes ; même
+> trajectoire macroéconomique qu'un transfert du même montant, à 1e-9 près, pour chaque émetteur et un émetteur
+> synthétique, dans les deux sens et dans cinq états, en montée en charge sur trois ans ; vrais curseurs en miroir
+> à 1 % près de 1 à 6 ans ; exception du SMIC verrouillée par la liste des émetteurs à coefficient propre et par le
+> comportement : retirer sa part « agents publics » du canal ne change aucune colonne macroéconomique ; source
+> unique tenue sous le plafond de 10 % du PIB en mode « reduction ») et famille « rémunération publique » du banc des
+> multiplicateurs, à la tolérance des transferts. **Ce qui bouge** (mode cadre 2028, dix scénarios publiés, par
+> rapport au lot 5) : les sept programmes qui relèvent le point d'indice ou la revalorisation des enseignants ;
+> la référence sans programme et les trois autres sont identiques au bit. Dette 2032 de +0,16 à +0,59 point,
+> déficit 2032 de −0,04 à −0,14 point, croissance moyenne 2028-2032 de −0,011 à −0,037 point ; sur la pile
+> d'intégration (lots 2 et 6 appliqués, mesuré contre le commit qui le précède) : dette 2032 de +0,09 à +0,59
+> point, déficit 2032 de −0,03 à −0,13, croissance moyenne de −0,010 à −0,034 ; Gini inchangé,
+> compétitivité au plus 0,0003 point d'indice (un levier fiscal dont l'effet émis suit le PIB). **Décomposition**
+> (même mesure) : le coefficient seul, avec le profil d'origine, coûterait 0,29 et 0,28 point de dette 2032 aux
+> deux programmes qui relèvent le point d'indice, et de 0,09 à 0,56 point aux six qui revalorisent les
+> enseignants ; avec aussi le profil des transferts (ce commit), 0,53 et 0,52 point pour le point d'indice — le
+> profil des transferts s'éteint plus vite que celui des impôts —, et de 0,07 à 0,57 point pour les enseignants
+> — le profil de l'investissement culmine la deuxième année : selon le calendrier du programme, passer au profil
+> des transferts relève ou abaisse l'effet (décomposition mesurée contre le lot 5). Rangs, contre le lot 5 : cinq
+> rangs de croissance moyenne changent, deux programmes échangent les 5ᵉ et 6ᵉ rangs de chômage 2032 ; dette,
+> déficit et Gini : aucun rang ne change. Rangs sur la pile (sorties du moteur) : en dette 2032, un scénario passe
+> du 6ᵉ au 4ᵉ rang et un programme du 4ᵉ au 5ᵉ ; en croissance moyenne, deux rangs changent ; à une décimale, la
+> dette et le déficit changent chacun d'un ou deux rangs, la croissance et le chômage d'un.
 
 **Transferts symétriques en signe (v0.6.7, lot 3b — réfuteur macro).** Gechert (2015) classe par INSTRUMENT, pas par signe : une COUPE de transfert (`TRANSFER_MEASURES` hors SMIC, multiplié sur son solde net) prend désormais le même coefficient que la hausse (k = 0,71). Jusqu'ici elle prenait celui de la coupe générique, atténué ÷1,10 « confiance » : couper 1 % du PIB de pensions coûtait 0,707 point de PIB à 4 ans quand la hausse en rapportait 0,653 (+8,2 %). Déplace la dette 2035 des seuls programmes qui coupent des transferts (IM Compétitivité −0,12, Horizons −0,11, Renaissance −0,05, LR −0,04, IM Rabot −0,02 pt). **Asymétrie résiduelle déclarée jusqu'à v0.8.1** : en moteur complet, la coupe coûtait encore 4,4 % de plus que la hausse ne rapportait ; c'était l'éviction (« crowding-out »), qui réduisait l'effet des seules expansions financées par la dette au-delà de 100 % du PIB sans « crowding-in » symétrique pour les consolidations (éviction neutralisée : 0,9 %). Éviction retirée au lot 1 (15/11/2026) : 0,1 %, verrouillé à 1 % par `tests/test_symetrie_transferts_v067.py`.
 (Correction du lot 5 : la symétrie de signe n'est pas un résultat de Gechert 2015, qui classe par instrument et ne teste pas le signe ; c'est une convention du mainteneur, pour toutes les familles. Limite déclarée : encadré « Dépense courante symétrique en signe ».)
@@ -2435,7 +2513,9 @@ les deux cas) ; chaque fiche publie la sienne. Le statu quo, sans impulsion, ne 
 transition ecologique UNIQUEMENT (`INVESTMENT_CORE_MEASURES`). La sante courante
 et la reforme de l'Etat sont de la consommation/optimisation publique : canaux
 transferts/generique (la revue adverse du 24/08 a montre que le perimetre large
-donnait un multiplicateur d'investissement aux coupes... de sante).
+donnait un multiplicateur d'investissement aux coupes... de sante). Depuis le lot 5b,
+la revalorisation des enseignants en place en sort : une hausse de remuneration a
+effectifs constants, au traitement des transferts (encadre du lot 5b).
 
 **Atténuation « confiance » retirée (v0.6.7 — règle posée par le mainteneur le 07/10/2026 : un mécanisme reste si et seulement s'il est conforme à la littérature).** Jusqu'ici toute coupe de dépense générique était divisée par 1,10 dès la 2ᵉ année (« effet confiance », Alesina-Favero-Giavazzi : plans par la dépense « mild recessionary »). Deux constats, chacun suffisant :
 
@@ -3077,7 +3157,7 @@ n'a plus de borne fixe.
 
 | Écart de recherche du programme en 2032 | (i) Effet deux ans après la dépense | (ii) 30 % d'une hausse en salaires |
 |---|---|---|
-| +26,7 Md€ | +1,34 / −0,31 / −0,091 | +0,93 / −0,24 / −0,073 |
+| +26,7 Md€ | +1,35 / −0,31 / −0,091 | +0,93 / −0,24 / −0,073 |
 | +10,7 Md€ | +0,70 / −0,16 / −0,049 | +0,49 / −0,13 / −0,040 |
 | +8,9 Md€ | +0,62 / −0,13 / −0,038 | +0,49 / −0,12 / −0,038 |
 | aucun (sept scénarios) | 0 | 0 |
@@ -3786,6 +3866,8 @@ diffère du droit en vigueur pour plusieurs leviers. Garde exécutable :
    > **Corrigé en v0.6.10 (contre-audit externe, V2-05)** : sous Windows sans `PYTHONUTF8=1`, des snapshots JSON etaient relus avec l'encodage de la locale (cp1252) : les colonnes accentuees (« Déficit/PIB % », « Chômage % ») devenaient illisibles et le golden master standalone echouait, moteur intact. Tout fichier texte est desormais ouvert en UTF-8 explicite, et tout interpreteur Python enfant est lance par un lanceur commun (`tests/sous_processus.py`) qui fixe sa sortie standard en UTF-8 des deux cotes du tube, verrouille par `tests/test_encodage_portable.py` (gardes statiques sur tout le depot + rejeux des lecteurs de snapshots et des tests a sous-processus sous une locale cp1252 simulee). Et `tests/test_api_safety.py` lisait la table de routage interne de FastAPI : avec fastapi 0.142.2, version permise par `requirements.txt`, il annoncait a tort l'absence de `GET /scenarios` et `POST /simulate`, et ne voyait plus un endpoint interdit ajoute au routeur ; il teste desormais le contrat publie (`/openapi.json`) et appelle chaque endpoint. Aucun chiffre du moteur ne change.
 
 8. **Symetrie hausse/baisse verifiee sur le PIB, pas sur la dette** (preexistant, toutes familles) : les tests de symetrie comparent l'effet sur le PIB reel, et la dette d'une hausse et d'une baisse de meme ampleur n'est plus en miroir quand la prime de taux atteint son plafond de malus (0,60 point), une relance n'y coutant plus de prime quand une coupe en regagne (mesure, mode cadre 2028, ±1 point de PIB de depense courante, dette 2032 : +1,80 / -2,04 point dans un programme publie au plafond, 13,5 % d'ecart contre 2 % sur le PIB et 1 % plafond leve ; 3 % pour la reference sans programme ; 11 % pour les transferts).
+
+9. **Subventions aux entreprises et transferts en capital aux menages** (arbitrage du mainteneur du 16/11/2026 : classement inchange, limite declaree) : aucune source consultee ne chiffre l'effet d'une subvention durable. Mesange (document de travail Insee G2017/04, note 77 p. 105) range les transferts courants, les transferts en capital et les subventions parmi les postes « sans effets directs ou indirects sur l'activite dans le modele » ; QUEST (Roeger & in 't Veld, European Economy Economic Papers 426, 2010, tableau 2) ne chiffre que des aides temporaires a l'investissement, dont l'effet vient d'un report dans le temps et ne se transpose pas a une subvention permanente. Le moteur leur donne le coefficient de la depense courante, vraisemblablement trop fort. Ordre de grandeur (mode cadre 2028, dette 2032, mesure au lot 5b) : prises au coefficient des transferts, profil inchange, les subventions baisseraient la dette de 0,02 a 0,10 point selon le programme (0,02 pour la reference sans programme, dont le droit en vigueur baisse les subventions ; au plus 0,08 en ecart a elle) ; les transferts en capital aux menages la releveraient de 0,005 point, pour un seul programme.
 
 ---
 
