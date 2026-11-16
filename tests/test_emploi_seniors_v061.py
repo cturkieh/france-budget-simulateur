@@ -868,18 +868,17 @@ def test_lecture_defensive_du_parametre_age():
     la liste des valeurs clampées et rejoint les neutres, parce que la PORTE
     a changé pour lui — elle retire la clé au lieu de la clamper à 60 ans.
     La frontière n'a pas bougé d'un pouce ; c'est le comportement de la porte
-    qui a bougé, et le canal macro le suit, comme il est écrit ci-dessus."""
-    for valeur in ('pas-un-nombre', None, float('nan'), float('inf')):
+    qui a bougé, et le canal macro le suit, comme il est écrit ci-dessus.
+
+    3e RECALIBRAGE (gardes d'entrée du lot 3) : ``True`` et ``False`` rejoignent
+    les neutres, pour la même raison : la PORTE les refuse désormais (un âge
+    est une quantité, pas un interrupteur 0/1) — levier en échec, compté nul.
+    Le canal macro suit la porte (tests/test_gardes_booleens.py)."""
+    for valeur in ('pas-un-nombre', None, float('nan'), float('inf'), True, False):
         mesures = {'retraites': {'age_depart': valeur}}
         assert _seniors.retraites_ecart_age_ans_moteur(mesures, 2030) == 0.0
 
     assert _seniors.retraites_ecart_age_ans_moteur({}, 2030) == 0.0
-
-    borne_basse = constants.PARAM_DOMAINS['retraites']['age_depart'][0]
-    attendu = borne_basse - retraites_ref_age_ans(2030)
-    for valeur in (True, False):
-        mesures = {'retraites': {'age_depart': valeur}}
-        assert _seniors.retraites_ecart_age_ans_moteur(mesures, 2030) == pytest.approx(attendu)
 
 
 def test_ecart_age_borne_par_le_registre_de_domaines():

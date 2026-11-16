@@ -169,17 +169,19 @@ def intensite_isf_du_programme(mesures: Dict) -> float:
     0 si le levier est absent, sans intensité ou à ``null`` (défaut de
     ``_apply_isf_climatique`` ; ``null`` = pas de valeur, comme pour la porte
     des paramètres, qui ne retire les ``null`` de ``self.mesures`` qu'en
-    tolérant)."""
+    tolérant). Un booléen vaut 0 aussi : la porte le refuse (une intensité est
+    une quantité, gardes d'entrée du lot 3), l'ISF est alors compté nul."""
     intensite = _bloc(mesures, 'isf_climatique').get('intensite')
-    return 0.0 if intensite is None else intensite
+    return 0.0 if intensite is None or isinstance(intensite, bool) else intensite
 
 
 def taux_is_du_programme(mesures: Dict) -> float:
     """Lecture croisée des bénéfices récupérés (règle M1) : taux d'IS du
     programme (après les portes du moteur), ``TAUX_IS_REFERENCE_BENEFICES`` si
-    le levier est absent, sans taux ou à ``null``."""
+    le levier est absent, sans taux, à ``null`` ou booléen (refusé par la porte :
+    le levier de l'IS est alors en échec, compté nul)."""
     taux = _bloc(mesures, 'impot_societes').get('taux')
-    return TAUX_IS_REFERENCE_BENEFICES if taux is None else taux
+    return TAUX_IS_REFERENCE_BENEFICES if taux is None or isinstance(taux, bool) else taux
 
 
 # ---------------------------------------------------------------------------

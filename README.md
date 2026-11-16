@@ -62,7 +62,9 @@ Contrat de `/simulate` (détail dans la docstring de `api.py`) :
   strict (`BUDGETLAB_STRICT=1` côté serveur), toute valeur invalide (non numérique, non finie, hors domaine)
   et tout nom de paramètre que le levier ne lit pas (faute de frappe : `{"tva_rate": {"tauxx": 0.25}}`).
 - **200 en mode tolérant** : une valeur hors domaine est ramenée à la borne, une valeur non finie est
-  retirée (défaut du levier), une valeur non numérique fait échouer le levier (effet nul), un nom de
+  retirée (défaut du levier), une valeur non numérique fait échouer le levier (effet nul) — un booléen
+  sur une quantité compte comme non numérique, sauf sur un interrupteur 0/1, et un paramètre booléen
+  hors de `true`, `false`, 0 et 1 est retiré (défaut du levier) —, un nom de
   paramètre inconnu est ignoré (le levier est appliqué avec ses autres paramètres), de même qu'une
   clé masquée par un mode exclusif (`intensite` avec les clés héritées de `taxe_superprofits` ou
   d'`exonerations_salaires`, `taux_remplacement` avec `chomage_alloc.montant` : 422 en strict). Chaque

@@ -6,6 +6,29 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — défauts du lot 3 : gardes d'entrée, double compte, commentaires
+
+**Statut** : proposée, non publiée, sans numéro de version. Commits de CORRECTION (gardes, formules), distincts
+du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots 1 et 5 ci-dessous.
+
+- **Gardes d'entrée : booléens et nombres.** Deux entrées passaient la porte des valeurs sans trace
+  (`report.valid: true`) : `fonction_publique.effectifs: true` (un booléen vaut 1 en Python : un poste créé)
+  et `chomage_alloc.degressivite: 5` (le paramètre est déclaré booléen, le handler le lit par sa vérité : 5,
+  0,5 ou −1 activaient la dégressivité). Désormais : sur une quantité bornée (`PARAM_DOMAINS`, intensités), un
+  booléen fait échouer le levier comme une valeur non numérique (effet nul, `report.valid: false` ; 422 en
+  strict) ; sur un interrupteur 0/1 (registre public : `toggle`, ou domaine 0 à 1 au pas de 1), il reste lu
+  comme 0/1 ; un paramètre déclaré booléen n'admet que `true`, `false`, 0 et 1 — une autre valeur numérique est
+  retirée (défaut du levier) avec une correction, refusée en strict. Listes dérivées du registre public
+  (`PARAM_INTERRUPTEURS`, `PARAM_BOOLEENS`). Les lecteurs latéraux (âge de départ des canaux seniors, point
+  d'indice lu par le SMIC, ISF lu par l'impôt plancher, IS lu par les bénéfices récupérés, effet d'offre,
+  exclusions mutuelles) voient un booléen refusé au neutre, comme une chaîne ; avant, l'effet d'offre levait et
+  s'éteignait pour TOUS les leviers. Test rouge puis vert : `tests/test_gardes_booleens.py` (nouveau ; propriété
+  sur chaque paramètre borné du registre ; un booléen donne la trajectoire d'une chaîne, lecteurs latéraux
+  compris ; les deux cas de bout en bout). Re-déclarés : `csg.taux = True` est refusé comme booléen et non plus
+  comme hors domaine (`tests/test_param_domains_guard.py`) ; l'âge de départ booléen n'est plus ramené à 60 ans
+  par les canaux macro (`tests/test_cloture_revue_lot3.py`). Sorties identiques au bit, en pleine précision, sur
+  les 64 cas du golden master (dix scénarios publiés des deux modes, mini-scénarios, statu quo).
+
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 
 **Statut** : proposée, non publiée, sans numéro de version. Commit d'ÉQUATIONS, distinct du commit de paramètres

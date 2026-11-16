@@ -250,11 +250,17 @@ def test_les_deux_parametres_rendus_porteurs_par_le_lot_9_sont_bornes():
     (`policy_measures.json` : taux ∈ [0,08 ; 0,12], dotation ∈ [100 ; 140]).
 
     Sans borne, `csg.taux = True` (soit 1,0 — 100 % de CSG) était accepté en
-    silence et rendait la dette 2030 à 112,9 % au lieu de 129,6 %."""
+    silence et rendait la dette 2030 à 112,9 % au lieu de 129,6 %. Depuis les
+    gardes d'entrée du lot 3, un booléen sur une quantité n'est plus comparé
+    comme 1,0 : il est refusé comme valeur non numérique
+    (tests/test_gardes_booleens.py) ; une valeur finie hors domaine reste
+    refusée en strict."""
     assert PARAM_DOMAINS['csg']['taux'] == (0.08, 0.12)
     # 150 (v0.6.7) : max du curseur réel, au-delà du max publié (140).
     assert PARAM_DOMAINS['collectivites']['dotation'] == (95.0, 150.0)
     with pytest.raises(ValueError, match='hors domaine'):
+        validate_param_domains('csg', {'taux': 1.0}, strict=True)
+    with pytest.raises(TypeError, match='booléen'):
         validate_param_domains('csg', {'taux': True}, strict=True)
 
 

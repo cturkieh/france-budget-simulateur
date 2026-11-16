@@ -1066,6 +1066,37 @@ def _deriver_param_domains() -> dict:
 
 PARAM_DOMAINS = _deriver_param_domains()
 
+
+def _deriver_types_logiques() -> tuple:
+    """Paramètres LOGIQUES du registre public (`policy_measures.json`), lus une
+    fois à l'import comme `PARAM_DOMAINS` : (booléens, interrupteurs), chacun
+    {mesure: frozenset(paramètres)}.
+
+    - booléen : `type: boolean` (valeurs admises true, false, 0, 1) ;
+    - interrupteur 0/1 : `type: toggle`, ou un nombre de min 0, max 1 et pas 1
+      (`csg.progressive`, `asu.asu_activation`) — un booléen y vaut 0/1.
+
+    Lus par la porte des valeurs (`engine/_param_domain.py`) : un booléen n'est
+    pas un nombre sur une QUANTITÉ bornée (`fonction_publique.effectifs: true`
+    passait pour un poste), et un nombre autre que 0/1 n'est pas un booléen
+    (`chomage_alloc.degressivite: 5` activait la dégressivité) — audit des
+    limites du moteur v0.8.1, gardes d'entrée."""
+    registre = json.loads(POLICY_MEASURES_PATH.read_text(encoding='utf-8'))
+    booleens: dict = {}
+    interrupteurs: dict = {}
+    for mesure in registre.get('mesures', []):
+        for param, spec in (mesure.get('parametres') or {}).items():
+            if spec.get('type') == 'boolean':
+                booleens.setdefault(mesure['id'], set()).add(param)
+            elif spec.get('type') == 'toggle' or (
+                    spec.get('min') == 0 and spec.get('max') == 1 and spec.get('step') == 1):
+                interrupteurs.setdefault(mesure['id'], set()).add(param)
+    return ({m: frozenset(p) for m, p in booleens.items()},
+            {m: frozenset(p) for m, p in interrupteurs.items()})
+
+
+PARAM_BOOLEENS, PARAM_INTERRUPTEURS = _deriver_types_logiques()
+
 # === BORNES PHYSIQUES DES INDICES DE SORTIE (v0.6.7, audit externe) ===
 # Garde-fous de PLAUSIBILITÉ, pas des calibrations : variation annuelle
 # maximale des indices base 100 (pouvoir d'achat, compétitivité), au-delà de

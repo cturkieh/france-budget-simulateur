@@ -50,7 +50,14 @@ import math
 import numbers
 from typing import Dict
 
-from ..constants import EXCLUSIONS_MUTUELLES, INTENSITE_DOMAINS, NEUTRES_RELEASE_E, PARAM_DOMAINS
+from ..constants import (
+    EXCLUSIONS_MUTUELLES,
+    INTENSITE_DOMAINS,
+    NEUTRES_RELEASE_E,
+    PARAM_BOOLEENS,
+    PARAM_DOMAINS,
+    PARAM_INTERRUPTEURS,
+)
 from ._noms_parametres import MODES_EXCLUSIFS, NOMS_PARAMETRES_ADMIS
 
 logger = logging.getLogger(__name__)
@@ -462,6 +469,55 @@ def _refuser_non_finis(measure_id: str, params: Dict, *,
     return {k: v for k, v in params.items() if k not in retirees}
 
 
+def _valider_booleens(measure_id: str, params: Dict, *, strict: bool,
+                      warned: set | None, notes: dict | None) -> Dict:
+    """Paramètres BOOLÉENS du registre public (``PARAM_BOOLEENS``, ``type:
+    boolean``) : valeurs admises ``True``, ``False``, 0 et 1 (le handler les lit
+    par leur vérité, comme avant). Toute autre valeur numérique est HORS
+    DOMAINE — ``degressivite: 5`` (ou 0,5, ou −1) activait la dégressivité en
+    silence (audit des limites du moteur v0.8.1) :
+
+    - strict → ``ValeurInvalide`` (422 côté API) ;
+    - tolérant → la clé est RETIRÉE (le levier applique son défaut) et le
+      retrait est tracé (WARNING agrégé ``PARAM_BOOLEEN_INVALIDE``,
+      correction : ``report.valid = false``). Retirer et non « ramener à la
+      borne » : {0, 1} n'a pas de borne la plus proche pour 0,5 ; l'absence de
+      clé a une sémantique déjà définie, celle du défaut (même règle que la
+      porte de finitude).
+
+    Une valeur non numérique (``"oui"``, liste) lève ``ValeurNonNumerique``
+    dans les deux modes (contrat MIXIN_BAD_PARAMS, comme sur un nombre). La
+    clé absente ou ``None`` (déjà retirée par la porte de finitude) : rien.
+    Objet identique quand tout est valide."""
+    retirees = []
+    for key in PARAM_BOOLEENS.get(measure_id, ()):
+        value = params.get(key)
+        if value is None or isinstance(value, bool):
+            continue
+        if not isinstance(value, (int, float)):
+            raise ValeurNonNumerique(
+                f"{measure_id}.{key}={_apercu(value)} : valeur non numérique "
+                f"(paramètre booléen : true, false, 0 ou 1)")
+        if value == 0 or value == 1:
+            continue
+        if strict:
+            raise ValeurInvalide(
+                f"{measure_id}.{key}={_apercu(value)} hors domaine (paramètre "
+                f"booléen : true, false, 0 ou 1 ; mode BUDGETLAB_STRICT)")
+        retirees.append(key)
+        _noter(notes, measure_id, key,
+               f"{measure_id}.{key}={_apercu(value)} : un paramètre booléen vaut "
+               f"true, false, 0 ou 1 ; valeur retirée — le levier applique son "
+               f"défaut pour ce paramètre")
+    if not retirees:
+        return params
+    _avertir_agrege(warned, measure_id, 'PARAM_BOOLEEN_INVALIDE',
+                    [f"{measure_id}.{k}={_apercu(params[k])}" for k in retirees],
+                    "paramètre booléen hors {true, false, 0, 1} : clé retirée, le "
+                    "handler applique son défaut (mode tolérant)")
+    return {k: v for k, v in params.items() if k not in retirees}
+
+
 def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
                            warned: set | None = None,
                            corrections: dict | None = None,
@@ -516,11 +572,18 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
         # TypeError au comparateur ; elle lève désormais ValeurNonNumerique,
         # sous-classe de TypeError (contrat MIXIN_BAD_PARAMS inchangé), pour
         # que l'appelant sache que la faute est l'ENTRÉE et non le moteur. Un
-        # booléen reste comparé comme 0/1, comme avant.
+        # booléen n'est comparé comme 0/1 que sur un INTERRUPTEUR 0/1
+        # (PARAM_INTERRUPTEURS) ; sur une quantité, c'est une valeur non
+        # numérique (`effectifs: true` passait pour un poste, en silence).
         if not isinstance(value, (int, float)):
             raise ValeurNonNumerique(
                 f"{measure_id}.{key}={_apercu(value)} : valeur non numérique "
                 f"(domaine [{low}, {high}])"
+            )
+        if isinstance(value, bool) and key not in PARAM_INTERRUPTEURS.get(measure_id, ()):
+            raise ValeurNonNumerique(
+                f"{measure_id}.{key}={_apercu(value)} : un booléen n'est pas un "
+                f"nombre (domaine [{low}, {high}])"
             )
         # `value != value` n'est vrai que pour NaN — même piège que pour
         # intensite : NaN passe `< low` ET `> high` (les deux False). Ce
@@ -545,6 +608,7 @@ def validate_param_domains(measure_id: str, params: Dict, *, strict: bool,
             out = {**out, key: clamped}
     _avertir_agrege(warned, measure_id, 'PARAM_DOMAIN_CLAMP', clamps,
                     "mode tolérant : service préservé, calibration à vérifier")
+    out = _valider_booleens(measure_id, out, strict=strict, warned=warned, notes=notes)
     if notes:
         for cle, texte in notes.items():
             corrections.setdefault(cle, texte)
@@ -588,6 +652,13 @@ def validate_intensite_domain(measure_id: str, params: Dict, *, strict: bool,
         raise ValeurNonNumerique(
             f"{measure_id}.intensite={_apercu(value)} : valeur non numérique "
             f"(domaine [{low}, {high}])"
+        )
+    # Une intensité est une quantité, jamais un interrupteur : `true` valait 1,
+    # le plein effet du levier (ISF complet), en silence.
+    if isinstance(value, bool):
+        raise ValeurNonNumerique(
+            f"{measure_id}.intensite={_apercu(value)} : un booléen n'est pas un "
+            f"nombre (domaine [{low}, {high}])"
         )
     # `value != value` n'est vrai que pour NaN : sans ce test un NaN passe
     # `< low` ET `> high` (les deux False) et empoisonne silencieusement
@@ -713,6 +784,10 @@ def condition_d_exclusion_vraie(mesures: Dict, regle: str, spec: Dict, condition
                     f"{levier}.{parametre} (ajouter ce défaut à 'defauts')")
             valeur = spec['defauts'][(levier, parametre)]
     if not isinstance(valeur, numbers.Real) or not _est_fini(valeur):
+        return False
+    # Un booléen n'est un nombre que sur un interrupteur 0/1 (gardes d'entrée
+    # du lot 3) : ailleurs la porte des valeurs le refuse, comme une chaîne.
+    if isinstance(valeur, bool) and parametre not in PARAM_INTERRUPTEURS.get(levier, ()):
         return False
     return bool(_OPERATEURS_EXCLUSION[operateur](valeur, seuil))
 

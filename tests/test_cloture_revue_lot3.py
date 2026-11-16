@@ -214,9 +214,16 @@ def test_les_deux_canaux_partagent_le_meme_ancrage():
 def test_canaux_macro_et_canal_budgetaire_voient_le_meme_ecart(valeur, annee):
     """Contre-épreuve COMPORTEMENTALE, pas un grep : on fait passer la valeur
     par la porte unique (mode tolérant) comme le fait l'orchestrateur, et on
-    compare ce que price le handler à ce que voient les canaux macro."""
+    compare ce que price le handler à ce que voient les canaux macro. Un
+    booléen fait LEVER la porte depuis les gardes d'entrée du lot 3 (un âge est
+    une quantité) : le levier est en échec, compté nul — écart nul des deux
+    côtés (tests/test_gardes_booleens.py)."""
     brut = {'age_depart': valeur}
-    borne = validate_param_domains('retraites', brut, strict=False)
+    try:
+        borne = validate_param_domains('retraites', brut, strict=False)
+    except TypeError:
+        assert isinstance(valeur, bool)
+        borne = {}
     attendu = retraites_ecart_age_ans(borne, annee)
     obtenu = retraites_ecart_age_ans_moteur({'retraites': brut}, annee)
     assert obtenu == pytest.approx(attendu), (

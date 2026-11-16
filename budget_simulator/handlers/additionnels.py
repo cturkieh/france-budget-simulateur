@@ -64,11 +64,11 @@ def _point_indice_fp_brut(mesures: Dict) -> float:
     numérique ou bloc mal formé → 0 aussi : NEUTRE ici, l'anomalie est
     signalée par la porte de ``fonction_publique`` elle-même (même
     convention que ``_seniors``). Sans cette garde, un ``null`` sur le point
-    d'indice faisait échouer le SMIC (Sentry FRANCE-BUDGET-Z). Les booléens
-    restent numériques, comme à la porte. Valeur légitime → rendue telle
-    quelle (golden byte-identique)."""
+    d'indice faisait échouer le SMIC (Sentry FRANCE-BUDGET-Z). Un booléen est
+    neutre aussi : la porte le refuse sur une quantité (gardes d'entrée du
+    lot 3). Valeur légitime → rendue telle quelle (golden byte-identique)."""
     valeur = valeur_brute(mesures, 'fonction_publique', 'point_indice', 0.0)
-    if isinstance(valeur, (int, float)) and math.isfinite(valeur):
+    if isinstance(valeur, (int, float)) and not isinstance(valeur, bool) and math.isfinite(valeur):
         return valeur
     return 0.0
 

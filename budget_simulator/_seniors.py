@@ -137,9 +137,9 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     entre « dégrader à neutre » et « refléter la valeur » n'est pas le type
     lu ici, c'est le COMPORTEMENT DE LA PORTE UNIQUE.
 
-    - Ce que ``validate_param_domains`` traite sans lever — un booléen, une
-      valeur FINIE hors domaine — est CLAMPÉ à une borne du domaine en mode
-      tolérant, et le handler chiffre alors ce clamp. Le canal macro doit
+    - Ce que ``validate_param_domains`` traite sans lever — une valeur FINIE
+      hors domaine — est CLAMPÉ à une borne du domaine en mode tolérant, et le
+      handler chiffre alors ce clamp. Le canal macro doit
       refléter le même clamp. La v0.6.1 initiale dégradait ces cas à un écart
       nul : le canal dépense pricait un abaissement de 2,75 à 4 ans pendant
       que l'offre de travail et le chômage restaient neutres — un programme
@@ -149,8 +149,10 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
       c'est-à-dire au calendrier légal : écart nul, des deux côtés.
     - Un bloc ``retraites: null`` est le levier ABSENT (``apply_measures`` le
       saute) : écart nul, des deux côtés.
-    - Ce qui fait LEVER la porte (``str``, bloc mal formé) reste dégradé à
-      neutre : y lever ici court-circuiterait le seul chemin tracé.
+    - Ce qui fait LEVER la porte (``str``, booléen — un âge est une quantité,
+      pas un interrupteur, depuis les gardes d'entrée du lot 3 —, bloc mal
+      formé) reste dégradé à neutre : y lever ici court-circuiterait le seul
+      chemin tracé.
     """
     bloc = mesures.get('retraites')
     # Garde de type sur le BLOC lui-même. `None` (bloc null) = levier absent,
@@ -164,10 +166,10 @@ def retraites_ecart_age_ans_moteur(mesures: Dict, year: int) -> float:
     age = bloc.get('age_depart')
     # `None` : la porte le RETIRE (null = pas de valeur, 2026-10) et le
     # handler applique le calendrier légal — écart nul. Neutre ici aussi.
-    # `str` et objets : la porte lève au comparateur. Neutre.
-    # Les booléens restent DANS ce chemin (`isinstance(True, int)` est vrai en
-    # Python) — c'est voulu : la porte les clampe, donc nous aussi.
-    if age is None or not isinstance(age, (int, float)):
+    # `str`, objets et booléens : la porte lève (un booléen n'est pas un
+    # nombre sur une quantité, `isinstance(True, int)` étant vrai en Python, il
+    # est écarté explicitement). Neutre.
+    if age is None or isinstance(age, bool) or not isinstance(age, (int, float)):
         return 0.0
     # NaN/±inf : depuis la clôture de la revue adverse (2026-08-26) la porte
     # unique ne les clampe plus à la borne basse — elle RETIRE la clé, donc le

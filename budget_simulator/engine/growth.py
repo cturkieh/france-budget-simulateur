@@ -138,7 +138,7 @@ from ..constants import (
     HANDLER_FAILED_KEY,
 )
 from ._regimes import au_dessus, en_dessous
-from ._param_domain import validate_param_domains, valeur_brute
+from ._param_domain import ValeurNonNumerique, validate_param_domains, valeur_brute
 
 logger = logging.getLogger(__name__)
 
@@ -832,9 +832,15 @@ class GrowthMixin:
                 # ici +0,2 pt de croissance potentielle, et un budget hors domaine
                 # un effet d'offre que la dépense clampée ne finance pas. En
                 # strict, la porte a déjà levé dans apply_measures la même année.
-                propre = validate_param_domains(
-                    cfg['measure_id'], {cfg['param']: current_val}, strict=False,
-                    warned=getattr(self, '_domain_clamp_warned', None))
+                # Une valeur que la porte REFUSE (booléen sur une quantité,
+                # gardes d'entrée du lot 3) fait échouer le levier, compté nul :
+                # son effet d'offre est nul aussi, sans éteindre les autres.
+                try:
+                    propre = validate_param_domains(
+                        cfg['measure_id'], {cfg['param']: current_val}, strict=False,
+                        warned=getattr(self, '_domain_clamp_warned', None))
+                except ValeurNonNumerique:
+                    continue
                 current_val = propre.get(cfg['param'], default_val)
 
                 delta = current_val - default_val
