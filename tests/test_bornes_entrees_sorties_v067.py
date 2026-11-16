@@ -80,12 +80,13 @@ def test_les_81_parametres_bornes_par_le_registre_public_sont_au_moteur():
     """Chaque min/max publié par `policy_measures.json` a un domaine moteur
     (PARAM_DOMAINS, ou INTENSITE_DOMAINS pour les `intensite`). 81 = les 55
     paramètres bornés de v0.6.7 à v0.7.2 et les 26 des onze leviers de la
-    release E (contrat § 1.1)."""
+    release E (contrat § 1.1), plus le mode montant des cotisations salariales
+    (lot 3) : 82."""
     registre = json.loads(POLICY_MEASURES_PATH.read_text(encoding='utf-8'))
     publies = [(m['id'], p) for m in registre['mesures']
                for p, spec in (m.get('parametres') or {}).items()
                if spec.get('min') is not None and spec.get('max') is not None]
-    assert len(publies) == 81
+    assert len(publies) == 82
     manquants = [(mid, p) for mid, p in publies
                  if p not in PARAM_DOMAINS.get(mid, {})
                  and not (p == 'intensite' and mid in INTENSITE_DOMAINS)]

@@ -575,7 +575,8 @@ def test_profils_eligibles_et_fin_de_mandat():
     release ∪ les 4 taux et niveaux ouverts après la revue adverse
     (``PROFILS_TAUX_ET_NIVEAUX``, forme « annee » exclue) ∪ les 2 coefficients
     d'indexation (``PROFILS_INDEXATIONS``, gel d'une année, décision du
-    mainteneur du 12/11/2026 ; forme « rampe » exclue) ; ``ANNEE_FIN_MANDAT``
+    mainteneur du 12/11/2026 ; forme « rampe » exclue) ∪ le mode montant des
+    cotisations salariales (lot 3, un montant en Md€) ; ``ANNEE_FIN_MANDAT``
     lu de ``constants`` (jamais un second littéral), égal à ``ANNEE_DEBUT_MAX`` ;
     une seule implémentation (``_mesures_profilees`` remplace ``_mesures_rampees``)."""
     assert len(NOUVEAUX_ELIGIBLES) == 17
@@ -583,7 +584,7 @@ def test_profils_eligibles_et_fin_de_mandat():
     assert len(cadre.PROFILS_INDEXATIONS) == 2
     eligibles = _nouveau(cadre, 'PROFILS_ELIGIBLES')
     assert eligibles == (cadre.RAMPE_LEVIERS_ELIGIBLES | NOUVEAUX_ELIGIBLES | cadre.PROFILS_TAUX_ET_NIVEAUX
-                         | cadre.PROFILS_INDEXATIONS)
+                         | cadre.PROFILS_INDEXATIONS | {'cotisations_salariales.montant_md'})
     assert _nouveau(cadre, 'ANNEE_FIN_MANDAT') == C.ANNEE_FIN_MANDAT == cadre.ANNEE_DEBUT_MAX
     for cle in eligibles:
         levier, param = cle.split('.')

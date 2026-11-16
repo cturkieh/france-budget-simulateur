@@ -44,6 +44,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - type : `fonction` · catégorie : `fiscalite`
 - paramètres lus par le handler :
   - `baisse_points` (défaut : `0.0`)
+  - `montant_md` (**requis** (KeyError si absent))
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
   - `cotisations_salariales_baisse` → param `baisse_points` [0–11.94, pas 0.01]
 

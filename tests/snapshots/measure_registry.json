@@ -128,6 +128,10 @@
       "params": {
         "baisse_points": {
           "default": 0.0
+        },
+        "montant_md": {
+          "presence_checked": true,
+          "required": true
         }
       },
       "sliders": [
@@ -1254,7 +1258,8 @@
       "taux"
     ],
     "cotisations_salariales": [
-      "baisse_points"
+      "baisse_points",
+      "montant_md"
     ],
     "csg": [
       "progressive",

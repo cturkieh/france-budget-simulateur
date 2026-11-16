@@ -81,6 +81,15 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   `tests/test_ifi_double_compte.py` (nouveau ; levier inchangé sans ISF, IFI au prorata de ce qui en reste,
   mêmes euros dans les quatre canaux, cas de l'audit de bout en bout). Golden master isolé : aucun cas ne
   combine les deux leviers, 64 sur 64 identiques au bit.
+- **Cotisations salariales : mode « montant en Md€ »** (extension du contrat, aucune équation ne change pour le mode
+  en points). `cotisations_salariales.montant_md` : Md€ par an rendus aux salariés, constants en euros courants, de 0
+  à 138,217 Md€ (masse 2025, Insee) ; mode exclusif (avec lui, `baisse_points` n'est pas lu : refus en strict,
+  correction sinon) ; éligible aux calendriers des montants (rampe depuis 0, valeurs annuelles) ; même coefficient de
+  Gini par Md€. Pour les programmes qui écrivent des milliards : leur conversion en points n'était fidèle que tant que
+  le point restait figé en euros 2025. Test rouge puis vert : `tests/test_cotisations_montant_md.py` (nouveau). Module
+  généré des noms (`_noms_parametres.py`) et registre public régénérés. Golden master isolé : 64 cas sur 64
+  identiques au bit (aucun encodage publié n'utilise encore le mode). Re-déclarés : modes exclusifs dérivés (un
+  couple de plus), 82 paramètres bornés au lieu de 81, profils éligibles (un montant de plus).
 - **Impôts sur le patrimoine : l'assiette suit le PIB nominal** (règle commune « un taux suit son assiette »).
   Le curseur « Fiscalité du patrimoine » est un pourcentage des recettes de l'IFI, des droits de succession et de
   donation et de la taxe foncière : il s'appliquait pourtant à un bloc figé en euros de l'année source (part dans

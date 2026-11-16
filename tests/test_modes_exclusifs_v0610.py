@@ -115,7 +115,9 @@ VALEUR = {'intensite': 0.5, 'taux_remplacement': 0.6, 'montant': 30,
           'rendement_md': 3.0, 'taux_ir_forfaitaire': 0.2,
           'prelevements_sociaux_capital': 0.2, 'elasticite': 0.5,
           'rendement_tsn_md': 1.0, 'taux_tsn': 0.05, 'erosion_tsn': 2.0,
-          'rendement_ttf_md': 2.0, 'taux_ttf': 0.006, 'elasticite_volume': 0.1}
+          'rendement_ttf_md': 2.0, 'taux_ttf': 0.006, 'elasticite_volume': 0.1,
+          # Lot 3 : mode montant des cotisations salariales.
+          'montant_md': 5.0, 'baisse_points': 2.0}
 
 
 def _simuler(mesures, periods=3, strict=False):
@@ -140,7 +142,9 @@ def test_module_genere_couvre_les_leviers_connus():
         ('taxe_superprofits', 'intensite'), ('exonerations_salaires', 'intensite'),
         ('chomage_alloc', 'taux_remplacement'),
         ('fiscalite_capital', 'rendement_md'), ('multinationales', 'rendement_tsn_md'),
-        ('operations_financieres', 'rendement_ttf_md')}
+        ('operations_financieres', 'rendement_ttf_md'),
+        # Lot 3 : mode montant des cotisations salariales (programmes écrits en Md€).
+        ('cotisations_salariales', 'montant_md')}
     for mid, dom, cle in TOUS_LES_COUPLES:
         assert {dom, cle} <= NOMS_PARAMETRES_ADMIS[mid], (mid, dom, cle)
     # Un couple exercé a ses valeurs : le chantier qui retire son levier de

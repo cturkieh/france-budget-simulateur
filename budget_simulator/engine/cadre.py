@@ -236,7 +236,8 @@ def normaliser_rampe(valeur, *, mode_cadre: bool, strict: bool,
 # niveau de l'année (point unique mesures_de_l_annee) ; la rampe v0.7.0 en est
 # un cas particulier (alias, mêmes sorties au bit).
 # Clés éligibles : celles de la rampe générique, les dix-sept paramètres en
-# Md€ de la release E (contrat § 2.1), quatre taux ou niveaux qu'un programme
+# Md€ de la release E (contrat § 2.1) et le mode montant des cotisations
+# salariales (lot 3), quatre taux ou niveaux qu'un programme
 # écrit avec une montée progressive (PROFILS_TAUX_ET_NIVEAUX) et les deux
 # coefficients d'indexation, pour un gel d'une seule année
 # (PROFILS_INDEXATIONS). Les autres taux et les durées basculent sans profil.
@@ -274,7 +275,7 @@ PROFILS_ELIGIBLES = RAMPE_LEVIERS_ELIGIBLES | PROFILS_TAUX_ET_NIVEAUX | PROFILS_
     'depenses_publiques.transferts_capital',
     'prestations_menages.solidarite', 'prestations_menages.pensions',
     'transferts_etranger.montant', 'droits_succession.variation',
-    'fiscalite_capital.rendement_md',
+    'fiscalite_capital.rendement_md', 'cotisations_salariales.montant_md',
     'multinationales.benefices_recuperes', 'multinationales.rendement_tsn_md',
     'operations_financieres.rendement_ttf_md', 'operations_financieres.rachats_actions',
     'operations_financieres.crypto_actifs',

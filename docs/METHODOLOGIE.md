@@ -2158,6 +2158,13 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   première marche, et une baisse des taux réduits annulait la hausse du taux normal la même année.
 - **Recette exceptionnelle** : comme tout prélèvement, elle freine la croissance l'année de la recette (l'année
   suivante jusqu'au lot 6, calendrier de l'impulsion), puis l'effet s'inverse. Elle s'applique une seule année (calendrier « annee », obligatoire ; refusée en mode historique).
+- **Cotisations salariales, mode montant** (proposé après v0.8.1) : un programme qui écrit sa baisse en milliards
+  d'euros (et non en points) s'encode avec `cotisations_salariales.montant_md`, Md€ par an rendus aux salariés,
+  constants en euros courants (règle commune des montants), de 0 à 138,217 Md€ (la masse des cotisations salariales de
+  2025) ; il admet la rampe et les valeurs annuelles, comme les autres montants (référence de la rampe : 0). Mode
+  exclusif : avec `montant_md`, `baisse_points` n'est pas lu (refus en mode strict, correction signalée sinon). Même
+  effet sur les inégalités par Md€ rendu (`GINI_COTIS_SAL_PAR_MD`). Avant, les programmes écrits en Md€ étaient
+  convertis en points au coût du point de 2025, ce qui n'était fidèle que tant que le point restait figé.
 - **Cotisations salariales** : un point vaut 1 % de la masse salariale brute 2025, tous salariés, public compris
   (Insee, tableau 2.101, D11 = 1 157,166 Md€), soit ≈ 11,57 Md€, calculé à partir de cette donnée ; le maximum du
   curseur, la suppression des 138,2 Md€ de cotisations salariales (D613CE, même tableau, même année), vaut donc

@@ -433,20 +433,36 @@ class FiscaliteMenagesMixin(_MixinBase):
         du point est 1 % de la masse salariale brute 2025 (Insee, tableau
         2.101, ligne D11) : le maximum est le taux moyen réel des cotisations
         salariales (décision du mainteneur du 12/11/2026, constants.py).
+
+        Mode MONTANT (``montant_md``, lot 3) : Md€ par an rendus aux salariés,
+        constants en euros courants (règle commune : un montant en Md€ ne suit
+        pas le PIB), pour un programme qui écrit des milliards et non des
+        points. Exclusif : avec ``montant_md``, ``baisse_points`` n'est pas lu.
+        Même coefficient de Gini par Md€ rendu.
         """
-        baisse_points = params.get('baisse_points', 0.0)
+        if 'montant_md' in params:
+            niveau = {'montant_md': params['montant_md']}
+            nul = niveau['montant_md'] == 0
+        else:
+            baisse_points = params.get('baisse_points', 0.0)
+            niveau = {'baisse_points': baisse_points}
+            nul = baisse_points == 0
 
         # Retour anticipé au neutre SEULEMENT si aucun effet ponctuel n'a été
         # émis dans ce monde (contre-vérification m4, règle « Retour anticipé »
         # des handlers de la release E) : une baisse qui revient à 0 (rampe vers
         # 0 sous une valeur datée du droit) doit rendre son incrément de Gini.
-        if baisse_points == 0 and 'cotisations_salariales' not in self._measure_params_tracker:
+        if nul and 'cotisations_salariales' not in self._measure_params_tracker:
             return 0.0, 0.0, {}
 
         # ===== COÛT BUDGÉTAIRE =====
         # Un point de baisse = 1 % de la masse salariale brute 2025 rendu aux
-        # salariés (COUT_PAR_POINT_COTIS_SAL, constants.py).
-        delta_revenue = -baisse_points * COUT_PAR_POINT_COTIS_SAL
+        # salariés (COUT_PAR_POINT_COTIS_SAL, constants.py) ; en mode montant,
+        # le montant lui-même.
+        if 'montant_md' in niveau:
+            delta_revenue = -niveau['montant_md']
+        else:
+            delta_revenue = -niveau['baisse_points'] * COUT_PAR_POINT_COTIS_SAL
 
         # ===== IMPACTS MACROÉCONOMIQUES =====
         impacts = {
@@ -462,10 +478,12 @@ class FiscaliteMenagesMixin(_MixinBase):
         # (GINI_COTIS_SAL_PAR_MD, estimation de France Budget, constants.py) :
         # le Gini ne dépend pas de la convention du point.
         def _effet_cotisations_salariales(p):
+            if 'montant_md' in p:
+                return GINI_COTIS_SAL_PAR_MD * p['montant_md']
             return GINI_COTIS_SAL_PAR_MD * (p['baisse_points'] * COUT_PAR_POINT_COTIS_SAL)
 
         impacts['gini'] = self._effet_ponctuel(
-            'cotisations_salariales', {'baisse_points': baisse_points}, _effet_cotisations_salariales)
+            'cotisations_salariales', niveau, _effet_cotisations_salariales)
 
         # Compétitivité: Neutre (ne change pas coût travail pour entreprises)
         impacts['competitivite'] = 0.0
@@ -481,7 +499,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # ramené de récurrent (×15,7 par la convergence NAIRU) à une émission.
 
         _log_debug(self.debug_logs,
-                   f"Y{year}: Cotisations salariales -{baisse_points:.1f} pts - "
+                   f"Y{year}: Cotisations salariales {niveau} - "
                    f"coût {delta_revenue:.1f}Md€")
 
         return 0, delta_revenue, impacts

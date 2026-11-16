@@ -23,7 +23,7 @@ NOMS_PARAMETRES_ADMIS: dict[str, frozenset[str]] = {
     'chomage_alloc': frozenset({'degressivite', 'duree', 'montant', 'taux_remplacement'}),
     'collectivites': frozenset({'dotation', 'investissement'}),
     'cotisations_patronales': frozenset({'taux'}),
-    'cotisations_salariales': frozenset({'baisse_points'}),
+    'cotisations_salariales': frozenset({'baisse_points', 'montant_md'}),
     'csg': frozenset({'progressive', 'taux'}),
     'defense': frozenset({'budget'}),
     'depenses_publiques': frozenset({'credits_etat', 'ondam', 'transferts_capital'}),
@@ -70,6 +70,9 @@ NOMS_PARAMETRES_ADMIS: dict[str, frozenset[str]] = {
 MODES_EXCLUSIFS: dict[str, dict[str, frozenset[str]]] = {
     'chomage_alloc': {
         'taux_remplacement': frozenset({'montant'}),
+    },
+    'cotisations_salariales': {
+        'montant_md': frozenset({'baisse_points'}),
     },
     'exonerations_salaires': {
         'intensite': frozenset({'seuil_hausse', 'taux_exoneration'}),
