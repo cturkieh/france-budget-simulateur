@@ -4,6 +4,16 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — texte : sens agrégé de la version, douzième colonne du tableau
+
+**Statut** : commit de TEXTE ; moteur, sorties et instantanés inchangés. Le tableau agrégé de METHODOLOGIE (écart de
+dette 2032 de chaque programme à la référence) s'arrêtait à la v0.8.1 ; sa garde
+(`tests/test_revue_adverse_v061.py`, qui lit le précalcul servi par le site) rougissait au raccordement réel. Une
+douzième colonne publie les écarts du précalcul final ; un paragraphe dit ce qu'elle cumule (corrections de la
+version et ré-encodages du site du même jour), que les écarts se resserrent (de −3,7 à +6,2 points avant, de −2,2
+à +4,1 après) et que quatre programmes changent de signe, deux dans chaque sens, sans séparer la part de chaque
+cause. Le texte des colonnes précédentes est inchangé.
+
 ## [non publiée — proposée] — instantanés et bloc généré des scénarios sur l'encodage du site du 16/11/2026
 
 **Statut** : aucun calcul ne change : régénération, une fois, sur le fichier des scénarios du site qui accompagne la

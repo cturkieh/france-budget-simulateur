@@ -4463,18 +4463,18 @@ est le comparateur implicite de tous les programmes de parti.
 Ecart de dette 2035 de chaque programme AU scenario de reference, en points de
 PIB (un ecart plus grand = programme plus couteux que la politique votee) :
 
-| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) | Ecart moteur v0.7.0 (cadre 2027-2032, dette 2032) | Ecart au 12/11/2026 (moteur v0.8.0 et release de parametres P, dette 2032) |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 | -0,3 |
-| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +6,2 |
-| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 |
-| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 |
-| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,6 |
-| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +1,5 |
-| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +2,6 |
-| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 |
-| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — |
-| `nouvelle_energie_2027` | — | — | — | — | — | — | — | — | — | — | +5,2 |
+| Scenario | Ecart moteur v0.6.0 | Ecart moteur v0.6.1 | Ecart au 30/08/2026 (re-encodage scenarios) | Ecart moteur v0.6.3 | Ecart moteur v0.6.4 | Ecart au 07/10/2026 (re-encodage scenarios) | Ecart moteur v0.6.7 | Ecart moteur v0.6.10 | Ecart au 02/11/2026 (re-encodage scenarios) | Ecart moteur v0.7.0 (cadre 2027-2032, dette 2032) | Ecart au 12/11/2026 (moteur v0.8.0 et release de parametres P, dette 2032) | Ecart moteur v0.9.0 (16/11/2026, dette 2032) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `rn_2027` | +3,4 | +10,9 | +10,6 | +7,0 | +7,1 | +6,7 | +2,9 | +3,0 | +3,0 | +1,4 | -0,3 | -2,1 |
+| `lfi_2027` | +13,2 | +25,0 | +25,0 | +17,8 | +17,7 | +17,7 | +2,0 | +2,0 | +2,0 | -1,8 | +6,2 | -0,2 |
+| `renaissance_2027` | -7,1 | -4,9 | -1,5 | -0,9 | -0,9 | -0,9 | +1,9 | +1,9 | +1,9 | +0,9 | -0,2 | +0,1 |
+| `horizons_2027` | -10,8 | -7,0 | -1,3 | -0,8 | -0,8 | -8,8 | -4,8 | -4,8 | -4,8 | -1,7 | -2,1 | -1,6 |
+| `lr_2027` | -13,3 | -6,3 | -4,0 | -3,3 | -3,3 | +8,0 | +6,4 | +6,4 | +0,4 | -0,0 | -3,6 | +0,2 |
+| `ps_2027` | +0,1 | +8,4 | +8,4 | +3,8 | +3,7 | +3,7 | -5,0 | -5,1 | -5,1 | -2,3 | +1,5 | -1,5 |
+| `ecologistes_2027` | — | — | -2,2 | -5,8 | -5,8 | -5,8 | -12,7 | -12,7 | -12,7 | -4,7 | +2,6 | +1,0 |
+| `im_rabot_2029` | -33,6 | -26,7 | -27,0 | -26,8 | -26,8 | -26,8 | -15,4 | -15,4 | -15,4 | -3,2 | -3,7 | -2,2 |
+| `im_competitivite_2029` | -36,4 | -24,2 | -24,7 | -25,1 | -25,0 | -25,0 | -22,2 | -22,2 | -22,2 | -7,9 | — | — |
+| `nouvelle_energie_2027` | — | — | — | — | — | — | — | — | — | — | +5,2 | +4,1 |
 
 **Mise à jour du 07/10/2026 — sixième colonne : re-encodage de trois scénarios,
 aucune ligne de moteur modifiée.** Les sept autres scénarios ont des trajectoires
@@ -4573,6 +4573,19 @@ calendrier écrit passés en rampe (un programme) ; l'écart de dette 2032 à la
 programmes bouge de −0,03 à 1,74 point. Pour ce même programme, un salaire sans calendrier écrit
 s'applique ensuite dès 2028, règle commune des taux et salaires (dette 2032 −0,14 point). Les scénarios dont l'encodage est inchangé sont identiques au
 bit ; le précalcul servi par le site doit les reproduire (garde `tests/test_revue_adverse_v061.py`).
+
+**Mise à jour du 16/11/2026 — douzième colonne : moteur v0.9.0.** Même objet que les deux colonnes précédentes
+(dette 2032, mode cadre). Elle cumule les corrections d'équations et de paramètres de la v0.9.0 (CHANGELOG du moteur,
+un bloc par lot : mécanismes macroéconomiques sans source retirés, budget qui agit dès son année, méthode unique de
+l'indice d'inégalités, hausse du SMIC lue à l'année où elle s'applique, paramètres officiels) et les ré-encodages du
+site du même jour : trois programmes encodés en milliards d'euros pour la baisse des cotisations salariales (aucun
+chiffre publié ne change), un programme dont deux montants suivent le rythme écrit par sa source, le SMIC des fiches
+au dernier SMIC paru au Journal officiel, et les objectifs en part du PIB ou du RNB recalculés au PIB de la nouvelle
+référence (quelques centièmes de milliard, sans effet au dixième). La référence bouge peu : dette 2032 de 138,52 à
+138,51 %, déficit 2032 inchangé à −7,34 %. Les écarts à la référence se resserrent : de −3,7 à +6,2 points à la
+onzième colonne, de −2,2 à +4,1 à la douzième ; l'écart moyen, en valeur absolue, passe de 2,8 à 1,4 point (valeurs du tableau). Quatre
+programmes changent de signe, deux dans chaque sens. Cette colonne ne sépare pas la part du moteur de celle des
+ré-encodages : chaque bloc du CHANGELOG donne l'effet de son lot.
 
 **Mise a jour du 31/08/2026 — sens agrege de la v0.6.4 (calage chomage,
 cinquieme colonne).** Le recalage de la base du canal taux (40 -> 36,6 Md EUR,
