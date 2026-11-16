@@ -61,7 +61,7 @@ Vérité = corps des méthodes `measure_handlers` + `constants.INTENSITE_DOMAINS
 - paramètres lus par le handler :
   - `variation` (défaut : `NEUTRES_RELEASE_E['droits_succession']['variation']` (non littéral))
 - sliders UI (front → moteur, dérivé de `convertToAPIFormat` (apiFormat.js) / `LEVER_META` (leverMeta.js)) :
-  - `droits_succession_variation` → param `variation` [-21.2–25, pas 0.5]
+  - `droits_succession_variation` → param `variation` [-21.052–25, pas 0.5]
 
 ## `education` — Éducation nationale
 - type : `fonction` · catégorie : `depenses`

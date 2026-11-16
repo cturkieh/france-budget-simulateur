@@ -558,15 +558,16 @@ class FiscaliteMenagesMixin(_MixinBase):
     def _apply_fiscalite_patrimoine(self, measure: Dict, params: Dict, year: int,
                                     gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """
-        Fiscalité patrimoine regroupée: IFI + Succession + Foncière
+        Fiscalité patrimoine regroupée : IFI + droits de succession + taxe foncière
 
         Paramètre:
         - intensite (-0.3 à +0.3): Variation fiscalité patrimoine
           -0.3 = baisse 30% (convergence UE)
-           0   = statu quo (53 Md€)
+           0   = statu quo (63,0 Md€ en 2025, qui suivent le PIB nominal)
           +0.3 = hausse 30%
 
-        Sources: DGFiP 2024, IPP taxation patrimoine UE, OCDE wealth tax
+        Sources : bases Insee, comptes nationaux 2025, tableau 3.217 (constants.py) ;
+        IPP taxation patrimoine UE, OCDE wealth tax
         """
         intensite = params.get('intensite', 0.0)  # -0.3 à +0.3
         # Redondant depuis Lot C Item 1 : la porte unique (engine/orchestrator
@@ -594,7 +595,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # (règle Z, ``recettes_taux.intensite_isf_du_programme``).
         part_ifi_en_vigueur = 1.0 - intensite_isf_du_programme(self.mesures)
         ifi_en_vigueur = IFI_BASE * part_ifi_en_vigueur
-        TOTAL_BASE = ifi_en_vigueur + SUCCESSION_BASE + FONCIERE_BASE  # 53 Md€ sans ISF
+        TOTAL_BASE = ifi_en_vigueur + SUCCESSION_BASE + FONCIERE_BASE  # 63,0 Md€ sans ISF (2025)
 
         # ===== VARIATION =====
         delta_revenue = TOTAL_BASE * intensite * indice
@@ -653,7 +654,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         return 0, delta_revenue, impacts
 
     def _apply_isf_climatique(self, measure: Dict, params: Dict, year: int, gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
-        """ISF climatique. Slider intensité 0-100%. NFP: seuil 1.3M€, taux 1%, bonus 30% → 0-18 Md€. Remplace IFI (2 Md€).
+        """ISF climatique. Slider intensité 0-100%. Point haut : seuil 1.3M€, taux 1%, bonus 30% → 0-18 Md€. Remplace l'IFI (2,7 Md€ en 2025, qui suit le PIB).
         Sources : OFCE 2024 (point haut du barème, METHODOLOGIE.md § Mesures Presidentielles 2027) ; évasion : convention de Saez et Zucman (2019)."""
         # ===== PARAMÈTRES - SLIDER INTENSITÉ UNIQUE =====
         # v0.6.7 (audit Codex 10/2026, bloc B constat 5 — arbitrage du mainteneur) :
@@ -670,7 +671,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         intensite = params.get('intensite', 0.0)  # 0.0 à 1.0 (0% à 100%)
         if intensite == 0 and 'isf_climatique' not in self._measure_params_tracker:
             # IFI maintenu : aucun changement budgétaire vs la baseline (l'IFI
-            # continue à y générer ses ~2 Md€/an). Lot 4 : un retour à 0 après
+            # continue à y générer sa recette, ≈ 2,7 Md€ en 2025). Lot 4 : un retour à 0 après
             # une intensité non nulle (déclencheur ponctuel au traqueur) calcule
             # encore, pour RENDRE son effet Gini.
             return 0, 0, {'recettes': 0}

@@ -887,7 +887,7 @@ CHOMAGE_CLIP_MAX = 0.12
 # n'ont AUCUN clamp backend. Domaines vérifiés sur le code handler
 # (1 explorateur + 3 agents adverses, 2026-05-17 — cf.
 # docs/MINI_DESIGN_ITEM1_BORNE_INTENSITE.md §2).
-#   fiscalite_patrimoine : delta = 53 Md€ × intensite ; docstring
+#   fiscalite_patrimoine : delta = bloc (63,0 Md€ en 2025, qui suit le PIB) × intensite ; docstring
 #     "-0.3 = baisse 30%, 0 = statu quo, +0.3 = hausse 30%"
 #     (handlers/fiscalite_menages.py::_apply_fiscalite_patrimoine,
 #      clamp historique de défense en profondeur conservé dans la fonction).
@@ -1229,15 +1229,17 @@ PART_CONSOMMATION_MENAGES_TVA_TOTALE = PART_MENAGES_TVA_2022 * PART_CONSOMMATION
 # Md€, dont 5,3 Md€ de composante carbone, hors TVA » payables par les
 # ménages). Carburants et chauffage : consommation, pas investissement.
 PART_MENAGES_COMPOSANTE_CARBONE = 5.3 / 8.2
-# Part des taxes foncières payée par les ménages : 26,1 Md€ sur 42,9 Md€ en
-# 2024 (FIPECO, « Les taxes foncières payées par les ménages » : « Les taxes
-# foncières ont rapporté 42,9 Md€ aux communes et à leurs groupements en
-# 2024, dont 26,1 Md€ payés par les ménages et 16,8 Md€ payés surtout par les
-# entreprises »). La part entreprises est un impôt d'entreprise : aucun effet
-# direct sur le pouvoir d'achat (arbitrage 1). Sert au seul canal
-# ``prelevements_directs`` de ``_apply_fiscalite_patrimoine`` (le budget garde
-# la recette entière).
-PART_MENAGES_TAXE_FONCIERE = 26.1 / 42.9
+# Part des taxes foncières payée par les ménages : 27,015 Md€ sur 44,179 Md€ en
+# 2025 (Insee, comptes nationaux annuels base 2020 publiés le 29/05/2026,
+# tableau 3.217 « Principaux impôts par catégorie », ligne « Taxe foncière » des
+# impôts divers sur la production, D292, et « dont taxe foncière payée par les
+# ménages », ménages « purs », hors entreprises individuelles) : même tableau et
+# même année que la base du bloc (PATRIMOINE_TAXE_FONCIERE_MD). Jusqu'au lot 3 :
+# 26,1 / 42,9 (FIPECO, 2024), appliqué à une base de 36 Md€. La part
+# entreprises est un impôt d'entreprise : aucun effet direct sur le pouvoir
+# d'achat (arbitrage 1). Sert au seul canal ``prelevements_directs`` de
+# ``_apply_fiscalite_patrimoine`` (le budget garde la recette entière).
+PART_MENAGES_TAXE_FONCIERE = 27.015 / 44.179
 # Répercussion d'une variation de fiscalité indirecte sur les prix à la
 # consommation, ASYMÉTRIQUE :
 #  - Benzarti, Carloni, Harju & Kosonen (2020), « What Goes Up May Not Come
@@ -2769,8 +2771,8 @@ ETI_PLANCHER_FACTEUR = 0.5
 # _apply_cotisations_salariales : coût d'un point de cotisation (Md€) = 1 % de
 # la masse salariale brute 2025, tous salariés, public compris : salaires et
 # traitements bruts (D11) des comptes de la Nation, Insee, comptes nationaux
-# annuels base 2020, tableau 2.101, 2025 = 1 157,166 Md€ (fichier du
-# 22/05/2026). Même tableau, même année et même périmètre que la masse des
+# annuels base 2020, tableau 2.101, 2025 = 1 157,166 Md€ (comptes publiés
+# le 29/05/2026). Même tableau, même année et même périmètre que la masse des
 # cotisations salariales (COTIS_SAL_MASSE_2025_MD) : « baisser de X points »
 # signifie « baisser le taux moyen de X points ». Décision du mainteneur du
 # 12/11/2026 (dossier du dépôt parent
@@ -2937,10 +2939,19 @@ A_TSN = 0.902 / 0.03
 # Taxe sur les transactions financières : 2 888 M€ en 2026, première année
 # pleine au taux de 0,4 % (Voies et moyens 2027 ; CGI, art. 235 ter ZD).
 V_REF_TTF = 2.888 / 0.004
-# Droits de mutation à titre gratuit perçus en 2025 : successions 16,1 et
-# donations 5,1 Md€ (Voies et moyens 2027). Borne basse SOURCÉE du levier
-# ``droits_succession`` (jamais relevée).
-DMTG_2025_MD = 21.2
+# Droits de mutation à titre gratuit en 2025 : 21,052 Md€, dont successions
+# 16,070 et donations 4,982 (Insee, comptes nationaux annuels base 2020 publiés
+# le 29/05/2026, tableau 3.217, ligne « Droits de mutation à titre gratuit »
+# des impôts en capital, D91). Même cadre comptable que la référence du moteur
+# (comptes des administrations publiques). DMTG_2025_MD (successions ET
+# donations) : borne basse SOURCÉE du levier ``droits_succession`` (jamais
+# relevée), qui porte sur les deux. DMTG_SUCCESSIONS_2025_MD (successions
+# seules) : base « successions » du bloc ``fiscalite_patrimoine``, périmètre
+# inchangé. Jusqu'au lot 3, deux valeurs de cadres différents : 21,2 Md€ de
+# l'annexe Voies et moyens 2027 pour la borne, 15 Md€ de successions d'une note
+# du CAE antérieure à 2021 pour le bloc.
+DMTG_2025_MD = 21.052
+DMTG_SUCCESSIONS_2025_MD = 16.070
 # Borne haute de ``droits_succession.variation`` (Md€ par an) : décision du
 # mainteneur du 12/11/2026, le plus haut supplément annoncé par un programme
 # publié, compté tel quel (la borne +20 de la première version n'était pas
@@ -2949,18 +2960,32 @@ DMTG_2025_MD = 21.2
 # dérogatoires (dossier du dépôt parent
 # docs/plans/evitement-successions-sources-2026-11.md) ; l'infobulle le dit.
 DMTG_VARIATION_MAX_MD = 25.0
-# Bloc du levier ``fiscalite_patrimoine`` (IFI + successions et donations + taxe
+# Bloc du levier ``fiscalite_patrimoine`` (IFI + droits de succession + taxe
 # foncière) et IFI que remplace ``isf_climatique`` : recettes de l'année source
 # ANNEE_SOURCE_PATRIMOINE, en Md€. L'intensité du levier est un pourcentage de
 # ces recettes, donc un taux : l'assiette suit le PIB nominal depuis l'année
 # source (règle « un taux suit son assiette », _indice_pib_source), comme l'IFI
 # remplacé (jusqu'au lot 3 : bloc figé en euros, IFI remplacé à +2 % par an
-# depuis 2026, convention propre au levier). Valeurs de v0.8.1, attribuées à
-# « DGFiP 2024 » sans référence retrouvée : release de paramètres distincte.
+# depuis 2026, convention propre au levier). Valeurs : Insee, comptes
+# nationaux annuels base 2020 publiés le 29/05/2026, tableau 3.217 « Principaux
+# impôts par catégorie », 2025 — même cadre comptable que la référence du
+# moteur (comptes des administrations publiques) :
+# - IFI : ligne « Impôt sur la fortune (IFI, ex ISF) » des autres impôts
+#   courants (D59), 2,714 Md€ (2024 : 2,682). L'exécution budgétaire 2025
+#   (Voies et moyens 2026, révisé : 2,965 Md€) est d'un autre cadre comptable ;
+# - successions : DMTG_SUCCESSIONS_2025_MD (même tableau, D91), 16,070 Md€ ; les
+#   donations (4,982 Md€) restent hors du bloc, comme avant (périmètre
+#   inchangé) ;
+# - taxe foncière : ligne « Taxe foncière » des impôts divers sur la production
+#   (D292), 44,179 Md€ (dont ménages 27,015, PART_MENAGES_TAXE_FONCIERE).
+#   Recoupement : DGCL, BIS n° 209, foncier bâti et non bâti de toutes les
+#   collectivités en 2025, 44,3 Md€.
+# Jusqu'au lot 3 : IFI 2, successions 15, foncière 36 (53 Md€, « DGFiP 2024 »,
+# référence non retrouvée), soit 16 % sous les comptes nationaux.
 ANNEE_SOURCE_PATRIMOINE = 2025
-PATRIMOINE_IFI_MD = 2.0
-PATRIMOINE_SUCCESSIONS_MD = 15.0
-PATRIMOINE_TAXE_FONCIERE_MD = 36.0
+PATRIMOINE_IFI_MD = 2.714
+PATRIMOINE_SUCCESSIONS_MD = DMTG_SUCCESSIONS_2025_MD
+PATRIMOINE_TAXE_FONCIERE_MD = 44.179
 # Recette de l'ISF (``isf_climatique``) : la recette nette de l'ISF complet est
 # calée en euros de l'année source ANNEE_SOURCE_ISF, puis suit le PIB nominal
 # (règle « un taux suit son assiette », _indice_pib_source), comme l'IFI qu'elle

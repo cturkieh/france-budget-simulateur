@@ -403,9 +403,9 @@ def test_franchises_de_sante_emettent_zero(taux):
 
 
 def test_patrimoine_seul_l_ifi_compte():
-    """IFI 2 Md€ × intensité au coefficient de l'IFI ; successions et foncière à 0."""
+    """IFI de 2025 (comptes nationaux, lot 3) × intensité au coefficient de l'IFI ; successions et foncière à 0."""
     assert _gini('fiscalite_patrimoine', {'intensite': 0.3}) == pytest.approx(
-        C.GINI_HAUT_PATRIMOINE_PAR_MD * 2.0 * 0.3, rel=1e-12)
+        C.GINI_HAUT_PATRIMOINE_PAR_MD * C.PATRIMOINE_IFI_MD * 0.3, rel=1e-12)
 
 
 def test_csg_une_hausse_reduit_l_indice():

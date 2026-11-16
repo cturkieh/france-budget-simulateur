@@ -624,7 +624,7 @@
           "step": 0.05,
           "label": "Variation (%)",
           "type": "number",
-          "tooltip": "Base: IFI 2 Md€ + Succession 15 Md€ + Foncière 36 Md€ = 53 Md€. ±30% = ±16 Md€. +30% = alignement UE. Effet sur les inégalités : seul l'IFI compte ; les droits de succession et la taxe foncière ne font pas partie du revenu disponible que mesure l'Insee. Sources: DGFiP 2024, IPP."
+          "tooltip": "Base 2025 : IFI 2,7 Md€ + droits de succession 16,1 Md€ + taxe foncière 44,2 Md€ = 63,0 Md€ (Insee, comptes nationaux), qui suit le PIB. ±30 % = ±18,9 Md€ en 2025. +30 % = alignement UE. Effet sur les inégalités : seul l'IFI compte ; les droits de succession et la taxe foncière ne font pas partie du revenu disponible que mesure l'Insee. Sources : Insee 2025, IPP."
         }
       }
     },
@@ -681,7 +681,7 @@
           "step": 0.01,
           "label": "Intensité (0-100%)",
           "type": "number",
-          "tooltip": "0% = IFI maintenu (2 Md€), 100% = ISF LFI maximal (~8 Md€). Ajuste seuil (1.3-1.5M€), taux (0-1%), bonus écologique (0-30%). Sources: OFCE 2024, IPP 2025."
+          "tooltip": "0% = IFI maintenu (2,7 Md€ en 2025), 100% = ISF complet (≈ 10 Md€ de recette nette en 2025, ≈ 7,4 Md€ de plus que l'IFI qu'il remplace ; les deux suivent le PIB). Ajuste seuil (1.3-1.5M€), taux (0-1%), bonus écologique (0-30%). Sources: OFCE 2024, IPP 2025."
         }
       }
     },
@@ -942,12 +942,12 @@
       "parametres": {
         "variation": {
           "valeur_defaut": 0,
-          "min": -21.2,
+          "min": -21.052,
           "max": 25.0,
           "step": 0.5,
           "label": "Droits de succession et de donation (Md€/an)",
           "type": "number",
-          "tooltip": "Recette en plus (+) ou en moins (−) sur les transmissions de patrimoine, identique chaque année, en euros courants (non revalorisé). Repère : 21,2 Md€ perçus en 2025 (successions 16,1, donations 5,1 ; Voies et moyens 2027). Ne se combine pas avec le curseur « Fiscalité du patrimoine », qui fait déjà varier les successions. Avertissement : au sommet, l’impôt payé est loin du barème. Le 0,1 % qui hérite le plus « ne paie qu’à peine 10 % de droits de succession sur l’ensemble de ce patrimoine hérité, bien loin du taux marginal de 45 % affiché par le barème » (Conseil d’analyse économique, note n° 69, 2021) ; pour une entreprise de 100 M€ transmise par décès à deux enfants, « un taux effectif d’imposition de 10,7 % » avec le pacte Dutreil, contre 44,4 % sans (Cour des comptes, Les droits de succession, 2024). Pour une forte hausse, aucune étude ne permet de chiffrer la part évitée, qui dépend de la fermeture des dispositifs dérogatoires : le montant est compté tel quel, sans décote."
+          "tooltip": "Recette en plus (+) ou en moins (−) sur les transmissions de patrimoine, identique chaque année, en euros courants (non revalorisé). Repère : 21,05 Md€ en 2025 (successions 16,07, donations 4,98 ; Insee, comptes nationaux). Ne se combine pas avec le curseur « Fiscalité du patrimoine », qui fait déjà varier les successions. Avertissement : au sommet, l’impôt payé est loin du barème. Le 0,1 % qui hérite le plus « ne paie qu’à peine 10 % de droits de succession sur l’ensemble de ce patrimoine hérité, bien loin du taux marginal de 45 % affiché par le barème » (Conseil d’analyse économique, note n° 69, 2021) ; pour une entreprise de 100 M€ transmise par décès à deux enfants, « un taux effectif d’imposition de 10,7 % » avec le pacte Dutreil, contre 44,4 % sans (Cour des comptes, Les droits de succession, 2024). Pour une forte hausse, aucune étude ne permet de chiffrer la part évitée, qui dépend de la fermeture des dispositifs dérogatoires : le montant est compté tel quel, sans décote."
         }
       }
     },

@@ -6,6 +6,31 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — paramètres du lot 3 : valeurs officielles
+
+**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc « défauts du
+lot 3 » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
+
+- **Impôts sur le patrimoine aux comptes nationaux 2025.** Bases du curseur « Fiscalité du patrimoine » et IFI que
+  remplace l'ISF : Insee, comptes nationaux annuels base 2020 publiés le 29/05/2026, tableau 3.217 « Principaux
+  impôts par catégorie », 2025 (rouvert) — IFI 2,714 Md€ (autres impôts courants, D59), droits de succession 16,070
+  (impôts en capital, D91), taxe foncière 44,179 (impôts divers sur la production, D292 ; dont ménages 27,015),
+  62,963 Md€ au total, contre 2 + 15 + 36 = 53 (« DGFiP 2024 », référence non retrouvée). Périmètre inchangé : le
+  curseur fait varier les successions, pas les donations (4,982 Md€). Même cadre comptable que la référence du
+  moteur (comptes des administrations publiques). Deux valeurs de cadres différents ramenées au même tableau :
+  `DMTG_2025_MD` (successions et donations, 21,052 Md€ : borne basse de `droits_succession`, au lieu de 21,2 de
+  l'annexe Voies et moyens 2027) et `DMTG_SUCCESSIONS_2025_MD` (successions seules, base du curseur, au lieu de 15
+  d'une note antérieure à 2021) ; part ménages de la taxe foncière du même tableau et de la même année que sa base
+  (27,015 / 44,179, au lieu de 26,1 / 42,9 de 2024 appliqué à 36). Infobulles du registre public mises à jour (IFI
+  2,7 Md€, bloc 63,0 Md€, repère des droits de succession) ; le chiffre de Gini de l'infobulle du patrimoine est
+  retiré (la passe sur les inégalités les porte). Coefficients de Gini et de compétitivité par Md€ inchangés.
+  Golden master isolé : bougent exactement les cas qui portent l'ISF ou le patrimoine (scénario qui pose l'ISF,
+  deux modes ; deux mini-scénarios) ; 60 sur 64 identiques au bit. Effet (mode cadre, 2032, pleine précision, pile
+  assemblée), scénario qui pose l'ISF : dette +0,04 point, déficit −0,02 point de PIB (IFI remplacé de 2 à 2,714
+  Md€). Chiffre publié de l'ISF en 2030 (mode cadre) : +9,11 → +8,31 Md€, garde de test. Re-déclaré : le Gini du
+  curseur du patrimoine (méthode du lot 4, seul l'IFI compte) se lit sur l'IFI de 2025 (constante) ; chiffre publié
+  de l'effet prix des rémunérations publiques recalculé par sa garde (dette 2032 −1,405 au lieu de −1,404 point).
+
 ## [non publiée — proposée] — défauts du lot 3 : gardes d'entrée, double compte, commentaires
 
 **Statut** : proposée, non publiée, sans numéro de version. Commits de CORRECTION (gardes, formules), distincts

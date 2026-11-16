@@ -1060,7 +1060,7 @@ def test_ad_successions_meme_traitement_que_le_levier_patrimoine(monkeypatch):
     ``fiscalite_patrimoine`` (même règle, traitement identique des programmes).
     Gini (lot 4, méthode unique) : le traitement identique se lit désormais
     PAR IMPÔT — un Md€ de droits de succession a le même effet, qu'il passe par
-    ``droits_succession`` ou par la part successions (15 Md€) de
+    ``droits_succession`` ou par la part successions (``PATRIMOINE_SUCCESSIONS_MD``, lot 3) de
     ``fiscalite_patrimoine`` : les deux lisent GINI_SUCCESSIONS_PAR_MD (nul par
     périmètre ; vérifié avec une valeur sonde)."""
     import budget_simulator.handlers.fiscalite_menages as mod_fm
@@ -1073,7 +1073,7 @@ def test_ad_successions_meme_traitement_que_le_levier_patrimoine(monkeypatch):
     sonde = 1e-4
     monkeypatch.setattr(mod_recettes, 'GINI_SUCCESSIONS_PAR_MD', sonde)
     monkeypatch.setattr(mod_fm, 'GINI_SUCCESSIONS_PAR_MD', sonde)
-    part_successions = 15.0 * intensite
+    part_successions = C.PATRIMOINE_SUCCESSIONS_MD * intensite
     _, _, mut_p = _appel(_sim_neuf(), 'fiscalite_patrimoine', {'intensite': intensite})
     _, _, mut_s = _appel(_sim_neuf(), 'droits_succession', {'variation': part_successions})
     assert mut_p['gini'] - imp_p['gini'] == pytest.approx(mut_s['gini'], rel=1e-9)

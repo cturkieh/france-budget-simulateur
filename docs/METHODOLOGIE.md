@@ -1857,8 +1857,9 @@ Tests : `tests/test_smic_flux_tresor.py`, `tests/test_smic_reference_datee.py`, 
 **Curseur d'intensité — courbe continue (v0.6.7, audit externe Codex 10/2026, arbitrage du
 mainteneur du 07/10/2026)** : `recette totale = IFI + intensité × (ISF complet − IFI)`, donc écart au statu quo =
 `intensité × (ISF complet − IFI)`, où « ISF complet » est le point NFP ci-dessous (seuil 1,3 M EUR,
-taux 1 %, bonus vert 30 % : ≈ 10,07 Md EUR de recette nette en 2025, IFI déduit ; +9,11 Md EUR en 2030 en
-mode cadre). La recette de l'ISF et l'IFI déduit suivent tous deux le PIB nominal depuis 2025 (règle
+taux 1 %, bonus vert 30 % : ≈ 10,07 Md EUR de recette nette en 2025, IFI déduit ; +8,31 Md EUR en 2030 en
+mode cadre). L'IFI déduit vaut 2,714 Md EUR en 2025 (Insee, comptes nationaux ; 2 Md EUR jusqu'au lot 3).
+La recette de l'ISF et l'IFI déduit suivent tous deux le PIB nominal depuis 2025 (règle
 « un taux suit son assiette », comme l'impôt plancher). Jusqu'au lot 3, l'IFI croissait de 2 % par an
 depuis 2026, une convention propre à ce levier (2,16 Md EUR en 2030), et la recette de l'ISF restait
 fixe en euros : la règle ne s'appliquait qu'à un côté de la différence. L'année source de la recette
@@ -2122,7 +2123,9 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
 
 #### Recettes en Md€ : limites dites
 
-- **Successions** : la borne basse (−21,2 Md€) est la recette de 2025. Les droits de la référence suivent le PIB : une
+- **Successions** : la borne basse (−21,052 Md€) est la recette de 2025 des droits de succession et de donation
+  (Insee, comptes nationaux, tableau 3.217 ; le curseur « Fiscalité du patrimoine » n'en compte que les
+  successions, 16,070 Md€). Les droits de la référence suivent le PIB : une
   baisse encodée à la borne laisse leur croissance depuis 2025 (≈ 1,6 Md€ en 2028, ≈ 4 Md€ en 2032, calcul du
   contrat). Le levier ne se combine pas avec « Fiscalité du patrimoine », qui fait déjà varier les successions (règle d'exclusion X1, § « Garde-fous d'entrée (v0.8.0) »).
   La borne haute (+25 Md€ par an, `DMTG_VARIATION_MAX_MD`) est une décision du mainteneur du 12/11/2026 : le plus
@@ -2196,11 +2199,16 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   nominal depuis cette année : la recette ne dépend pas de l'année où le programme commence.
   Un montant en Md€ reste constant en euros courants (règle commune de la release). La règle
   vaut aussi, depuis le lot 3, pour le curseur « Fiscalité du patrimoine » (un pourcentage des
-  recettes de l'IFI, des droits de succession et de donation et de la taxe foncière), pour l'IFI
+  recettes de l'IFI, des droits de succession et de la taxe foncière), pour l'IFI
   que remplace l'ISF et pour la recette de l'ISF elle-même (même année source que l'IFI qu'il
   remplace) ; avant, le bloc restait figé en euros de l'année source (sa part dans le PIB
   baissait d'environ 10 % sur le mandat), et la recette de l'ISF aussi. Leurs effets ponctuels sur le Gini et la compétitivité
-  sont comptés hors indice, comme ceux des autres impôts à taux.
+  sont comptés hors indice, comme ceux des autres impôts à taux. Bases 2025 (Insee, comptes nationaux
+  annuels publiés le 29/05/2026, tableau 3.217 « Principaux impôts par catégorie ») : IFI 2,714 Md€ (autres
+  impôts courants, D59), droits de succession 16,070 (impôts en capital, D91 ; les donations, 4,982, restent
+  hors du curseur, comme avant), taxe foncière 44,179 (impôts divers sur la production, D292 ; dont 27,015
+  payés par les ménages), 62,963 Md€ au total ; jusqu'au lot 3, 2 + 15 + 36 = 53 Md€ (« DGFiP 2024 »,
+  référence non retrouvée), soit 16 % de moins.
 - **Un montant annoncé est un rendement net.** Quand une source donne un montant sans taux,
   le curseur en Md€ (`rendement_*`) remplace le calcul : ni taux, ni réaction, ni assiette
   ne s'y appliquent, et les paramètres de taux fournis en même temps sont ignorés (refus en
@@ -2637,7 +2645,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > revalorisation des enseignants ou le SMIC ; la référence sans programme et les trois autres sont identiques au
 > bit. **Seuls les rapports au PIB bougent** : la dette et le déficit en euros ne changent pas, ni les recettes ni
 > les dépenses ; c'est le PIB en valeur publié, au dénominateur, qui est relevé. Dette rapportée au PIB en 2032 :
-> −1,525 et −1,404 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,09 et 1,02 %),
+> −1,525 et −1,405 point pour les deux qui relèvent le point d'indice (PIB publié 2032 plus haut de 1,09 et 1,02 %),
 > −0,487 point pour un programme qui revalorise les enseignants et relève le SMIC, de −0,088 à −0,385 point pour les
 > quatre autres ; déficit 2032 rapporté au PIB plus faible de 0,003 à 0,090 point ; recettes et dépenses rapportées
 > au PIB plus faibles dans la même proportion ; inflation du déflateur publiée plus haute de 0,013 à 0,222 point par
@@ -4081,7 +4089,7 @@ dès la première année. La méthode unique (coefficients physiques et bornés)
 
   | Canal | Leviers | Effet sur l'indice |
   |---|---|---|
-  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, impôt sur le revenu d'une hausse du SMIC (Trésor), abattement retraités, ISF climatique, IFI et part ménages de la taxe foncière (`fiscalite_patrimoine` : 26,1 Md€ sur 42,9, FIPECO 2024 ; la part des entreprises passe par la croissance ; hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
+  | prélèvements directs | IR, décote, élargissement IR, CSG, cotisations salariales, impôt sur le revenu d'une hausse du SMIC (Trésor), abattement retraités, ISF climatique, IFI et part ménages de la taxe foncière (`fiscalite_patrimoine` : 27,0 Md€ sur 44,2, Insee 2025 ; la part des entreprises passe par la croissance ; hors droits de succession : transfert en capital, hors RDB) | −1 € de RDB par € |
   | prélèvements indirects | TVA générale, TVA énergie, taxe carbone | par les prix : τ± × p_m (part ménages propre à la base du levier) |
   | prestations | retraites (âge, durée, indexation), allocations chômage, ASU (effort + recours, hors coût de bascule), indexation des minima, franchises santé, part « prestations en espèces » du rabot uniforme (pensions, chômage, minima, AAH ; santé et APA, transferts en nature, à 0 comme dans le levier santé), baisse des prestations quand le SMIC monte (Trésor, tableau 8) | +1 € de RDB par € |
   | rémunérations publiques | point d'indice, revalorisation des enseignants, paie publique d'une hausse du SMIC (Trésor, tableau 9) | n = 0,535 € par € de coût |
@@ -4216,6 +4224,9 @@ inchangee », la trajectoire est insoutenable.
 - **Sénat, rapport n° 689 (2025)** : rendement sans comportement d'un impôt plancher de 2 % (20 Md€).
 - **IPP, note n° 46 (2019)** : élasticité des dividendes (0,9) ; **Colliard & Hoffmann 2017** (*Journal of
   Finance*) : volumes de la taxe sur les transactions financières.
+- **Insee, comptes nationaux annuels, tableau 3.217 (2025, publiés le 29/05/2026)** : recettes de l'IFI, des
+  droits de mutation à titre gratuit et de la taxe foncière (dont part des ménages) — bases du curseur « Fiscalité
+  du patrimoine », IFI remplacé par l'ISF, borne basse des droits de succession.
 - **Insee, comptes de la Nation, tableau 2.101 (2025)** : masse des cotisations sociales à la charge des salariés
   (D613CE, 138,217 Md€) et salaires et traitements bruts (D11, 1 157,166 Md€) — coût d'un point de cotisation
   salariale (1 % de D11) et maximum du curseur (D613CE / 1 % de D11 ≈ 11,94 points, le taux moyen réel).

@@ -185,7 +185,7 @@
         {
           "id": "droits_succession_variation",
           "max": 25,
-          "min": -21.2,
+          "min": -21.052,
           "param": "variation",
           "step": 0.5
         }

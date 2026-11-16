@@ -17,6 +17,7 @@ from effets_directs import SansRetroactionKeynesienne
 import pytest
 
 import budget_simulator.engine.orchestrator as orch
+import budget_simulator.constants as C
 from budget_simulator.simulator import BudgetSimulatorV45
 from budget_simulator.constants import (COUT_PAR_POINT_COTIS_SAL,
                                         GINI_CSG_PROGRESSIVE, GINI_HAUT_PATRIMOINE_PAR_MD,
@@ -178,11 +179,14 @@ def test_fiscalite_patrimoine(monkeypatch):
     delta_recettes = y0_hausse['Déficit'] - y0_sq['Déficit']
     delta_gini = y0_hausse['Gini'] - y0_sq['Gini']
 
-    print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +16 Md)")
-    # Lot 4 (méthode unique) : seul l'IFI (2 Md€) compte, au coefficient de
-    # l'INSEE ; successions et taxe foncière hors du revenu disponible (0).
-    # Jusqu'ici −0,016 brut (−0,001 par Md€ du total de 53 Md€).
-    attendu = GINI_HAUT_PATRIMOINE_PAR_MD * 2.0 * 0.30 * ATTENUATION_Y1
+    # Lot 3 : bases aux comptes nationaux 2025 (63,0 Md€, au lieu de 53), qui suivent le PIB :
+    # 30 % ≈ 18,9 Md€ en 2025, un peu plus en 2026 (attendu « +16 Md » jusqu'au lot 3).
+    recette_attendue = 0.30 * (C.PATRIMOINE_IFI_MD + C.PATRIMOINE_SUCCESSIONS_MD + C.PATRIMOINE_TAXE_FONCIERE_MD)
+    print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +{recette_attendue:.1f} Md, base 2025)")
+    # Lot 4 (méthode unique) : seul l'IFI compte, au coefficient de l'INSEE, en euros de l'année source ;
+    # successions et taxe foncière hors du revenu disponible (0). Jusqu'ici −0,016 brut (−0,001 par Md€ du
+    # total de 53 Md€).
+    attendu = GINI_HAUT_PATRIMOINE_PAR_MD * C.PATRIMOINE_IFI_MD * 0.30 * ATTENUATION_Y1
     print(f"  Delta Gini : {delta_gini:.6f} (attendu: {attendu:.6f} en sortie Y1)")
 
     print("\n[4c] Baisse fiscalite patrimoine -30%")
@@ -192,12 +196,12 @@ def test_fiscalite_patrimoine(monkeypatch):
 
     delta_recettes_baisse = y0_baisse['Déficit'] - y0_sq['Déficit']
 
-    print(f"  Cout : {delta_recettes_baisse:.2f} Md (attendu: -16 Md)")
+    print(f"  Cout : {delta_recettes_baisse:.2f} Md (attendu: -{recette_attendue:.1f} Md, base 2025)")
 
-    assert 13 < delta_recettes < 19, f"[X] Recettes +30% hors cible : {delta_recettes:.2f} Md"
+    assert 0.8 * recette_attendue < delta_recettes < 1.2 * recette_attendue, f"[X] Recettes +30% hors cible : {delta_recettes:.2f} Md"
     assert delta_gini == pytest.approx(attendu, rel=1e-9), \
         f"[X] Impact Gini hors cible : {delta_gini:.6f}"
-    assert -19 < delta_recettes_baisse < -13, f"[X] Cout -30% hors cible : {delta_recettes_baisse:.2f} Md"
+    assert -1.2 * recette_attendue < delta_recettes_baisse < -0.8 * recette_attendue, f"[X] Cout -30% hors cible : {delta_recettes_baisse:.2f} Md"
 
     print("\n[OK] TEST FISCALITE PATRIMOINE REUSSI")
 
