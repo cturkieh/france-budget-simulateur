@@ -2946,8 +2946,8 @@ V_REF_TTF = 2.888 / 0.004
 # (comptes des administrations publiques). DMTG_2025_MD (successions ET
 # donations) : borne basse SOURCÉE du levier ``droits_succession`` (jamais
 # relevée), qui porte sur les deux. DMTG_SUCCESSIONS_2025_MD (successions
-# seules) : base « successions » du bloc ``fiscalite_patrimoine``, périmètre
-# inchangé. Jusqu'au lot 3, deux valeurs de cadres différents : 21,2 Md€ de
+# seules) : la part des successions (le bloc ``fiscalite_patrimoine`` compte,
+# avec les donations, arbitrage du mainteneur, successions ET donations). Jusqu'au lot 3, deux valeurs de cadres différents : 21,2 Md€ de
 # l'annexe Voies et moyens 2027 pour la borne, 15 Md€ de successions d'une note
 # du CAE antérieure à 2021 pour le bloc.
 DMTG_2025_MD = 21.052
@@ -2960,8 +2960,8 @@ DMTG_SUCCESSIONS_2025_MD = 16.070
 # dérogatoires (dossier du dépôt parent
 # docs/plans/evitement-successions-sources-2026-11.md) ; l'infobulle le dit.
 DMTG_VARIATION_MAX_MD = 25.0
-# Bloc du levier ``fiscalite_patrimoine`` (IFI + droits de succession + taxe
-# foncière) et IFI que remplace ``isf_climatique`` : recettes de l'année source
+# Bloc du levier ``fiscalite_patrimoine`` (IFI + droits de succession et de
+# donation + taxe foncière) et IFI que remplace ``isf_climatique`` : recettes de l'année source
 # ANNEE_SOURCE_PATRIMOINE, en Md€. L'intensité du levier est un pourcentage de
 # ces recettes, donc un taux : l'assiette suit le PIB nominal depuis l'année
 # source (règle « un taux suit son assiette », _indice_pib_source), comme l'IFI
@@ -2973,9 +2973,10 @@ DMTG_VARIATION_MAX_MD = 25.0
 # - IFI : ligne « Impôt sur la fortune (IFI, ex ISF) » des autres impôts
 #   courants (D59), 2,714 Md€ (2024 : 2,682). L'exécution budgétaire 2025
 #   (Voies et moyens 2026, révisé : 2,965 Md€) est d'un autre cadre comptable ;
-# - successions : DMTG_SUCCESSIONS_2025_MD (même tableau, D91), 16,070 Md€ ; les
-#   donations (4,982 Md€) restent hors du bloc, comme avant (périmètre
-#   inchangé) ;
+# - successions ET donations : DMTG_2025_MD (même tableau, D91), 21,052 Md€.
+#   CHANGEMENT DE PÉRIMÈTRE, arbitrage du mainteneur : jusqu'ici le bloc ne
+#   comptait que les successions (16,070 Md€) ; les donations (4,982) y
+#   entrent, comme dans le levier ``droits_succession`` ;
 # - taxe foncière : ligne « Taxe foncière » des impôts divers sur la production
 #   (D292), 44,179 Md€ (dont ménages 27,015, PART_MENAGES_TAXE_FONCIERE).
 #   Recoupement : DGCL, BIS n° 209, foncier bâti et non bâti de toutes les
@@ -2984,7 +2985,7 @@ DMTG_VARIATION_MAX_MD = 25.0
 # référence non retrouvée), soit 16 % sous les comptes nationaux.
 ANNEE_SOURCE_PATRIMOINE = 2025
 PATRIMOINE_IFI_MD = 2.714
-PATRIMOINE_SUCCESSIONS_MD = DMTG_SUCCESSIONS_2025_MD
+PATRIMOINE_SUCCESSIONS_MD = DMTG_2025_MD  # successions ET donations (arbitrage du mainteneur)
 PATRIMOINE_TAXE_FONCIERE_MD = 44.179
 # Recette de l'ISF (``isf_climatique``) : la recette nette de l'ISF complet est
 # calée en euros de l'année source ANNEE_SOURCE_ISF, puis suit le PIB nominal

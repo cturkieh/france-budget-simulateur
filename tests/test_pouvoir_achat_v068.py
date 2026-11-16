@@ -489,10 +489,11 @@ def test_fiscalite_patrimoine_deux_sens(statu_quo, intensite):
     # À la main, depuis la source (Insee, comptes nationaux 2025, tableau 3.217 ;
     # lot 3) : IFI 2,714 Md€ + taxe foncière payée par les ménages 27,015 Md€
     # (sur 44,179 ; le reste est payé surtout par les entreprises — revue passe
-    # 1, L3) ; successions 16,070 Md€ exclues (transfert en capital). L'assiette
+    # 1, L3) ; successions et donations 21,052 Md€ exclues (transfert en capital ;
+    # arbitrage du mainteneur). L'assiette
     # suit le PIB nominal depuis 2025 (indice de l'année).
     indice = sim._pib_nominal_par_annee[AN1] / PIB_BASE_2025_MD_EUR
-    assert i['recettes'] == pytest.approx((2.714 + 16.070 + 44.179) * intensite * indice, rel=1e-12)
+    assert i['recettes'] == pytest.approx((2.714 + 21.052 + 44.179) * intensite * indice, rel=1e-12)
     assert i['menages']['prelevements_directs'] == pytest.approx(
         intensite * (2.714 + 27.015) * indice, rel=1e-12)
     ecart = _ecart_an1(sim._rdb_trace, statu_quo)

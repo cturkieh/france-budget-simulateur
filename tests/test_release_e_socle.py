@@ -317,7 +317,8 @@ def test_donnees_sourcees():
     # Lot 3 : comptes nationaux 2025 (Insee, tableau 3.217) : total successions et donations (borne du
     # levier) et successions seules (base du curseur « Fiscalité du patrimoine »), même tableau.
     assert C.DMTG_2025_MD == 21.052
-    assert C.DMTG_SUCCESSIONS_2025_MD == C.PATRIMOINE_SUCCESSIONS_MD == 16.070
+    assert C.DMTG_SUCCESSIONS_2025_MD == 16.070
+    assert C.PATRIMOINE_SUCCESSIONS_MD == C.DMTG_2025_MD  # arbitrage du mainteneur : successions et donations
     assert C.DMTG_2025_MD - C.DMTG_SUCCESSIONS_2025_MD == pytest.approx(4.982, abs=1e-9)  # donations
     assert C.PSR_UE_2026_MD == 28.44
     assert C.APD_MISSION_2026_MD == 3.569

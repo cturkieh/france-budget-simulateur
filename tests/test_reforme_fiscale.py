@@ -179,12 +179,12 @@ def test_fiscalite_patrimoine(monkeypatch):
     delta_recettes = y0_hausse['Déficit'] - y0_sq['Déficit']
     delta_gini = y0_hausse['Gini'] - y0_sq['Gini']
 
-    # Lot 3 : bases aux comptes nationaux 2025 (63,0 Md€, au lieu de 53), qui suivent le PIB :
-    # 30 % ≈ 18,9 Md€ en 2025, un peu plus en 2026 (attendu « +16 Md » jusqu'au lot 3).
+    # Lot 3 : bases aux comptes nationaux 2025 (67,9 Md€ avec les donations, arbitrage du mainteneur, au
+    # lieu de 53), qui suivent le PIB : 30 % ≈ 20,4 Md€ en 2025, un peu plus en 2026 (« +16 Md » jusqu'au lot 3).
     recette_attendue = 0.30 * (C.PATRIMOINE_IFI_MD + C.PATRIMOINE_SUCCESSIONS_MD + C.PATRIMOINE_TAXE_FONCIERE_MD)
     print(f"\n  Recettes : +{delta_recettes:.2f} Md (attendu: +{recette_attendue:.1f} Md, base 2025)")
     # Lot 4 (méthode unique) : seul l'IFI compte, au coefficient de l'INSEE, en euros de l'année source ;
-    # successions et taxe foncière hors du revenu disponible (0). Jusqu'ici −0,016 brut (−0,001 par Md€ du
+    # successions, donations et taxe foncière hors du revenu disponible (0). Jusqu'ici −0,016 brut (−0,001 par Md€ du
     # total de 53 Md€).
     attendu = GINI_HAUT_PATRIMOINE_PAR_MD * C.PATRIMOINE_IFI_MD * 0.30 * ATTENUATION_Y1
     print(f"  Delta Gini : {delta_gini:.6f} (attendu: {attendu:.6f} en sortie Y1)")

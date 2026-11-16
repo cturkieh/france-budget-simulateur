@@ -624,7 +624,7 @@
           "step": 0.05,
           "label": "Variation (%)",
           "type": "number",
-          "tooltip": "Base 2025 : IFI 2,7 Md€ + droits de succession 16,1 Md€ + taxe foncière 44,2 Md€ = 63,0 Md€ (Insee, comptes nationaux), qui suit le PIB. ±30 % = ±18,9 Md€ en 2025. +30 % = alignement UE. Effet sur les inégalités : seul l'IFI compte ; les droits de succession et la taxe foncière ne font pas partie du revenu disponible que mesure l'Insee. Sources : Insee 2025, IPP."
+          "tooltip": "Base 2025 : IFI 2,7 Md€ + droits de succession et de donation 21,1 Md€ + taxe foncière 44,2 Md€ = 67,9 Md€ (Insee, comptes nationaux), qui suit le PIB. ±30 % = ±20,4 Md€ en 2025. +30 % = alignement UE. Effet sur les inégalités : seul l'IFI compte ; les droits de succession et de donation et la taxe foncière ne font pas partie du revenu disponible que mesure l'Insee. Sources : Insee 2025, IPP."
         }
       }
     },

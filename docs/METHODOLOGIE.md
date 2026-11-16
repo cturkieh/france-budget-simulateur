@@ -2124,8 +2124,8 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
 #### Recettes en Md€ : limites dites
 
 - **Successions** : la borne basse (−21,052 Md€) est la recette de 2025 des droits de succession et de donation
-  (Insee, comptes nationaux, tableau 3.217 ; le curseur « Fiscalité du patrimoine » n'en compte que les
-  successions, 16,070 Md€). Les droits de la référence suivent le PIB : une
+  (Insee, comptes nationaux, tableau 3.217 ; même valeur que la part « successions et donations » du curseur
+  « Fiscalité du patrimoine », arbitrage du mainteneur). Les droits de la référence suivent le PIB : une
   baisse encodée à la borne laisse leur croissance depuis 2025 (≈ 1,6 Md€ en 2028, ≈ 4 Md€ en 2032, calcul du
   contrat). Le levier ne se combine pas avec « Fiscalité du patrimoine », qui fait déjà varier les successions (règle d'exclusion X1, § « Garde-fous d'entrée (v0.8.0) »).
   La borne haute (+25 Md€ par an, `DMTG_VARIATION_MAX_MD`) est une décision du mainteneur du 12/11/2026 : le plus
@@ -2199,16 +2199,16 @@ l'instrument (le signe dépend de l'instrument : § Méthode unique du Gini).
   nominal depuis cette année : la recette ne dépend pas de l'année où le programme commence.
   Un montant en Md€ reste constant en euros courants (règle commune de la release). La règle
   vaut aussi, depuis le lot 3, pour le curseur « Fiscalité du patrimoine » (un pourcentage des
-  recettes de l'IFI, des droits de succession et de la taxe foncière), pour l'IFI
+  recettes de l'IFI, des droits de succession et de donation et de la taxe foncière), pour l'IFI
   que remplace l'ISF et pour la recette de l'ISF elle-même (même année source que l'IFI qu'il
   remplace) ; avant, le bloc restait figé en euros de l'année source (sa part dans le PIB
   baissait d'environ 10 % sur le mandat), et la recette de l'ISF aussi. Leurs effets ponctuels sur le Gini et la compétitivité
   sont comptés hors indice, comme ceux des autres impôts à taux. Bases 2025 (Insee, comptes nationaux
   annuels publiés le 29/05/2026, tableau 3.217 « Principaux impôts par catégorie ») : IFI 2,714 Md€ (autres
-  impôts courants, D59), droits de succession 16,070 (impôts en capital, D91 ; les donations, 4,982, restent
-  hors du curseur, comme avant), taxe foncière 44,179 (impôts divers sur la production, D292 ; dont 27,015
-  payés par les ménages), 62,963 Md€ au total ; jusqu'au lot 3, 2 + 15 + 36 = 53 Md€ (« DGFiP 2024 »,
-  référence non retrouvée), soit 16 % de moins.
+  impôts courants, D59), droits de succession et de donation 21,052 (impôts en capital, D91 ; changement de périmètre, arbitrage du mainteneur :
+  jusqu'ici le curseur ne comptait que les successions, 16,070), taxe foncière 44,179 (impôts divers sur la
+  production, D292 ; dont 27,015 payés par les ménages), 67,945 Md€ au total ; jusqu'au lot 3, 2 + 15 + 36 =
+  53 Md€ (« DGFiP 2024 », référence non retrouvée).
 - **Un montant annoncé est un rendement net.** Quand une source donne un montant sans taux,
   le curseur en Md€ (`rendement_*`) remplace le calcul : ni taux, ni réaction, ni assiette
   ne s'y appliquent, et les paramètres de taux fournis en même temps sont ignorés (refus en

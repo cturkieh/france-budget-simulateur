@@ -558,12 +558,12 @@ class FiscaliteMenagesMixin(_MixinBase):
     def _apply_fiscalite_patrimoine(self, measure: Dict, params: Dict, year: int,
                                     gdp: float, inflation: float, unemployment: float) -> Tuple[float, float, ImpactsDict]:
         """
-        Fiscalité patrimoine regroupée : IFI + droits de succession + taxe foncière
+        Fiscalité patrimoine regroupée : IFI + droits de succession et de donation + taxe foncière
 
         Paramètre:
         - intensite (-0.3 à +0.3): Variation fiscalité patrimoine
           -0.3 = baisse 30% (convergence UE)
-           0   = statu quo (63,0 Md€ en 2025, qui suivent le PIB nominal)
+           0   = statu quo (67,9 Md€ en 2025, qui suivent le PIB nominal)
           +0.3 = hausse 30%
 
         Sources : bases Insee, comptes nationaux 2025, tableau 3.217 (constants.py) ;
@@ -595,7 +595,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         # (règle Z, ``recettes_taux.intensite_isf_du_programme``).
         part_ifi_en_vigueur = 1.0 - intensite_isf_du_programme(self.mesures)
         ifi_en_vigueur = IFI_BASE * part_ifi_en_vigueur
-        TOTAL_BASE = ifi_en_vigueur + SUCCESSION_BASE + FONCIERE_BASE  # 63,0 Md€ sans ISF (2025)
+        TOTAL_BASE = ifi_en_vigueur + SUCCESSION_BASE + FONCIERE_BASE  # 67,9 Md€ sans ISF (2025)
 
         # ===== VARIATION =====
         delta_revenue = TOTAL_BASE * intensite * indice

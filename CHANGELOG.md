@@ -30,6 +30,14 @@ lot 3 » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
   Md€). Chiffre publié de l'ISF en 2030 (mode cadre) : +9,11 → +8,31 Md€, garde de test. Re-déclaré : le Gini du
   curseur du patrimoine (méthode du lot 4, seul l'IFI compte) se lit sur l'IFI de 2025 (constante) ; chiffre publié
   de l'effet prix des rémunérations publiques recalculé par sa garde (dette 2032 −1,405 au lieu de −1,404 point).
+- **Les donations entrent dans le curseur « Fiscalité du patrimoine »** (changement de périmètre, arbitrage du
+  mainteneur). Le curseur faisait varier l'IFI, les droits de succession et la taxe foncière ; il fait varier aussi
+  les droits de donation (4,982 Md€ en 2025, même tableau Insee, D91), comme le levier `droits_succession`, qui
+  porte sur les deux : base « successions et donations » = `DMTG_2025_MD` (21,052 Md€). Ce n'est pas une valeur
+  sourcée mais un choix de périmètre. Bloc 62,963 → 67,945 Md€ en 2025 (±30 % = ±20,4 Md€ au lieu de ±18,9). Aucun
+  scénario publié ne pose ce curseur ; golden master isolé : seul le mini-scénario du curseur bouge, 63 sur 64
+  identiques au bit. Enjeu pour un visiteur (loi votée, mode cadre, +30 %) : 21,8 Md€ de recette en 2028 au lieu de
+  20,2 ; dette 2032 −0,11 point, déficit +0,05 point de PIB.
 
 ## [non publiée — proposée] — défauts du lot 3 : gardes d'entrée, double compte, commentaires
 
