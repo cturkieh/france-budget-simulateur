@@ -35,7 +35,10 @@ ETAT = dict(output_gap=-0.005, unemployment_gap=0.0,
             debt_ratio=0.95, unemployment=0.076, deficit_ratio=-0.05,
             interest_rate=0.03)
 P_TAX = BudgetSimulatorV45.DECAY_PROFILE_TAXES
-P_INV = BudgetSimulatorV45.DECAY_PROFILE_INVEST
+# Profil d'investissement de la table de l'audit (celui de la v3.1). Lot 6 (release de paramètres,
+# 16/11/2026) : le profil du moteur est calé sur le tableau du FMI ; le banc garde celui de l'audit,
+# comme il garde ses coefficients, sans quoi il ne reproduirait plus les chiffres de l'auditeur.
+P_INV = (0.45, 0.65, 0.45, 0.25, 0.12, 0.06)
 
 
 def _effets(impacts_par_annee, etat=ETAT):
@@ -44,6 +47,14 @@ def _effets(impacts_par_annee, etat=ETAT):
     ``_last_impacts``), MOINS la même suite d'appels sans aucun impact (même
     graine → même bruit, même traînée de dette)."""
     def suite(seq):
+        profil_du_moteur = BudgetSimulatorV45.DECAY_PROFILE_INVEST
+        BudgetSimulatorV45.DECAY_PROFILE_INVEST = P_INV
+        try:
+            return _suite(seq)
+        finally:
+            BudgetSimulatorV45.DECAY_PROFILE_INVEST = profil_du_moteur
+
+    def _suite(seq):
         sim = BudgetSimulatorV45(periods=10, mesures={'tva_rate': {'taux': 0.21}})
         # Table de multiplicateurs de l'AUDIT (v0.6.6 : 0,50 / 0,35 / 0,60 / 0,50) :
         # le banc reproduit les chiffres de l'auditeur ; les propriétés testées

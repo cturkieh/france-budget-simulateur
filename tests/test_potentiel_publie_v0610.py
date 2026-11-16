@@ -94,15 +94,18 @@ def test_v2_02_colonne_potentiel_total_2030_est_le_potentiel_consomme():
     # consommé 1,047476 → 1,049378 ; puis coefficients recalés (release de
     # paramètres du même lot : la relance de recherche porte k = 1,31) :
     # croissance 1,047881 → 1,043124, gap 0,142556 → 0,176807, potentiel
-    # consommé 1,049378 → 1,050130 (lot 6 seul). Lot 2 (16/11/2026, recherche en
-    # forme stock puis logarithmique, hors plafond), mesuré seul sur le lot 1 :
-    # croissance 1,272968, gap 0,198552, potentiel consommé 1,227719. Pile
-    # d'intégration (lot 2 puis lot 6, coefficients recalés) : croissance
-    # 1,222666, gap 0,172272, potentiel consommé 1,230331 ; le potentiel préparé
-    # pour 2031 diffère (1,188740) : le test garde son pouvoir.
-    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.222666, abs=5e-7)
-    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.172272, abs=5e-7)
-    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.230331, abs=5e-7)
+    # consommé 1,049378 → 1,050130 ; puis profil de l'investissement calé sur le
+    # tableau du FMI (release de paramètres du même lot : la relance de recherche
+    # porte moins de demande en 2027-2029, plus en 2030) : croissance 1,043124 →
+    # 1,102540, gap 0,176807 → 0,153337, potentiel consommé 1,050130 → 1,047831
+    # (lot 6 seul). Lot 2 (recherche en forme stock puis logarithmique, hors
+    # plafond), mesuré seul sur le lot 1 : croissance 1,272968, gap 0,198552,
+    # potentiel consommé 1,227719. Pile d'intégration (lot 2 puis lot 6 entier) :
+    # croissance 1,282173, gap 0,149757, potentiel consommé 1,228071 ; le potentiel
+    # préparé pour 2031 diffère (1,186554) : le test garde son pouvoir.
+    assert df.loc[ANNEE_AUDIT, 'Croissance %'] == pytest.approx(1.282173, abs=5e-7)
+    assert detail.loc[ANNEE_AUDIT, 'Output_Gap %'] == pytest.approx(0.149757, abs=5e-7)
+    assert consomme[ANNEE_AUDIT]['total'] * 100 == pytest.approx(1.228071, abs=5e-7)
     assert abs(consomme[ANNEE_AUDIT + 1]['total'] - consomme[ANNEE_AUDIT]['total']) * 100 > 0.01
 
     # La colonne publiée est le potentiel consommé, pas celui préparé pour 2031.

@@ -402,8 +402,17 @@ REGIME_DEMI_LARGEUR_INFLATION = 0.003
 #    « 0.6 to 1 for spending multipliers and −2 to −3 for tax change multipliers »
 #    (États-Unis, chocs narratifs ; la fourchette fiscale n'est pas retenue comme
 #    centrale pour la France, Gechert l'est).
+# Investissement (lot 6, paramètres, arbitrage du mainteneur : le profil suit le tableau du FMI, source citée) : la
+# cible porte sur le TOTAL (demande et canal d'offre) d'un levier de capital public, et sur tout le
+# chemin H0 à H4 (H0 = année du choc) : FMI, WEO oct. 2014, ch. 3, tableau 3.4, colonne (1), p. 95
+# (écarts-types 0,147 à 0,441 ; 17 économies avancées, 1985-2013 ; choc = erreur de prévision de
+# l'investissement public, en part du PIB). Aucune estimation au-delà de quatre ans après le choc.
+CHEMIN_CIBLE_INVESTISSEMENT = (0.457, 0.755, 1.035, 1.389, 1.539)
 MULT_CIBLE_NIVEAU_4ANS = {
-    'investissement': 1.5,   # WEO 2014 ch. 3 (1,5 à 4 ans) ; Gechert ≈ 1 + 0,5
+    'investissement': 1.5,   # WEO 2014 ch. 3, texte p. 82 (« 1.5 percent four years after ») ; Gechert ≈ 1 + 0,5.
+                             # Lot 6 : valeur DOCUMENTAIRE, arrondi du dernier terme du chemin (1,539 → 1,5, comme
+                             # le texte p. 82), relié par un test ; la cible opposable est le chemin complet
+                             # CHEMIN_CIBLE_INVESTISSEMENT (tests/test_multiplicateurs_centraux_v067.py).
     'coupe_depenses': 0.8,   # Ramey 2019 : milieu de 0,6-1 (Gechert ≈ 1 : borne prudente) — sans facteur « confiance »
     'hausse_depenses': 0.8,  # = coupe (lot 5) : convention du mainteneur, pas d'asymétrie de signe retenue
                              # (même instrument, même coefficient ; Gechert 2015 ne teste pas le signe)

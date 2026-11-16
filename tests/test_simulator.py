@@ -429,7 +429,10 @@ def test_calculate_growth_zlb(simulator):
     # (récession ×1,15, ZLB ×1,3) ; pas d'éviction (retirée au lot 1 ; elle ne jouait
     # pas non plus ici : dette = 100 %, seuil strict).
     from budget_simulator.constants import MULT_BAISSE_IMPOTS, MULT_INVESTISSEMENT
-    keynes = 1.15 * 1.3 * (MULT_INVESTISSEMENT * 0.004 * 0.45 + MULT_BAISSE_IMPOTS * 0.006 * 0.90)
+    # Lot 6 (release de paramètres) : premier terme du profil d'investissement lu dans le moteur (0,45
+    # jusque-là, calé depuis sur le tableau du FMI) au lieu d'être recopié.
+    p_inv0 = simulator.DECAY_PROFILE_INVEST[0]
+    keynes = 1.15 * 1.3 * (MULT_INVESTISSEMENT * 0.004 * p_inv0 + MULT_BAISSE_IMPOTS * 0.006 * 0.90)
     # v0.6.7 B3 : traînée de dette dans le potentiel total, rappel +0,2 × 3 %.
     exact = simulator.croissance_potentielle_totale() + 0.2 * 0.03 + keynes
     assert abs(growth - exact) < 1e-12, f"{growth:.6f} vs {exact:.6f}"

@@ -414,11 +414,19 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     """
 
     # Profils temporels par type de mesure.
-    # Calibrés sur IMF (2014/2020), Blanchard & Leigh (2013), Bom & Ligthart (2014).
+    # INVEST : calé sur FMI, WEO oct. 2014, ch. 3, tableau 3.4 (lot 6). TAXES et TRANSFERS : convention de
+    # la v3.1, citée jusqu'au lot 6 avec IMF (2014/2020), Blanchard & Leigh (2013) et Bom & Ligthart (2014),
+    # sans calage à une valeur de ces sources.
     # CONTRAINTE : somme <= 2.0 (somme 2.65 = autofinancé = absurde)
     DECAY_PROFILE_TAXES     = (0.90, 0.50, 0.30, 0.15, 0.10, 0.05)  # somme 2.00
     DECAY_PROFILE_TRANSFERS = (0.90, 0.50, 0.20, 0.10, 0.05, 0.02)  # somme 1.77 — front-loaded
-    DECAY_PROFILE_INVEST    = (0.45, 0.65, 0.45, 0.25, 0.12, 0.06)  # somme 1.98 — pic Y2
+    # Lot 6 (paramètres, arbitrage du mainteneur) : termes 0 à 4 calés pour que le TOTAL (demande et
+    # canal d'offre) d'un levier de capital public reproduise, année par année, le tableau 3.4,
+    # col. (1), du FMI (WEO oct. 2014, ch. 3, p. 95) : 0,457 / 0,755 / 1,035 / 1,389 / 1,539
+    # (constants.py, CHEMIN_CIBLE_INVESTISSEMENT ; garde : tests/test_multiplicateurs_centraux_v067.py).
+    # Le terme 5 garde sa valeur : la source n'estime rien au-delà de quatre ans après le choc.
+    # Avant : (0.45, 0.65, 0.45, 0.25, 0.12, 0.06), somme 1,98, « pic Y2 » (convention de la v3.1).
+    DECAY_PROFILE_INVEST    = (0.3718, 0.3152, 0.3487, 0.3495, 0.2201, 0.06)  # somme 1,6653
     # Alias d'API PUBLIQUE conservé volontairement : surface stable pour un
     # consommateur externe du moteur open source (≠ code mort interne — plus
     # aucun lecteur runtime depuis le retrait du fallback growth.py, mais

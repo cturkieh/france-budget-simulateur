@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 
 from budget_simulator import constants
-from budget_simulator.constants import MULT_CIBLE_NIVEAU_4ANS, TAUX_PRELEVEMENTS_AUTOFINANCEMENT
+from budget_simulator.constants import (CHEMIN_CIBLE_INVESTISSEMENT, MULT_CIBLE_NIVEAU_4ANS,
+                                        TAUX_PRELEVEMENTS_AUTOFINANCEMENT)
 from budget_simulator.simulator import BudgetSimulatorV45
 
 # famille → (levier synthétique, flux, signe) : dépense + = expansion, recette + = hausse
@@ -71,7 +72,11 @@ def _niveaux(base, cas):
     return [abs(yr[i] - yb[i]) / yb[i] * 100 for i in range(len(yr))]
 
 
-@pytest.mark.parametrize('famille', list(FAMILLES))
+# Lot 6 (paramètres, arbitrage du mainteneur : le profil suit le tableau du FMI, source citée) : la cible de la
+# famille investissement porte sur le TOTAL (demande et canal d'offre) d'un levier de capital public,
+# sur tout le chemin H0-H4 (test_chemin_de_l_investissement_sur_le_tableau_du_fmi, plus bas) ; le
+# niveau de la demande seule (levier éducation de ce banc, 1,28 à 4 ans) n'est plus comparé à 1,5.
+@pytest.mark.parametrize('famille', [f for f in FAMILLES if f != 'investissement'])
 def test_niveau_a_4_ans_sur_la_valeur_centrale(mesures, famille):
     base, cas = mesures
     niveau_4 = _niveaux(base, cas[famille])[5]
@@ -238,67 +243,113 @@ def test_le_statu_quo_ne_depend_pas_des_multiplicateurs():
     assert a.equals(b)
 
 
-# --- Lot 6, revue adverse : le calage sur un seul point, déclaré et lié à la mesure -----------------
-# Profils publiés par les sources, niveau du PIB en % pour un point de PIB, H0 = année du choc.
-# FMI, World Economic Outlook, oct. 2014, ch. 3, tableau 3.4, col. (1), p. 95 : k = 0 à 4.
-PROFIL_FMI_INVESTISSEMENT = (0.457, 0.755, 1.035, 1.389, 1.539)
-# Mésange 2017 (Insee et DG Trésor, G2017/04) : « 1 an », « 2 ans », « 3 ans », « 5 ans » = H0, H1, H2,
-# H4 ; « 4 ans » n'est pas publié (H3 = milieu de 3 et 5 ans, convention déclarée dans METHODOLOGIE).
-MESANGE_INVESTISSEMENT = (1.31, 1.38, 1.22, 0.93)   # p. 102, investissement public
-MESANGE_DEPENSE = (0.78, 1.06, 1.03, 0.86)          # p. 105, dépense publique générique
+# --- Lot 6, paramètres : le chemin de l'investissement calé sur le tableau du FMI ---------------------
+# Protocole (METHODOLOGIE, « Calendrier de l'impulsion ») : mode historique, choc permanent de 1 % du
+# PIB par an dès 2026 ; levier de référence à canal d'offre actif = transition écologique : impulsion
+# de demande injectée sur le levier (son impact propre remplacé), canal d'offre alimenté par son
+# paramètre « investissement », constant, égal à 1 % du PIB nominal 2026.
+PRECISION_DU_TABLEAU = 0.0005   # demi-unité de la 3e décimale publiée par le FMI
 
 
-def _cinq_ans_mesange(publie):
-    un, deux, trois, cinq = publie
-    return (un, deux, trois, (trois + cinq) / 2, cinq)
-
-
-def _profil_cadre(monkeypatch, famille):
-    """Choc permanent d'un point de PIB posé en 2028 sur un levier synthétique, mode cadre 2028 :
-    niveau du PIB réel en % du cas sans choc, H0 à H4 (protocole du tableau « Profils par famille »)."""
+def _chemin(levier, s=1.0, mode='historique', offre=True, flux='depenses', canal=None, annee_offre=None):
+    """Niveau du PIB réel en % de la référence, par point de PIB de choc, H0 à H9. ``annee_offre`` :
+    année dont le PIB nominal fixe l'entrée (constante) du canal d'offre ; par défaut, celle du choc."""
     import budget_simulator.engine.orchestrator as orch
-    monkeypatch.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
-    levier = {'investissement': 'zz_investissement', 'depense_courante': 'zz_depense_courante'}[famille]
-    if famille == 'investissement':
-        monkeypatch.setattr(BudgetSimulatorV45, 'INVESTMENT_CORE_MEASURES',
-                            BudgetSimulatorV45.INVESTMENT_CORE_MEASURES | {levier})
-        monkeypatch.setattr(BudgetSimulatorV45, 'INVESTMENT_FLOW_MEASURES',
-                            BudgetSimulatorV45.INVESTMENT_FLOW_MEASURES | {levier})
+    from budget_simulator.constants import PARAM_DOMAINS
+    debut, ad = (2028, 2028) if mode == 'cadre' else (2026, None)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
+        base = BudgetSimulatorV45(periods=12, mesures={}, annee_debut=ad).simulate()[1].set_index('Année')
+        mesures = {}
+        if offre and canal:
+            param, defaut = canal
+            a_offre = annee_offre or debut
+            pib = float(base.at[a_offre, 'PIB_Réel_Base2025'] * base.at[a_offre, 'Déflateur'])
+            valeur = min(defaut + s / 100 * pib, PARAM_DOMAINS[levier][param][1])
+            mesures = {levier: {param: valeur}}
 
-    def simuler(avec_choc):
         class _Choc(BudgetSimulatorV45):
             def apply_measures(self, year, spending, revenues, gdp, inflation, unemployment):
                 sp, rv, imp = super().apply_measures(year, spending, revenues, gdp, inflation, unemployment)
-                if avec_choc and year >= 2028:
-                    x = 0.01 * gdp
-                    imp = dict(imp)
-                    imp[levier] = {'depenses': x, 'recettes': 0.0}
-                    sp += x
-                return sp, rv, imp
-        return _Choc(periods=10, mesures={}, annee_debut=2028).simulate()[1]['PIB_Réel_Base2025'].values
-    y0, y1 = simuler(False), simuler(True)
-    return [(y1[i] / y0[i] - 1) * 100 for i in range(3, 8)]
+                if year < debut:
+                    return sp, rv, imp
+                imp = dict(imp)
+                propre = imp.get(levier) if isinstance(imp.get(levier), dict) else {}
+                sp -= float(propre.get('depenses', 0) or 0)
+                rv -= float(propre.get('recettes', 0) or 0)
+                x = s / 100 * gdp
+                imp[levier] = {'depenses': x, 'recettes': 0.0}
+                if flux == 'investissement':
+                    imp[levier]['depenses_investissement'] = x
+                return sp + x, rv, imp
+        cas = _Choc(periods=12, mesures=mesures, annee_debut=ad).simulate()[1].set_index('Année')
+    return [(cas.at[debut + h, 'PIB_Réel_Base2025'] / base.at[debut + h, 'PIB_Réel_Base2025'] - 1) * 100 / s
+            for h in range(10)]
 
 
-def test_calage_sur_un_seul_point_declare_et_lie_a_la_mesure(monkeypatch):
-    """METHODOLOGIE (« Calendrier de l'impulsion », limite déclarée) : chaque famille est calée sur
-    son niveau à quatre ans ; le cumul des cinq premières années (H0 à H4, mode cadre 2028) s'écarte
-    des sources d'un écart qui n'est pas le même pour toutes les familles. Les pourcentages et la
-    première année publiés sont recalculés ici et doivent figurer tels quels."""
-    investissement = _profil_cadre(monkeypatch, 'investissement')
-    depense = _profil_cadre(monkeypatch, 'depense_courante')
-    fmi, mesange_i = sum(PROFIL_FMI_INVESTISSEMENT), sum(_cinq_ans_mesange(MESANGE_INVESTISSEMENT))
-    mesange_d = sum(_cinq_ans_mesange(MESANGE_DEPENSE))
-    inv, dep = sum(investissement), sum(depense)
-    # Non-vacuité : les deux familles ont un effet ; l'investissement est au-dessus des deux sources.
-    assert inv > fmi and inv > mesange_i and 0 < dep < mesange_d
+TRANSITION = dict(levier='transition_ecologique', canal=('investissement', 0.0))
+
+
+def _defaut(levier, param):
+    import json
+    from pathlib import Path
+    mesures = json.loads((Path(__file__).resolve().parents[1] / 'policy_measures.json').read_text(encoding='utf-8'))
+    return {m['id']: m for m in mesures['mesures']}[levier]['parametres'][param]['valeur_defaut']
+
+
+def test_chemin_de_l_investissement_sur_le_tableau_du_fmi():
+    """Lot 6, paramètres (arbitrage du mainteneur) : le TOTAL, demande et canal d'offre, d'un levier
+    de capital public reproduit année par année, H0 à H4, le tableau 3.4, colonne (1), du FMI
+    (``CHEMIN_CIBLE_INVESTISSEMENT``), à la précision du tableau. Rouge avant le recalage du profil :
+    0,553 / 1,247 / 1,562 / 1,696 / 1,669. Non-vacuité : le canal d'offre porte bien une part du
+    total (sinon la cible serait lue sur la demande seule)."""
+    total = _chemin(**TRANSITION)
+    demande = _chemin(**TRANSITION, offre=False)
+    ecarts = [round(total[h] - CHEMIN_CIBLE_INVESTISSEMENT[h], 5) for h in range(5)]
+    assert all(abs(e) < PRECISION_DU_TABLEAU for e in ecarts), (total[:5], ecarts)
+    assert total[4] - demande[4] > 0.2 and total[3] - demande[3] > 0.1, (total[:5], demande[:5])
+
+
+def test_limites_du_chemin_liees_a_la_mesure():
+    """METHODOLOGIE (« Calendrier de l'impulsion ») déclare ce que le calage ne fixe pas : le même
+    choc en mode cadre, la dépendance à la taille du choc (offre plafonnée), et le chemin des leviers
+    qui portent ce profil sans canal d'offre actif sur l'horizon. Chiffres recalculés ici."""
+    cadre = _chemin(**TRANSITION, mode='cadre')
+    petit, gros = _chemin(**TRANSITION, s=0.5), _chemin(**TRANSITION, s=1.5)
+    offre_2030 = _chemin(**TRANSITION, annee_offre=2030)
+    sans_offre = _chemin('education')
+    sans_offre_cadre = _chemin('education', mode='cadre')
+    fmi = sum(CHEMIN_CIBLE_INVESTISSEMENT)
+    mesange = 1.31 + 1.38 + 1.22 + (1.22 + 0.93) / 2 + 0.93   # p. 102 ; « 4 ans » au milieu de 3 et 5 ans
+
+    def ecart(cumul, source):
+        return _fr(100 * (cumul / source - 1), 1, True)
+    courante = _chemin('sante')
+    recherche = _chemin('recherche_publique', canal=('budget', _defaut('recherche_publique', 'budget')))
     attendus = [
-        (f"l'investissement dépasse le profil du FMI de {_fr(100 * (inv / fmi - 1))} % et celui de "
-         f"Mésange de {_fr(100 * (inv / mesange_i - 1))} %"),
-        f"la dépense courante est {_fr(100 * (1 - dep / mesange_d))} % sous Mésange",
-        (f"Première année : investissement {_fr(investissement[0], 2)}, contre "
-         f"{_fr(PROFIL_FMI_INVESTISSEMENT[0], 2)} (FMI) et {_fr(MESANGE_INVESTISSEMENT[0], 2)} (Mésange)"),
+        (f"son total dépasse le tableau : {_fr(recherche[3], 2)} et {_fr(recherche[4], 2)} les deux dernières "
+         f"années"),
+        f"en mode cadre (choc posé en 2028), {_fr(cadre[3], 2)} et {_fr(cadre[4], 2)} les deux dernières",
+        (f"{_fr(petit[4], 2)} à quatre ans pour un choc de 0,5 % du PIB, {_fr(gros[4], 2)} pour un choc "
+         f"de 1,5 %"),
+        (f"la demande seule : {_fr(sans_offre[3], 2)} et {_fr(sans_offre[4], 2)} les deux dernières "
+         f"années, contre {_fr(CHEMIN_CIBLE_INVESTISSEMENT[3], 2)} et "
+         f"{_fr(CHEMIN_CIBLE_INVESTISSEMENT[4], 2)}"),
+        f"de {_fr(courante[0], 2)} la première année à {_fr(courante[4], 2)} la cinquième",
+        (f"alimenté par 1 % du PIB nominal de 2030, la cinquième année vaut {_fr(offre_2030[4], 2)} au lieu de "
+         f"1,539 ({_fr(offre_2030[4] - CHEMIN_CIBLE_INVESTISSEMENT[4], 3, True)})"),
+        (f"un levier à canal d'offre actif est à {ecart(sum(cadre[:5]), fmi)} % du FMI et à "
+         f"{ecart(sum(cadre[:5]), mesange)} % de Mésange ; un levier sans canal d'offre, à "
+         f"{ecart(sum(sans_offre_cadre[:5]), fmi)} % et {ecart(sum(sans_offre_cadre[:5]), mesange)} %"),
     ]
     texte = ' '.join(METHODO.read_text(encoding='utf-8').split())
     manquants = [a for a in attendus if a not in texte]
     assert not manquants, manquants
+
+
+def test_cible_affichee_de_l_investissement_est_l_arrondi_du_chemin():
+    """``MULT_CIBLE_NIVEAU_4ANS['investissement']`` (1,5) n'est plus lue par le banc depuis le lot 6 : la cible
+    opposable est le chemin complet ``CHEMIN_CIBLE_INVESTISSEMENT``. La valeur affichée en reste l'arrondi
+    du dernier terme (1,539 → 1,5, comme le texte du FMI p. 82, « 1.5 percent four years after ») : les
+    deux ne peuvent pas diverger."""
+    assert round(CHEMIN_CIBLE_INVESTISSEMENT[4], 1) == MULT_CIBLE_NIVEAU_4ANS['investissement']

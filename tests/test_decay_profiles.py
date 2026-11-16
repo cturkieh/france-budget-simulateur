@@ -14,11 +14,16 @@ def test_decay_profile_sums():
     print(f"  INVEST sum: {sum(BudgetSimulatorV45.DECAY_PROFILE_INVEST):.2f}")
 
 
-def test_invest_profile_peaks_year2():
-    """Investment profile must peak at year 2 (index 1), not year 1."""
+def test_invest_profile_calibrated_on_imf_table():
+    """Re-déclaré au lot 6 (release de paramètres, arbitrage du mainteneur, 16/11/2026) : le « pic à
+    l'année 2 » était une convention de la v3.1, sans calage à une source. Les cinq premiers termes
+    sont désormais calés pour que le total d'un levier de capital public suive le tableau 3.4 du FMI
+    (garde du chemin : tests/test_multiplicateurs_centraux_v067.py). Ici : forme du profil (six termes
+    positifs, dernier terme inchangé, somme sous la contrainte de calibration)."""
     p = BudgetSimulatorV45.DECAY_PROFILE_INVEST
-    assert p[1] > p[0], f"Y2 ({p[1]}) should be > Y1 ({p[0]})"
-    assert p[1] >= p[2], f"Y2 ({p[1]}) should be >= Y3 ({p[2]})"
+    assert len(p) == 6 and all(x > 0 for x in p)
+    assert p[5] == 0.06, "terme au-delà de quatre ans : la source n'estime rien, valeur d'avant gardée"
+    assert sum(p) <= 2.01
 
 
 def test_transfer_profile_frontloaded():
@@ -50,7 +55,8 @@ def test_baseline_unchanged():
 
 
 def test_investment_uses_invest_profile():
-    """Investment measures should use DECAY_PROFILE_INVEST (peaks Y2)."""
+    """Investment measures should use DECAY_PROFILE_INVEST. Re-déclaré au lot 6 : le profil stocké est
+    celui de l'investissement (calé sur le FMI), et non plus « Y2 > Y1 »."""
     sim = BudgetSimulatorV45(periods=10, mesures={
         'transition_ecologique': {'investissement': 30, 'taxe_carbone': 44.6, 'renovation': 0}
     })
@@ -61,7 +67,7 @@ def test_investment_uses_invest_profile():
         profile = first_impulse[2] if len(first_impulse) > 2 else None
         if profile:
             print(f"  Stored profile: {tuple(round(p, 2) for p in profile)}")
-            assert profile[1] > profile[0], "Investment profile should peak at Y2"
+            assert tuple(profile) == BudgetSimulatorV45.DECAY_PROFILE_INVEST, "Investment profile expected"
     print(f"  Impulses stored: {len(sim._fiscal_impulses)}")
 
 

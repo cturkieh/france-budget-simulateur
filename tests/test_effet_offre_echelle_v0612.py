@@ -437,20 +437,26 @@ def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     absolue. Le terme d'effort de l'inflation, retiré, faisait baisser le ratio
     de toute relance par le dénominateur ; sans lui, l'effet changeait de signe
     entre 20 et 50 Md€ et la valeur absolue remontait alors que le rendement, lui,
-    décroissait toujours. Lot 2 (16/11/2026) : le retour fiscal propre du levier,
-    retiré, allégeait aussi le coût. Lot 6 (calendrier de l'impulsion :
-    l'investissement agit dès l'année de son budget, puis coefficients recalés) :
-    l'effet ne change plus de signe dans le domaine, sur la pile des deux lots aussi
-    (mesure du moteur actuel : −0,98 point à 20 Md€, −1,13 à 50 Md€). Les deux
-    chiffres de cette docstring sont recalculés ci-dessous : ils ne peuvent pas dériver."""
+    décroissait toujours. Lot 6 (calendrier de l'impulsion : l'investissement agit
+    dès l'année de son budget, puis coefficients recalés) : l'effet ne changeait plus de
+    signe dans le domaine (−1,14 point à 20 Md€, −1,54 à 50 Md€). Lot 6, profil de
+    l'investissement calé sur le tableau du FMI (release de paramètres) : moins de demande
+    les premières années, l'effet change de nouveau de signe entre 10 et 20 Md€ (mesure du
+    moteur actuel, lot 6 seul : 0,12 point à 20 Md€, +1,76 à 50 Md€) ; au premier Md€,
+    l'effet était sous la précision publiée (0,00). Pile d'intégration (lot 2, retour
+    fiscal propre du levier retiré, puis lot 6 entier) : le coût l'emporte dès le premier
+    Md€ (+0,01 point), sans changement de signe dans le domaine, et le coût par Md€ croît
+    avec le montant à partir de 5 Md€ (mesure du moteur actuel : 0,32 point à 20 Md€,
+    +2,25 à 50 Md€). Les deux chiffres de cette docstring sont recalculés ci-dessous : ils
+    ne peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)
     d0 = _dette_2035(sc, 'transition_ecologique', 'investissement', 0)
     effets = {x: _dette_2035(sc, 'transition_ecologique', 'investissement', x) - d0 for x in (1, 5, 20, 50)}
     for x, e in effets.items():
         assert abs(e) <= 0.15 * x, effets
     par_md = {x: e / x for x, e in effets.items()}
-    assert par_md[1] < 0, par_md   # le premier Md€ baisse encore le ratio
-    assert par_md[1] * 1.02 <= par_md[5] < par_md[20] < par_md[50], par_md
+    assert all(e >= 0 for e in effets.values()), effets   # pile : le coût l'emporte dès le premier Md€
+    assert par_md[5] < par_md[20] < par_md[50], par_md
     attendu = (f"mesure du moteur actuel : {_fr(effets[20])} point à 20 Md€, "
                f"{_fr(effets[50], signe=True)} à 50 Md€")
     doc = ' '.join(test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert.__doc__.split())
@@ -468,18 +474,21 @@ def test_chiffres_publies_de_l_encadre_lies_a_la_mesure():
     resté à l'état d'un commit intermédiaire). Re-déclaré au lot 6 (calendrier de
     l'impulsion, puis coefficients recalés) : le passage « entre 20 et 30 Md€/an » d'un
     gain à un coût ne se produit plus dans le domaine ; la forme vérifiée devient « le
-    ratio baisse sur tout le curseur, de moins en moins par Md€ » ; elle tient sur la
-    pile d'intégration (lot 2 puis lot 6)."""
+    ratio baisse sur tout le curseur, de moins en moins par Md€ ». Re-déclaré au lot 6 (profil de
+    l'investissement calé sur le tableau du FMI, release de paramètres) : le ratio baisse jusqu'à
+    10 Md€/an, puis le coût l'emporte entre 10 et 20 Md€/an, de plus en plus par Md€. Pile
+    d'intégration (lot 2, retour fiscal propre du levier retiré, puis lot 6 entier) : le coût
+    l'emporte dès le début du curseur, de plus en plus par Md€."""
     d = {x: _dette_2035(DROIT, 'transition_ecologique', 'investissement', x) for x in (0, 10, 20, 30, 50)}
-    assert d[0] > d[10] > d[20] > d[30] > d[50], d   # baisse sur tout le curseur
-    assert (d[0] - d[10]) / 10 > (d[10] - d[20]) / 10 > (d[30] - d[50]) / 20 > 0, d   # de moins en moins
+    assert d[0] < d[10] < d[20] < d[30] < d[50], d   # coût dès le début du curseur
+    assert 0 < (d[10] - d[0]) / 10 < (d[20] - d[10]) / 10 < (d[30] - d[20]) / 10 < (d[50] - d[30]) / 20, d
     sans_offre = {k: v for k, v in GrowthMixin.SUPPLY_EFFECTS.items() if k != 'transition_invest'}
     with patch.object(GrowthMixin, 'SUPPLY_EFFECTS', sans_offre):
         d50_sans = _dette_2035(DROIT, 'transition_ecologique', 'investissement', 50)
     texte = (RACINE / 'docs' / 'METHODOLOGIE.md').read_text(encoding='utf-8')
     texte = ' '.join(re.sub(r'\n>\s?', ' ', texte).split())
     for attendu in (f"{_fr(d[0])} → {_fr(d[10])} à 10 Md€/an",
-                    "Le ratio baisse sur tout le curseur, de moins en moins par Md€",
+                    "le coût l'emporte dès le début du curseur, de plus en plus par Md€",
                     f"0 → 50 Md€/an, {_fr(d[0])} → {_fr(d[50])} (canal d'offre coupé : {_fr(d50_sans)})"):
         assert attendu in texte, attendu
 

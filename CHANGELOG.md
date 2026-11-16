@@ -6,6 +6,60 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — paramètres du lot 6 (suite) : profil de l'investissement calé sur le tableau du FMI
+
+**Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES (arbitrage du mainteneur : le profil
+suit le tableau du FMI, source citée), qui suppose appliqués les deux blocs du lot 6 ci-dessous. Aucune équation ne change ;
+seules des valeurs changent : les cinq premiers termes de `DECAY_PROFILE_INVEST`, et une cible nommée
+(`CHEMIN_CIBLE_INVESTISSEMENT`).
+
+**Ce qui change.** Le TOTAL, demande et canal d'offre, d'un levier de capital public reproduit année par année le
+tableau 3.4, colonne (1), du FMI (WEO oct. 2014, ch. 3, p. 95) : 0,457 / 0,755 / 1,035 / 1,389 / 1,539 (écarts-types
+0,147 à 0,441 ; 17 économies avancées, 1985-2013 ; choc = erreur de prévision de l'investissement public, en part du
+PIB). Profil (0,45 ; 0,65 ; 0,45 ; 0,25 ; 0,12 ; 0,06) → (0,3718 ; 0,3152 ; 0,3487 ; 0,3495 ; 0,2201 ; 0,06) ;
+coefficient inchangé (1,31). Protocole : mode historique, choc permanent de 1 % du PIB par an dès 2026, levier de la
+transition écologique, canal d'offre alimenté par son paramètre d'investissement (1 % du PIB nominal 2026). Le
+dernier terme ne change pas : la source n'estime rien au-delà de quatre ans après le choc.
+
+- Test rouge puis vert : `test_chemin_de_l_investissement_sur_le_tableau_du_fmi` (chemin H0-H4 à 0,0005 point, la
+  précision du tableau ; rouge avec le profil d'avant : 0,553 / 1,247 / 1,562 / 1,696 / 1,669). Mutations rouges : un
+  terme du profil décalé de 0,001, coefficient à 1,30 ou 1,32, canal d'offre neutralisé (cible lue sur la demande
+  seule).
+- Limites déclarées, liées à la mesure (`test_limites_du_chemin_liees_a_la_mesure`) : en mode cadre, 1,40 et 1,55
+  les deux dernières années ; selon la taille du choc (offre plafonnée), 1,57 à quatre ans pour 0,5 % du PIB, 1,50
+  pour 1,5 % ; les leviers qui portent ce profil sans canal d'offre actif sur l'horizon (éducation, recherche,
+  rénovation) n'ont que la demande, 1,26 et 1,28 les deux dernières années ; santé et réforme de l'État, au
+  coefficient de la dépense courante, de 0,28 à 0,77. Comparaison à Mésange déclarée : plus haut la première année
+  (1,31), plus bas ensuite (0,93 à cinq ans), pur choc de demande.
+- Re-déclarés, motif daté dans chaque test : le banc des multiplicateurs ne compare plus la demande seule de
+  l'investissement à 1,5 (la cible porte sur le chemin total) ; chiffres du banc d'autofinancement (demande seule :
+  6 % du coût récupéré, ratio au-dessus du statu quo dès 2030) et du tableau des familles ; forme du profil (le « pic
+  à l'année 2 » n'est plus une règle) ; banc de l'auditeur gardé sur le profil de l'audit, comme ses coefficients ;
+  premier terme du profil lu dans le moteur (test du plancher monétaire) ; valeurs datées V2-02 ; investissement
+  local et de l'État, 10 Md€ par an : écart absolu inchangé dans les deux modes, signe et rapport en mode cadre
+  seulement (en mode historique 2035, +0,07 et −0,03, de part et d'autre de zéro) ; investissement vert tiré seul :
+  le ratio de dette 2035 baisse jusqu'à 10 Md€/an, puis le coût l'emporte entre 10 et 20 Md€/an ; chiffres liés de
+  la référence, du sentier de déflateur, de la marge de Phillips et de l'atterrissage. Disparaît la limite « calage
+  sur un seul point » de la release précédente. Aucune tolérance élargie ; la nouvelle (0,0005 point) est plus
+  serrée.
+- Instantanés régénérés une fois : les dix scénarios publiés des deux modes (dette, déficit, chômage, croissance,
+  inflation, pouvoir d'achat ; compétitivité en mode cadre) ; six mini-scénarios sur 42 (éducation, recherche,
+  transition écologique, santé, réforme de l'État, recette exceptionnelle). Pouvoir d'achat 2029 figé non modifié :
+  écart au plus 0,4 point, tolérance 1,5.
+- Effet (mode cadre 2028, dix scénarios publiés, dette 2032, par rapport à la release précédente) : de −0,16 à
+  +1,76 point ; les programmes riches en investissement montent, ceux qui le coupent ou n'y touchent pas bougent à
+  peine ; référence −0,14.
+- Pile d'intégration (reporté après le lot 2 et le lot 6, mesuré contre les paramètres du lot 6 reportés) : de −0,16
+  à +1,73 point de dette 2032, référence −0,14. La garde du calage (tableau 3.4 année par année) reste verte avec le
+  lot 2. Textes réécrits sur la pile : la recherche, en forme stock depuis le lot 2, a un canal d'offre actif dès
+  l'année qui suit la dépense et son total dépasse le tableau (3,19 et 3,62 les deux dernières années, chiffre lié à
+  la mesure) ; le curseur d'investissement vert tiré seul ne fait plus baisser le ratio de dette 2035, même pour les
+  petits montants (le coût l'emporte dès le début du curseur) ; chiffres « moteur actuel » du lot 2 recalculés
+  (recherche +5 Md€ par an : −1,38 point et −11,7 Md€ ; effet total par euro 1,22 / 1,52 / 4,15 €).
+- Docs : METHODOLOGIE (« Calendrier de l'impulsion » : profil calé, protocole, ce que la source ne dit pas,
+  comparaison à Mésange, limites ; profil INVEST ; L2 ; somme analytique ; banc d'autofinancement ; tableau des
+  familles ; profils par famille), EXPLICATION (profil en français courant, table des coefficients).
+
 ## [non publiée — proposée] — paramètres du lot 6 : coefficients d'impact recalés après la correction du calendrier
 
 **Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du commit d'équation
@@ -26,13 +80,8 @@ recaler l'investissement sur 1,5 plutôt que sur 1,41 serait une décision disti
 dans le moteur : non recalés, limite déclarée (recalés comme leur famille de profil, ils déplaceraient la dette 2032
 des programmes publiés de 0,03 point au plus).
 
-**Limite déclarée (arbitrage du mainteneur, non tranché).** Chaque famille est calée sur un seul point, son niveau à
-quatre ans. Sur la trajectoire des cinq premières années (mode cadre 2028), l'investissement dépasse le profil du
-FMI de 23 % et celui de Mésange de 8 % ; la dépense courante est 8 % sous Mésange ; première année : 0,56 pour
-l'investissement, contre 0,46 (FMI) et 1,31 (Mésange). Pour les leviers qui ont un canal d'offre (transition
-écologique, investissement des collectivités), le moteur ajoute ce canal à une demande calée sur un effet que le FMI
-mesure TOTAL (demande et capacité de production) : 1,67 à quatre ans pour le levier de la transition écologique,
-mesuré au protocole du banc des multiplicateurs, contre 1,54 pour la source, comme avant ce lot.
+**Calage de l'investissement** : tranché par le mainteneur dans la release suivante (profil calé sur le tableau du
+FMI) ; la limite « calage sur un seul point » qu'énonçait ce bloc n'a plus cours.
 
 - Test rouge puis vert : banc des multiplicateurs, niveau à 4 ans sur la cible pour les six familles (en échec
   attendu strict au commit d'équation, vert ici ; écart au niveau d'avant le lot ≤ 0,2 %).
@@ -56,9 +105,7 @@ mesuré au protocole du banc des multiplicateurs, contre 1,54 pour la source, co
   Chiffres « moteur actuel » du lot 2 recalculés sur la pile (recherche +5 Md€ par an : dette 2032 −1,61 point et
   −17,2 Md€ ; effet total par euro à quatre ans 1,31 / 1,61 / 4,24 €, la propriété « au-dessus de la cible de 1,5 »
   tient de nouveau, attente stricte levée) ; courbe de l'investissement vert : baisse sur tout le curseur.
-- Garde ajoutée à la revue adverse : la limite « calage sur un seul point » est recalculée (profils en mode cadre
-  2028, sources écrites en constantes du test) et doit figurer telle quelle dans METHODOLOGIE.
-- Docs : METHODOLOGIE (recalage, limite du calage sur un seul point, profils par famille dans « Calendrier de
+- Docs : METHODOLOGIE (recalage, profils par famille dans « Calendrier de
   l'impulsion », ordres de grandeur des limites restantes, table des multiplicateurs, somme analytique de
   l'investissement à k = 1,31, tableau des familles, chiffres liés à la mesure), EXPLICATION (table des
   coefficients).
