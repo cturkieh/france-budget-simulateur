@@ -509,6 +509,13 @@ déclarée). L'indice d'inégalités du rabot (coefficient par milliard de prest
 d'année pleine de 2025) porte la même part coupée, calculée sur les dépenses et le PIB de 2025. À la valeur neutre 0,
 seule la catégorie « équipements » est exclue, comme avant.
 
+**Rabot uniforme, défense au périmètre de la note (lot 3, valeur sourcée).** La part de la défense exclue est celle
+de la note : 2,7 % du PIB, pensions comprises (p. 81 : « dépenses de défense portées à 2,7 % du PIB d'ici 2029, soit
+91 Md€ » ; note 113 : « En intégrant les pensions »), au lieu de la seule catégorie « équipements » (25 Md€ en 2025).
+Avec le PIB du moteur, 2,7 % du PIB font 86 Md€ en 2029 (la note suppose un PIB plus élevé). Convention déclarée,
+aucune source ne tranchant : la note fixe ce niveau pour 2029 ; le moteur le garde chaque année du rabot, 2028
+compris, comme il garde le taux de 8 % au-delà de 2029.
+
 ### Assemblage des Depenses (v4.0 — recurrence unique chainee)
 
 Depuis la refonte « assemblage temporel » (juin 2026), les taux par categorie ci-dessus ne portent plus le NIVEAU des depenses : ils servent de **cle de repartition** dans la croissance en volume agregee. La recurrence appliquee des l'annee 1 est :
@@ -2796,7 +2803,7 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > même part en hausse et en baisse : l'étude constate une symétrie à court terme ; au-delà, c'est la convention de
 > symétrie du moteur (encadré du lot 5) ; (5) comme pour tout investissement public du moteur, l'effet d'offre de la
 > moitié investie s'ajoute à un coefficient de demande calé sur l'effet total à quatre ans : un double compte
-> possible, commun à ces leviers, qui pèse ici de 0,044 à 0,118 point de dette 2032 pour les quatre scénarios qui
+> possible, commun à ces leviers, qui pèse ici de 0,044 à 0,115 point de dette 2032 pour les quatre scénarios qui
 > baissent la dotation, celui du rabot uniforme compris. **Levier en échec** : une valeur non numérique fait échouer
 > le levier, qui n'a alors ni impulsion ni effet d'offre, curseur d'investissement compris (avant ce lot, ce curseur
 > gardait son effet d'offre). Test : `tests/test_dotation_investissement_local.py` (part lue par le registre ;
@@ -2815,9 +2822,9 @@ test-propriété `tests/test_multiplicateurs_centraux_v067.py`.
 > publiés, par rapport au lot 5e ; écarts calculés en pleine précision, sans les arrondis de sortie du moteur) :
 > tous, et la référence sans programme, puisque le droit en vigueur porte une dotation sous le défaut ; dette 2032
 > de +0,131 à +0,136 point pour les six qui gardent la dotation du droit (référence : +0,136), de +0,182 à +0,311
-> point pour les trois programmes qui la baissent de 7 à 12 Md€, +0,353 point pour celui qui utilise le rabot
-> uniforme (dont +0,215 pour sa coupe de dotation) ; déficit 2032 de −0,020 à −0,098 point ; croissance moyenne
-> 2028-2032 de −0,004 à −0,031 point ; Gini inchangé (écart inférieur à 0,0001). **Décomposition** (même mesure, les
+> point pour les trois programmes qui la baissent de 7 à 12 Md€, +0,347 point pour celui qui utilise le rabot
+> uniforme (dont +0,212 pour sa coupe de dotation) ; déficit 2032 de −0,020 à −0,096 point ; croissance moyenne
+> 2028-2032 de −0,004 à −0,030 point ; Gini inchangé (écart inférieur à 0,0001). **Décomposition** (même mesure, les
 > trois programmes qui baissent la dotation, en écart à la référence) : le coefficient seul, profil d'origine
 > (mesuré sur le lot 5e seul, avant les lots 2 et 6), +0,126 à +0,246 point ; avec le profil de l'investissement,
 > +0,001 à +0,100 point (ce profil culmine la deuxième année puis s'éteint) ; avec aussi l'effet d'offre (ce

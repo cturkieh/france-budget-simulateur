@@ -23,6 +23,7 @@ import logging
 
 import pytest
 
+import budget_simulator.constants as C
 from budget_simulator.constants import (
     CROISSANCE_UC_ANNUELLE,
     HANDLER_FAILED_KEY,
@@ -517,13 +518,16 @@ def test_rabot_details_coupes(taux):
     """Rabot uniforme : seules les coupes de prestations EN ESPÈCES entrent au
     RDB, au montant de l'année (recalculé depuis les masses nominales du
     moteur et les parts posées à la main) ; linéaire dans le taux. Lot 3 :
-    assiette en euros de l'année."""
+    assiette en euros de l'année, défense de la note (2,7 % du PIB) retirée au
+    prorata des catégories autres que l'équipement."""
     sim = BudgetSimulatorV45(periods=1, mesures={'rabot_uniforme': {'taux_reduction': taux}})
     _, _, rapport = sim.simulate()
     canal = rapport['measure_impacts_by_year'][1]['rabot_uniforme']['menages']['prestations']
     phasing_2026 = 0.5
     masses = {c: sim.masse_categorie_nominale(c) for c in sim.spending_categories_base}
-    attendu = -sum(masses[c] * part for c, part in _PART_ESPECES_ATTENDUE.items()) * taux * phasing_2026
+    surplus = C.MONTAIGNE_DEFENSE_PART_PIB * sim._pib_nominal_par_annee[AN1] - masses['defense_equipement']
+    part_coupee = 1 - surplus / sum(m for c, m in masses.items() if c != 'defense_equipement')
+    attendu = -sum(masses[c] * part for c, part in _PART_ESPECES_ATTENDUE.items()) * part_coupee * taux * phasing_2026
     assert canal == pytest.approx(attendu, rel=1e-12)
     assert canal < 0
     assert sim._rdb_trace[AN1].effet_mesures == pytest.approx(canal, rel=1e-12)

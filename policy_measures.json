@@ -841,7 +841,7 @@
           "step": 1,
           "label": "Exclure défense (OTAN)",
           "type": "toggle",
-          "tooltip": "1 = Sanctuariser la défense (91 Md€ en 2029 selon la note, soit 2,7 % du PIB pensions comprises ; le simulateur n'exclut que les équipements, 25 Md€). Institut Montaigne considère la défense comme incompressible."
+          "tooltip": "1 = Sanctuariser la défense au périmètre de la note : 2,7 % du PIB, pensions comprises (91 Md€ en 2029 selon la note, 86 Md€ avec le PIB du simulateur). Institut Montaigne considère la défense comme incompressible."
         },
         "exclure_ue": {
           "valeur_defaut": 1,

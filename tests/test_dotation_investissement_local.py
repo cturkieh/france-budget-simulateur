@@ -421,16 +421,29 @@ def test_le_rabot_coupe_la_meme_ligne_que_le_curseur_de_dotation():
     assert S.COUPES_DE_DOTATION == {'rabot_uniforme'}
 
 
+def _part_coupee_du_rabot(sim, gdp, exclure_defense=True):
+    """Part coupée des catégories autres que l'équipement de défense (lot 3) : la défense exclue (part du PIB de
+    l'année, au-delà de l'équipement) est retirée au prorata ; 1 sans exclusion. Recalculée ici sur les masses
+    nominales de l'année, indépendamment du handler."""
+    if not exclure_defense:
+        return 1.0
+    masses = {c: sim.masse_categorie_nominale(c) for c in sim.spending_categories_base}
+    surplus = max(0.0, C.MONTAIGNE_DEFENSE_PART_PIB * gdp - masses['defense_equipement'])
+    return 1.0 - surplus / sum(v for c, v in masses.items() if c != 'defense_equipement')
+
+
 class _Rabot(BudgetSimulatorV45):
     """Rabot uniforme : coupe de la ligne « Dotations » de l'année, recalculée comme le levier la calcule
-    (masse nominale de l'année × taux × phasing), et part investie publiée dans son impact."""
+    (masse nominale de l'année × part coupée × taux × phasing), et part investie publiée dans son impact."""
 
     def _apply_rabot_uniforme(self, measure, params, year, gdp, inflation, unemployment):
         dep, rec, imp = super()._apply_rabot_uniforme(measure, params, year, gdp, inflation, unemployment)
         if imp:
             d = imp['rabot_details']
-            # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale).
-            coupe = self.masse_categorie_nominale('collectivites') * d['taux'] * d['phasing']
+            # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale), à la part coupée
+            # que laisse la défense exclue.
+            coupe = (self.masse_categorie_nominale('collectivites')
+                     * _part_coupee_du_rabot(self, gdp, d['exclusions']['defense']) * d['taux'] * d['phasing'])
             self.__dict__.setdefault('_coupes', []).append((coupe, imp['depenses_investissement']))
         return dep, rec, imp
 
@@ -464,15 +477,18 @@ def test_la_coupe_de_dotation_du_rabot_nourrit_l_offre_en_mode_cadre(annee_debut
 
 class _Rabot_par_annee(BudgetSimulatorV45):
     """Rabot uniforme : coupe de la ligne « Dotations » de chaque année civile, recalculée comme le levier la
-    calcule (masse nominale de l'année × taux × phasing), et contribution du canal ``collectivites_invest`` de l'année."""
+    calcule (masse nominale de l'année × part coupée × taux × phasing), et contribution du canal
+    ``collectivites_invest`` de l'année."""
 
     def _apply_rabot_uniforme(self, measure, params, year, gdp, inflation, unemployment):
         dep, rec, imp = super()._apply_rabot_uniforme(measure, params, year, gdp, inflation, unemployment)
         if imp:
             d = imp['rabot_details']
-            # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale).
+            # Lot 3 : le rabot coupe la masse NOMINALE de l'année (masse_categorie_nominale), à la part coupée
+            # que laisse la défense exclue.
             self.__dict__.setdefault('_coupe_par_an', {})[year] = (
-                self.masse_categorie_nominale('collectivites') * d['taux'] * d['phasing'])
+                self.masse_categorie_nominale('collectivites')
+                * _part_coupee_du_rabot(self, gdp, d['exclusions']['defense']) * d['taux'] * d['phasing'])
         return dep, rec, imp
 
     def update_potential_growth(self, growth, year):

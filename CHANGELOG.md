@@ -38,6 +38,17 @@ lot 3 » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
   scénario publié ne pose ce curseur ; golden master isolé : seul le mini-scénario du curseur bouge, 63 sur 64
   identiques au bit. Enjeu pour un visiteur (loi votée, mode cadre, +30 %) : 21,8 Md€ de recette en 2028 au lieu de
   20,2 ; dette 2032 −0,11 point, déficit +0,05 point de PIB.
+- **Rabot uniforme : défense au périmètre de la note source.** Part du PIB de la défense exclue du rabot
+  (`MONTAIGNE_DEFENSE_PART_PIB`, mécanisme du bloc « défauts du lot 3 ») : 0 (seule la catégorie « équipements »,
+  25 Md€ en 2025) → 0,027, 2,7 % du PIB, pensions comprises (Institut Montaigne, « Budget base zéro », novembre 2025,
+  p. 81 et note 113, rouverte). Avec le PIB du moteur, 86 Md€ en 2029 (91 selon la note, dont le PIB est plus élevé).
+  Convention déclarée : la part de 2,7 % est gardée chaque année du rabot, 2028 compris (la note la fixe pour 2029).
+  Infobulle de l'exclusion mise à jour. Golden master isolé : bougent exactement le scénario de référence de la note
+  (deux modes) et le mini-scénario du rabot ; 61 sur 64 identiques au bit. Effet (mode cadre, pleine précision, pile
+  assemblée) : coupe 2029 du scénario de la note 143,97 → 139,47 Md€ ; 2032 : dette +0,04 point, déficit −0,06 point
+  de PIB ; indice d'inégalités −0,0002 (la part coupée entre dans le montant de la méthode du lot 4). Re-déclarés :
+  coupe de dotation du rabot (règle du lot 5c) et effet attendu sur l'indice d'inégalités (lot 4) à la part coupée ;
+  chiffres publiés de l'encadré du lot 5c recalculés par sa garde.
 
 ## [non publiée — proposée] — défauts du lot 3 : gardes d'entrée, double compte, commentaires
 

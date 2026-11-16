@@ -207,8 +207,16 @@ def test_ecart_en_euros_de_2025_en_simulation(monkeypatch):
 # (5) Rabot émis une fois, par catégorie
 # ---------------------------------------------------------------------------
 
+def _part_coupee_2025(base):
+    """Lot 3 : la défense exclue (part du PIB, au-delà de l'équipement) est retirée au prorata des autres
+    catégories ; part coupée lue sur les masses et le PIB de 2025 (défense exclue par défaut)."""
+    surplus = max(0.0, C.MONTAIGNE_DEFENSE_PART_PIB * C.PIB_BASE_2025_MD_EUR - base['defense_equipement'])
+    return 1.0 - surplus / sum(v for c, v in base.items() if c != 'defense_equipement')
+
+
 def _effet_rabot_attendu(taux, base):
-    """−Σ K × coupe d'année pleine (euros de 2025), par catégorie en espèces."""
+    """−Σ K × coupe d'année pleine (euros de 2025), par catégorie en espèces, à la part coupée de 2025 (lot 3)."""
+    taux = taux * _part_coupee_2025(base)
     coupe = lambda cat: base[cat] * taux
     return -(C.GINI_SOLIDARITE_PAR_MD * (coupe('minima_sociaux') + C.AAH_2025_MD_EUR * taux)
              - C.GINI_ALLOC_PAR_MD_EUR * coupe('chomage')

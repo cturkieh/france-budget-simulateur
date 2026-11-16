@@ -111,3 +111,29 @@ def test_gini_du_rabot_sur_la_part_coupee(monkeypatch, part, exclure_defense):
                 - C.GINI_ALLOC_PAR_MD_EUR * base['chomage'] * t
                 + C.GINI_PENSIONS_PAR_MD * base['retraites'] * t)
     assert imp['gini'] == pytest.approx(attendu, rel=1e-12)
+
+
+# --- Défense au périmètre de la note (valeur sourcée) ----------------------------------------------------
+# Source rouverte : Institut Montaigne, même note, p. 81 : « dépenses de défense portées à 2,7 % du PIB d'ici
+# 2029, soit 91 Md€ », note 113 : « En intégrant les pensions, comme le fait l'OTAN pour le chiffre de 3,5 % » —
+# dépenses « incompressibles », exclues de l'assiette avec la charge de la dette et la contribution à l'Union
+# européenne. Convention déclarée, aucune source ne tranchant : la part de 2,7 % est gardée chaque année du rabot,
+# 2028 compris (la note la fixe pour 2029).
+import budget_simulator.constants as C  # noqa: E402
+
+RABOT_NOTE = {'rabot_uniforme': {'taux_reduction': 0.08}}
+
+
+def test_part_de_defense_de_la_note():
+    assert C.MONTAIGNE_DEFENSE_PART_PIB == 0.027
+
+
+@pytest.mark.parametrize('annee', [2028, 2029, 2030, 2032, 2035])
+def test_defense_de_la_note_exclue(annee):
+    """Coupe = taux × phasage × (Σ masses nominales − défense à 2,7 % du PIB de l'année), dès 2028."""
+    coupes, ctx = _coupes(RABOT_NOTE)
+    c = ctx[annee]
+    defense = C.MONTAIGNE_DEFENSE_PART_PIB * c['gdp']
+    assert defense > c['masses']['defense_equipement']
+    attendu = 0.08 * c['phasing'] * (sum(c['masses'].values()) - defense)
+    assert coupes[annee] == pytest.approx(attendu, rel=1e-12)

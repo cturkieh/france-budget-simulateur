@@ -1272,11 +1272,16 @@ REPERCUSSION_BAISSE_FISCALITE_INDIRECTE = 0.5
 AAH_2025_MD_EUR = 15.9
 # Rabot uniforme (handlers/montaigne.py) : part du PIB de la défense exclue de
 # l'assiette, dont la catégorie « équipements » (exclue en entier) ; le reste est
-# retiré au prorata des autres catégories. 0,0 = NEUTRE : seule la catégorie
-# « équipements » est exclue, comme jusqu'ici. La valeur sourcée de la note
-# (2,7 % du PIB, pensions comprises) est posée par la release de paramètres
-# qui suit (règle du projet : équation et valeur dans des commits séparés).
-MONTAIGNE_DEFENSE_PART_PIB = 0.0
+# retiré au prorata des autres catégories. Défense au périmètre de la note
+# source, exclue avec la charge de la dette et la contribution à l'Union
+# européenne : Institut Montaigne, « Budget base zéro : décider sous la
+# contrainte », novembre 2025, p. 81 : « dépenses de défense portées à 2,7 % du
+# PIB d'ici 2029, soit 91 Md€ », note 113 : « En intégrant les pensions ». La
+# note fixe ce niveau pour 2029 ; le moteur garde cette part du PIB chaque année
+# du rabot, 2028 compris, comme il garde le taux de 8 % après 2029 (convention
+# déclarée, METHODOLOGIE). Valeur neutre (0,0) jusqu'au lot 3 : seule la
+# catégorie « équipements » était exclue.
+MONTAIGNE_DEFENSE_PART_PIB = 0.027
 
 # === CALIBRATION RETRAITES (COR 2024, METHODOLOGIE.md § Retraites) ===
 # Coefficients budgétaires du handler retraites (handlers/depenses.py), nommés

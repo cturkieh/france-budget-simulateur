@@ -5,8 +5,8 @@ Mesures couvertes :
   dépenses, avec exclusions optionnelles (dette, défense, UE). À 8 %, la
   note vise 138 Md€ (graphique, p. 84) ou 140 Md€ (texte, p. 83) en 2029 ;
   le moteur calcule le rendement du taux sur ses propres catégories de
-  dépenses, en euros de l'année (lot 3), hors défense : la catégorie
-  « équipements » et, au-delà, la part du PIB MONTAIGNE_DEFENSE_PART_PIB.
+  dépenses, en euros de l'année, hors défense au périmètre de la note
+  (2,7 % du PIB, pensions comprises ; lot 3).
 
 Convention d'application :
 - Phasing progressif sur 2 ans (50 % la première année, 100 % ensuite)
