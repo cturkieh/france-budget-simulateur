@@ -11,6 +11,11 @@ l'historique antérieur est décrit dans les messages de tags et dans
 **Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES, distincte du bloc « défauts du
 lot 3 » ci-dessous, qu'elle suppose appliqué : aucune équation ne change ici.
 
+**Contrainte d'intégration : moteur et site dans le même déploiement.** La borne basse de `droits_succession` passe
+à −21,052 Md€ dans le registre public ; la garde de synchronisation du registre avec le site
+(`test_measure_registry_sync`) échoue tant que le site n'a pas la même borne. `make ci` du moteur est rouge avec le
+front de la branche principale du site, vert avec celui du lot.
+
 - **Impôts sur le patrimoine aux comptes nationaux 2025.** Bases du curseur « Fiscalité du patrimoine » et IFI que
   remplace l'ISF : Insee, comptes nationaux annuels base 2020 publiés le 29/05/2026, tableau 3.217 « Principaux
   impôts par catégorie », 2025 (rouvert) — IFI 2,714 Md€ (autres impôts courants, D59), droits de succession 16,070
