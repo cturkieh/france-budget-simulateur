@@ -6,6 +6,26 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — texte du SMIC : lecture à la valeur du droit, limite d'une baisse, limite 1 à 0,97
+
+**Statut** : commit de TEXTE (contre-vérification finale, deux points importants et deux mineurs) ; moteur,
+instantanés et sorties inchangés.
+
+- **Lecture à la valeur du droit** (METHODOLOGIE, § SMIC) : la valeur du droit en vigueur est la seule valeur neutre
+  lue telle quelle ; tout montant différent, même d'un centime, se lit comme un SMIC de l'année d'application. En
+  mode cadre, tout montant entre la valeur du droit et la référence portée à l'année est une baisse, et la lecture
+  saute à la valeur du droit : en 2028 (référence 1 920,21 €), 1 867,02 € donnent une hausse nulle, 1 867,03 € une
+  baisse de 2,77 %, 1 900 € une baisse de 1,05 %, 1 950 € une hausse de 1,55 % ; en mode historique, la lecture est
+  continue. Aucun programme publié n'est sur ces valeurs.
+- **Limite d'une baisse** (sens : favorable à une baisse du SMIC ; aucun programme publié n'est concerné) : la paie
+  publique n'est pas réduite, les quatre autres postes restent linéaires ; une baisse coûte au budget (20 M€ de 2017
+  par point) et soutient l'activité ; au minimum du curseur (1 400 €), solde direct dégradé de 4,0 Md€ sur
+  2028-2032, dette 2032 plus basse de 0,40 point (chômage 2032 −0,53 point).
+- **Limite 1** : OFCE 2024 pris non arrondi (−0,3 point de PIB pour 12,4 %) ; dette 2032 plus haute de 0,34 à
+  **0,97** point (0,96 avec −0,024 arrondi).
+- Garde `tests/test_smic_limites.py` : constante de l'OFCE 2024 non arrondie ; nouveau test des chiffres de la
+  lecture et de la baisse (recalculés, sans scénario publié).
+
 ## [non publiée — proposée] — instantanés et bloc généré des scénarios sur l'encodage du site du lot 3
 
 **Statut** : proposée, non publiée, sans numéro de version. Aucun calcul ne change : régénération sur le fichier des
@@ -413,9 +433,10 @@ d'experts 2017, modèle statique), pas celle de l'OFCE (modèle dynamique, envir
 Trois limites sont déclarées dans METHODOLOGIE (§ SMIC), chacune avec son sens et son chiffre, sans nouvel élément
 sur les écrans (mode cadre 2028, programmes publiés qui relèvent le SMIC) :
 1. coût au bas de la fourchette publiée (Trésor −0,0105 point de PIB par point de hausse, OFCE −0,020 à −0,024) :
-   si l'écart était entièrement réel, dette 2032 plus haute de 0,24 à 0,67 point (OFCE 2012) et de 0,34 à 0,96 point
-   (OFCE 2024) — favorable aux programmes qui relèvent le SMIC ; l'ordre de grandeur annoncé avant le lot (« jusqu'à
-   0,5 point ») était une estimation, la mesure sur la pile donne jusqu'à 0,96 ;
+   si l'écart était entièrement réel, dette 2032 plus haute de 0,24 à 0,67 point (OFCE 2012) et de 0,34 à 0,97 point
+   (OFCE 2024, −0,3 point pour 12,4 %, non arrondi) — favorable aux programmes qui relèvent le SMIC ; l'ordre de
+   grandeur annoncé avant le lot (« jusqu'à 0,5 point ») était une estimation, la mesure sur la pile donne jusqu'à
+   0,97 ;
 2. effet direct sur le chômage au-dessus de l'effet net de l'OFCE (0,025 contre 0,007 point par point) : ramené à
    0,007, chômage 2032 plus bas de 0,06 à 0,16 point, dette 2032 plus basse de 0,04 à 0,13 point — sens contraire ;
 3. revenu des salariés du privé (4,7 à 14,0 Md€ en 2032) et coût du travail absents du PIB ; l'OFCE, tous canaux

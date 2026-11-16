@@ -1826,11 +1826,15 @@ l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
   cette année avec l'indice de prix des dépenses du moteur, puisque la revalorisation légale fait déjà partie du
   statu quo : hausse = montant / (référence × indice de l'année d'application / indice de l'année de référence)
   − 1. Elle est fixée cette année-là, puis conservée en pourcentage : le SMIC du programme suit ensuite la
-  revalorisation légale. La valeur du droit en vigueur se lit dans les euros de l'année de référence : elle est
-  neutre quelle que soit l'année de début. En mode historique, l'année d'application est l'année de référence :
-  rien ne change. **Limite** : en mode cadre, un montant différent de la valeur du droit est un SMIC de l'année
-  d'application ; un montant compris entre la valeur du droit et la référence portée à cette année (environ 3 %
-  plus haut en 2028) est donc une baisse.
+  revalorisation légale. La valeur du droit en vigueur est la seule valeur neutre lue telle quelle : elle se lit
+  dans les euros de l'année de référence, quelle que soit l'année de début. Tout montant différent, même d'un
+  centime, se lit comme un SMIC de l'année d'application. En mode historique, l'année d'application est l'année
+  de référence : la lecture est continue (1 900 € : hausse de 1,77 %). **Limite** : en mode cadre, tout montant
+  compris entre la valeur du droit et la référence portée à l'année d'application est une baisse, et la lecture
+  saute à la valeur du droit. En 2028 (référence portée à 1 920,21 €) : 1 867,02 € donnent une hausse nulle,
+  1 867,03 € une baisse de 2,77 %, 1 900 € une baisse de 1,05 % ; la hausse ne devient positive qu'au-delà de
+  1 920,21 € (1 950 € : +1,55 %). Les programmes publiés sont encodés sur des points exacts de la règle (valeur du
+  droit, ou montant de leur source).
 - **La référence** : le dernier SMIC brut mensuel paru au Journal officiel, 1 867,02 € (12,31 € de l'heure sur la
   base de 35 heures ; arrêté du 22 mai 2026, en vigueur au 1er juin 2026), année de référence 2026, soit environ
   1 920 € en 2028 avec les prix du moteur. C'est aussi la valeur du droit en vigueur et le défaut du curseur.
@@ -1844,7 +1848,14 @@ l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
   Insee, comptes nationaux base 2020, tableau 2.101) × PIB nominal de l'année / PIB 2025, × la hausse en points.
 - **Paie publique** : seul l'écart entre la hausse du SMIC et celle du point d'indice compte (anti double
   compte : un point d'indice relevé couvre déjà une partie de la hausse pour les agents) ; aucune économie pour
-  une baisse du SMIC.
+  une baisse du SMIC. **Limite** (sens : favorable à une baisse du SMIC ; aucun programme publié n'est concerné) :
+  pour une baisse, la paie publique n'est pas réduite et les quatre autres postes restent linéaires. Une baisse
+  coûte donc au budget, 20 M€ de 2017 par point (prestations −110, impôt sur le revenu −70, cotisations des
+  salariés −240, cotisations des employeurs nettes des allègements +400), et soutient l'activité : en 2028, à
+  ±2,60 % autour de la référence portée à l'année, PIB réel 2032 +0,018 % pour la hausse et +0,002 % pour la
+  baisse. Au minimum du curseur (1 400 €, baisse de 27,09 %), le solde direct du levier se dégrade de 4,0 Md€ sur
+  2028-2032, mais la dette 2032 baisse de 0,40 point, par l'effet direct sur le chômage (chômage 2032 plus bas
+  de 0,53 point) et les allocations économisées. Chiffres recalculés par `tests/test_smic_limites.py`.
 - **Recettes** : prélèvements des salariés, impôt sur le revenu et allègements forment un seul flux, au
   coefficient des impôts ; c'est exact parce que la hausse et la baisse d'impôts ont le même coefficient
   (0,674), ce que vérifie un test.
@@ -1867,9 +1878,10 @@ l'emploi, par hypothèse de la source) et traite chacun selon sa nature :
   publiés qui relèvent le SMIC ; chiffres recalculés par `tests/test_smic_limites.py`) :
   1. *Coût au bas de la fourchette publiée* — sens : favorable aux programmes qui relèvent le SMIC. Le Trésor
      chiffre −0,0105 point de PIB par point de hausse (modèle statique, sans effet sur l'emploi) ; l'OFCE, −0,020
-     (2012) à −0,024 (2024) point (modèle e-mod, dynamique, emploi compris, à un an). Si l'écart entre les deux
-     sources était entièrement réel, ajouté chaque année en coût budgétaire pur, sans effet sur la demande, la
-     dette 2032 serait plus haute de 0,24 à 0,67 point (écart de l'OFCE 2012) et de 0,34 à 0,96 point (OFCE 2024).
+     (2012) à −0,024 (2024 : −0,3 point de PIB pour 12,4 %) point (modèle e-mod, dynamique, emploi compris, à un
+     an). Si l'écart entre les deux sources était entièrement réel, ajouté chaque année en coût budgétaire pur,
+     sans effet sur la demande, la dette 2032 serait plus haute de 0,24 à 0,67 point (écart de l'OFCE 2012) et de
+     0,34 à 0,97 point (OFCE 2024).
      Aucune des deux sources n'est « la bonne » : l'une exclut l'emploi par hypothèse, l'autre est un seul modèle.
   2. *Effet direct sur le chômage au-dessus de l'effet net de l'OFCE* — sens contraire : défavorable aux
      programmes qui relèvent le SMIC. Le moteur ajoute 0,025 point de chômage par point de hausse ; l'effet net
