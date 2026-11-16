@@ -1888,6 +1888,14 @@ environ (dette 2035 −0,45 pt) ; les autres ne recourent pas au levier.
 - PA (v0.6.8 : canal ménages en euros, § Indice de pouvoir d'achat) : prélèvement direct, −1 € de RDB par €
 - Competitivite : -0,002 (risque exil entrepreneurs)
 
+**Combiné avec « Fiscalité du patrimoine » (IFI compté une seule fois, proposé après v0.8.1).** L'ISF
+d'intensité i remplace la part i de l'IFI. Le curseur du patrimoine, qui fait varier IFI, successions et
+taxe foncière, ne fait donc varier que l'IFI encore en vigueur, (1 − i) × IFI : à l'intensité 1, il ne
+touche plus l'IFI. Avant, il faisait varier l'IFI entier, déjà supprimé : pour ISF 1 et patrimoine
++30 %, 0,6 Md EUR par an d'un impôt qui n'existait plus, dans la recette, le pouvoir d'achat et le Gini.
+L'intensité lue est celle de l'année (même lecture que l'impôt plancher). Aucun scénario publié ne
+combine les deux leviers. Verrouillé par `tests/test_ifi_double_compte.py`.
+
 ### Taxe Superprofits
 
 **Debat politique :**

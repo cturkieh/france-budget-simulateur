@@ -35,6 +35,15 @@ du bloc « paramètres du lot 3 » ; ils supposent appliqués les blocs des lots
   tableau 2 p. 461, scénario « contrôle fort » d'un impôt américain à assiette complète), pas une mesure
   française ; 18 Md€ est un plafond sans source, qui ne mord jamais (recette nette maximale ≈ 10,07 Md€). Garde :
   `tests/test_isf_sources_commentaires.py` (nouveau ; rouge avant). Sorties identiques au bit.
+- **IFI compté une seule fois** quand l'ISF et le curseur « Fiscalité du patrimoine » sont combinés. L'ISF
+  d'intensité i remplace la part i de l'IFI (courbe continue v0.6.7) ; le bloc du patrimoine faisait pourtant
+  varier l'IFI entier : pour ISF 1 et patrimoine +30 %, 0,6 Md€ par an d'un impôt supprimé, dans la recette, le
+  canal des ménages, le Gini et la compétitivité, avec `report.valid: true` (aucune règle d'exclusion ne couvrait
+  la paire). Le bloc ne fait plus varier que l'IFI encore en vigueur, (1 − i) × IFI, i lu comme l'impôt plancher
+  (règle Z) ; la part en vigueur entre dans les paramètres suivis des effets ponctuels. Test rouge puis vert :
+  `tests/test_ifi_double_compte.py` (nouveau ; levier inchangé sans ISF, IFI au prorata de ce qui en reste,
+  mêmes euros dans les quatre canaux, cas de l'audit de bout en bout). Golden master isolé : aucun cas ne
+  combine les deux leviers, 64 sur 64 identiques au bit.
 
 ## [non publiée — proposée] — équations du lot 4 : méthode unique du Gini (montants en euros, émission une fois, hausse 2026 sur le capital, facteur 1,0, ni convergence ni amortissement)
 

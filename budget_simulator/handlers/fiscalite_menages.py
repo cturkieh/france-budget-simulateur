@@ -98,6 +98,7 @@ from ..constants import (
 from .._logging import _log_debug
 from ._phasing import _one_time_level, _year_phasing
 from ._types import ImpactsDict, canaux_menages
+from .recettes_taux import intensite_isf_du_programme
 
 
 # Idiome mixin-self typing : NE PAS factoriser dans _types.py (casse la
@@ -577,7 +578,16 @@ class FiscaliteMenagesMixin(_MixinBase):
         IFI_BASE = 2.0      # Md€
         SUCCESSION_BASE = 15.0  # Md€
         FONCIERE_BASE = 36.0    # Md€
-        TOTAL_BASE = IFI_BASE + SUCCESSION_BASE + FONCIERE_BASE  # 53 Md€
+        # IFI ENCORE EN VIGUEUR : l'ISF du programme (``isf_climatique``) en
+        # remplace la part de son intensité i — recette totale (1 − i) × IFI +
+        # i × ISF complet (courbe continue v0.6.7). Le bloc ne fait varier que
+        # ce qui reste de l'IFI ; avant le lot 3, il faisait varier l'IFI
+        # entier, déjà supprimé à l'intensité 1 (compté deux fois : recette,
+        # canal ménages, Gini). Même lecture croisée que l'impôt plancher
+        # (règle Z, ``recettes_taux.intensite_isf_du_programme``).
+        part_ifi_en_vigueur = 1.0 - intensite_isf_du_programme(self.mesures)
+        ifi_en_vigueur = IFI_BASE * part_ifi_en_vigueur
+        TOTAL_BASE = ifi_en_vigueur + SUCCESSION_BASE + FONCIERE_BASE  # 53 Md€ sans ISF
 
         # ===== VARIATION =====
         delta_revenue = TOTAL_BASE * intensite
@@ -591,7 +601,7 @@ class FiscaliteMenagesMixin(_MixinBase):
         impacts = {
             'recettes': delta_revenue,
             'menages': canaux_menages(prelevements_directs=(
-                intensite * (IFI_BASE + PART_MENAGES_TAXE_FONCIERE * FONCIERE_BASE))),
+                intensite * (ifi_en_vigueur + PART_MENAGES_TAXE_FONCIERE * FONCIERE_BASE))),
         }
 
         # Gini: Impact ONE-TIME (changement structure fiscale), en INCRÉMENT (v0.7.0)
@@ -601,19 +611,26 @@ class FiscaliteMenagesMixin(_MixinBase):
         # la taxe foncière (hors des impôts directs du revenu disponible) à 0,
         # le même périmètre que le canal ménages ci-dessus. Jusqu'ici −0,001 par
         # Md€ du TOTAL (deux fois la borne arithmétique d'un prélèvement).
+        # Lot 3 : seul l'IFI ENCORE EN VIGUEUR compte (part p['part_ifi']) ; la
+        # part en vigueur entre dans les paramètres suivis : un ISF qui change
+        # d'intensité change les euros du bloc, donc l'effet.
+        def _base_du_bloc(p):
+            return IFI_BASE * p['part_ifi'] + SUCCESSION_BASE + FONCIERE_BASE
+
         def _effet_fiscalite_patrimoine(p):
-            return p['intensite'] * (GINI_HAUT_PATRIMOINE_PAR_MD * IFI_BASE
+            return p['intensite'] * (GINI_HAUT_PATRIMOINE_PAR_MD * IFI_BASE * p['part_ifi']
                                      + GINI_SUCCESSIONS_PAR_MD * SUCCESSION_BASE
                                      + GINI_TAXE_FONCIERE_PAR_MD * FONCIERE_BASE)
 
+        params_patrimoine = {'intensite': intensite, 'part_ifi': part_ifi_en_vigueur}
         impacts['gini'] = self._effet_ponctuel(
-            'fiscalite_patrimoine', {'intensite': intensite}, _effet_fiscalite_patrimoine)
+            'fiscalite_patrimoine', params_patrimoine, _effet_fiscalite_patrimoine)
 
         # Compétitivité: Impact ONE-TIME (changement structure fiscale)
         # Règle : Hausse 10 Md€ = -0.002 compétitivité (exil fiscal entrepreneurs)
-        params_patrimoine_comp = {'intensite': intensite}
+        params_patrimoine_comp = dict(params_patrimoine)
         def _effet_fiscalite_patrimoine_competitivite(p):
-            return PATRIMOINE_COMPET_PAR_10MD * ((TOTAL_BASE * p['intensite']) / 10.0)
+            return PATRIMOINE_COMPET_PAR_10MD * ((_base_du_bloc(p) * p['intensite']) / 10.0)
 
         impacts['competitivite'] = self._effet_ponctuel(
             'fiscalite_patrimoine_competitivite', params_patrimoine_comp, _effet_fiscalite_patrimoine_competitivite)
