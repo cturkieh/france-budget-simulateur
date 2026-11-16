@@ -382,6 +382,26 @@ def test_etats_non_triviaux(trajectoires):
     assert ecarts[0] == ecarts[1] > 0.005, ecarts
 
 
+# --- 2 bis. Rythme de la dépense courante (option du lot 6, équation) ---------------------------------
+
+@pytest.mark.parametrize('signe', [+1, -1], ids=['hausse', 'baisse'])
+@pytest.mark.parametrize('etat', ['banc_historique', 'cadre_2028'])
+@pytest.mark.parametrize('levier', ['sante', 'fonction_publique_reforme'])
+def test_sante_et_reforme_de_l_etat_au_rythme_de_la_depense_courante(trajectoires, levier, etat, signe):
+    """Option du lot 6 (équation, arbitrage du mainteneur à rendre) : la santé et la réforme de l'État,
+    qui prennent le COEFFICIENT de la dépense courante depuis la v0.6.0 (« consommation/optimisation
+    publique »), en prennent aussi le RYTHME. Jusque-là, ``INVESTMENT_FLOW_MEASURES`` leur donnait le
+    profil de l'investissement (classement de la première version publique, sans source) : 0,28 point
+    de PIB la première année contre 0,69 pour une dépense courante, avec le profil d'investissement calé
+    sur le FMI. Désormais, leur chemin est celui d'un levier de dépense courante de même coefficient
+    (levier synthétique, absent de toute liste), au bit près, chaque année d'effet, dans les deux sens
+    et les deux modes."""
+    for horizon in HORIZONS:
+        assert _niveau(trajectoires, etat, levier, signe * 0.01, horizon) == pytest.approx(
+            _niveau(trajectoires, etat, 'depense_courante_synthetique', signe * 0.01, horizon),
+            abs=1e-12), (levier, etat, signe, horizon)
+
+
 # --- 3. Le vrai curseur : défense ±10 Md€ autour de sa référence ---------------------------------
 
 # Lot 6 (calendrier de l'impulsion) : deux horizons, l'année d'effet d'avant le lot et l'année

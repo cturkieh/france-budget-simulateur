@@ -324,7 +324,6 @@ def test_limites_du_chemin_liees_a_la_mesure():
 
     def ecart(cumul, source):
         return _fr(100 * (cumul / source - 1), 1, True)
-    courante = _chemin('sante')
     recherche = _chemin('recherche_publique', canal=('budget', _defaut('recherche_publique', 'budget')))
     attendus = [
         (f"son total dépasse le tableau : {_fr(recherche[3], 2)} et {_fr(recherche[4], 2)} les deux dernières "
@@ -335,13 +334,14 @@ def test_limites_du_chemin_liees_a_la_mesure():
         (f"la demande seule : {_fr(sans_offre[3], 2)} et {_fr(sans_offre[4], 2)} les deux dernières "
          f"années, contre {_fr(CHEMIN_CIBLE_INVESTISSEMENT[3], 2)} et "
          f"{_fr(CHEMIN_CIBLE_INVESTISSEMENT[4], 2)}"),
-        f"de {_fr(courante[0], 2)} la première année à {_fr(courante[4], 2)} la cinquième",
         (f"alimenté par 1 % du PIB nominal de 2030, la cinquième année vaut {_fr(offre_2030[4], 2)} au lieu de "
          f"1,539 ({_fr(offre_2030[4] - CHEMIN_CIBLE_INVESTISSEMENT[4], 3, True)})"),
         (f"un levier à canal d'offre actif est à {ecart(sum(cadre[:5]), fmi)} % du FMI et à "
          f"{ecart(sum(cadre[:5]), mesange)} % de Mésange ; un levier sans canal d'offre, à "
          f"{ecart(sum(sans_offre_cadre[:5]), fmi)} % et {ecart(sum(sans_offre_cadre[:5]), mesange)} %"),
     ]
+    # Option du lot 6 (équation) : la santé et la réforme de l'État ne portent plus ce profil ; leur
+    # chemin est gardé par tests/test_symetrie_depense_courante.py (celui de la dépense courante).
     texte = ' '.join(METHODO.read_text(encoding='utf-8').split())
     manquants = [a for a in attendus if a not in texte]
     assert not manquants, manquants

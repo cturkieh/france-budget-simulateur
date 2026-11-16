@@ -446,8 +446,8 @@ def test_effet_par_md_eur_borne_et_decroissant_dans_l_investissement_vert():
     l'effet était sous la précision publiée (0,00). Pile d'intégration (lot 2, retour
     fiscal propre du levier retiré, puis lot 6 entier) : le coût l'emporte dès le premier
     Md€ (+0,01 point), sans changement de signe dans le domaine, et le coût par Md€ croît
-    avec le montant à partir de 5 Md€ (mesure du moteur actuel : 0,32 point à 20 Md€,
-    +2,25 à 50 Md€). Les deux chiffres de cette docstring sont recalculés ci-dessous : ils
+    avec le montant à partir de 5 Md€ (mesure du moteur actuel : 0,31 point à 20 Md€,
+    +2,26 à 50 Md€). Les deux chiffres de cette docstring sont recalculés ci-dessous : ils
     ne peuvent pas dériver."""
     sc = DROIT          # le budget 2026 voté, tel que le moteur le tient (droit en vigueur)
     d0 = _dette_2035(sc, 'transition_ecologique', 'investissement', 0)

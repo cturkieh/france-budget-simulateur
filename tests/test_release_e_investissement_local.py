@@ -126,7 +126,8 @@ def test_meme_ordre_d_effet_que_l_investissement_de_l_etat(annee_debut, annee):
     historique 2035, les deux effets reviennent près de zéro et de part et d'autre (+0,07 pour
     l'investissement local, −0,03 pour l'État), où ni le signe ni le rapport ne mesurent plus rien.
     L'écart absolu (0,02 point par Md€, inchangé) est vérifié dans les deux modes ; le signe et le
-    rapport, là où les effets s'écartent de zéro (mode cadre 2032 : −0,13 et −0,15)."""
+    rapport, là où les effets s'écartent de zéro (mode cadre 2032 : −0,13 et −0,15 ; −0,14 et −0,15
+    avec l'option du rythme de la dépense courante)."""
     d0, _ = _simuler({}, annee_debut)
     local, _ = _simuler({'collectivites': {'investissement': 10}}, annee_debut)
     etat, _ = _simuler({'transition_ecologique': {'investissement': 10}}, annee_debut)

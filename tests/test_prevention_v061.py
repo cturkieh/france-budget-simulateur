@@ -323,7 +323,33 @@ def test_prevention_proportionnelle_au_montant(ecart):
 # 2. I20 — la propriété macro : le curseur ne peut plus réduire la dette
 # ---------------------------------------------------------------------------
 
-def test_prevention_monotone():
+def _simuler_pleine_precision(mesures, annee_debut, injection=None):
+    """Simulation complète, sorties non arrondies. ``injection`` : {année: (dépenses, recettes)} en Md€,
+    portés par un levier synthétique de dépense courante (absent de toute liste de classement)."""
+    import budget_simulator.engine.orchestrator as orch
+
+    class _Simulateur(BudgetSimulatorV45):
+        def apply_measures(self, year, spending, revenues, gdp, inflation, unemployment):
+            sp, rv, imp = super().apply_measures(year, spending, revenues, gdp, inflation, unemployment)
+            if injection and year in injection:
+                dep, rec = injection[year]
+                imp = dict(imp)
+                imp['depense_courante_synthetique'] = {'depenses': dep, 'recettes': rec}
+                sp, rv = sp + dep, rv + rec
+            return sp, rv, imp
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(orch, 'round', lambda x, n=None: float(x), raising=False)
+        df, _, rapport = _Simulateur(periods=10, mesures=mesures, annee_debut=annee_debut).simulate()
+    return df, rapport['measure_impacts_by_year']
+
+
+def _flux_sante(impacts, t):
+    bloc = (impacts[t] or {}).get('sante') or {}
+    return float(bloc.get('depenses', 0) or 0), float(bloc.get('recettes', 0) or 0)
+
+
+@pytest.mark.parametrize('annee_debut', [None, 2028], ids=['historique', 'cadre2028'])
+def test_prevention_monotone(annee_debut):
     """Le curseur ne peut plus RÉDUIRE la dette : pour toute position et toute
     année, la dette reste au moins égale au statu quo.
 
@@ -338,18 +364,51 @@ def test_prevention_monotone():
     d'impulsion budgétaire PRÉ-EXISTANT qui rend la trajectoire de dette
     localement non monotone. Ce test dit ce que le lot garantit ; l'autre
     borne ce qu'il ne corrige pas.
+
+    Re-déclaré dans l'option du lot 6 (santé au rythme de la dépense courante,
+    16/11/2026) — CONTRAT AFFAIBLI, à accepter avec l'option. La dépense de santé
+    agit dès sa première année comme toute dépense courante (0,69 point de PIB par
+    point de PIB, contre 0,28 au rythme de l'investissement) : le surcroît
+    d'activité gonfle le dénominateur du ratio plus vite que la dépense n'alourdit
+    la dette, et le ratio passe SOUS le statu quo les deux premières années. Ce
+    n'est pas un rendement qui paierait la dépense. Propriété gardée, dans les DEUX
+    modes et pour chaque position du curseur :
+    - dette en euros jamais sous le statu quo, aucune année ;
+    - ratio jamais sous le statu quo à partir de la troisième année du programme ;
+    - les deux premières années, écart de ratio au plus égal (en baisse) à celui
+      d'une dépense courante de même montant, portée par un levier synthétique.
+    Mesuré au maximum du curseur (11,2 Md€) : −0,019 puis −0,007 point en mode
+    historique (2026, 2027), −0,024 puis −0,014 en mode cadre (2028, 2029), égaux à
+    0,0001 près à ceux de la dépense courante de même montant ; dette en euros
+    +2,4 puis +4,4 Md€ dans les deux modes.
     """
-    reference = _simuler({'sante': {'prevention_budget': PREVENTION_BASE_MD_EUR}})
-    statu_quo = reference['Dette/PIB %'].to_numpy()
+    debut = (annee_debut or 2026) - 2025          # indice de la première année du programme
+    reference, impacts_ref = _simuler_pleine_precision(
+        {'sante': {'prevention_budget': PREVENTION_BASE_MD_EUR}}, annee_debut)
+    ratio_sq, euros_sq = reference['Dette/PIB %'].to_numpy(), reference['Dette'].to_numpy()
+    creux = []
     for budget in _budgets_du_domaine()[1:]:
-        courant = _simuler({'sante': {'prevention_budget': budget}})['Dette/PIB %'].to_numpy()
-        annees_fautives = [i for i, (a, b) in enumerate(zip(courant, statu_quo))
-                           if a < b - 1e-9]
-        assert not annees_fautives, (
-            f"budget {budget} Md€ : la dette passe SOUS le statu quo aux indices "
-            f"{annees_fautives} — la prévention redeviendrait un investissement "
-            "qui se paie lui-même"
-        )
+        courant, impacts = _simuler_pleine_precision({'sante': {'prevention_budget': budget}}, annee_debut)
+        ratio, euros = courant['Dette/PIB %'].to_numpy(), courant['Dette'].to_numpy()
+        assert all(a >= b - 1e-9 for a, b in zip(euros, euros_sq)), (budget, euros - euros_sq)
+        injection = {}
+        for t in range(len(impacts)):
+            (dep, rec), (dep0, rec0) = _flux_sante(impacts, t), _flux_sante(impacts_ref, t)
+            if dep != dep0 or rec != rec0:
+                injection[2025 + t] = (dep - dep0, rec - rec0)
+        meme_montant, _ = _simuler_pleine_precision(
+            {'sante': {'prevention_budget': PREVENTION_BASE_MD_EUR}}, annee_debut, injection)
+        ratio_courant = meme_montant['Dette/PIB %'].to_numpy()
+        for i, (a, b) in enumerate(zip(ratio, ratio_sq)):
+            if i >= debut + 2:
+                assert a >= b - 1e-9, (
+                    f"budget {budget} Md€ : la dette passe SOUS le statu quo à l'indice {i} — la "
+                    "prévention redeviendrait un investissement qui se paie lui-même")
+            elif i >= debut:
+                assert a - b >= ratio_courant[i] - b - 1e-9, (budget, i, a - b, ratio_courant[i] - b)
+                creux.append(a - b)
+    # Non-vacuité : le creux des deux premières années existe bien (sinon la clause serait vide).
+    assert min(creux) < 0, creux
 
 
 @pytest.mark.parametrize("year", [2026, 2029, 2030, 2032, 2035, 2050])

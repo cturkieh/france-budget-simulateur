@@ -6,6 +6,48 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — option du lot 6 (équation) : santé et réforme de l'État au rythme de la dépense courante
+
+**Statut** : OPTION proposée, non tranchée par le mainteneur, non publiée, sans numéro de version. Commit d'ÉQUATION
+séparé et retirable, au-dessus de la release du profil de l'investissement (bloc suivant).
+
+**Le défaut.** `INVESTMENT_FLOW_MEASURES` donnait à la santé et à la réforme de l'État le rythme de l'investissement
+(`DECAY_PROFILE_INVEST`), alors qu'elles prennent depuis la v0.6.0 le coefficient de la dépense courante, le code les
+décrivant comme « de la consommation/optimisation publique ». Classement de la première version publique, motivé
+par un seul commentaire ; aucune source dans l'historique du dépôt. Depuis le calage du profil de l'investissement
+sur le FMI, leur chemin pour un point de PIB permanent était 0,28 / 0,47 / 0,63 / 0,77 / 0,77, loin de celui d'une
+dépense courante (0,69 / 0,93 / 0,98 / 0,90 / 0,79) et de la dépense générique de Mésange (0,78 / 1,06 / 1,03).
+
+**La correction.** Les deux leviers sortent de `INVESTMENT_FLOW_MEASURES`, qui garde le périmètre du canal de
+l'investissement (éducation, recherche, transition écologique) : ils prennent le rythme de la dépense courante
+(`DECAY_PROFILE_TAXES`). Aucun coefficient ne change.
+
+- Test rouge puis vert : `test_sante_et_reforme_de_l_etat_au_rythme_de_la_depense_courante` (chemin de chacun des
+  deux leviers = celui d'un levier synthétique de dépense courante de même coefficient, au bit près, six années
+  d'effet, hausse et baisse, mode historique et mode cadre) : rouge 8 sur 8 avant, vert après ; rouge 4 sur 8 si
+  l'un des deux leviers revient dans `INVESTMENT_FLOW_MEASURES`.
+- Re-déclaré : la limite « santé et réforme de l'État » de la release du profil devient, dans cette option, une
+  règle ; sa garde chiffrée est retirée du test des limites du chemin (le chemin est gardé par le test ci-dessus).
+- **Contrat affaibli, à accepter avec l'option** : « le curseur de prévention ne réduit jamais la dette » (I20). La
+  santé agissant dès sa première année, le ratio de dette passe sous le statu quo les deux premières années, par le
+  dénominateur : au maximum du curseur (11,2 Md€), −0,019 puis −0,007 point en mode historique, −0,024 puis −0,014
+  en mode cadre, égaux à ceux d'une dépense courante de même montant ; la dette en euros est au-dessus dès la
+  première année (+2,4 puis +4,4 Md€). Propriété re-déclarée, vérifiée dans les deux modes : dette en euros jamais
+  sous le statu quo ; ratio jamais dessous à partir de la troisième année ; les deux premières, écart au plus égal à
+  celui d'une dépense courante de même montant.
+- Chiffres liés re-mesurés (référence, sentier de déflateur, marge de Phillips, atterrissage, investissement vert
+  tiré seul, investissement local, chemin de l'investissement en mode cadre : 1,40 et 1,56 ; cumul sur cinq ans en
+  mode cadre : +0,8 % et −11,8 % avec canal d'offre, −6,9 % et −18,6 % sans).
+- Instantanés régénérés une fois : les dix scénarios publiés des deux modes (tous portent la santé) ; trois
+  mini-scénarios sur 42 (santé, réforme de l'État, recette exceptionnelle). Pouvoir d'achat 2029 figé non modifié
+  (écart au plus 0,4 point, tolérance 1,5).
+- Effet (mode cadre 2028, dix scénarios publiés, dette 2032, par rapport à la release du profil) : de −0,03 à +0,14
+  point ; aucun rang de dette ni de déficit ne change.
+- Pile d'intégration (reporté après le lot 2 et le lot 6 entier, mesuré contre le profil du FMI reporté) : de −0,02
+  à +0,14 point de dette 2032, référence +0,10 ; aucun rang de dette ni de déficit ne change (deux décimales).
+- Docs : METHODOLOGIE (encadré « Rythme de la dépense courante », limites du profil, encadré du lot 5 sur la
+  santé), EXPLICATION.
+
 ## [non publiée — proposée] — paramètres du lot 6 (suite) : profil de l'investissement calé sur le tableau du FMI
 
 **Statut** : proposée, non publiée, sans numéro de version. Release de PARAMÈTRES (arbitrage du mainteneur : le profil

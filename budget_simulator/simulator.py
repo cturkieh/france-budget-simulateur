@@ -434,10 +434,15 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # Ne pas retirer sans bump majeur de version (rupture d'API).
     DECAY_PROFILE           = DECAY_PROFILE_TAXES
 
-    # Mesures générant un flux de dépenses productives CHAQUE ANNÉE
+    # Mesures générant un flux de dépenses productives CHAQUE ANNÉE : elles portent le profil de
+    # persistance de l'investissement (DECAY_PROFILE_INVEST). Option du lot 6 (équation) : la santé et
+    # la réforme de l'État en sortent. Elles y figuraient depuis la première version publique, sans
+    # source, alors qu'elles prennent le coefficient de la dépense courante depuis la v0.6.0
+    # (« consommation/optimisation publique », ci-dessous) : elles en prennent désormais aussi le
+    # rythme (DECAY_PROFILE_TAXES, celui de toute dépense courante). Même périmètre que
+    # INVESTMENT_CORE_MEASURES. Garde : tests/test_symetrie_depense_courante.py.
     INVESTMENT_FLOW_MEASURES = frozenset([
         'education', 'transition_ecologique', 'recherche_publique',
-        'sante', 'fonction_publique_reforme',
     ])
 
     # v0.6.0 (revue adverse 24/08) : le canal INVESTISSEMENT du multiplicateur
@@ -446,7 +451,7 @@ class BudgetSimulatorV45(AdditionnelsMixin, MontaigneMixin, InvestissementsMixin
     # réforme de l'État sont de la consommation/optimisation publique : elles
     # restent sur les canaux transferts/générique. INVESTMENT_FLOW_MEASURES
     # (ci-dessus) ne sert plus qu'au profil de DECAY des impulsions
-    # (persistance), périmètre distinct et pré-existant.
+    # (persistance) ; même périmètre depuis l'option du lot 6.
     INVESTMENT_CORE_MEASURES = frozenset([
         'education', 'transition_ecologique', 'recherche_publique',
     ])
