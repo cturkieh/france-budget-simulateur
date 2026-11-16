@@ -4,6 +4,18 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — texte : infobulle des cotisations salariales sans effet sur les inégalités
+
+**Statut** : commit de TEXTE ; moteur, sorties et instantanés inchangés. Arbitrage du mainteneur du 16/11/2026 :
+la phrase « Effet sur les inégalités : … » de l'infobulle des cotisations salariales (registre public,
+`policy_measures.json`) est retirée en entier, pour traiter ce curseur comme les autres, dont aucune infobulle ne
+chiffre d'effet sur les inégalités ; dans le mode « montant en Md€ » du même curseur, la phrase « Même effet sur les
+inégalités par Md€ rendu », qui renvoyait à la précédente, est retirée aussi. Le coefficient (+0,0000541 par Md€ rendu), son signe, son incertitude et son
+domaine restent dans METHODOLOGIE et dans le commentaire de la constante, inchangés. Garde re-déclarée en sens
+inverse : `tests/test_release_e_arbitrages.py::test_p2_infobulle_sans_effet_sur_les_inegalites` (les deux
+infobulles ne citent ni « Gini » ni « inégalités ») ; la mention de l'estimation reste gardée dans METHODOLOGIE et dans le
+commentaire de la constante.
+
 ## [non publiée — proposée] — garde du pouvoir d'achat 2029 : valeurs figées relues, échec attendu retiré
 
 **Statut** : commit de TEST ; moteur et sorties inchangés. Les valeurs figées du pouvoir d'achat 2029 (mode

@@ -207,13 +207,17 @@ def test_p2_aucune_mention_ofce_2023_pour_ce_levier():
     assert 'OFCE' not in tooltip
 
 
-def test_p2_infobulle_dit_l_estimation():
-    tooltip = REGISTRE[COTIS]['parametres']['baisse_points']['tooltip']
-    assert 'estimation de France Budget' in tooltip, tooltip
-    # Lot 4 : coefficient au classement final (+0,0000541) ; cinq décimales, sans
-    # quoi l'arrondi à quatre afficherait +0,0001, presque le double.
-    coefficient = f'{C.GINI_COTIS_SAL_PAR_MD:.5f}'.replace('.', ',')
-    assert f'+{coefficient} de Gini par Md€' in tooltip, tooltip
+def test_p2_infobulle_sans_effet_sur_les_inegalites():
+    """Arbitrage du mainteneur du 16/11/2026 (option A) : l'infobulle ne cite plus
+    d'effet sur les inégalités, comme les autres curseurs (aucune autre infobulle
+    ne le chiffre), ni en points ni en montant (le mode montant renvoyait au mode
+    points : « même effet … par Md€ rendu »). Le coefficient, son signe, son
+    incertitude et son domaine restent dans METHODOLOGIE
+    (test_p2_methodologie_dit_l_estimation_sans_ofce) et dans le commentaire de la
+    constante (test_p2_coefficient_documente_comme_estimation_de_france_budget)."""
+    for param in ('baisse_points', 'montant_md'):
+        tooltip = REGISTRE[COTIS]['parametres'][param]['tooltip']
+        assert 'Gini' not in tooltip and 'inégalités' not in tooltip, (param, tooltip)
 
 
 def test_p2_methodologie_dit_l_estimation_sans_ofce():
