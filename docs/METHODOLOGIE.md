@@ -260,15 +260,15 @@ le filet de croissance [−3,5 % ; +2,5 %], qui mord déjà une année avec la r
 croissance plus forte (2,79 → 2,87 % en mode cadre, 2,84 → 3,01 % en mode historique). Le mainteneur
 a tranché en connaissance de cette condition : l'avertissement est le défaut.
 
-**Filet de croissance : avis (v0.8.0, contre-vérification m6).** Le filet [−3,5 % ; +2,5 %] de la
+**Filet de croissance : avis (v0.8.0, contre-vérification m6 ; historique : l'écrêtage décrit ici est retiré
+depuis, paragraphe suivant).** Le filet [−3,5 % ; +2,5 %] de la
 croissance réelle annuelle (`CROISSANCE_FILET_MIN`, `CROISSANCE_FILET_MAX`, valeurs inchangées : borne
 de validité des multiplicateurs linéaires) ne laissait qu'un journal de débogage. Quand il mord, un avis
 le dit désormais dans `report.warnings`, avec chaque année et la croissance calculée avant écrêtage
 (« filet de croissance [−3,50 % ; 2,50 %] atteint : 2030 (2,87 % calculés, 2,50 % retenus) — … ») ;
 comme tout avis, il n'invalide pas le rapport. La même information est publiée sans phrase à analyser
 dans le bloc `cadre.filet_croissance` (bornes en %, années, et pour chaque année la croissance calculée
-et la croissance retenue), toujours présent, vide quand le filet ne mord pas. Seul programme publié concerné : une année dans chaque
-mode (2,87 % en 2030 en mode cadre, 3,01 % en 2028 en mode historique) ; sorties inchangées.
+et la croissance retenue), toujours présent, vide quand le filet ne mord pas.
 
 **Écrêtage retiré (arbitrage du mainteneur du 16/11/2026, non publié).** L'écrêtage de la croissance dans
 [−3,5 % ; +2,5 %] ne venait d'aucune source. Il est supprimé : une croissance hors de ce domaine est publiée
@@ -3316,8 +3316,9 @@ soit, pour un output gap constant, un point fixe `pi = 1,6% + 0,20 x gap`.
 
 ```
 (1) définition : (1 + gap_t) = (1 + gap_{t−1}) × (1 + g_t) / (1 + g*_t)        [écart du PIB réel à son potentiel, BCE/OCDE/FMI/CE]
-(2) croissance : g_t = clip[−3,5 % ; +2,5 %]( g*_t − λ × gap_{t−1} + effets de demande (multiplicateurs) ) + c_t,  λ = OUTPUT_GAP_RAPPEL = 0,2
-    c_t = CHOCS_DEMANDE_OBSERVES[t] (v0.6.9) : choc de demande observé, 0 si l'année est absente de la table, ajouté APRÈS l'écrêtage
+(2) croissance : g_t = g*_t − λ × gap_{t−1} + effets de demande (multiplicateurs) + c_t,  λ = OUTPUT_GAP_RAPPEL = 0,2
+    sans écrêtage depuis le 16/11/2026 : si g_t − c_t sort de [−3,5 % ; +2,5 %], un avis le signale (§ Écrêtage retiré)
+    c_t = CHOCS_DEMANDE_OBSERVES[t] (v0.6.9) : choc de demande observé, 0 si l'année est absente de la table, hors du contrôle du domaine
 ```
 
 **Colonnes publiées du potentiel** (détail annuel servi par l'API) : toutes exposent le potentiel **consommé par l'année t** — celui que lisent la croissance (2), la loi d'Okun et la récurrence (1) —, jamais celui préparé pour t+1 par la clôture d'année (hystérèse du tendanciel, bonus d'offre structurelle). `Croissance_Potentielle_Totale %` = g*_t = `Croissance_Potentielle %` (tendanciel) + `Bonus_Potentiel_Supply %` (offre structurelle) + `Bonus_Offre_Travail %` (offre de travail) + traînée de dette (sans colonne propre, déductible par différence à l'arrondi près). L'identité (1) se reconstruit donc depuis les seules colonnes `Output_Gap %`, `Croissance %` et `Croissance_Potentielle_Totale %` : exactement sur les valeurs non arrondies, dans la marge de l'arrondi à 2 décimales sur les valeurs servies (`tests/test_potentiel_publie_v0610.py`).

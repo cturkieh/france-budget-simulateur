@@ -6,6 +6,13 @@ Versions publiées : tags git (`vX.Y.Z`). Ce fichier commence à la v0.6.8 ;
 l'historique antérieur est décrit dans les messages de tags et dans
 `docs/METHODOLOGIE.md` (encadrés « Corrigé en v0.6.x »).
 
+## [non publiée — proposée] — texte de la croissance : équation (2) sans écrêtage, avis de la v0.8.0 daté
+
+**Statut** : commit de TEXTE (contre-vérification finale) ; moteur et sorties inchangés. METHODOLOGIE : l'équation
+(2) de la croissance s'écrit sans écrêtage (un avis signale une croissance hors de [−3,5 % ; +2,5 %]) ; le
+paragraphe de l'avis de la v0.8.0 est daté comme historique et perd sa dernière phrase (« seul programme publié
+concerné […] »), qui contredisait le paragraphe du retrait : en mode cadre, aucun programme publié n'en sort.
+
 ## [non publiée — proposée] — texte du SMIC : lecture à la valeur du droit, limite d'une baisse, limite 1 à 0,97
 
 **Statut** : commit de TEXTE (contre-vérification finale, deux points importants et deux mineurs) ; moteur,
